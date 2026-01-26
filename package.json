@@ -1,0 +1,45 @@
+{
+  "name": "courtmaster-v2",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
+    "type-check": "vue-tsc --noEmit",
+    "emulators": "firebase emulators:start --project demo-courtmaster",
+    "seed": "npx tsx scripts/seed-emulator.ts",
+    "seed:tnf": "npx tsx scripts/seed-tnf.ts",
+    "seed:simple": "npx tsx scripts/seed-simple.ts",
+    "deploy": "npm run build && firebase deploy",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:rules": "firebase deploy --only firestore:rules"
+  },
+  "dependencies": {
+    "@mdi/font": "^7.4.47",
+    "firebase": "^12.8.0",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.24",
+    "vue-router": "^4.6.4",
+    "vuefire": "^3.2.2",
+    "vuetify": "^3.11.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@vitejs/plugin-vue": "^6.0.3",
+    "@vue/test-utils": "^2.4.6",
+    "@vue/tsconfig": "^0.8.1",
+    "happy-dom": "^20.3.7",
+    "sass": "^1.97.3",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4",
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^4.0.18",
+    "vue-tsc": "^3.1.4"
+  }
+}

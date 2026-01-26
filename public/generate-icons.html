@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator</title>
+</head>
+<body>
+    <canvas id='canvas'></canvas>
+    <script>
+        function generateIcon(size, filename) {
+            const canvas = document.getElementById('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#1976D2');
+            gradient.addColorStop(1, '#1565C0');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Add CM text
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold ' + (size * 0.4) + 'px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('CM', size / 2, size / 2);
+            
+            // Download
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+            });
+        }
+        
+        // Generate all icons
+        setTimeout(() => generateIcon(32, 'favicon.png'), 100);
+        setTimeout(() => generateIcon(180, 'apple-touch-icon.png'), 500);
+        setTimeout(() => generateIcon(192, 'pwa-192x192.png'), 900);
+        setTimeout(() => generateIcon(512, 'pwa-512x512.png'), 1300);
+    </script>
+</body>
+</html>

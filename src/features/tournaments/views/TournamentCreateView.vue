@@ -1,0 +1,506 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { useTournamentStore } from '@/stores/tournaments';
+import { useAuthStore } from '@/stores/auth';
+import { useNotificationStore } from '@/stores/notifications';
+import { CATEGORY_TEMPLATES, type TournamentFormat, type TournamentSettings } from '@/types';
+
+const router = useRouter();
+const tournamentStore = useTournamentStore();
+const authStore = useAuthStore();
+const notificationStore = useNotificationStore();
+
+// Form state
+const currentStep = ref(1);
+const loading = ref(false);
+
+// Basic info
+const name = ref('');
+const description = ref('');
+const location = ref('');
+const startDate = ref('');
+const endDate = ref('');
+const registrationDeadline = ref('');
+
+// Format settings
+const format = ref<TournamentFormat>('single_elimination');
+const selectedCategories = ref<string[]>([]);
+const customCategories = ref<{ name: string; type: string; gender: string }[]>([]);
+
+// Tournament settings
+const settings = ref<TournamentSettings>({
+  minRestTimeMinutes: 15,
+  matchDurationMinutes: 30,
+  allowSelfRegistration: true,
+  requireApproval: true,
+  // Badminton scoring defaults
+  gamesPerMatch: 3,
+  pointsToWin: 21,
+  mustWinBy: 2,
+  maxPoints: 30,
+});
+
+// Courts
+const courts = ref<{ name: string; number: number }[]>([
+  { name: 'Court 1', number: 1 },
+]);
+
+const formatOptions = [
+  { value: 'single_elimination', title: 'Single Elimination', subtitle: 'Players are eliminated after one loss' },
+  { value: 'double_elimination', title: 'Double Elimination', subtitle: 'Players are eliminated after two losses' },
+];
+
+const categoryOptions = CATEGORY_TEMPLATES.map((cat, index) => ({
+  value: index.toString(),
+  title: cat.name,
+  subtitle: `${cat.type} - ${cat.gender}`,
+}));
+
+const steps = [
+  { title: 'Basic Info', icon: 'mdi-information' },
+  { title: 'Format', icon: 'mdi-tournament' },
+  { title: 'Categories', icon: 'mdi-tag-multiple' },
+  { title: 'Courts', icon: 'mdi-grid' },
+  { title: 'Settings', icon: 'mdi-cog' },
+];
+
+const isStep1Valid = computed(() => {
+  return name.value.length >= 3 && startDate.value && endDate.value;
+});
+
+const isStep3Valid = computed(() => {
+  return selectedCategories.value.length > 0 || customCategories.value.length > 0;
+});
+
+const isStep4Valid = computed(() => {
+  return courts.value.length > 0;
+});
+
+function addCourt() {
+  const nextNumber = courts.value.length + 1;
+  courts.value.push({ name: `Court ${nextNumber}`, number: nextNumber });
+}
+
+function removeCourt(index: number) {
+  courts.value.splice(index, 1);
+  // Renumber courts
+  courts.value.forEach((court, i) => {
+    court.number = i + 1;
+    if (court.name.startsWith('Court ')) {
+      court.name = `Court ${i + 1}`;
+    }
+  });
+}
+
+function addCustomCategory() {
+  customCategories.value.push({
+    name: '',
+    type: 'singles',
+    gender: 'open',
+  });
+}
+
+function removeCustomCategory(index: number) {
+  customCategories.value.splice(index, 1);
+}
+
+async function createTournament() {
+  if (!authStore.currentUser) return;
+
+  loading.value = true;
+
+  try {
+    // Create tournament
+    const tournamentId = await tournamentStore.createTournament({
+      name: name.value,
+      description: description.value,
+      sport: 'badminton',
+      format: format.value,
+      status: 'draft',
+      startDate: new Date(startDate.value),
+      endDate: new Date(endDate.value),
+      registrationDeadline: registrationDeadline.value
+        ? new Date(registrationDeadline.value)
+        : undefined,
+      location: location.value,
+      settings: settings.value,
+      createdBy: authStore.currentUser.id,
+    });
+
+    // Add selected predefined categories
+    for (const index of selectedCategories.value) {
+      const template = CATEGORY_TEMPLATES[parseInt(index)];
+      await tournamentStore.addCategory(tournamentId, {
+        ...template,
+        status: 'setup',
+      });
+    }
+
+    // Add custom categories
+    for (const customCat of customCategories.value) {
+      if (customCat.name) {
+        await tournamentStore.addCategory(tournamentId, {
+          name: customCat.name,
+          type: customCat.type as 'singles' | 'doubles' | 'mixed_doubles',
+          gender: customCat.gender as 'men' | 'women' | 'mixed' | 'open',
+          ageGroup: 'open',
+          format: format.value,
+          seedingEnabled: true,
+          status: 'setup',
+        });
+      }
+    }
+
+    // Add courts
+    for (const court of courts.value) {
+      await tournamentStore.addCourt(tournamentId, {
+        name: court.name,
+        number: court.number,
+        status: 'available',
+      });
+    }
+
+    notificationStore.showToast('success', 'Tournament created successfully!');
+    router.push(`/tournaments/${tournamentId}`);
+  } catch (error) {
+    console.error('Error creating tournament:', error);
+    notificationStore.showToast('error', 'Failed to create tournament');
+  } finally {
+    loading.value = false;
+  }
+}
+
+function nextStep() {
+  if (currentStep.value < steps.length) {
+    currentStep.value++;
+  }
+}
+
+function prevStep() {
+  if (currentStep.value > 1) {
+    currentStep.value--;
+  }
+}
+</script>
+
+<template>
+  <v-container>
+    <v-row justify="center">
+      <v-col cols="12" lg="8">
+        <!-- Header -->
+        <div class="d-flex align-center mb-6">
+          <v-btn icon="mdi-arrow-left" variant="text" @click="router.back()" />
+          <div class="ml-2">
+            <h1 class="text-h5 font-weight-bold">Create Tournament</h1>
+            <p class="text-body-2 text-grey">Set up a new badminton tournament</p>
+          </div>
+        </div>
+
+        <!-- Stepper -->
+        <v-stepper v-model="currentStep" alt-labels>
+          <v-stepper-header>
+            <template v-for="(step, index) in steps" :key="index">
+              <v-stepper-item
+                :value="index + 1"
+                :title="step.title"
+                :icon="step.icon"
+                :complete="currentStep > index + 1"
+              />
+              <v-divider v-if="index < steps.length - 1" />
+            </template>
+          </v-stepper-header>
+
+          <v-stepper-window>
+            <!-- Step 1: Basic Info -->
+            <v-stepper-window-item :value="1">
+              <v-card flat>
+                <v-card-text>
+                  <v-text-field
+                    v-model="name"
+                    label="Tournament Name"
+                    placeholder="e.g., Summer Badminton Championship 2024"
+                    required
+                  />
+
+                  <v-textarea
+                    v-model="description"
+                    label="Description"
+                    placeholder="Brief description of the tournament..."
+                    rows="3"
+                  />
+
+                  <v-text-field
+                    v-model="location"
+                    label="Location"
+                    placeholder="e.g., City Sports Complex"
+                    prepend-inner-icon="mdi-map-marker"
+                  />
+
+                  <v-row>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="startDate"
+                        label="Start Date"
+                        type="date"
+                        required
+                      />
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="endDate"
+                        label="End Date"
+                        type="date"
+                        required
+                      />
+                    </v-col>
+                  </v-row>
+
+                  <v-text-field
+                    v-model="registrationDeadline"
+                    label="Registration Deadline (Optional)"
+                    type="date"
+                  />
+                </v-card-text>
+              </v-card>
+            </v-stepper-window-item>
+
+            <!-- Step 2: Format -->
+            <v-stepper-window-item :value="2">
+              <v-card flat>
+                <v-card-text>
+                  <h3 class="text-subtitle-1 font-weight-bold mb-4">Tournament Format</h3>
+
+                  <v-radio-group v-model="format">
+                    <v-radio
+                      v-for="option in formatOptions"
+                      :key="option.value"
+                      :value="option.value"
+                    >
+                      <template #label>
+                        <div>
+                          <strong>{{ option.title }}</strong>
+                          <p class="text-caption text-grey">{{ option.subtitle }}</p>
+                        </div>
+                      </template>
+                    </v-radio>
+                  </v-radio-group>
+                </v-card-text>
+              </v-card>
+            </v-stepper-window-item>
+
+            <!-- Step 3: Categories -->
+            <v-stepper-window-item :value="3">
+              <v-card flat>
+                <v-card-text>
+                  <h3 class="text-subtitle-1 font-weight-bold mb-4">Select Categories</h3>
+
+                  <v-checkbox
+                    v-for="option in categoryOptions"
+                    :key="option.value"
+                    v-model="selectedCategories"
+                    :value="option.value"
+                    :label="option.title"
+                    hide-details
+                    density="compact"
+                  />
+
+                  <v-divider class="my-4" />
+
+                  <h3 class="text-subtitle-1 font-weight-bold mb-4">Custom Categories</h3>
+
+                  <v-row
+                    v-for="(cat, index) in customCategories"
+                    :key="index"
+                    align="center"
+                  >
+                    <v-col cols="5">
+                      <v-text-field
+                        v-model="cat.name"
+                        label="Category Name"
+                        placeholder="e.g., Under 18 Singles"
+                        density="compact"
+                        hide-details
+                      />
+                    </v-col>
+                    <v-col cols="3">
+                      <v-select
+                        v-model="cat.type"
+                        :items="['singles', 'doubles', 'mixed_doubles']"
+                        label="Type"
+                        density="compact"
+                        hide-details
+                      />
+                    </v-col>
+                    <v-col cols="3">
+                      <v-select
+                        v-model="cat.gender"
+                        :items="['men', 'women', 'mixed', 'open']"
+                        label="Gender"
+                        density="compact"
+                        hide-details
+                      />
+                    </v-col>
+                    <v-col cols="1">
+                      <v-btn
+                        icon="mdi-delete"
+                        variant="text"
+                        color="error"
+                        size="small"
+                        @click="removeCustomCategory(index)"
+                      />
+                    </v-col>
+                  </v-row>
+
+                  <v-btn
+                    variant="outlined"
+                    prepend-icon="mdi-plus"
+                    class="mt-4"
+                    @click="addCustomCategory"
+                  >
+                    Add Custom Category
+                  </v-btn>
+                </v-card-text>
+              </v-card>
+            </v-stepper-window-item>
+
+            <!-- Step 4: Courts -->
+            <v-stepper-window-item :value="4">
+              <v-card flat>
+                <v-card-text>
+                  <h3 class="text-subtitle-1 font-weight-bold mb-4">Courts</h3>
+
+                  <v-row
+                    v-for="(court, index) in courts"
+                    :key="index"
+                    align="center"
+                  >
+                    <v-col cols="2">
+                      <v-text-field
+                        v-model.number="court.number"
+                        label="Number"
+                        type="number"
+                        density="compact"
+                        hide-details
+                      />
+                    </v-col>
+                    <v-col cols="9">
+                      <v-text-field
+                        v-model="court.name"
+                        label="Court Name"
+                        density="compact"
+                        hide-details
+                      />
+                    </v-col>
+                    <v-col cols="1">
+                      <v-btn
+                        icon="mdi-delete"
+                        variant="text"
+                        color="error"
+                        size="small"
+                        :disabled="courts.length === 1"
+                        @click="removeCourt(index)"
+                      />
+                    </v-col>
+                  </v-row>
+
+                  <v-btn
+                    variant="outlined"
+                    prepend-icon="mdi-plus"
+                    class="mt-4"
+                    @click="addCourt"
+                  >
+                    Add Court
+                  </v-btn>
+                </v-card-text>
+              </v-card>
+            </v-stepper-window-item>
+
+            <!-- Step 5: Settings -->
+            <v-stepper-window-item :value="5">
+              <v-card flat>
+                <v-card-text>
+                  <h3 class="text-subtitle-1 font-weight-bold mb-4">Tournament Settings</h3>
+
+                  <v-row>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model.number="settings.minRestTimeMinutes"
+                        label="Minimum Rest Time (minutes)"
+                        type="number"
+                        min="5"
+                        max="60"
+                        hint="Time between matches for the same player"
+                        persistent-hint
+                      />
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model.number="settings.matchDurationMinutes"
+                        label="Estimated Match Duration (minutes)"
+                        type="number"
+                        min="15"
+                        max="90"
+                        hint="Used for scheduling"
+                        persistent-hint
+                      />
+                    </v-col>
+                  </v-row>
+
+                  <v-switch
+                    v-model="settings.allowSelfRegistration"
+                    label="Allow Self-Registration"
+                    hint="Players can register themselves for the tournament"
+                    persistent-hint
+                    color="primary"
+                  />
+
+                  <v-switch
+                    v-model="settings.requireApproval"
+                    label="Require Admin Approval"
+                    hint="Registrations must be approved before being confirmed"
+                    persistent-hint
+                    color="primary"
+                    :disabled="!settings.allowSelfRegistration"
+                  />
+                </v-card-text>
+              </v-card>
+            </v-stepper-window-item>
+          </v-stepper-window>
+
+          <!-- Navigation -->
+          <v-card-actions class="pa-4">
+            <v-btn
+              v-if="currentStep > 1"
+              variant="text"
+              @click="prevStep"
+            >
+              Back
+            </v-btn>
+            <v-spacer />
+            <v-btn
+              v-if="currentStep < steps.length"
+              color="primary"
+              :disabled="
+                (currentStep === 1 && !isStep1Valid) ||
+                (currentStep === 3 && !isStep3Valid) ||
+                (currentStep === 4 && !isStep4Valid)
+              "
+              @click="nextStep"
+            >
+              Continue
+            </v-btn>
+            <v-btn
+              v-else
+              color="primary"
+              :loading="loading"
+              @click="createTournament"
+            >
+              Create Tournament
+            </v-btn>
+          </v-card-actions>
+        </v-stepper>
+      </v-col>
+    </v-row>
+  </v-container>
+</template>

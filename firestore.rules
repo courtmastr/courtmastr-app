@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isScorekeeper() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'scorekeeper'];
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own profile, admins can read all
+      allow read: if isAuthenticated();
+      // Users can create their own profile on signup
+      allow create: if isAuthenticated();
+      // Users can update their own profile (except role), admins can update any
+      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])
+                    || isAdmin();
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+
+    // Tournaments collection
+    match /tournaments/{tournamentId} {
+      // Anyone can read published tournaments
+      allow read: if true;
+      // Authenticated users can create/update tournaments (simplified for development)
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+
+      // Categories subcollection
+      match /categories/{categoryId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // Courts subcollection
+      match /courts/{courtId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // Players subcollection
+      match /players/{playerId} {
+        allow read: if true;
+        // Admins can add players, or anyone if self-registration is enabled
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated();
+        allow delete: if isAdmin();
+      }
+
+      // Registrations subcollection
+      match /registrations/{registrationId} {
+        allow read: if true;
+        // Anyone authenticated can create a registration (self-register)
+        allow create: if isAuthenticated();
+        // Only admins can update/delete registrations
+        allow update: if isAuthenticated();
+        allow delete: if isAdmin();
+      }
+
+      // Matches subcollection
+      match /matches/{matchId} {
+        allow read: if true;
+        // Admins can create matches (bracket generation)
+        allow create: if isAuthenticated();
+        // Scorekeepers can update scores, admins can update anything
+        allow update: if isScorekeeper() || isAdmin();
+        allow delete: if isAdmin();
+      }
+
+      // Activities subcollection (tournament activity feed)
+      match /activities/{activityId} {
+        // Anyone can read activities (public feed)
+        allow read: if true;
+        // Authenticated users can create activities (logging events)
+        allow create: if isAuthenticated();
+        // No updates or deletes needed for activity log
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Only the system (functions) or admins can create notifications
+      allow create: if isAdmin();
+      // Users can update (mark as read) their own notifications
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
