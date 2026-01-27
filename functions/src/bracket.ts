@@ -66,6 +66,8 @@ export async function generateBracket(
   // brackets-manager stores data in sub-collections under the tournament
   const manager = getBracketsManager(tournamentId);
 
+  // TODO: Fix stage deletion - currently causing "Could not delete match games" error
+  /*
   // Check if a stage already exists for this category
   const existingStages = await manager.storage.select('stage', {
     tournament_id: categoryId  // Using categoryId as the stage identifier
@@ -80,6 +82,7 @@ export async function generateBracket(
       }
     }
   }
+  */
 
   // Map format to brackets-manager format
   let stageType: 'single_elimination' | 'double_elimination' | 'round_robin';
@@ -223,9 +226,14 @@ async function syncMatchesToLegacySchema(
   let matchCount = 0;
 
   for (const match of matches) {
-    const group = groupMap.get(match.group_id);
+    // Handle both string IDs and object references from Firestore adapter
+    const groupId = typeof match.group_id === 'object' && match.group_id !== null
+      ? (match.group_id as any).id
+      : match.group_id;
+
+    const group = groupMap.get(groupId);
     if (!group) {
-      console.log(`⚠️  Skipping match ${match.id} - no group found for group_id ${match.group_id}`);
+      console.log(`⚠️  Skipping match ${match.id} - no group found for group_id ${groupId} (type: ${typeof match.group_id})`);
       continue;
     }
 
@@ -235,15 +243,29 @@ async function syncMatchesToLegacySchema(
     else if (group.number === 2) bracketType = 'losers';
     else if (group.number === 3) bracketType = 'finals';
 
+    // Handle opponent IDs (can be null for byes, or object references)
+    const getOpponentId = (opponent: any): string | null => {
+      if (!opponent || opponent.id === null || opponent.id === undefined) {
+        return null;
+      }
+      const oppId = typeof opponent.id === 'object' ? (opponent.id as any).id : opponent.id;
+      return participantToRegistrationMap.get(oppId) || null;
+    };
+
+    // Extract round number from round_id (can be object or number)
+    const roundNumber = typeof match.round_id === 'object' && match.round_id !== null
+      ? (match.round_id as any).number
+      : match.round || 1;
+
     const legacyMatch: any = {
       tournamentId,
       categoryId,
-      round: match.round,
+      round: roundNumber,
       matchNumber: match.number,
       bracketType,
       status: match.opponent1?.result ? 'completed' : 'scheduled',
-      participant1Id: match.opponent1?.id ? participantToRegistrationMap.get(match.opponent1.id) || null : null,
-      participant2Id: match.opponent2?.id ? participantToRegistrationMap.get(match.opponent2.id) || null : null,
+      participant1Id: getOpponentId(match.opponent1),
+      participant2Id: getOpponentId(match.opponent2),
       scores: [],
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -251,9 +273,9 @@ async function syncMatchesToLegacySchema(
 
     // Add winner if match is completed
     if (match.opponent1?.result === 'win') {
-      legacyMatch.winnerId = participantToRegistrationMap.get(match.opponent1.id);
+      legacyMatch.winnerId = getOpponentId(match.opponent1);
     } else if (match.opponent2?.result === 'win') {
-      legacyMatch.winnerId = participantToRegistrationMap.get(match.opponent2.id);
+      legacyMatch.winnerId = getOpponentId(match.opponent2);
     }
 
     if (matchCount < 3) {

@@ -85,19 +85,23 @@ async function generateBracket(tournamentId, categoryId) {
     // Delete existing bracket data for this category (if any)
     // brackets-manager stores data in sub-collections under the tournament
     const manager = (0, manager_1.getBracketsManager)(tournamentId);
+    // TODO: Fix stage deletion - currently causing "Could not delete match games" error
+    /*
     // Check if a stage already exists for this category
     const existingStages = await manager.storage.select('stage', {
-        tournament_id: categoryId // Using categoryId as the stage identifier
+      tournament_id: categoryId  // Using categoryId as the stage identifier
     });
+  
     // Delete existing stage(s) if any
     if (existingStages) {
-        const stages = Array.isArray(existingStages) ? existingStages : [existingStages];
-        for (const stage of stages) {
-            if (stage && typeof stage === 'object' && 'id' in stage && stage.id) {
-                await manager.delete.stage(stage.id);
-            }
+      const stages = Array.isArray(existingStages) ? existingStages : [existingStages];
+      for (const stage of stages) {
+        if (stage && typeof stage === 'object' && 'id' in stage && stage.id) {
+          await manager.delete.stage(stage.id);
         }
+      }
     }
+    */
     // Map format to brackets-manager format
     let stageType;
     switch (format) {
@@ -153,7 +157,7 @@ async function generateBracket(tournamentId, categoryId) {
  * Sync brackets-manager match data to legacy matches collection for frontend compatibility
  */
 async function syncMatchesToLegacySchema(tournamentId, categoryId, manager, registrations) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c;
     const db = getDb();
     console.log('🔄 Syncing matches to legacy schema...');
     console.log(`  Tournament: ${tournamentId}, Category: ${categoryId}`);
@@ -213,9 +217,13 @@ async function syncMatchesToLegacySchema(tournamentId, categoryId, manager, regi
     const writeBatch = db.batch();
     let matchCount = 0;
     for (const match of matches) {
-        const group = groupMap.get(match.group_id);
+        // Handle both string IDs and object references from Firestore adapter
+        const groupId = typeof match.group_id === 'object' && match.group_id !== null
+            ? match.group_id.id
+            : match.group_id;
+        const group = groupMap.get(groupId);
         if (!group) {
-            console.log(`⚠️  Skipping match ${match.id} - no group found for group_id ${match.group_id}`);
+            console.log(`⚠️  Skipping match ${match.id} - no group found for group_id ${groupId} (type: ${typeof match.group_id})`);
             continue;
         }
         // Determine if this is Winners/Losers/Finals based on group number
@@ -226,25 +234,37 @@ async function syncMatchesToLegacySchema(tournamentId, categoryId, manager, regi
             bracketType = 'losers';
         else if (group.number === 3)
             bracketType = 'finals';
+        // Handle opponent IDs (can be null for byes, or object references)
+        const getOpponentId = (opponent) => {
+            if (!opponent || opponent.id === null || opponent.id === undefined) {
+                return null;
+            }
+            const oppId = typeof opponent.id === 'object' ? opponent.id.id : opponent.id;
+            return participantToRegistrationMap.get(oppId) || null;
+        };
+        // Extract round number from round_id (can be object or number)
+        const roundNumber = typeof match.round_id === 'object' && match.round_id !== null
+            ? match.round_id.number
+            : match.round || 1;
         const legacyMatch = {
             tournamentId,
             categoryId,
-            round: match.round,
+            round: roundNumber,
             matchNumber: match.number,
             bracketType,
             status: ((_a = match.opponent1) === null || _a === void 0 ? void 0 : _a.result) ? 'completed' : 'scheduled',
-            participant1Id: ((_b = match.opponent1) === null || _b === void 0 ? void 0 : _b.id) ? participantToRegistrationMap.get(match.opponent1.id) || null : null,
-            participant2Id: ((_c = match.opponent2) === null || _c === void 0 ? void 0 : _c.id) ? participantToRegistrationMap.get(match.opponent2.id) || null : null,
+            participant1Id: getOpponentId(match.opponent1),
+            participant2Id: getOpponentId(match.opponent2),
             scores: [],
             createdAt: firestore_1.FieldValue.serverTimestamp(),
             updatedAt: firestore_1.FieldValue.serverTimestamp(),
         };
         // Add winner if match is completed
-        if (((_d = match.opponent1) === null || _d === void 0 ? void 0 : _d.result) === 'win') {
-            legacyMatch.winnerId = participantToRegistrationMap.get(match.opponent1.id);
+        if (((_b = match.opponent1) === null || _b === void 0 ? void 0 : _b.result) === 'win') {
+            legacyMatch.winnerId = getOpponentId(match.opponent1);
         }
-        else if (((_e = match.opponent2) === null || _e === void 0 ? void 0 : _e.result) === 'win') {
-            legacyMatch.winnerId = participantToRegistrationMap.get(match.opponent2.id);
+        else if (((_c = match.opponent2) === null || _c === void 0 ? void 0 : _c.result) === 'win') {
+            legacyMatch.winnerId = getOpponentId(match.opponent2);
         }
         if (matchCount < 3) {
             console.log(`✨ Creating legacy match ${matchCount + 1}:`, {
