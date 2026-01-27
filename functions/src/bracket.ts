@@ -344,16 +344,24 @@ function generateDoubleEliminationBracket(
   // Even rounds: losers bracket internal matches
   const losersRounds = Math.max(0, 2 * winnersRounds - 2);
 
+  // Count actual (non-bye) matches in WB Round 1 to size LB properly
+  const actualWR1Matches = winnersMatchesByRound[0]?.filter(idx =>
+    allMatches[idx].status !== 'completed' // Not a bye match
+  ).length || 0;
+
   for (let lRound = 1; lRound <= losersRounds; lRound++) {
     // In losers bracket:
-    // - Round 1 has bracketSize/4 matches (losers from WR1)
+    // - Round 1 gets losers from WR1 actual matches
     // - Subsequent rounds alternate between receiving dropdowns and internal matches
     let matchesInRound: number;
 
-    if (lRound === 1) {
-      matchesInRound = Math.max(1, bracketSize / 4);
+    if (lRound <= 2) {
+      // LB R1 size = floor(actual WR1 matches / 2)
+      // If odd number of WR1 matches, one loser auto-advances
+      // This applies to LB R2 as well (same size as R1 in standard DE)
+      matchesInRound = Math.max(1, Math.floor(actualWR1Matches / 2));
     } else {
-      // After round 1, matches halve every 2 rounds
+      // After round 2, matches halve every 2 rounds
       matchesInRound = Math.max(1, Math.pow(2, Math.floor((losersRounds - lRound) / 2)));
     }
 
@@ -436,19 +444,25 @@ function generateDoubleEliminationBracket(
       }
 
       // Loser drops to losers bracket
-      if (losersMatchesByRound.length > 0) {
-        // Map winners round losers to appropriate losers round
-        // WR1 losers -> LR1 (index 0), WR2 losers -> LR2 (index 1), etc.
-        // Note: round is 1-based, losersMatchesByRound is 0-indexed
-        const losersRoundIndex = round - 1; // Convert to 0-based
-        const losersRoundForDropdown = losersRoundIndex < losersMatchesByRound.length ? losersRoundIndex : losersMatchesByRound.length - 1;
-        const losersRoundMatches = losersMatchesByRound[losersRoundForDropdown];
+      // Skip bye matches - they have no loser to advance
+      const isByeMatch = allMatches[matchIdx].status === 'completed';
 
-        if (losersRoundMatches && losersRoundMatches.length > 0) {
-          const loserMatchIdx = losersRoundMatches[i % losersRoundMatches.length];
-          allMatches[matchIdx].loserNextMatchId = `MATCH_${loserMatchIdx}`;
-          // Alternate slot assignment for dropped losers
-          allMatches[matchIdx].loserNextMatchSlot = i % 2 === 0 ? 'participant1' : 'participant2';
+      if (losersMatchesByRound.length > 0 && !isByeMatch) {
+        // Standard alternating double elimination: odd losers rounds receive winners dropdowns
+        // WR0→LR1 (index 0), WR1→LR3 (index 2), WR2→LR5 (index 4)
+        // Note: round is 0-indexed in the loop, losersMatchesByRound is also 0-indexed
+        const losersRoundIndex = 2 * round;
+
+        // Bounds check: finals round may not have corresponding losers destination
+        if (losersRoundIndex < losersMatchesByRound.length) {
+          const losersRoundMatches = losersMatchesByRound[losersRoundIndex];
+
+          if (losersRoundMatches && losersRoundMatches.length > 0) {
+            const loserMatchIdx = losersRoundMatches[i % losersRoundMatches.length];
+            allMatches[matchIdx].loserNextMatchId = `MATCH_${loserMatchIdx}`;
+            // Alternate slot assignment for dropped losers
+            allMatches[matchIdx].loserNextMatchSlot = i % 2 === 0 ? 'participant1' : 'participant2';
+          }
         }
       }
     }
@@ -555,6 +569,7 @@ function generateRoundRobinMatches(
 /**
  * Process bye matches and advance winners to their next matches
  * This ensures that bye winners are placed directly into subsequent rounds
+ * Also handles losers dropping into the losers bracket
  */
 function processAdvanceByeWinners(matches: Omit<Match, 'id'>[]): void {
   // Keep processing until no more advancements are made
@@ -589,6 +604,36 @@ function processAdvanceByeWinners(matches: Omit<Match, 'id'>[]): void {
             }
             // If only one participant is set, it will be handled in subsequent iterations
             // when the other bye match advances its winner
+          }
+        }
+      }
+
+      // Handle loser dropping to losers bracket (for double elimination)
+      if (match.loserNextMatchId?.startsWith('MATCH_')) {
+        const loserNextMatchIndex = parseInt(match.loserNextMatchId.replace('MATCH_', ''));
+        const loserNextMatch = matches[loserNextMatchIndex];
+
+        if (loserNextMatch) {
+          // Determine the loser (the participant who didn't win)
+          let loserId: string | undefined;
+          if (match.participant1Id && match.participant2Id) {
+            loserId = match.winnerId === match.participant1Id ? match.participant2Id : match.participant1Id;
+          }
+
+          if (loserId) {
+            const slot = match.loserNextMatchSlot;
+            const slotKey = `${slot}Id` as 'participant1Id' | 'participant2Id';
+
+            // Only advance if the slot is empty
+            if (!loserNextMatch[slotKey]) {
+              loserNextMatch[slotKey] = loserId;
+              advancementMade = true;
+
+              // If both participants are now set, the match is ready to play
+              if (loserNextMatch.participant1Id && loserNextMatch.participant2Id) {
+                loserNextMatch.status = 'scheduled';
+              }
+            }
           }
         }
       }
