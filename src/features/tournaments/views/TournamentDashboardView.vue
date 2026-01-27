@@ -7,6 +7,7 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import SmartBracketView from '@/features/brackets/components/SmartBracketView.vue';
+import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import CategoryManagement from '../components/CategoryManagement.vue';
 import CourtManagement from '../components/CourtManagement.vue';
 import CategoryRegistrationStats from '../components/CategoryRegistrationStats.vue';
@@ -489,11 +490,22 @@ async function updateStatus(status: string) {
               class="mb-4"
               style="max-width: 300px"
             />
+            
+            <!-- New brackets-viewer.js Display -->
+            <BracketsManagerViewer
+              v-if="selectedCategory"
+              :tournament-id="tournamentId"
+              :category-id="selectedCategory"
+            />
+            
+            <!-- Fallback: Old custom bracket view (keep for now) -->
+            <!-- 
             <SmartBracketView
               v-if="selectedCategory"
               :tournament-id="tournamentId"
               :category-id="selectedCategory"
             />
+            -->
           </v-card-text>
         </v-tabs-window-item>
 
