@@ -1,10 +1,27 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue';
-// Import from dist file directly (package doesn't have proper ESM exports)
-import { render } from 'brackets-viewer/dist/brackets-viewer.min.js';
 import type { StageWithStageId, Match as BracketsMatch, Participant } from 'brackets-model';
 import { db, collection, query, where, getDocs } from '@/services/firebase';
+
+// Import CSS
 import 'brackets-viewer/dist/brackets-viewer.min.css';
+
+// Load UMD build via dynamic import to access window.bracketsViewer
+// The library exports to window.bracketsViewer in UMD format
+let bracketsViewerLoaded = false;
+
+async function loadBracketsViewer() {
+  if (bracketsViewerLoaded) return;
+  
+  // Dynamic import of UMD module
+  await import('brackets-viewer/dist/brackets-viewer.min.js');
+  bracketsViewerLoaded = true;
+}
+
+// Get the render function from window (UMD global)
+function getRenderFunction() {
+  return (window as any).bracketsViewer?.render;
+}
 
 const props = defineProps<{
   tournamentId: string;
@@ -104,7 +121,12 @@ function renderBracket() {
   console.log('🎨 Rendering bracket...');
 
   try {
-    render({
+    const renderFn = getRenderFunction();
+    if (!renderFn) {
+      throw new Error('Brackets viewer library not loaded');
+    }
+
+    renderFn({
       stages: stages.value,
       matches: matches.value,
       participants: participants.value,
@@ -124,7 +146,8 @@ function renderBracket() {
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  await loadBracketsViewer();
   fetchBracketData();
 });
 
