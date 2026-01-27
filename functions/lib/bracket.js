@@ -114,11 +114,16 @@ async function generateBracket(tournamentId, categoryId) {
             throw new Error(`Unsupported format: ${format}`);
     }
     // Create seeding array (participant names or IDs)
-    const seeding = sortedRegistrations.map(reg => {
-        // Use registration ID as participant identifier
-        // brackets-manager will create participant records
-        return reg.id;
-    });
+    // brackets-manager requires bracket size to be a power of 2
+    // For non-power-of-2 counts, pad with null for automatic byes
+    const numParticipants = sortedRegistrations.length;
+    const bracketSize = Math.pow(2, Math.ceil(Math.log2(numParticipants)));
+    const seeding = sortedRegistrations.map(reg => reg.id);
+    // Pad with nulls for byes
+    while (seeding.length < bracketSize) {
+        seeding.push(null);
+    }
+    console.log(`📊 Bracket info: ${numParticipants} participants → ${bracketSize}-size bracket (${bracketSize - numParticipants} byes)`);
     // Create the stage (bracket)
     await manager.create.stage({
         tournamentId: categoryId, // Use categoryId to scope this stage
