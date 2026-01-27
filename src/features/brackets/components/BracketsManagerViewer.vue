@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue';
-import { render } from 'brackets-viewer';
+// Import from dist file directly (package doesn't have proper ESM exports)
+import { render } from 'brackets-viewer/dist/brackets-viewer.min.js';
 import type { StageWithStageId, Match as BracketsMatch, Participant } from 'brackets-model';
 import { db, collection, query, where, getDocs } from '@/services/firebase';
 import 'brackets-viewer/dist/brackets-viewer.min.css';
