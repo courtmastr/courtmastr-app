@@ -136,6 +136,8 @@ async function generateBracket(tournamentId, categoryId) {
         },
     });
     console.log(`✅ Generated ${stageType} bracket for category ${categoryId} with ${registrations.length} participants`);
+    // Sync match data to legacy schema for frontend compatibility
+    await syncMatchesToLegacySchema(tournamentId, categoryId, manager, sortedRegistrations);
     // Update category status
     await db
         .collection('tournaments')
@@ -146,5 +148,89 @@ async function generateBracket(tournamentId, categoryId) {
         status: 'active',
         updatedAt: firestore_1.FieldValue.serverTimestamp(),
     });
+}
+/**
+ * Sync brackets-manager match data to legacy matches collection for frontend compatibility
+ */
+async function syncMatchesToLegacySchema(tournamentId, categoryId, manager, registrations) {
+    var _a, _b, _c, _d, _e;
+    const db = getDb();
+    console.log('🔄 Syncing matches to legacy schema...');
+    // Get all matches from brackets-manager
+    const matches = await manager.storage.select('match');
+    const participants = await manager.storage.select('participant');
+    const groups = await manager.storage.select('group');
+    if (!matches || !Array.isArray(matches)) {
+        console.log('⚠️ No matches to sync');
+        return;
+    }
+    // Delete existing legacy matches for this category
+    const existingMatches = await db
+        .collection('tournaments')
+        .doc(tournamentId)
+        .collection('matches')
+        .where('categoryId', '==', categoryId)
+        .get();
+    const batch = db.batch();
+    existingMatches.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    // Create a map of participant IDs to registration IDs
+    const participantToRegistrationMap = new Map();
+    if (Array.isArray(participants)) {
+        for (const p of participants) {
+            // The participant name is the registration ID
+            if (p.name) {
+                participantToRegistrationMap.set(p.id, p.name);
+            }
+        }
+    }
+    // Determine bracket type from groups
+    const groupArray = Array.isArray(groups) ? groups : groups ? [groups] : [];
+    const groupMap = new Map(groupArray.map((g) => [g.id, g]));
+    // Create legacy matches
+    const writeBatch = db.batch();
+    let matchCount = 0;
+    for (const match of matches) {
+        const group = groupMap.get(match.group_id);
+        if (!group)
+            continue;
+        // Determine if this is Winners/Losers/Finals based on group number
+        let bracketType = 'main';
+        if (group.number === 1)
+            bracketType = 'winners';
+        else if (group.number === 2)
+            bracketType = 'losers';
+        else if (group.number === 3)
+            bracketType = 'finals';
+        const legacyMatch = {
+            tournamentId,
+            categoryId,
+            round: match.round,
+            matchNumber: match.number,
+            bracketType,
+            status: ((_a = match.opponent1) === null || _a === void 0 ? void 0 : _a.result) ? 'completed' : 'scheduled',
+            participant1Id: ((_b = match.opponent1) === null || _b === void 0 ? void 0 : _b.id) ? participantToRegistrationMap.get(match.opponent1.id) || null : null,
+            participant2Id: ((_c = match.opponent2) === null || _c === void 0 ? void 0 : _c.id) ? participantToRegistrationMap.get(match.opponent2.id) || null : null,
+            scores: [],
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
+        };
+        // Add winner if match is completed
+        if (((_d = match.opponent1) === null || _d === void 0 ? void 0 : _d.result) === 'win') {
+            legacyMatch.winnerId = participantToRegistrationMap.get(match.opponent1.id);
+        }
+        else if (((_e = match.opponent2) === null || _e === void 0 ? void 0 : _e.result) === 'win') {
+            legacyMatch.winnerId = participantToRegistrationMap.get(match.opponent2.id);
+        }
+        const matchRef = db
+            .collection('tournaments')
+            .doc(tournamentId)
+            .collection('matches')
+            .doc();
+        writeBatch.set(matchRef, legacyMatch);
+        matchCount++;
+    }
+    await writeBatch.commit();
+    console.log(`✅ Synced ${matchCount} matches to legacy schema`);
 }
 //# sourceMappingURL=bracket.js.map
