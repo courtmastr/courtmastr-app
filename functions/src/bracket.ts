@@ -116,7 +116,7 @@ export async function generateBracket(
   console.log(`📊 Bracket info: ${numParticipants} participants → ${bracketSize}-size bracket (${bracketSize - numParticipants} byes)`);
 
   // Create the stage (bracket)
-  await manager.create.stage({
+  const stage = await manager.create.stage({
     tournamentId: categoryId, // Use categoryId to scope this stage
     name: category?.name || 'Bracket',
     type: stageType,
@@ -128,9 +128,10 @@ export async function generateBracket(
   });
 
   console.log(`✅ Generated ${stageType} bracket for category ${categoryId} with ${registrations.length} participants`);
+  console.log(`   Stage ID: ${stage.id}`);
 
   // Sync match data to legacy schema for frontend compatibility
-  await syncMatchesToLegacySchema(tournamentId, categoryId, manager, sortedRegistrations);
+  await syncMatchesToLegacySchema(tournamentId, categoryId, manager, sortedRegistrations, String(stage.id));
 
   // Update category status
   await db
@@ -150,17 +151,18 @@ async function syncMatchesToLegacySchema(
   tournamentId: string,
   categoryId: string,
   manager: any,
-  registrations: Registration[]
+  registrations: Registration[],
+  stageId: string
 ): Promise<void> {
   const db = getDb();
 
   console.log('🔄 Syncing matches to legacy schema...');
-  console.log(`  Tournament: ${tournamentId}, Category: ${categoryId}`);
+  console.log(`  Tournament: ${tournamentId}, Category: ${categoryId}, Stage: ${stageId}`);
 
-  // Get all matches from brackets-manager
-  const matches = await manager.storage.select('match');
+  // Get all matches from brackets-manager for THIS STAGE ONLY
+  const matches = await manager.storage.select('match', { stage_id: stageId });
   const participants = await manager.storage.select('participant');
-  const groups = await manager.storage.select('group');
+  const groups = await manager.storage.select('group', { stage_id: stageId });
 
   console.log(`📊 Data from brackets-manager:`);
   console.log(`  - Matches: ${Array.isArray(matches) ? matches.length : (matches ? 1 : 0)}`);

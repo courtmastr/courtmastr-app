@@ -129,7 +129,7 @@ async function generateBracket(tournamentId, categoryId) {
     }
     console.log(`📊 Bracket info: ${numParticipants} participants → ${bracketSize}-size bracket (${bracketSize - numParticipants} byes)`);
     // Create the stage (bracket)
-    await manager.create.stage({
+    const stage = await manager.create.stage({
         tournamentId: categoryId, // Use categoryId to scope this stage
         name: (category === null || category === void 0 ? void 0 : category.name) || 'Bracket',
         type: stageType,
@@ -140,8 +140,9 @@ async function generateBracket(tournamentId, categoryId) {
         },
     });
     console.log(`✅ Generated ${stageType} bracket for category ${categoryId} with ${registrations.length} participants`);
+    console.log(`   Stage ID: ${stage.id}`);
     // Sync match data to legacy schema for frontend compatibility
-    await syncMatchesToLegacySchema(tournamentId, categoryId, manager, sortedRegistrations);
+    await syncMatchesToLegacySchema(tournamentId, categoryId, manager, sortedRegistrations, String(stage.id));
     // Update category status
     await db
         .collection('tournaments')
@@ -156,15 +157,15 @@ async function generateBracket(tournamentId, categoryId) {
 /**
  * Sync brackets-manager match data to legacy matches collection for frontend compatibility
  */
-async function syncMatchesToLegacySchema(tournamentId, categoryId, manager, registrations) {
+async function syncMatchesToLegacySchema(tournamentId, categoryId, manager, registrations, stageId) {
     var _a, _b, _c;
     const db = getDb();
     console.log('🔄 Syncing matches to legacy schema...');
-    console.log(`  Tournament: ${tournamentId}, Category: ${categoryId}`);
-    // Get all matches from brackets-manager
-    const matches = await manager.storage.select('match');
+    console.log(`  Tournament: ${tournamentId}, Category: ${categoryId}, Stage: ${stageId}`);
+    // Get all matches from brackets-manager for THIS STAGE ONLY
+    const matches = await manager.storage.select('match', { stage_id: stageId });
     const participants = await manager.storage.select('participant');
-    const groups = await manager.storage.select('group');
+    const groups = await manager.storage.select('group', { stage_id: stageId });
     console.log(`📊 Data from brackets-manager:`);
     console.log(`  - Matches: ${Array.isArray(matches) ? matches.length : (matches ? 1 : 0)}`);
     console.log(`  - Participants: ${Array.isArray(participants) ? participants.length : (participants ? 1 : 0)}`);
