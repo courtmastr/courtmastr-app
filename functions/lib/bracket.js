@@ -156,13 +156,31 @@ async function syncMatchesToLegacySchema(tournamentId, categoryId, manager, regi
     var _a, _b, _c, _d, _e;
     const db = getDb();
     console.log('🔄 Syncing matches to legacy schema...');
+    console.log(`  Tournament: ${tournamentId}, Category: ${categoryId}`);
     // Get all matches from brackets-manager
     const matches = await manager.storage.select('match');
     const participants = await manager.storage.select('participant');
     const groups = await manager.storage.select('group');
+    console.log(`📊 Data from brackets-manager:`);
+    console.log(`  - Matches: ${Array.isArray(matches) ? matches.length : (matches ? 1 : 0)}`);
+    console.log(`  - Participants: ${Array.isArray(participants) ? participants.length : (participants ? 1 : 0)}`);
+    console.log(`  - Groups: ${Array.isArray(groups) ? groups.length : (groups ? 1 : 0)}`);
     if (!matches || !Array.isArray(matches)) {
-        console.log('⚠️ No matches to sync');
+        console.log('⚠️  No matches to sync (matches is not an array)');
+        console.log('   matches value:', JSON.stringify(matches, null, 2));
         return;
+    }
+    if (matches.length === 0) {
+        console.log('⚠️  No matches to sync (empty array)');
+        return;
+    }
+    // Log first match structure
+    console.log('📝 Sample match structure:', JSON.stringify(matches[0], null, 2));
+    if (Array.isArray(participants) && participants.length > 0) {
+        console.log('📝 Sample participant structure:', JSON.stringify(participants[0], null, 2));
+    }
+    if (Array.isArray(groups) && groups.length > 0) {
+        console.log('📝 Sample group structure:', JSON.stringify(groups[0], null, 2));
     }
     // Delete existing legacy matches for this category
     const existingMatches = await db
@@ -171,6 +189,7 @@ async function syncMatchesToLegacySchema(tournamentId, categoryId, manager, regi
         .collection('matches')
         .where('categoryId', '==', categoryId)
         .get();
+    console.log(`🗑️  Deleting ${existingMatches.docs.length} existing legacy matches`);
     const batch = db.batch();
     existingMatches.docs.forEach((doc) => batch.delete(doc.ref));
     await batch.commit();
@@ -181,19 +200,24 @@ async function syncMatchesToLegacySchema(tournamentId, categoryId, manager, regi
             // The participant name is the registration ID
             if (p.name) {
                 participantToRegistrationMap.set(p.id, p.name);
+                console.log(`  Mapping participant ${p.id} → registration ${p.name}`);
             }
         }
     }
+    console.log(`🗺️  Created ${participantToRegistrationMap.size} participant mappings`);
     // Determine bracket type from groups
     const groupArray = Array.isArray(groups) ? groups : groups ? [groups] : [];
     const groupMap = new Map(groupArray.map((g) => [g.id, g]));
+    console.log(`📋 Group map:`, Array.from(groupMap.entries()).map(([id, g]) => `${id}: ${g.number}`));
     // Create legacy matches
     const writeBatch = db.batch();
     let matchCount = 0;
     for (const match of matches) {
         const group = groupMap.get(match.group_id);
-        if (!group)
+        if (!group) {
+            console.log(`⚠️  Skipping match ${match.id} - no group found for group_id ${match.group_id}`);
             continue;
+        }
         // Determine if this is Winners/Losers/Finals based on group number
         let bracketType = 'main';
         if (group.number === 1)
@@ -221,6 +245,15 @@ async function syncMatchesToLegacySchema(tournamentId, categoryId, manager, regi
         }
         else if (((_e = match.opponent2) === null || _e === void 0 ? void 0 : _e.result) === 'win') {
             legacyMatch.winnerId = participantToRegistrationMap.get(match.opponent2.id);
+        }
+        if (matchCount < 3) {
+            console.log(`✨ Creating legacy match ${matchCount + 1}:`, {
+                round: legacyMatch.round,
+                matchNumber: legacyMatch.matchNumber,
+                bracketType: legacyMatch.bracketType,
+                participant1Id: legacyMatch.participant1Id,
+                participant2Id: legacyMatch.participant2Id,
+            });
         }
         const matchRef = db
             .collection('tournaments')
