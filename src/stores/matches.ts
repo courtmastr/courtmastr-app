@@ -7,8 +7,8 @@ import {
   doc,
   getDoc,
   getDocs,
-  addDoc,
   updateDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -18,8 +18,9 @@ import {
   httpsCallable,
   functions,
 } from '@/services/firebase';
-import type { Match, MatchStatus, GameScore } from '@/types';
+import type { Match, GameScore } from '@/types';
 import { BADMINTON_CONFIG } from '@/types';
+import { adaptBracketsMatchToLegacyMatch, type BracketsMatch, type BracketsParticipant, type BracketsRound, type BracketsGroup } from './bracketMatchAdapter';
 // Note: Activity logging is handled at the view level where participant/court names are available
 
 export const useMatchStore = defineStore('matches', () => {
@@ -72,33 +73,78 @@ export const useMatchStore = defineStore('matches', () => {
     return grouped;
   });
 
-  // Fetch matches for a tournament
+  // Fetch matches for a tournament (reading from brackets-manager collections)
   async function fetchMatches(tournamentId: string, categoryId?: string): Promise<void> {
     loading.value = true;
     error.value = null;
 
     try {
-      let q;
+      // We need to fetch from multiple collections to reconstruct the match data
+      // 1. Get Stages (to filter by category/tournament_id)
+      let stageQuery;
       if (categoryId) {
-        q = query(
-          collection(db, `tournaments/${tournamentId}/matches`),
-          where('categoryId', '==', categoryId),
-          orderBy('round'),
-          orderBy('matchNumber')
+        stageQuery = query(
+          collection(db, `tournaments/${tournamentId}/stage`),
+          where('tournament_id', '==', categoryId)
         );
       } else {
-        q = query(
-          collection(db, `tournaments/${tournamentId}/matches`),
-          orderBy('round'),
-          orderBy('matchNumber')
-        );
+        stageQuery = collection(db, `tournaments/${tournamentId}/stage`);
+      }
+      const stageSnap = await getDocs(stageQuery);
+      const stageIds = stageSnap.docs.map(d => d.id);
+
+      if (stageIds.length === 0) {
+        matches.value = [];
+        return;
       }
 
-      const snapshot = await getDocs(q);
-      matches.value = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...convertTimestamps(doc.data()),
-      })) as Match[];
+      // 2. Fetch all related data
+      // Note: In a real app we might want to optimize this, but for < 1000 matches it's fine
+      // match, participant, round, group
+      const [matchSnap, participantSnap, roundSnap, groupSnap] = await Promise.all([
+        getDocs(query(collection(db, `tournaments/${tournamentId}/match`), where('stage_id', 'in', stageIds))),
+        getDocs(collection(db, `tournaments/${tournamentId}/participant`)),
+        getDocs(query(collection(db, `tournaments/${tournamentId}/round`), where('stage_id', 'in', stageIds))),
+        getDocs(query(collection(db, `tournaments/${tournamentId}/group`), where('stage_id', 'in', stageIds)))
+      ]);
+
+      const bracketsMatches = matchSnap.docs.map(d => ({ id: d.id, ...d.data() })) as BracketsMatch[];
+      const participants = participantSnap.docs.map(d => ({ id: d.id, ...d.data() })) as BracketsParticipant[];
+      const rounds = roundSnap.docs.map(d => ({ id: d.id, ...d.data() })) as BracketsRound[];
+      const groups = groupSnap.docs.map(d => ({ id: d.id, ...d.data() })) as BracketsGroup[];
+
+      // 3. Adapt matches
+      const adaptedMatches: Match[] = [];
+      const stages = stageSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      for (const bMatch of bracketsMatches) {
+        // Find categoryId for this match's stage
+        const stage = stages.find(s => s.id === bMatch.stage_id);
+        // stage.tournament_id IS the categoryId in our usage in bracket.ts
+        const matchCategoryId = stage ? (stage as any).tournament_id : categoryId || '';
+
+        const adapted = adaptBracketsMatchToLegacyMatch(
+          bMatch,
+          rounds,
+          groups,
+          participants,
+          matchCategoryId,
+          tournamentId
+        );
+
+        if (adapted) {
+          adaptedMatches.push(adapted);
+        }
+      }
+
+      // Sort by round then match number
+      adaptedMatches.sort((a, b) => {
+        if (a.round !== b.round) return a.round - b.round;
+        return a.matchNumber - b.matchNumber;
+      });
+
+      matches.value = adaptedMatches;
+
     } catch (err) {
       console.error('Error fetching matches:', err);
       error.value = 'Failed to load matches';
@@ -107,55 +153,99 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  // Subscribe to real-time match updates
+  // Subscribe to real-time match updates (brackets-manager collections)
   function subscribeMatches(tournamentId: string, categoryId?: string): void {
-    if (matchesUnsubscribe) matchesUnsubscribe();
-
-    let q;
-    if (categoryId) {
-      q = query(
-        collection(db, `tournaments/${tournamentId}/matches`),
-        where('categoryId', '==', categoryId),
-        orderBy('round'),
-        orderBy('matchNumber')
-      );
-    } else {
-      q = query(
-        collection(db, `tournaments/${tournamentId}/matches`),
-        orderBy('round'),
-        orderBy('matchNumber')
-      );
+    if (matchesUnsubscribe) {
+      matchesUnsubscribe();
+      matchesUnsubscribe = null;
     }
 
-    matchesUnsubscribe = onSnapshot(q, (snapshot) => {
-      matches.value = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...convertTimestamps(doc.data()),
-      })) as Match[];
-    }, (err) => {
-      console.error('Error in matches subscription:', err);
-      error.value = 'Lost connection to matches';
-    });
+    // We need to listen to multiple collections. 
+    // Simplified strategy: Listen to 'match' and 'participant' mainly.
+    // 'stage', 'group', 'round' change less often, so we can fetch them once or listen lazily.
+    // For correctness, we'll listen to all relevant ones but assume stage/group/round are stable after creation.
+
+    // 1. Fetch static structure (Stages, Groups, Rounds) first
+    // In a full implementation, we might want to listen to these too if stages are added dynamically.
+    // For now, let's fetch them once to resolve IDs, then listen to matches/participants.
+
+    const unsubscibers: (() => void)[] = [];
+
+    // Helper to refresh data when something changes
+    const refresh = async () => {
+      // This is a bit heavy (re-fetching on every change), but ensures consistency.
+      // Optimization: Manage local state for each collection and re-compute changes.
+      await fetchMatches(tournamentId, categoryId);
+    };
+
+    // Listen to matches
+    // Note: We can't easily filter by stage_id in onSnapshot if we don't know stage IDs yet or if there are multiple.
+    // So we listen to all matches for the tournament and filter in memory (in fetchMatches/adapter).
+    const qMatch = collection(db, `tournaments/${tournamentId}/match`);
+    const unsubMatch = onSnapshot(qMatch, () => refresh());
+    unsubscibers.push(unsubMatch);
+
+    // Listen to participants (names might change, or new mapping)
+    const qPart = collection(db, `tournaments/${tournamentId}/participant`);
+    const unsubPart = onSnapshot(qPart, () => refresh());
+    unsubscibers.push(unsubPart);
+
+    // Store unsub
+    matchesUnsubscribe = () => {
+      unsubscibers.forEach(u => u());
+    };
   }
 
-  // Fetch single match
+  // Fetch single match (from brackets-manager)
   async function fetchMatch(tournamentId: string, matchId: string): Promise<void> {
     loading.value = true;
     error.value = null;
 
     try {
-      const matchDoc = await getDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchId)
+      const matchDoc = await getDoc(doc(db, `tournaments/${tournamentId}/match`, matchId));
+      if (!matchDoc.exists()) throw new Error('Match not found');
+
+      const bMatch = { id: matchDoc.id, ...matchDoc.data() } as BracketsMatch;
+
+      // We need supporting data to adapt
+      const stageDoc = await getDoc(doc(db, `tournaments/${tournamentId}/stage`, bMatch.stage_id));
+      const groupDoc = await getDoc(doc(db, `tournaments/${tournamentId}/group`, bMatch.group_id));
+      const roundDoc = await getDoc(doc(db, `tournaments/${tournamentId}/round`, bMatch.round_id));
+
+      // Get all participants to resolve names
+      const partQuery = collection(db, `tournaments/${tournamentId}/participant`);
+      const partReq = await getDocs(partQuery);
+      const participants = partReq.docs.map(d => ({ id: d.id, ...d.data() })) as BracketsParticipant[];
+
+      const stage = stageDoc.data() as any;
+      const categoryId = stage ? stage.tournament_id : '';
+
+      const adapted = adaptBracketsMatchToLegacyMatch(
+        bMatch,
+        [roundDoc.data() ? { id: roundDoc.id, ...roundDoc.data() } as BracketsRound : { id: '', number: 1, stage_id: '', group_id: '' }],
+        [groupDoc.data() ? { id: groupDoc.id, ...groupDoc.data() } as BracketsGroup : { id: '', stage_id: '', number: 1 }],
+        participants,
+        categoryId,
+        tournamentId
       );
 
-      if (!matchDoc.exists()) {
-        throw new Error('Match not found');
+      if (adapted) {
+        // Fetch scores from match_scores collection
+        const scoreDoc = await getDoc(doc(db, `tournaments/${tournamentId}/match_scores`, matchId));
+        if (scoreDoc.exists()) {
+          const scoreData = scoreDoc.data();
+          adapted.scores = scoreData.scores || [];
+          if (scoreData.courtId) adapted.courtId = scoreData.courtId;
+          if (scoreData.scheduledTime) adapted.scheduledTime = scoreData.scheduledTime instanceof Timestamp ? scoreData.scheduledTime.toDate() : scoreData.scheduledTime;
+          // Status from brackets match takes precedence, unless it's strictly scoring related and missing?
+          // No, brackets match status is the truth for bracket progression.
+        }
+
+        currentMatch.value = adapted;
+      } else {
+        throw new Error('Match found but invalid or empty');
       }
 
-      currentMatch.value = {
-        id: matchDoc.id,
-        ...convertTimestamps(matchDoc.data()),
-      } as Match;
     } catch (err) {
       console.error('Error fetching match:', err);
       error.value = 'Failed to load match';
@@ -169,14 +259,14 @@ export const useMatchStore = defineStore('matches', () => {
   function subscribeMatch(tournamentId: string, matchId: string): void {
     if (currentMatchUnsubscribe) currentMatchUnsubscribe();
 
+    // Listen to the match document
     currentMatchUnsubscribe = onSnapshot(
-      doc(db, `tournaments/${tournamentId}/matches`, matchId),
-      (doc) => {
-        if (doc.exists()) {
-          currentMatch.value = {
-            id: doc.id,
-            ...convertTimestamps(doc.data()),
-          } as Match;
+      doc(db, `tournaments/${tournamentId}/match`, matchId),
+      async (docSnap) => {
+        if (docSnap.exists()) {
+          // We re-fetch to get linked data. 
+          // Optimization: we could store linked data in state if we are coming from list view
+          await fetchMatch(tournamentId, matchId);
         }
       },
       (err) => {
@@ -189,15 +279,28 @@ export const useMatchStore = defineStore('matches', () => {
   // Start a match
   async function startMatch(tournamentId: string, matchId: string): Promise<void> {
     try {
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchId),
+      const scores = [{ gameNumber: 1, score1: 0, score2: 0, isComplete: false }];
+
+      // 1. Write to match_scores (Optimistic update)
+      await setDoc(
+        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
         {
-          status: 'in_progress' as MatchStatus,
+          scores,
           startedAt: serverTimestamp(),
-          scores: [{ gameNumber: 1, score1: 0, score2: 0, isComplete: false }],
           updatedAt: serverTimestamp(),
-        }
+        },
+        { merge: true }
       );
+
+      // 2. Call Cloud Function to update bracket status
+      const updateMatchFn = httpsCallable(functions, 'updateMatch');
+      await updateMatchFn({
+        tournamentId,
+        matchId,
+        status: 'in_progress',
+        scores
+      });
+
     } catch (err) {
       console.error('Error starting match:', err);
       throw err;
@@ -252,12 +355,14 @@ export const useMatchStore = defineStore('matches', () => {
     }
 
     try {
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchId),
+      // Write scores to match_scores
+      await setDoc(
+        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
         {
           scores,
           updatedAt: serverTimestamp(),
-        }
+        },
+        { merge: true }
       );
     } catch (err) {
       console.error('Error updating score:', err);
@@ -293,12 +398,14 @@ export const useMatchStore = defineStore('matches', () => {
     }
 
     try {
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchId),
+      // Write scores to match_scores
+      await setDoc(
+        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
         {
           scores,
           updatedAt: serverTimestamp(),
-        }
+        },
+        { merge: true }
       );
     } catch (err) {
       console.error('Error decrementing score:', err);
@@ -314,32 +421,33 @@ export const useMatchStore = defineStore('matches', () => {
     winnerId: string
   ): Promise<void> {
     try {
-      // Get match data first to get progression info
-      const matchDoc = await getDoc(doc(db, `tournaments/${tournamentId}/matches`, matchId));
-      const matchData = matchDoc.data();
-
-      // Update match as completed
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchId),
+      // 1. Write final scores to match_scores
+      await setDoc(
+        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
         {
-          status: 'completed' as MatchStatus,
           scores,
           winnerId,
           completedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-        }
+        },
+        { merge: true }
       );
 
-      // Try cloud function first
+      // 2. Call Cloud Function to advance bracket
       try {
-        const advanceWinnerFn = httpsCallable(functions, 'advanceWinner');
-        await advanceWinnerFn({ tournamentId, matchId, winnerId });
-        console.log('[completeMatch] Cloud function advanced winner successfully');
+        const updateMatchFn = httpsCallable(functions, 'updateMatch');
+        await updateMatchFn({
+          tournamentId,
+          matchId,
+          status: 'completed',
+          winnerId,
+          scores
+        });
+        console.log('[completeMatch] Cloud function advanced bracket successfully');
       } catch (cloudErr) {
-        console.warn('[completeMatch] Cloud function failed, using client-side fallback:', cloudErr);
-
-        // Client-side fallback: advance winner directly
-        await advanceWinnerClientSide(tournamentId, matchData, winnerId);
+        console.error('[completeMatch] Cloud function failed:', cloudErr);
+        // We can't do client-side fallback easily with brackets-manager
+        throw cloudErr;
       }
     } catch (err) {
       console.error('Error completing match:', err);
@@ -348,119 +456,10 @@ export const useMatchStore = defineStore('matches', () => {
   }
 
   // Client-side fallback for advancing winner
-  async function advanceWinnerClientSide(
-    tournamentId: string,
-    matchData: Record<string, unknown> | undefined,
-    winnerId: string
-  ): Promise<void> {
-    if (!matchData) return;
 
-    // Advance winner to next match
-    if (matchData.nextMatchId && matchData.nextMatchSlot) {
-      const nextMatchSlot = matchData.nextMatchSlot as string;
-      console.log(`[advanceWinnerClientSide] Advancing winner ${winnerId} to match ${matchData.nextMatchId} slot ${nextMatchSlot}`);
 
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchData.nextMatchId as string),
-        {
-          [`${nextMatchSlot}Id`]: winnerId,
-          updatedAt: serverTimestamp(),
-        }
-      );
-    }
 
-    // For double elimination, handle loser advancement
-    if (matchData.loserNextMatchId && matchData.loserNextMatchSlot) {
-      const loserId = matchData.participant1Id === winnerId
-        ? matchData.participant2Id
-        : matchData.participant1Id;
 
-      const loserNextMatchSlot = matchData.loserNextMatchSlot as string;
-      console.log(`[advanceWinnerClientSide] Advancing loser ${loserId} to match ${matchData.loserNextMatchId} slot ${loserNextMatchSlot}`);
-
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchData.loserNextMatchId as string),
-        {
-          [`${loserNextMatchSlot}Id`]: loserId,
-          updatedAt: serverTimestamp(),
-        }
-      );
-    }
-
-    // Release court and auto-assign next match
-    if (matchData.courtId) {
-      const courtId = matchData.courtId as string;
-
-      // Release the court first
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/courts`, courtId),
-        {
-          status: 'available',
-          currentMatchId: null,
-          updatedAt: serverTimestamp(),
-        }
-      );
-
-      // Auto-assign next pending match to this court
-      await autoAssignNextMatch(tournamentId, courtId);
-    }
-  }
-
-  // Auto-assign the next pending match to a freed court
-  async function autoAssignNextMatch(tournamentId: string, courtId: string): Promise<void> {
-    try {
-      // First, check if there's a match already scheduled for this court
-      const scheduledForCourtQuery = query(
-        collection(db, `tournaments/${tournamentId}/matches`),
-        where('courtId', '==', courtId),
-        where('status', '==', 'scheduled')
-      );
-      const scheduledForCourt = await getDocs(scheduledForCourtQuery);
-
-      let nextMatch: { id: string; data: Record<string, unknown> } | null = null;
-
-      if (!scheduledForCourt.empty) {
-        // Find the match with both participants ready (sorted by scheduled time or round)
-        for (const matchDoc of scheduledForCourt.docs) {
-          const data = matchDoc.data();
-          if (data.participant1Id && data.participant2Id) {
-            nextMatch = { id: matchDoc.id, data };
-            break;
-          }
-        }
-      }
-
-      // If no pre-scheduled match, find the next pending match in the queue
-      if (!nextMatch) {
-        const pendingQuery = query(
-          collection(db, `tournaments/${tournamentId}/matches`),
-          where('status', '==', 'scheduled'),
-          orderBy('round'),
-          orderBy('matchNumber')
-        );
-        const pendingMatches = await getDocs(pendingQuery);
-
-        for (const matchDoc of pendingMatches.docs) {
-          const data = matchDoc.data();
-          // Find first match with both participants and no court assigned
-          if (data.participant1Id && data.participant2Id && !data.courtId) {
-            nextMatch = { id: matchDoc.id, data };
-            break;
-          }
-        }
-      }
-
-      if (nextMatch) {
-        console.log(`[autoAssignNextMatch] Assigning match ${nextMatch.id} to court ${courtId}`);
-        await assignCourt(tournamentId, nextMatch.id, courtId);
-      } else {
-        console.log(`[autoAssignNextMatch] No pending matches to assign to court ${courtId}`);
-      }
-    } catch (err) {
-      console.error('[autoAssignNextMatch] Error auto-assigning next match:', err);
-      // Don't throw - this is a best-effort optimization
-    }
-  }
 
   // Record walkover
   async function recordWalkover(
@@ -469,28 +468,30 @@ export const useMatchStore = defineStore('matches', () => {
     winnerId: string
   ): Promise<void> {
     try {
-      // Get match data first to get progression info
-      const matchDoc = await getDoc(doc(db, `tournaments/${tournamentId}/matches`, matchId));
-      const matchData = matchDoc.data();
-
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchId),
+      // 1. Write to match_scores
+      await setDoc(
+        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
         {
-          status: 'walkover' as MatchStatus,
           winnerId,
           completedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-        }
+        },
+        { merge: true }
       );
 
-      // Try cloud function first
+      // 2. Call Cloud Function
       try {
-        const advanceWinnerFn = httpsCallable(functions, 'advanceWinner');
-        await advanceWinnerFn({ tournamentId, matchId, winnerId });
-        console.log('[recordWalkover] Cloud function advanced winner successfully');
+        const updateMatchFn = httpsCallable(functions, 'updateMatch');
+        await updateMatchFn({
+          tournamentId,
+          matchId,
+          status: 'completed',
+          winnerId
+        });
+        console.log('[recordWalkover] Cloud function advanced bracket successfully');
       } catch (cloudErr) {
-        console.warn('[recordWalkover] Cloud function failed, using client-side fallback:', cloudErr);
-        await advanceWinnerClientSide(tournamentId, matchData, winnerId);
+        console.error('[recordWalkover] Cloud function failed:', cloudErr);
+        throw cloudErr;
       }
     } catch (err) {
       console.error('Error recording walkover:', err);
@@ -505,16 +506,28 @@ export const useMatchStore = defineStore('matches', () => {
     courtId: string
   ): Promise<void> {
     try {
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchId),
+      // 1. Write court info to match_scores
+      await setDoc(
+        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
         {
           courtId,
-          status: 'ready' as MatchStatus,
+          scheduledTime: serverTimestamp(),
           updatedAt: serverTimestamp(),
-        }
+        },
+        { merge: true }
       );
 
-      // Update court status
+      // 2. Update status via Cloud Function (to set status=ready in brackets-manager)
+      // Actually, we can just update match_score status if we want, but brackets-manager match status needs to stay in sync.
+      // Status 2 = ready.
+      const updateMatchFn = httpsCallable(functions, 'updateMatch');
+      await updateMatchFn({
+        tournamentId,
+        matchId,
+        status: 'ready' // This maps to 2 in brackets-manager
+      });
+
+      // Update court status (legacy courts collection is fine to keep as is, it's independent)
       await updateDoc(
         doc(db, `tournaments/${tournamentId}/courts`, courtId),
         {
@@ -529,22 +542,20 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  // Mark a pre-scheduled match as ready (court already assigned via auto-schedule)
-  // This is different from assignCourt which assigns a NEW court
+  // Mark a pre-scheduled match as ready
   async function markMatchReady(
     tournamentId: string,
     matchId: string,
     courtId: string
   ): Promise<void> {
     try {
-      // Update match status to ready
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchId),
-        {
-          status: 'ready' as MatchStatus,
-          updatedAt: serverTimestamp(),
-        }
-      );
+      // 1. Call Cloud Function to set status
+      const updateMatchFn = httpsCallable(functions, 'updateMatch');
+      await updateMatchFn({
+        tournamentId,
+        matchId,
+        status: 'ready'
+      });
 
       // Update court status to in_use
       await updateDoc(
@@ -561,18 +572,20 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  // Submit manual scores (for manual scorecard entry)
+  // Submit manual scores
   async function submitManualScores(
     tournamentId: string,
     matchId: string,
     games: GameScore[]
   ): Promise<void> {
     try {
-      // Get match data for participant IDs
-      const matchDoc = await getDoc(doc(db, `tournaments/${tournamentId}/matches`, matchId));
-      if (!matchDoc.exists()) throw new Error('Match not found');
+      // Get match data (from brackets-manager) via our fetch logic
+      // We assume currentMatch might not be set if we are calling this from list
+      // So let's fetch it first to be safe
+      await fetchMatch(tournamentId, matchId);
+      if (!currentMatch.value) throw new Error('Match not found');
 
-      const matchData = matchDoc.data();
+      const matchData = currentMatch.value;
       const participant1Id = matchData.participant1Id;
       const participant2Id = matchData.participant2Id;
 
@@ -592,16 +605,24 @@ export const useMatchStore = defineStore('matches', () => {
         // Complete the match
         await completeMatch(tournamentId, matchId, games, winnerId);
       } else {
-        // Just update the scores (match still in progress)
-        await updateDoc(
-          doc(db, `tournaments/${tournamentId}/matches`, matchId),
+        // Just update scores
+        await setDoc(
+          doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
           {
-            status: 'in_progress' as MatchStatus,
             scores: games,
-            startedAt: matchData.startedAt || serverTimestamp(),
             updatedAt: serverTimestamp(),
-          }
+          },
+          { merge: true }
         );
+
+        // Update status to in_progress
+        const updateMatchFn = httpsCallable(functions, 'updateMatch');
+        await updateMatchFn({
+          tournamentId,
+          matchId,
+          status: 'in_progress',
+          scores: games
+        });
       }
     } catch (err) {
       console.error('Error submitting manual scores:', err);
@@ -661,23 +682,6 @@ export const useMatchStore = defineStore('matches', () => {
     }
 
     return { isComplete: false };
-  }
-
-  // Helper: Convert Firestore Timestamps to Dates
-  function convertTimestamps(data: Record<string, unknown>): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(data)) {
-      if (value instanceof Timestamp) {
-        result[key] = value.toDate();
-      } else if (value && typeof value === 'object' && 'toDate' in value) {
-        result[key] = (value as Timestamp).toDate();
-      } else {
-        result[key] = value;
-      }
-    }
-
-    return result;
   }
 
   // Cleanup subscriptions

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import type { Match } from '@/types';
+import html2canvas from 'html2canvas';
 
 const props = defineProps<{
   tournamentId: string;
@@ -173,6 +174,27 @@ function getRoundName(round: number, bracket: 'winners' | 'losers', totalRounds:
     return `Losers R${round}`;
   }
 }
+
+async function downloadBracket() {
+  const element = document.querySelector('.bracket-container') as HTMLElement;
+  if (!element) return;
+
+  try {
+    const canvas = await html2canvas(element, {
+      backgroundColor: '#ffffff',
+      scale: 2, // Better resolution
+      logging: false,
+      useCORS: true
+    });
+
+    const link = document.createElement('a');
+    link.download = `bracket-${props.tournamentId}-${props.categoryId}-${activeTab.value}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch (error) {
+    console.error('Failed to download bracket:', error);
+  }
+}
 </script>
 
 <template>
@@ -189,6 +211,18 @@ function getRoundName(round: number, bracket: 'winners' | 'losers', totalRounds:
     </div>
 
     <template v-else>
+      <!-- Controls -->
+      <div class="d-flex justify-end mb-4">
+        <v-btn
+          prepend-icon="mdi-download"
+          variant="tonal"
+          color="primary"
+          @click="downloadBracket"
+        >
+          Export Diagram
+        </v-btn>
+      </div>
+
       <!-- Bracket Stats -->
       <v-card class="mb-4" variant="outlined">
         <v-card-text>

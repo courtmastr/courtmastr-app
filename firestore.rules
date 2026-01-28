@@ -93,6 +93,32 @@ service cloud.firestore {
         allow update: if isAdmin();
         allow delete: if isAdmin();
       }
+      // Brackets Manager Collections
+      // stage subcollection
+      match /stage/{stageId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
+      // match subcollection (singular 'match' used by brackets-manager)
+      match /match/{matchId} {
+        allow read: if true;
+        // Admins and scorekeepers can update matches
+        allow write: if isScorekeeper() || isAdmin();
+      }
+
+      // participant subcollection
+      match /participant/{participantId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
+      // group subcollection
+      match /group/{groupId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
     }
 
     // Notifications collection

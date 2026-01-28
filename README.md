@@ -2,6 +2,11 @@
 
 A modern tournament management system for badminton tournaments, built with Vue 3, TypeScript, Vuetify, and Firebase.
 
+## Documentation
+
+- **[Product Requirements Document (PRD)](docs/PRD.md)** - Product overview, features, and user flows
+- **[Technical Design Document (TDD)](docs/TDD.md)** - Architecture, data models, and implementation details
+
 ## Features
 
 - **Tournament Management**: Create and manage badminton tournaments with single/double elimination formats

@@ -15,6 +15,7 @@ const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const readyMatches = computed(() => matchStore.readyMatches);
 const inProgressMatches = computed(() => matchStore.inProgressMatches);
+const scheduledMatches = computed(() => matchStore.scheduledMatches);
 const courts = computed(() => tournamentStore.courts);
 
 onMounted(async () => {
@@ -138,8 +139,43 @@ function goToScoring(matchId: string) {
       </v-list>
     </v-card>
 
+    <!-- Scheduled Matches -->
+    <v-card class="mb-4" v-if="scheduledMatches.length > 0">
+      <v-card-title>
+        <v-icon start color="info">mdi-calendar-clock</v-icon>
+        Scheduled
+        <v-chip size="small" color="info" class="ml-2">{{ scheduledMatches.length }}</v-chip>
+      </v-card-title>
+      <v-list>
+        <v-list-item
+          v-for="match in scheduledMatches"
+          :key="match.id"
+          class="match-item"
+        >
+          <template #prepend>
+            <v-avatar color="info" size="40">
+              <span class="text-body-2">{{ match.matchNumber }}</span>
+            </v-avatar>
+          </template>
+
+          <v-list-item-title>
+            {{ getParticipantName(match.participant1Id) }}
+            <span class="text-grey mx-2">vs</span>
+            {{ getParticipantName(match.participant2Id) }}
+          </v-list-item-title>
+
+          <v-list-item-subtitle>
+            Round {{ match.round }}
+            <span v-if="match.scheduledTime" class="ml-2">
+               | {{ new Date(match.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+            </span>
+          </v-list-item-subtitle>
+        </v-list-item>
+      </v-list>
+    </v-card>
+
     <!-- Empty State -->
-    <v-card v-if="inProgressMatches.length === 0 && readyMatches.length === 0" class="text-center py-12">
+    <v-card v-if="inProgressMatches.length === 0 && readyMatches.length === 0 && scheduledMatches.length === 0" class="text-center py-12">
       <v-icon size="64" color="grey-lighten-1">mdi-tournament</v-icon>
       <h3 class="text-h6 mt-4">No matches available</h3>
       <p class="text-body-2 text-grey mt-2">

@@ -3,26 +3,29 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { generateBracket as createBracket } from './bracket';
 import { generateSchedule as createSchedule } from './scheduling';
+import { updateMatch as updateMatchFn } from './updateMatch';
 
 // Initialize Firebase Admin
 admin.initializeApp();
 
 const db = admin.firestore();
 
+export const updateMatch = updateMatchFn;
+
 /**
  * Generate bracket for a tournament category
  */
 export const generateBracket = functions.https.onCall(
-  async (data, context) => {
+  async (request) => {
     // Verify authentication
-    if (!context.auth) {
+    if (!request.auth) {
       throw new functions.https.HttpsError(
         'unauthenticated',
         'User must be authenticated'
       );
     }
 
-    const { tournamentId, categoryId } = data;
+    const { tournamentId, categoryId } = request.data;
 
     if (!tournamentId || !categoryId) {
       throw new functions.https.HttpsError(
@@ -32,7 +35,7 @@ export const generateBracket = functions.https.onCall(
     }
 
     // Verify user is admin or organizer
-    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
     const userRole = userDoc.data()?.role;
 
     if (!['admin', 'organizer'].includes(userRole)) {
@@ -59,16 +62,16 @@ export const generateBracket = functions.https.onCall(
  * Generate schedule for a tournament
  */
 export const generateSchedule = functions.https.onCall(
-  async (data, context) => {
+  async (request) => {
     // Verify authentication
-    if (!context.auth) {
+    if (!request.auth) {
       throw new functions.https.HttpsError(
         'unauthenticated',
         'User must be authenticated'
       );
     }
 
-    const { tournamentId } = data;
+    const { tournamentId } = request.data;
 
     if (!tournamentId) {
       throw new functions.https.HttpsError(
@@ -78,7 +81,7 @@ export const generateSchedule = functions.https.onCall(
     }
 
     // Verify user is admin
-    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
     const userRole = userDoc.data()?.role;
 
     if (userRole !== 'admin') {
@@ -105,16 +108,16 @@ export const generateSchedule = functions.https.onCall(
  * Advance winner to next match after match completion
  */
 export const advanceWinner = functions.https.onCall(
-  async (data, context) => {
+  async (request) => {
     // Verify authentication
-    if (!context.auth) {
+    if (!request.auth) {
       throw new functions.https.HttpsError(
         'unauthenticated',
         'User must be authenticated'
       );
     }
 
-    const { tournamentId, matchId, winnerId } = data;
+    const { tournamentId, matchId, winnerId } = request.data;
 
     if (!tournamentId || !matchId || !winnerId) {
       throw new functions.https.HttpsError(
@@ -199,7 +202,11 @@ export const advanceWinner = functions.https.onCall(
 
 /**
  * Firestore trigger: Auto-notify when match is ready
+ *
+ * NOTE: Commented out temporarily - uses v1 API syntax incompatible with firebase-functions v7
+ * To re-enable, migrate to v2 API: import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
  */
+/*
 export const onMatchUpdate = functions.firestore
   .document('tournaments/{tournamentId}/matches/{matchId}')
   .onUpdate(async (change, context) => {
@@ -221,6 +228,7 @@ export const onMatchUpdate = functions.firestore
       // TODO: Create notifications for participants
     }
   });
+*/
 
 /**
  * HTTP trigger: Health check
