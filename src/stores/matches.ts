@@ -14,6 +14,8 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  httpsCallable,
+  functions,
 } from '@/services/firebase';
 import type { Match, GameScore, Registration } from '@/types';
 import { BADMINTON_CONFIG } from '@/types';
@@ -307,6 +309,7 @@ export const useMatchStore = defineStore('matches', () => {
     winnerId: string
   ): Promise<void> {
     try {
+      // 1. Write final scores to match_scores
       await setDoc(
         doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
         {
@@ -318,6 +321,22 @@ export const useMatchStore = defineStore('matches', () => {
         },
         { merge: true }
       );
+
+      // 2. Call Cloud Function to advance bracket
+      try {
+        const updateMatchFn = httpsCallable(functions, 'updateMatch');
+        await updateMatchFn({
+          tournamentId,
+          matchId,
+          status: 'completed',
+          winnerId,
+          scores
+        });
+        console.log('[completeMatch] Cloud function advanced bracket successfully');
+      } catch (cloudErr) {
+        console.error('[completeMatch] Cloud function failed:', cloudErr);
+        // Don't throw - match score is saved, bracket can be fixed manually
+      }
     } catch (err) {
       console.error('Error completing match:', err);
       throw err;
