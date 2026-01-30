@@ -514,7 +514,7 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  function cleanup(): void {
+  function unsubscribeAll(): void {
     if (matchesUnsubscribe) {
       matchesUnsubscribe();
       matchesUnsubscribe = null;
@@ -523,6 +523,10 @@ export const useMatchStore = defineStore('matches', () => {
       currentMatchUnsubscribe();
       currentMatchUnsubscribe = null;
     }
+  }
+
+  function cleanup(): void {
+    unsubscribeAll();
     matches.value = [];
     currentMatch.value = null;
   }
@@ -589,6 +593,7 @@ export const useMatchStore = defineStore('matches', () => {
     markMatchReady,
     calculateWinner,
     submitManualScores,
+    unsubscribeAll,
     cleanup,
     clearCurrentMatch,
   };
