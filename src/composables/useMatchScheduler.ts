@@ -118,8 +118,8 @@ export function useMatchScheduler() {
       const matchesQuery = query(
         collection(db, 'tournaments', tournamentId, 'match'),
         where('status', 'in', [0, 1, 2]), // locked, waiting, ready
-        orderBy('round_id'),
-        orderBy('number')
+        orderBy('round'),
+        orderBy('position')
       );
       
       const matchesSnap = await getDocs(matchesQuery);
@@ -313,8 +313,8 @@ function generateSchedule(
     const bReady = b.opponent1?.id && b.opponent2?.id ? 1 : 0;
     if (aReady !== bReady) return bReady - aReady;
     
-    if (a.round_id !== b.round_id) return a.round_id - b.round_id;
-    return a.number - b.number;
+    if (a.round !== b.round) return a.round - b.round;
+    return a.position - b.position;
   });
 
   let sequence = 1;

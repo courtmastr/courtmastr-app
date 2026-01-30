@@ -142,7 +142,7 @@ export function useBracketGenerator() {
       progress.value = 50;
 
       // 6. Export from memory and save to Firestore
-      await saveBracketsToFirestore(tournamentId, categoryId, storage, stage.id, sortedRegistrations);
+      await saveBracketsToFirestore(tournamentId, categoryId, storage, Number(stage.id), sortedRegistrations);
 
       progress.value = 80;
 
@@ -166,7 +166,7 @@ export function useBracketGenerator() {
 
       const result: BracketResult = {
         success: true,
-        stageId: stage.id,
+        stageId: Number(stage.id),
         matchCount: Array.isArray(matches) ? matches.length : 0,
         groupCount: Array.isArray(groups) ? groups.length : 0,
         roundCount: Array.isArray(rounds) ? rounds.length : 0,
@@ -368,27 +368,28 @@ async function saveBracketsToFirestore(
   stageId: number,
   registrations: Registration[]
 ): Promise<void> {
-  console.log('💾 Starting saveBracketsToFirestore...', { tournamentId, categoryId, stageId });
+  console.log('💾 Starting saveBracketsToFirestore (minimal 3-collection)...', { tournamentId, categoryId, stageId });
   
   const batch = writeBatch(db);
 
   // Get all data from memory
-  const [stage, groups, rounds, matches, participants, matchGames] = await Promise.all([
+  const [stage, groups, rounds, matches] = await Promise.all([
     storage.select('stage', stageId),
     storage.select('group', { stage_id: stageId }),
     storage.select('round', { stage_id: stageId }),
     storage.select('match', { stage_id: stageId }),
-    storage.select('participant', { tournament_id: categoryId }), // Use categoryId (tournament_id in bm)
-    storage.select('match_game', { stage_id: stageId }),
   ]);
+  
+  // Create lookup maps for deriving fields
+  const groupMap = new Map((Array.isArray(groups) ? groups : []).map((g: any) => [String(g.id), g]));
+  const roundMap = new Map((Array.isArray(rounds) ? rounds : []).map((r: any) => [String(r.id), r]));
+  const registrationMap = new Map(registrations.map((r, i) => [i + 1, r.id]));
   
   console.log('📊 Retrieved from memory:', {
     stage: stage ? 'yes' : 'no',
-    groupsCount: Array.isArray(groups) ? groups.length : 0,
-    roundsCount: Array.isArray(rounds) ? rounds.length : 0,
+    groupsCount: groupMap.size,
+    roundsCount: roundMap.size,
     matchesCount: Array.isArray(matches) ? matches.length : 0,
-    participantsCount: Array.isArray(participants) ? participants.length : 0,
-    matchGamesCount: Array.isArray(matchGames) ? matchGames.length : 0,
   });
 
   // Save stage
@@ -401,105 +402,45 @@ async function saveBracketsToFirestore(
     });
   }
 
-  // Save groups
-  if (Array.isArray(groups)) {
-    for (const group of groups) {
-      const g = group as any;
-      batch.set(
-        doc(db, 'tournaments', tournamentId, 'group', String(g.id)),
-        {
-          id: String(g.id),
-          stage_id: String(stageId),
-          number: g.number,
-        }
-      );
-    }
-  }
-
-  // Save rounds
-  if (Array.isArray(rounds)) {
-    for (const round of rounds) {
-      const r = round as any;
-      batch.set(
-        doc(db, 'tournaments', tournamentId, 'round', String(r.id)),
-        {
-          id: String(r.id),
-          stage_id: String(stageId),
-          group_id: String(r.group_id),
-          number: r.number,
-        }
-      );
-    }
-  }
-
-  // Save participants - use registrations data to ensure proper mapping
-  if (registrations.length > 0) {
-    console.log(`💾 Saving ${registrations.length} participants to Firestore...`);
-    for (let i = 0; i < registrations.length; i++) {
-      const reg = registrations[i];
-      const participantId = i + 1; // Numeric ID (1, 2, 3...)
-      
-      const partData: any = {
-        id: String(participantId),
-        tournament_id: String(stageId),
-        name: reg.id, // Registration ID for name lookup
-      };
-
-      console.log(`  Saving participant ${participantId} -> reg ${reg.id.slice(0,8)}...`);
-      batch.set(
-        doc(db, 'tournaments', tournamentId, 'participant', String(participantId)),
-        partData
-      );
-    }
-  } else {
-    console.warn('⚠️ No participants to save!');
-  }
-
-  // Save matches
+  // Save matches with enhanced fields (derived from groups/rounds)
   if (Array.isArray(matches)) {
     for (const match of matches) {
       const m = match as any;
 
-      // Clean opponent data - remove undefined values
-      // Sanitize match object to remove undefined values (which Firestore rejects)
+      // Derive round number and bracket type from lookups
+      const round = roundMap.get(String(m.round_id));
+      const group = groupMap.get(String(m.group_id));
+      
+      const roundNumber = round?.number || 1;
+      const bracketType = getBracketTypeFromGroupNumber(group?.number);
+      
+      // Convert opponent IDs to registration IDs
+      const opponent1RegId = m.opponent1?.id ? registrationMap.get(Number(m.opponent1.id)) : null;
+      const opponent2RegId = m.opponent2?.id ? registrationMap.get(Number(m.opponent2.id)) : null;
+
+      // Sanitize match object
       const sanitized = JSON.parse(JSON.stringify(m));
 
       batch.set(
         doc(db, 'tournaments', tournamentId, 'match', String(m.id)),
         {
-          id: String(m.id),  // Include ID as string for consistent querying
+          id: String(m.id),
           stage_id: String(stageId),
-          group_id: String(m.group_id),
-          round_id: String(m.round_id),
-          number: m.number,
-          opponent1: sanitized.opponent1 || null,
-          opponent2: sanitized.opponent2 || null,
+          // Enhanced fields (derived from groups/rounds)
+          round: roundNumber,
+          bracket: bracketType,
+          position: m.number,
+          // Store registration IDs directly
+          opponent1: m.opponent1 ? {
+            ...sanitized.opponent1,
+            id: opponent1RegId || sanitized.opponent1.id,
+          } : null,
+          opponent2: m.opponent2 ? {
+            ...sanitized.opponent2,
+            id: opponent2RegId || sanitized.opponent2.id,
+          } : null,
           status: m.status,
           ...(m.child_count && { child_count: m.child_count }),
-        }
-      );
-    }
-  }
-
-  // Save match games (if any)
-  if (Array.isArray(matchGames)) {
-    for (const game of matchGames) {
-      const g = game as any;
-
-      // Clean opponent data for games too
-      // Sanitize game object
-      const sanitizedGame = JSON.parse(JSON.stringify(g));
-
-      batch.set(
-        doc(db, 'tournaments', tournamentId, 'match_game', String(g.id)),
-        {
-          id: String(g.id),
-          parent_id: String(g.match_id),
-          stage_id: String(stageId),
-          number: g.number,
-          opponent1: sanitizedGame.opponent1 || null,
-          opponent2: sanitizedGame.opponent2 || null,
-          status: g.status,
         }
       );
     }
@@ -508,26 +449,40 @@ async function saveBracketsToFirestore(
   // Commit batch with error handling
   try {
     await batch.commit();
-    console.log('✅ Batch commit completed');
+    console.log('✅ Batch commit completed (minimal collections)');
   } catch (err) {
     console.error('❌ Batch commit failed:', err);
     throw err;
   }
   
-  // Verify participants were saved
+  // Verify matches were saved
   try {
-    const allParticipantsSnap = await getDocs(
-      collection(db, 'tournaments', tournamentId, 'participant')
+    const matchesSnap = await getDocs(
+      query(collection(db, 'tournaments', tournamentId, 'match'), where('stage_id', '==', String(stageId)))
     );
-    // Count participants that have tournament_id matching our stage
-    const ourParticipants = allParticipantsSnap.docs.filter(d => d.data().tournament_id === String(stageId));
-    console.log(`✅ Verified ${ourParticipants.length} participants saved to Firestore`);
+    console.log(`✅ Verified ${matchesSnap.docs.length} matches saved to Firestore`);
     
-    if (ourParticipants.length === 0) {
-      console.warn('⚠️ WARNING: No participants found after save!');
-      console.warn('   This may indicate a Firestore rules issue or data mismatch.');
+    if (matchesSnap.docs.length === 0) {
+      console.warn('⚠️ WARNING: No matches found after save!');
     }
   } catch (err) {
     console.error('❌ Verification query failed:', err);
+  }
+}
+
+/**
+ * Get bracket type from group number
+ * 0 = winners, 1 = losers, 2 = finals
+ */
+function getBracketTypeFromGroupNumber(groupNumber: number | undefined): 'winners' | 'losers' | 'finals' {
+  switch (groupNumber) {
+    case 0:
+      return 'winners';
+    case 1:
+      return 'losers';
+    case 2:
+      return 'finals';
+    default:
+      return 'winners';
   }
 }
