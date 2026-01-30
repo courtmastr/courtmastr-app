@@ -185,9 +185,10 @@ async function fetchBracketData() {
     console.log(`📊 Found ${categoryRegistrations.length} registrations for category ${props.categoryId}`);
 
     // Build participants from registrations
-    participants.value = categoryRegistrations.map((reg, index) => {
-      // Use index + 1 as participant ID (matches our seeding logic)
-      const participantId = String(index + 1);
+    // Use registration ID as participant ID (matches match.opponentX.id)
+    participants.value = categoryRegistrations.map((reg) => {
+      // Use registration ID directly (matches our optimized schema)
+      const participantId = reg.id;
       
       let humanName = 'Unknown';
       if (reg.participantType === 'team' && reg.teamName) {
