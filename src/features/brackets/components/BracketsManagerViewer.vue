@@ -167,21 +167,8 @@ async function fetchBracketData() {
       console.error(`   All match stage_ids:`, allMatches.map(m => ({ id: m.id, stage_id: m.stage_id })));
     }
 
-    // 3. Get participants for this stage
-    // Note: brackets-manager stores 'participant' collection separate from our 'registrations'
-    // Participants have tournament_id = stage ID
-    const participantSnapshot = await getDocs(
-      query(
-        collection(db, `tournaments/${props.tournamentId}/participant`),
-        where('tournament_id', '==', stageIdFromData)
-      )
-    );
-    
-    console.log(`📊 Found ${participantSnapshot.size} participants for stage ${stageIdFromData}`);
-
-    // 3b. Use RegistrationStore to resolve names
-    // We need both registrations (to link bracket participant -> player ID)
-    // and players (to get the actual name)
+    // 3. Get registrations for this category
+    // We use registrations collection instead of participant (optimized schema)
     const registrationStore = useRegistrationStore();
     if (registrationStore.registrations.length === 0) {
       await registrationStore.fetchRegistrations(props.tournamentId);
@@ -190,33 +177,31 @@ async function fetchBracketData() {
       await registrationStore.fetchPlayers(props.tournamentId);
     }
 
-    participants.value = participantSnapshot.docs.map(d => {
-      const data = d.data() as any;
-      // data.name is the Registration ID (seeded by our generator)
-      const regId = data.name;
-      // Normalize participant ID to string
-      const participantId = String(data.id || d.id); 
+    // Filter registrations for this category
+    const categoryRegistrations = registrationStore.registrations.filter(
+      r => r.categoryId === props.categoryId && (r.status === 'approved' || r.status === 'checked_in')
+    );
+
+    console.log(`📊 Found ${categoryRegistrations.length} registrations for category ${props.categoryId}`);
+
+    // Build participants from registrations
+    participants.value = categoryRegistrations.map((reg, index) => {
+      // Use index + 1 as participant ID (matches our seeding logic)
+      const participantId = String(index + 1);
       
       let humanName = 'Unknown';
-      const registration = registrationStore.registrations.find(r => r.id === regId);
-      
-      if (registration) {
-        if (registration.participantType === 'team' && registration.teamName) {
-           humanName = registration.teamName;
-        } else if (registration.playerId) {
-          const player = registrationStore.getPlayerById(registration.playerId);
-          if (player) {
-            humanName = `${player.firstName} ${player.lastName}`;
-          }
+      if (reg.participantType === 'team' && reg.teamName) {
+        humanName = reg.teamName;
+      } else if (reg.playerId) {
+        const player = registrationStore.getPlayerById(reg.playerId);
+        if (player) {
+          humanName = `${player.firstName} ${player.lastName}`;
         }
-      } else {
-        // Fallback: maybe data.name is already a name?
-        humanName = data.name || 'Unknown';
       }
 
       return {
-        ...data,
-        id: participantId,  // Use normalized string ID
+        id: participantId,
+        tournament_id: stageIdFromData,
         name: humanName,
       } as any;
     });
