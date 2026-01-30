@@ -159,6 +159,10 @@ export const useMatchStore = defineStore('matches', () => {
     const unsubMatch = onSnapshot(qMatch, () => refresh());
     unsubscibers.push(unsubMatch);
 
+    const qScores = collection(db, `tournaments/${tournamentId}/match_scores`);
+    const unsubScores = onSnapshot(qScores, () => refresh());
+    unsubscibers.push(unsubScores);
+
     matchesUnsubscribe = () => {
       unsubscibers.forEach(u => u());
     };
@@ -464,6 +468,52 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
+  async function submitManualScores(
+    tournamentId: string,
+    matchId: string,
+    games: GameScore[]
+  ): Promise<void> {
+    try {
+      await fetchMatch(tournamentId, matchId);
+      if (!currentMatch.value) throw new Error('Match not found');
+
+      const matchData = currentMatch.value;
+      const participant1Id = matchData.participant1Id;
+      const participant2Id = matchData.participant2Id;
+
+      if (!participant1Id || !participant2Id) {
+        throw new Error('Match is missing participants');
+      }
+
+      let p1Wins = 0;
+      let p2Wins = 0;
+      for (const game of games) {
+        if (game.winnerId === participant1Id) p1Wins++;
+        else if (game.winnerId === participant2Id) p2Wins++;
+      }
+
+      const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+      const isMatchComplete = p1Wins >= gamesNeeded || p2Wins >= gamesNeeded;
+      const winnerId = p1Wins >= gamesNeeded ? participant1Id : (p2Wins >= gamesNeeded ? participant2Id : null);
+
+      if (isMatchComplete && winnerId) {
+        await completeMatch(tournamentId, matchId, games, winnerId);
+      } else {
+        await setDoc(
+          doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
+          {
+            scores: games,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+    } catch (err) {
+      console.error('Error submitting manual scores:', err);
+      throw err;
+    }
+  }
+
   function cleanup(): void {
     if (matchesUnsubscribe) {
       matchesUnsubscribe();
@@ -538,6 +588,7 @@ export const useMatchStore = defineStore('matches', () => {
     assignMatchToCourt,
     markMatchReady,
     calculateWinner,
+    submitManualScores,
     cleanup,
     clearCurrentMatch,
   };
