@@ -66,6 +66,7 @@ export {
   addDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   query,
   where,
   orderBy,

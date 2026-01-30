@@ -108,10 +108,10 @@ export const useMatchStore = defineStore('matches', () => {
         getDocs(query(collection(db, `tournaments/${tournamentId}/group`), where('stage_id', 'in', stageIds)))
       ]);
 
-      const bracketsMatches = matchSnap.docs.map(d => ({ id: d.id, ...d.data() })) as BracketsMatch[];
-      const participants = participantSnap.docs.map(d => ({ id: d.id, ...d.data() })) as BracketsParticipant[];
-      const rounds = roundSnap.docs.map(d => ({ id: d.id, ...d.data() })) as BracketsRound[];
-      const groups = groupSnap.docs.map(d => ({ id: d.id, ...d.data() })) as BracketsGroup[];
+      const bracketsMatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id })) as BracketsMatch[];
+      const participants = participantSnap.docs.map(d => ({ ...d.data(), id: d.id })) as BracketsParticipant[];
+      const rounds = roundSnap.docs.map(d => ({ ...d.data(), id: d.id })) as BracketsRound[];
+      const groups = groupSnap.docs.map(d => ({ ...d.data(), id: d.id })) as BracketsGroup[];
 
       // 3. Adapt matches
       const adaptedMatches: Match[] = [];
@@ -205,7 +205,7 @@ export const useMatchStore = defineStore('matches', () => {
       const matchDoc = await getDoc(doc(db, `tournaments/${tournamentId}/match`, matchId));
       if (!matchDoc.exists()) throw new Error('Match not found');
 
-      const bMatch = { id: matchDoc.id, ...matchDoc.data() } as BracketsMatch;
+      const bMatch = { ...matchDoc.data(), id: matchDoc.id } as BracketsMatch;
 
       // We need supporting data to adapt
       const stageDoc = await getDoc(doc(db, `tournaments/${tournamentId}/stage`, bMatch.stage_id));
@@ -222,8 +222,8 @@ export const useMatchStore = defineStore('matches', () => {
 
       const adapted = adaptBracketsMatchToLegacyMatch(
         bMatch,
-        [roundDoc.data() ? { id: roundDoc.id, ...roundDoc.data() } as BracketsRound : { id: '', number: 1, stage_id: '', group_id: '' }],
-        [groupDoc.data() ? { id: groupDoc.id, ...groupDoc.data() } as BracketsGroup : { id: '', stage_id: '', number: 1 }],
+        [roundDoc.data() ? { ...roundDoc.data(), id: roundDoc.id } as BracketsRound : { id: '', number: 1, stage_id: '', group_id: '' }],
+        [groupDoc.data() ? { ...groupDoc.data(), id: groupDoc.id } as BracketsGroup : { id: '', stage_id: '', number: 1 }],
         participants,
         categoryId,
         tournamentId

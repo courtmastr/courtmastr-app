@@ -97,26 +97,44 @@ service cloud.firestore {
       // stage subcollection
       match /stage/{stageId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if isAuthenticated();
       }
 
       // match subcollection (singular 'match' used by brackets-manager)
       match /match/{matchId} {
         allow read: if true;
         // Admins and scorekeepers can update matches
-        allow write: if isScorekeeper() || isAdmin();
+        allow write: if isAuthenticated();
       }
 
       // participant subcollection
       match /participant/{participantId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if isAuthenticated();
       }
 
       // group subcollection
       match /group/{groupId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if isAuthenticated();
+      }
+
+      // round subcollection
+      match /round/{roundId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // match_game subcollection (for game scores)
+      match /match_game/{gameId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // match_scores subcollection (for legacy/custom scoring)
+      match /match_scores/{matchId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
       }
 
     }

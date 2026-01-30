@@ -67,13 +67,20 @@ async function fetchBracketData() {
     }
 
     const stageDoc = stageSnapshot.docs[0];
-    const stageData = { id: stageDoc.id, ...stageDoc.data() };
+    const stageDataRaw = stageDoc.data() as any;
+    
+    // IMPORTANT: Normalize stage ID to string to match match.stage_id
+    const stageId = String(stageDataRaw.id || stageDoc.id);
+    const stageData = { 
+      ...stageDataRaw,
+      id: stageId,  // Normalize to string
+    };
     stages.value = [stageData as any];
 
     console.log('📊 Found stage:', stageData);
 
-    // Use the stored 'id' field from the stage document, not the Firestore doc ID
-    const stageIdFromData = (stageDoc.data() as any).id || stageDoc.id;
+    // Use the normalized string stage ID
+    const stageIdFromData = stageId;
     console.log('   Stage ID type:', typeof stageData.id, 'Value:', stageData.id);
     console.log('   Using stage ID for query:', stageIdFromData);
 
@@ -137,17 +144,40 @@ async function fetchBracketData() {
 
     console.log(`📊 Filtered & Normalized to ${matches.value.length} matches for stage ${stageIdFromData}`);
 
+    // Log bracket breakdown
+    const wbMatches = matches.value.filter(m => m.group_id === '0' || m.group_id === 0);
+    const lbMatches = matches.value.filter(m => m.group_id === '1' || m.group_id === 1);
+    const gfMatches = matches.value.filter(m => m.group_id === '2' || m.group_id === 2);
+    
+    console.log('🏆 Bracket Structure:');
+    console.log(`   Winners Bracket (group 0): ${wbMatches.length} matches`);
+    console.log(`   Losers Bracket (group 1): ${lbMatches.length} matches`);
+    console.log(`   Grand Finals (group 2): ${gfMatches.length} matches`);
+    
+    if (wbMatches.length > 0) {
+      console.log('   WB Rounds:', [...new Set(wbMatches.map(m => m.round_id))].sort());
+    }
+    if (lbMatches.length > 0) {
+      console.log('   LB Rounds:', [...new Set(lbMatches.map(m => m.round_id))].sort());
+    }
+
     if (matches.value.length === 0 && allMatches.length > 0) {
       console.error(`❌ CRITICAL: No matches matched the stage_id filter!`);
       console.error(`   This indicates a data consistency issue.`);
       console.error(`   All match stage_ids:`, allMatches.map(m => ({ id: m.id, stage_id: m.stage_id })));
     }
 
-    // 3. Get participants (all for this tournament)
+    // 3. Get participants for this stage
     // Note: brackets-manager stores 'participant' collection separate from our 'registrations'
+    // Participants have tournament_id = stage ID
     const participantSnapshot = await getDocs(
-      collection(db, `tournaments/${props.tournamentId}/participant`)
+      query(
+        collection(db, `tournaments/${props.tournamentId}/participant`),
+        where('tournament_id', '==', stageIdFromData)
+      )
     );
+    
+    console.log(`📊 Found ${participantSnapshot.size} participants for stage ${stageIdFromData}`);
 
     // 3b. Use RegistrationStore to resolve names
     // We need both registrations (to link bracket participant -> player ID)
@@ -163,7 +193,9 @@ async function fetchBracketData() {
     participants.value = participantSnapshot.docs.map(d => {
       const data = d.data() as any;
       // data.name is the Registration ID (seeded by our generator)
-      const regId = data.name; 
+      const regId = data.name;
+      // Normalize participant ID to string
+      const participantId = String(data.id || d.id); 
       
       let humanName = 'Unknown';
       const registration = registrationStore.registrations.find(r => r.id === regId);
@@ -178,18 +210,18 @@ async function fetchBracketData() {
           }
         }
       } else {
-        // Fallback: maybe data.name is already a name? (Unlikely with our generator)
+        // Fallback: maybe data.name is already a name?
         humanName = data.name || 'Unknown';
       }
 
       return {
         ...data,
-        id: String(data.id || d.id),  // Normalize ID
-        name: humanName,              // Show human name
+        id: participantId,  // Use normalized string ID
+        name: humanName,
       } as any;
     });
 
-    console.log(`📊 Found ${participants.value.length} participants`);
+    console.log(`📊 Resolved ${participants.value.length} participant names`);
 
     // TURN OFF LOADING BEFORE RENDERING
     // This is critical because the container div is hidden while loading=true
@@ -220,17 +252,52 @@ function renderBracket() {
     return;
   }
 
-  console.log('🎨 Rendering bracket...');
+  console.log('🎨 Rendering bracket with data:');
+  console.log('   Stages:', stages.value.length, stages.value);
+  console.log('   Matches:', matches.value.length);
+  console.log('   Participants:', participants.value.length);
+  
+  // Group matches by bracket
+  const wbMatches = matches.value.filter(m => m.group_id === '0' || m.group_id === 0);
+  const lbMatches = matches.value.filter(m => m.group_id === '1' || m.group_id === 1);
+  const gfMatches = matches.value.filter(m => m.group_id === '2' || m.group_id === 2);
+  
+  console.log('   WB matches:', wbMatches.length);
+  console.log('   LB matches:', lbMatches.length);
+  console.log('   GF matches:', gfMatches.length);
+  if (wbMatches[0]) console.log('   Sample WB:', wbMatches[0].id, 'round:', wbMatches[0].round_id);
+  if (lbMatches[0]) console.log('   Sample LB:', lbMatches[0].id, 'round:', lbMatches[0].round_id);
 
   try {
     if (!window.bracketsViewer) {
       throw new Error('Brackets viewer library not loaded');
     }
+    
+    if (participants.value.length === 0) {
+      throw new Error('No participants to render');
+    }
+
+    // Prepare data for brackets-viewer
+    // The viewer expects certain properties in the stage object
+    const stagesWithConfig = stages.value.map((s: any) => ({
+      ...s,
+      // Add default settings if missing
+      settings: s.settings || {
+        size: matches.value.length > 16 ? 32 : matches.value.length > 8 ? 16 : 8,
+        seedOrdering: ['inner_outer'],
+        grandFinal: 'double',
+        consolationFinal: true,
+        skipFirstRound: false,
+        matchesChildCount: 0,
+      }
+    }));
+    
+    console.log('🎨 Stages with config:', stagesWithConfig);
 
     window.bracketsViewer.render({
-      stages: stages.value,
+      stages: stagesWithConfig,
       matches: matches.value,
-      matchGames: [], // Required by some versions
+      matchGames: [], 
       participants: participants.value,
     }, {
       selector: '#' + containerId,
@@ -284,8 +351,41 @@ watch(() => props.categoryId, () => {
       <p class="text-caption text-grey">Generate a bracket to see it here</p>
     </div>
 
+    <!-- Debug Info -->
+    <v-expansion-panels v-else class="mb-4">
+      <v-expansion-panel>
+        <v-expansion-panel-title>
+          📊 Bracket Debug Info ({{ matches.length }} matches)
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <v-row>
+            <v-col cols="4">
+              <strong>Winners Bracket:</strong> {{ matches.filter(m => m.group_id === '0').length }} matches
+            </v-col>
+            <v-col cols="4">
+              <strong>Losers Bracket:</strong> {{ matches.filter(m => m.group_id === '1').length }} matches
+            </v-col>
+            <v-col cols="4">
+              <strong>Grand Finals:</strong> {{ matches.filter(m => m.group_id === '2').length }} matches
+            </v-col>
+          </v-row>
+          <v-row class="mt-2">
+            <v-col cols="4">
+              <strong>Participants:</strong> {{ participants.length }}
+            </v-col>
+            <v-col cols="4">
+              <strong>Stage ID:</strong> {{ stages[0]?.id }}
+            </v-col>
+            <v-col cols="4">
+              <strong>Type:</strong> {{ stages[0]?.type }}
+            </v-col>
+          </v-row>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+    </v-expansion-panels>
+
     <!-- Bracket Container -->
-    <div v-else :id="containerId" ref="bracketContainer" class="bracket-wrapper brackets-viewer"></div>
+    <div v-if="stages.length > 0" :id="containerId" ref="bracketContainer" class="bracket-wrapper brackets-viewer"></div>
   </div>
 </template>
 
@@ -297,20 +397,76 @@ watch(() => props.categoryId, () => {
 .bracket-wrapper {
   width: 100%;
   overflow-x: auto;
+  padding: 20px;
 }
 
-/* Optional: Custom theming for brackets-viewer */
+/* Ensure brackets-viewer renders properly */
 :deep(.brackets-viewer) {
-  /* You can override CSS variables here to match your app theme */
-  /* Example:
-  --match-border-color: #your-color;
-  --match-background-color: #your-color;
-  --match-winner-background: #your-color;
-  */
+  display: flex;
+  flex-direction: row;
+  gap: 40px;
+}
+
+:deep(.brackets-viewer .round) {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  min-width: 200px;
+}
+
+:deep(.brackets-viewer .match) {
+  margin: 10px 0;
+}
+
+:deep(.brackets-viewer .bracket) {
+  display: flex;
+  flex-direction: row;
+  gap: 40px;
+}
+
+:deep(.brackets-viewer .bracket-title) {
+  font-weight: bold;
+  margin-bottom: 20px;
+  text-align: center;
 }
 </style>
 
 <style>
-/* Import brackets-viewer.js CSS globally (only once) */
-/* Already imported in script, but ensuring it's available */
+/* Global styles for brackets-viewer.js */
+/* These ensure connecting lines and proper layout */
+.brackets-viewer {
+  --match-border-color: #e0e0e0;
+  --match-background-color: #fff;
+  --match-winner-background: #e8f5e9;
+  --match-loser-background: #ffebee;
+  --connector-color: #bdbdbd;
+}
+
+.brackets-viewer .connector {
+  stroke: var(--connector-color);
+  stroke-width: 2;
+}
+
+.brackets-viewer .match {
+  border: 1px solid var(--match-border-color);
+  background: var(--match-background-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.brackets-viewer .opponent {
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brackets-viewer .opponent.win {
+  background: var(--match-winner-background);
+  font-weight: bold;
+}
+
+.brackets-viewer .opponent.loss {
+  background: var(--match-loser-background);
+}
 </style>

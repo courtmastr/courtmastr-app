@@ -19,6 +19,8 @@ import {
   httpsCallable,
   functions,
 } from '@/services/firebase';
+import { useBracketGenerator } from '@/composables/useBracketGenerator';
+import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import type {
   Tournament,
   TournamentStatus,
@@ -579,63 +581,90 @@ export const useTournamentStore = defineStore('tournaments', () => {
     }
   }
 
-  // Generate bracket (calls Cloud Function)
+  // Generate bracket (client-side with brackets-manager logic)
   async function generateBracket(
     tournamentId: string,
-    categoryId: string
-  ): Promise<void> {
-    loading.value = true;
-    error.value = null;
-
+    categoryId: string,
+    options: {
+      grandFinalReset?: boolean;
+      thirdPlaceMatch?: boolean;
+    } = {}
+  ): Promise<{ success: boolean; matchCount: number }> {
+    const bracketGen = useBracketGenerator();
+    
     try {
-      const generateBracketFn = httpsCallable(functions, 'generateBracket');
-      await generateBracketFn({ tournamentId, categoryId });
+      // Use client-side generator instead of Cloud Function
+      const result = await bracketGen.generateBracket(tournamentId, categoryId, options);
+      return result;
     } catch (err) {
       console.error('Error generating bracket:', err);
-      error.value = 'Failed to generate bracket';
+      error.value = bracketGen.error.value || 'Failed to generate bracket';
       throw err;
-    } finally {
-      loading.value = false;
     }
   }
 
-  // Regenerate bracket (fixes progression links for existing brackets)
+  // Regenerate bracket (delete and recreate)
   async function regenerateBracket(
     tournamentId: string,
-    categoryId: string
-  ): Promise<void> {
-    loading.value = true;
-    error.value = null;
-
+    categoryId: string,
+    options: {
+      grandFinalReset?: boolean;
+      thirdPlaceMatch?: boolean;
+    } = {}
+  ): Promise<{ success: boolean; matchCount: number }> {
+    const bracketGen = useBracketGenerator();
+    
     try {
-      // Call the same generateBracket function with regenerate flag
-      // This will delete existing matches and recreate with proper links
-      const generateBracketFn = httpsCallable(functions, 'generateBracket');
-      await generateBracketFn({ tournamentId, categoryId, regenerate: true });
+      // Delete existing bracket first
+      await bracketGen.deleteBracket(tournamentId, categoryId);
+      
+      // Generate new bracket
+      const result = await bracketGen.generateBracket(tournamentId, categoryId, options);
+      return result;
     } catch (err) {
       console.error('Error regenerating bracket:', err);
-      error.value = 'Failed to regenerate bracket';
+      error.value = bracketGen.error.value || 'Failed to regenerate bracket';
       throw err;
-    } finally {
-      loading.value = false;
     }
   }
 
-  // Generate schedule (calls Cloud Function)
-  async function generateSchedule(tournamentId: string): Promise<void> {
-    loading.value = true;
-    error.value = null;
-
+  // Generate schedule (client-side scheduling)
+  async function generateSchedule(
+    tournamentId: string,
+    options: {
+      categoryId?: string;
+      courtIds?: string[];
+      startTime?: Date;
+    } = {}
+  ): Promise<{ scheduled: number; unscheduled: number }> {
+    const scheduler = useMatchScheduler();
+    
     try {
-      const generateScheduleFn = httpsCallable(functions, 'generateSchedule');
-      await generateScheduleFn({ tournamentId });
+      const result = await scheduler.scheduleMatches(tournamentId, {
+        categoryId: options.categoryId,
+        courtIds: options.courtIds,
+        startTime: options.startTime,
+        respectDependencies: true,
+      });
+      
+      return {
+        scheduled: result.stats.scheduledCount,
+        unscheduled: result.unscheduled.length,
+      };
     } catch (err) {
       console.error('Error generating schedule:', err);
-      error.value = 'Failed to generate schedule';
+      error.value = scheduler.error.value || 'Failed to generate schedule';
       throw err;
-    } finally {
-      loading.value = false;
     }
+  }
+  
+  // Clear schedule for matches that haven't started
+  async function clearSchedule(
+    tournamentId: string,
+    categoryId?: string
+  ): Promise<{ cleared: number }> {
+    const scheduler = useMatchScheduler();
+    return await scheduler.clearSchedule(tournamentId, categoryId);
   }
 
   // Update match schedule (court + time) without marking court as in_use
@@ -736,6 +765,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
     generateBracket,
     regenerateBracket,
     generateSchedule,
+    clearSchedule,
     updateMatchSchedule,
     unsubscribeAll,
     clearCurrentTournament,

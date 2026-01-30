@@ -17,14 +17,14 @@ export interface BracketsMatch {
     group_id: string;
     round_id: string;
     number: number;
-    opponent1: { id: string | null; position?: number; result?: string } | null;
-    opponent2: { id: string | null; position?: number; result?: string } | null;
+    opponent1: { id: string | number | null; position?: number; result?: string } | null;
+    opponent2: { id: string | number | null; position?: number; result?: string } | null;
     status: number; // 0=locked, 1=waiting, 2=ready, 3=running, 4=completed
     child_count?: number;
 }
 
 export interface BracketsParticipant {
-    id: string;
+    id: string | number;
     tournament_id: string;
     name: string; // This is the registration ID in our system
 }
@@ -165,14 +165,19 @@ function getBracketType(groupNumber: number | undefined): BracketPosition['brack
 
 /**
  * Get registration ID from participant ID
+ * 
+ * Note: IDs may be stored as numbers in brackets-manager but come back as strings from Firestore.
+ * We use loose equality (==) to handle this type mismatch.
  */
 function getRegistrationId(
-    participantId: string | null | undefined,
+    participantId: string | number | null | undefined,
     participants: BracketsParticipant[]
 ): string | undefined {
     if (!participantId) return undefined;
 
-    const participant = participants.find(p => p.id === participantId);
+    // Use loose equality (==) to handle number/string type mismatch
+    // Firestore returns IDs as strings, but brackets-manager uses numbers
+    const participant = participants.find(p => p.id == participantId);
     return participant?.name; // name stores the registration ID
 }
 
