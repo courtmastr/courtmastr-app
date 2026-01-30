@@ -90,13 +90,15 @@ export const useMatchStore = defineStore('matches', () => {
         return;
       }
 
-      const [matchSnap, registrationSnap] = await Promise.all([
+      const [matchSnap, registrationSnap, matchScoresSnap] = await Promise.all([
         getDocs(query(collection(db, `tournaments/${tournamentId}/match`), where('stage_id', 'in', stageIds))),
-        getDocs(collection(db, `tournaments/${tournamentId}/registrations`))
+        getDocs(collection(db, `tournaments/${tournamentId}/registrations`)),
+        getDocs(collection(db, `tournaments/${tournamentId}/match_scores`))
       ]);
 
       const bracketsMatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id })) as BracketsMatch[];
       const registrations = registrationSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Registration[];
+      const matchScoresMap = new Map(matchScoresSnap.docs.map(d => [d.id, d.data()]));
 
       const adaptedMatches: Match[] = [];
       const stages = stageSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -113,6 +115,15 @@ export const useMatchStore = defineStore('matches', () => {
         );
 
         if (adapted) {
+          const scoreData = matchScoresMap.get(adapted.id);
+          if (scoreData) {
+            if (scoreData.status) adapted.status = scoreData.status;
+            if (scoreData.scores) adapted.scores = scoreData.scores;
+            if (scoreData.courtId) adapted.courtId = scoreData.courtId;
+            if (scoreData.scheduledTime) adapted.scheduledTime = scoreData.scheduledTime instanceof Timestamp ? scoreData.scheduledTime.toDate() : scoreData.scheduledTime;
+            if (scoreData.startedAt) adapted.startedAt = scoreData.startedAt instanceof Timestamp ? scoreData.startedAt.toDate() : scoreData.startedAt;
+            if (scoreData.completedAt) adapted.completedAt = scoreData.completedAt instanceof Timestamp ? scoreData.completedAt.toDate() : scoreData.completedAt;
+          }
           adaptedMatches.push(adapted);
         }
       }
