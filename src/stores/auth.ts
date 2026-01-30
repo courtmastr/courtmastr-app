@@ -100,6 +100,15 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // Wait for auth state to be initialized (currentUser to be set)
+      await new Promise<void>((resolve) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+          if (user) {
+            unsubscribe();
+            resolve();
+          }
+        });
+      });
     } catch (err: unknown) {
       const firebaseError = err as { code?: string; message?: string };
       error.value = getAuthErrorMessage(firebaseError.code || 'unknown');
