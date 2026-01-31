@@ -414,7 +414,8 @@ async function saveBracketsToFirestore(
       const roundNumber = round?.number || 1;
       const bracketType = getBracketTypeFromGroupNumber(group?.number);
       
-      // Convert opponent IDs to registration IDs
+      // Keep sequential IDs for brackets-manager compatibility
+      // Store registration ID in a separate field for name resolution
       const opponent1RegId = m.opponent1?.id ? registrationMap.get(Number(m.opponent1.id)) : null;
       const opponent2RegId = m.opponent2?.id ? registrationMap.get(Number(m.opponent2.id)) : null;
 
@@ -430,14 +431,16 @@ async function saveBracketsToFirestore(
           round: roundNumber,
           bracket: bracketType,
           position: m.number,
-          // Store registration IDs directly
+          // Store sequential IDs for brackets-manager compatibility
           opponent1: m.opponent1 ? {
             ...sanitized.opponent1,
-            id: opponent1RegId || sanitized.opponent1.id,
+            id: sanitized.opponent1.id, // Keep sequential ID (1, 2, 3...)
+            registrationId: opponent1RegId, // Store registration ID separately
           } : null,
           opponent2: m.opponent2 ? {
             ...sanitized.opponent2,
-            id: opponent2RegId || sanitized.opponent2.id,
+            id: sanitized.opponent2.id, // Keep sequential ID (1, 2, 3...)
+            registrationId: opponent2RegId, // Store registration ID separately
           } : null,
           status: m.status,
           ...(m.child_count && { child_count: m.child_count }),

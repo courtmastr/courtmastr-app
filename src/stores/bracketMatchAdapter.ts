@@ -19,15 +19,13 @@ import type { Registration } from '@/types';
 export interface BracketsMatch {
     id: string;
     stage_id: string;
-    // Enhanced fields (derived from groups/rounds in minimal schema)
     round?: number;
     bracket?: 'winners' | 'losers' | 'finals';
-    // Legacy fields (for backward compatibility)
     group_id?: string;
     round_id?: string;
     number: number;
-    opponent1: { id: string | number | null; position?: number; result?: string } | null;
-    opponent2: { id: string | number | null; position?: number; result?: string } | null;
+    opponent1: { id: string | number | null; registrationId?: string; position?: number; result?: string } | null;
+    opponent2: { id: string | number | null; registrationId?: string; position?: number; result?: string } | null;
     status: number;
     child_count?: number;
 }
@@ -74,8 +72,9 @@ export function adaptBracketsMatchToLegacyMatch(
     const bracketType = bracketsMatch.bracket || 'winners';
     const status = convertBracketsStatus(bracketsMatch.status);
 
-    const participant1Id = bracketsMatch.opponent1?.id?.toString() || undefined;
-    const participant2Id = bracketsMatch.opponent2?.id?.toString() || undefined;
+    // Use registrationId if available, otherwise fall back to sequential id
+    const participant1Id = bracketsMatch.opponent1?.registrationId || bracketsMatch.opponent1?.id?.toString() || undefined;
+    const participant2Id = bracketsMatch.opponent2?.registrationId || bracketsMatch.opponent2?.id?.toString() || undefined;
 
     let winnerId: string | undefined;
     if (bracketsMatch.status === 4) {

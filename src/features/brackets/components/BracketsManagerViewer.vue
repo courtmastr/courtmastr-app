@@ -185,10 +185,9 @@ async function fetchBracketData() {
     console.log(`📊 Found ${categoryRegistrations.length} registrations for category ${props.categoryId}`);
 
     // Build participants from registrations
-    // Use registration ID as participant ID (matches match.opponentX.id)
-    participants.value = categoryRegistrations.map((reg) => {
-      // Use registration ID directly (matches our optimized schema)
-      const participantId = reg.id;
+    // Use sequential IDs to match match.opponentX.id (brackets-manager compatibility)
+    participants.value = categoryRegistrations.map((reg, index) => {
+      const participantId = String(index + 1);
       
       let humanName = 'Unknown';
       if (reg.participantType === 'team' && reg.teamName) {
