@@ -73,16 +73,6 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
 
-      // Matches subcollection
-      match /matches/{matchId} {
-        allow read: if true;
-        // Admins can create matches (bracket generation)
-        allow create: if isAuthenticated();
-        // Scorekeepers can update scores, admins can update anything
-        allow update: if isScorekeeper() || isAdmin();
-        allow delete: if isAdmin();
-      }
-
       // Activities subcollection (tournament activity feed)
       match /activities/{activityId} {
         // Anyone can read activities (public feed)
