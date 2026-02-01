@@ -50,18 +50,30 @@ export class ClientFirestoreStorage implements CrudInterface {
 
     const normalized: any = {};
     for (const [key, value] of Object.entries(obj)) {
-      if (key.endsWith('_id') && key !== 'id') {
+      // Special case: preserve 'id' field type (don't convert to string)
+      // This allows brackets-manager to query by numeric ID
+      if (key === 'id') {
+        normalized[key] = value; // Keep as-is (number or string)
+      }
+      // Convert foreign key references (stage_id, round_id, etc.) to strings
+      else if (key.endsWith('_id') && key !== 'id') {
         if (value && typeof value === 'object' && 'id' in value) {
           normalized[key] = String(value.id); // Convert to string (match server adapter)
         } else {
           normalized[key] = value; // Keep as is
         }
-      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      }
+      // Recursively handle nested objects
+      else if (value && typeof value === 'object' && !Array.isArray(value)) {
         normalized[key] = this.normalizeReferences(value);
-      } else if (Array.isArray(value)) {
+      }
+      // Recursively handle arrays
+      else if (Array.isArray(value)) {
         normalized[key] = value.map(item => this.normalizeReferences(item));
-      } else {
-        normalized[key] = String(value);
+      }
+      // All other values - keep as-is
+      else {
+        normalized[key] = value; // Changed from String(value) to preserve types
       }
     }
     return normalized;
