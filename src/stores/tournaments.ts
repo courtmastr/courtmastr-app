@@ -386,9 +386,9 @@ export const useTournamentStore = defineStore('tournaments', () => {
     try {
       // Find matches scheduled for this court
       const matchesQuery = query(
-        collection(db, `tournaments/${tournamentId}/matches`),
-        where('courtId', '==', courtId),
-        where('status', 'in', ['scheduled', 'ready'])
+        collection(db, `tournaments/${tournamentId}/match_scores`),
+        where('courtId', '==', courtId)
+        // Remove status filter - match_scores doesn't have status field
       );
       const matchesSnapshot = await getDocs(matchesQuery);
 
@@ -402,10 +402,9 @@ export const useTournamentStore = defineStore('tournaments', () => {
         if (availableCourtsList.length === 0) {
           // No courts available - just unassign the court from the match
           await updateDoc(
-            doc(db, `tournaments/${tournamentId}/matches`, matchDoc.id),
+            doc(db, `tournaments/${tournamentId}/match_scores`, matchDoc.id),
             {
               courtId: null,
-              status: 'scheduled',
               updatedAt: serverTimestamp(),
             }
           );
@@ -419,7 +418,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
           // Assign to first available court
           const newCourt = availableCourtsList[0];
           await updateDoc(
-            doc(db, `tournaments/${tournamentId}/matches`, matchDoc.id),
+            doc(db, `tournaments/${tournamentId}/match_scores`, matchDoc.id),
             {
               courtId: newCourt.id,
               updatedAt: serverTimestamp(),
@@ -498,10 +497,10 @@ export const useTournamentStore = defineStore('tournaments', () => {
     const courtsToRelease = new Set<string>();
 
     try {
-      // Get all scheduled/ready matches first, then filter by category
+      // Get all scheduled matches from match_scores, then filter by category
       const matchesQuery = query(
-        collection(db, `tournaments/${tournamentId}/matches`),
-        where('status', 'in', ['scheduled', 'ready'])
+        collection(db, `tournaments/${tournamentId}/match_scores`)
+        // Remove status filter - match_scores doesn't have status
       );
 
       const matchesSnapshot = await getDocs(matchesQuery);
@@ -522,11 +521,11 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
         // Clear court and scheduled time assignments
         await updateDoc(
-          doc(db, `tournaments/${tournamentId}/matches`, matchDoc.id),
+          doc(db, `tournaments/${tournamentId}/match_scores`, matchDoc.id),
           {
             courtId: null,
             scheduledTime: null,
-            status: 'scheduled', // Reset ready matches back to scheduled
+            sequence: null, // Also clear sequence
             updatedAt: serverTimestamp(),
           }
         );
@@ -549,10 +548,10 @@ export const useTournamentStore = defineStore('tournaments', () => {
         }
       }
 
-      // Count skipped (in_progress/completed) matches for the categories
+      // Count skipped (running/completed) matches from brackets-manager collection
       const skippedQuery = query(
-        collection(db, `tournaments/${tournamentId}/matches`),
-        where('status', 'in', ['in_progress', 'completed', 'walkover'])
+        collection(db, `tournaments/${tournamentId}/match`),
+        where('status', 'in', [3, 4])  // 3=running, 4=completed (numeric)
       );
       const skippedSnapshot = await getDocs(skippedQuery);
       // Filter by category if not 'all'
@@ -677,7 +676,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
   ): Promise<void> {
     try {
       await updateDoc(
-        doc(db, `tournaments/${tournamentId}/matches`, matchId),
+        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
         {
           courtId,
           scheduledTime: Timestamp.fromDate(scheduledTime),
