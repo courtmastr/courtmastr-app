@@ -127,6 +127,43 @@ service cloud.firestore {
         allow write: if isAuthenticated();
       }
 
+      // Category-isolated bracket collections (new architecture)
+      match /categories/{categoryId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+
+        // Bracket subcollections under each category
+        match /stage/{stageId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /match/{matchId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /participant/{participantId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /group/{groupId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /round/{roundId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /match_game/{gameId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+      }
+
     }
 
     // Notifications collection
