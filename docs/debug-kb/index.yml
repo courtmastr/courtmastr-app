@@ -1,0 +1,7 @@
+- id: missing-build-log-script
+  title: npm run build:log reports missing script
+  status: "✅ fixed"
+  date: "2026-02-01"
+  fingerprint: "n/a"
+  command: "cd functions && npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-01-22-36-22.tsc.log"
