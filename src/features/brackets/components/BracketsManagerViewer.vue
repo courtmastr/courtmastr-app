@@ -231,7 +231,7 @@ watch(() => props.categoryId, async () => {
     </div>
     
     <div v-else>
-      <div :id="containerId" ref="bracketContainer" class="bracket-container" />
+      <div :id="containerId" ref="bracketContainer" class="bracket-container brackets-viewer" />
     </div>
   </div>
 </template>
