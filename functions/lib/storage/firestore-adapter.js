@@ -2,6 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FirestoreStorage = void 0;
 /**
+ * ADAPTER CONSISTENCY:
+ * This server adapter matches the client adapter (brackets-storage.ts)
+ * in ID handling - all IDs are normalized to strings.
+ *
+ * Path difference: Server uses tournament scope, client uses category isolation.
+ * This is intentional and does not affect data consistency.
+ *
  * Firestore implementation of the CrudInterface for brackets-manager.
  */
 class FirestoreStorage {
@@ -10,10 +17,6 @@ class FirestoreStorage {
         this.rootPath = rootPath;
     }
     getCollectionRef(table) {
-        const parts = this.rootPath.split('/').filter(p => p.length > 0);
-        if (parts.length % 2 !== 0) {
-            return this.db.collection(this.rootPath).doc('_data').collection(table);
-        }
         return this.db.doc(this.rootPath).collection(table);
     }
     removeUndefined(obj) {
@@ -38,8 +41,11 @@ class FirestoreStorage {
      * 1. Object references: brackets-manager passes objects for stage_id, group_id, round_id
      *    We extract just the 'id' property to avoid storing nested objects
      *
-     * 2. ID type consistency: Convert ALL *_id fields to strings for consistent querying
-     *    Firestore document IDs are strings, so we normalize all ID fields to strings
+     * 2. ID type consistency:
+     *    - Preserve primary 'id' field type (brackets-manager expects numeric IDs)
+     *    - Convert ALL foreign key fields (*_id) to strings for Firestore compatibility
+     *
+     * ADAPTER CONSISTENCY: Must match client adapter (brackets-storage.ts) behavior
      */
     normalizeReferences(obj) {
         if (obj === null || obj === undefined)
@@ -50,8 +56,13 @@ class FirestoreStorage {
             return obj;
         const normalized = {};
         for (const [key, value] of Object.entries(obj)) {
-            // Handle _id fields specially
-            if (key.endsWith('_id') || key === 'id') {
+            // Special case: preserve 'id' field type (don't convert to string)
+            // brackets-manager requires numeric IDs for internal operations
+            if (key === 'id') {
+                normalized[key] = value; // Keep as-is (number or string)
+            }
+            // Convert foreign key references (stage_id, round_id, etc.) to strings
+            else if (key.endsWith('_id') && key !== 'id') {
                 if (value && typeof value === 'object' && 'id' in value) {
                     // Extract ID from object reference and convert to string
                     normalized[key] = String(value.id);

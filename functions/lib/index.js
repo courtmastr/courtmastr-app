@@ -37,9 +37,11 @@ exports.healthCheck = exports.advanceWinner = exports.generateSchedule = exports
 // Cloud Functions Entry Point
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const brackets_manager_1 = require("brackets-manager");
 const bracket_1 = require("./bracket");
 const scheduling_1 = require("./scheduling");
 const updateMatch_1 = require("./updateMatch");
+const firestore_adapter_1 = require("./storage/firestore-adapter");
 // Initialize Firebase Admin
 admin.initializeApp();
 const db = admin.firestore();
@@ -104,73 +106,46 @@ exports.generateSchedule = functions.https.onCall(async (request) => {
  * Advance winner to next match after match completion
  */
 exports.advanceWinner = functions.https.onCall(async (request) => {
-    // Verify authentication
-    if (!request.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
-    }
+    var _a, _b, _c, _d;
     const { tournamentId, matchId, winnerId } = request.data;
-    if (!tournamentId || !matchId || !winnerId) {
-        throw new functions.https.HttpsError('invalid-argument', 'tournamentId, matchId, and winnerId are required');
-    }
+    console.log('advanceWinner called:', { tournamentId, matchId, winnerId });
     try {
-        // Get the completed match
-        const matchDoc = await db
-            .collection('tournaments')
-            .doc(tournamentId)
-            .collection('matches')
-            .doc(matchId)
-            .get();
-        if (!matchDoc.exists) {
-            throw new functions.https.HttpsError('not-found', 'Match not found');
+        // Initialize brackets-manager with tournament root path
+        const manager = new brackets_manager_1.BracketsManager(new firestore_adapter_1.FirestoreStorage(db, `tournaments/${tournamentId}`));
+        // Fetch current match to get opponent IDs
+        const match = await manager.storage.select('match', matchId);
+        if (!match) {
+            throw new Error(`Match ${matchId} not found`);
         }
-        const match = matchDoc.data();
-        // Advance winner to next match
-        if ((match === null || match === void 0 ? void 0 : match.nextMatchId) && (match === null || match === void 0 ? void 0 : match.nextMatchSlot)) {
-            await db
-                .collection('tournaments')
-                .doc(tournamentId)
-                .collection('matches')
-                .doc(match.nextMatchId)
-                .update({
-                [match.nextMatchSlot + 'Id']: winnerId,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        const opponent1Id = String((_b = (_a = match.opponent1) === null || _a === void 0 ? void 0 : _a.id) !== null && _b !== void 0 ? _b : '');
+        const opponent2Id = String((_d = (_c = match.opponent2) === null || _c === void 0 ? void 0 : _c.id) !== null && _d !== void 0 ? _d : '');
+        // Determine winner result
+        const isOpponent1Winner = winnerId === opponent1Id;
+        const isOpponent2Winner = winnerId === opponent2Id;
+        if (!isOpponent1Winner && !isOpponent2Winner) {
+            console.warn('Winner ID does not match any opponent', {
+                winnerId,
+                opponent1Id,
+                opponent2Id
             });
         }
-        // For double elimination, also handle loser advancement
-        if ((match === null || match === void 0 ? void 0 : match.loserNextMatchId) && (match === null || match === void 0 ? void 0 : match.loserNextMatchSlot)) {
-            const loserId = match.participant1Id === winnerId
-                ? match.participant2Id
-                : match.participant1Id;
-            await db
-                .collection('tournaments')
-                .doc(tournamentId)
-                .collection('matches')
-                .doc(match.loserNextMatchId)
-                .update({
-                [match.loserNextMatchSlot + 'Id']: loserId,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-        }
-        // Release court
-        if (match === null || match === void 0 ? void 0 : match.courtId) {
-            await db
-                .collection('tournaments')
-                .doc(tournamentId)
-                .collection('courts')
-                .doc(match.courtId)
-                .update({
-                status: 'available',
-                currentMatchId: null,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-        }
-        // Create notification for next match participants
-        // (simplified - in production would be more sophisticated)
+        // Update match with winner - brackets-manager handles advancement
+        await manager.update.match({
+            id: matchId,
+            opponent1: {
+                result: isOpponent1Winner ? 'win' : 'loss'
+            },
+            opponent2: {
+                result: isOpponent2Winner ? 'win' : 'loss'
+            }
+        });
+        console.log('Match updated successfully, winner advanced');
         return { success: true };
     }
     catch (error) {
         console.error('Error advancing winner:', error);
-        throw new functions.https.HttpsError('internal', error instanceof Error ? error.message : 'Failed to advance winner');
+        const message = error instanceof Error ? error.message : String(error);
+        throw new functions.https.HttpsError('internal', `Failed to advance winner: ${message}`);
     }
 });
 /**

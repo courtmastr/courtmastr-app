@@ -10,6 +10,16 @@ import { useAuthStore } from './stores/auth';
 // Initialize Firebase
 initializeFirebase();
 
+// Unregister service workers in development
+if (import.meta.env.DEV && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister();
+      console.log('ServiceWorker unregistered in dev mode');
+    }
+  });
+}
+
 // Create app
 const app = createApp(App);
 

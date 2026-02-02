@@ -58,8 +58,9 @@ export const updateMatch = functions.https.onCall(
             console.log('🔧 [updateMatch] Creating BracketsManager with rootPath:', rootPath);
             const manager = new BracketsManager(new FirestoreStorage(db, rootPath));
 
-            // Map status to brackets-manager status (0-4)
-            // 3 = running, 4 = completed
+            // STATUS MAPPING: Convert app string status to brackets-manager numeric status
+            // /match_scores.status (string) -> /match.status (number)
+            // "completed" -> 4, "in_progress" -> 3, "ready"/"scheduled" -> 2
             const bmStatus = status === 'completed' ? 4 : (status === 'in_progress' ? 3 : 2);
             console.log('📊 [updateMatch] Mapped status:', { clientStatus: status, bmStatus });
 
@@ -83,13 +84,17 @@ export const updateMatch = functions.https.onCall(
 
                 if (!matchData) throw new Error('Match not found');
 
-                // Check opponents
+                // Check opponents - use string comparison to handle type differences
                 // opponent1.id might be null if it was a bye? No, played match has players.
-                if (matchData.opponent1?.id === winnerId) {
+                const opponent1Id = String(matchData.opponent1?.id ?? '');
+                const opponent2Id = String(matchData.opponent2?.id ?? '');
+                const winnerIdStr = String(winnerId);
+                
+                if (opponent1Id === winnerIdStr) {
                     console.log('✅ [updateMatch] Winner is opponent1');
                     updateData.opponent1 = { ...matchData.opponent1, result: 'win' };
                     updateData.opponent2 = { ...matchData.opponent2, result: 'loss' };
-                } else if (matchData.opponent2?.id === winnerId) {
+                } else if (opponent2Id === winnerIdStr) {
                     console.log('✅ [updateMatch] Winner is opponent2');
                     updateData.opponent1 = { ...matchData.opponent1, result: 'loss' };
                     updateData.opponent2 = { ...matchData.opponent2, result: 'win' };

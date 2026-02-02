@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
@@ -32,6 +32,16 @@ const isAdmin = computed(() => authStore.isAdmin);
 
 const activeTab = ref('overview');
 const selectedCategory = ref<string | null>(null);
+
+// Track active category for match data queries
+const activeCategory = computed(() => {
+  // Use selectedCategory if available, otherwise check route query
+  if (selectedCategory.value) {
+    return selectedCategory.value;
+  }
+  const categoryQuery = route.query.category;
+  return typeof categoryQuery === 'string' ? categoryQuery : null;
+});
 
 // Statistics
 const stats = computed(() => {
@@ -106,13 +116,23 @@ function getParticipantDisplay(registration: any): string {
 onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
   tournamentStore.subscribeTournament(tournamentId.value);
-  matchStore.subscribeMatches(tournamentId.value);
+
   registrationStore.subscribeRegistrations(tournamentId.value);
   registrationStore.subscribePlayers(tournamentId.value);
 
   if (categories.value.length > 0) {
     selectedCategory.value = categories.value[0].id;
   }
+
+  watch(
+    [tournamentId, activeCategory],
+    ([tid, catId]) => {
+      if (tid && catId) {
+        matchStore.subscribeMatches(tid, catId);
+      }
+    },
+    { immediate: true }
+  );
 });
 
 onUnmounted(() => {
@@ -512,6 +532,15 @@ async function updateStatus(status: string) {
         <!-- Matches Tab -->
         <v-tabs-window-item value="matches">
           <v-card-text>
+            <v-select
+              v-model="selectedCategory"
+              :items="categories"
+              item-title="name"
+              item-value="id"
+              label="Select Category"
+              class="mb-4"
+              style="max-width: 300px"
+            />
             <v-data-table
               :headers="[
                 { title: 'Match', key: 'matchNumber' },

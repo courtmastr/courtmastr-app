@@ -162,6 +162,11 @@ service cloud.firestore {
           allow read: if true;
           allow write: if isAuthenticated();
         }
+
+        match /match_scores/{matchId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
       }
 
     }

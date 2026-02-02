@@ -2,6 +2,17 @@ import { CrudInterface, Table, OmitId, DataTypes } from 'brackets-manager';
 import { Firestore } from 'firebase/firestore';
 import { collection, doc, getDocs, setDoc, query, where, writeBatch } from 'firebase/firestore';
 
+/**
+ * ADAPTER CONSISTENCY:
+ * Both client (brackets-storage.ts) and server (firestore-adapter.ts)
+ * normalize all IDs to strings for Firestore compatibility.
+ *
+ * Path differences are intentional:
+ * - Client: /categories/{id}/_data/{table} (category isolation)
+ * - Server: /tournaments/{id}/{table} (tournament scope for CFs)
+ *
+ * Both adapters handle IDs identically after Phase 1.1 migration.
+ */
 export class ClientFirestoreStorage implements CrudInterface {
   private db: Firestore;
   private rootPath: string;
@@ -19,13 +30,7 @@ export class ClientFirestoreStorage implements CrudInterface {
   }
 
   private getCollectionRef(table: string) {
-    const parts = this.rootPath.split('/').filter(p => p.length > 0);
-
-    if (parts.length % 2 !== 0) {
-      return collection(this.db, [...parts, '_data', table].join('/'));
-    }
-
-    return collection(this.db, [...parts, table].join('/'));
+    return collection(this.db, `${this.rootPath}/${table}`);
   }
 
   private removeUndefined(obj: any): any {

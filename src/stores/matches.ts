@@ -19,7 +19,7 @@ import {
 } from '@/services/firebase';
 import type { Match, GameScore, Registration } from '@/types';
 import { BADMINTON_CONFIG } from '@/types';
-import { adaptBracketsMatchToLegacyMatch, type BracketsMatch } from './bracketMatchAdapter';
+import { adaptBracketsMatchToLegacyMatch, type BracketsMatch, type Participant } from './bracketMatchAdapter';
 
 export const useMatchStore = defineStore('matches', () => {
   const matches = ref<Match[]>([]);
@@ -29,6 +29,24 @@ export const useMatchStore = defineStore('matches', () => {
 
   let matchesUnsubscribe: (() => void) | null = null;
   let currentMatchUnsubscribe: (() => void) | null = null;
+
+  function getMatchScoresPath(tournamentId: string, categoryId?: string): string {
+    return categoryId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+      : `tournaments/${tournamentId}/match_scores`;
+  }
+
+  function getMatchPath(tournamentId: string, categoryId?: string): string {
+    return categoryId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/match`
+      : `tournaments/${tournamentId}/match`;
+  }
+
+  function getStagePath(tournamentId: string, categoryId?: string): string {
+    return categoryId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/stage`
+      : `tournaments/${tournamentId}/stage`;
+  }
 
   const scheduledMatches = computed(() =>
     matches.value.filter((m) => m.status === 'scheduled')
@@ -73,14 +91,28 @@ export const useMatchStore = defineStore('matches', () => {
     error.value = null;
 
     try {
+      // Build category-level paths for bracket data
+      const stagePath = categoryId 
+        ? `tournaments/${tournamentId}/categories/${categoryId}/stage`
+        : `tournaments/${tournamentId}/stage`;
+      const matchPath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/match`
+        : `tournaments/${tournamentId}/match`;
+      const matchScoresPath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+        : `tournaments/${tournamentId}/match_scores`;
+      const participantPath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/participant`
+        : `tournaments/${tournamentId}/participant`;
+
       let stageQuery;
       if (categoryId) {
         stageQuery = query(
-          collection(db, `tournaments/${tournamentId}/stage`),
+          collection(db, stagePath),
           where('tournament_id', '==', categoryId)
         );
       } else {
-        stageQuery = collection(db, `tournaments/${tournamentId}/stage`);
+        stageQuery = collection(db, stagePath);
       }
       const stageSnap = await getDocs(stageQuery);
       const stageIds = stageSnap.docs.map(d => d.id);
@@ -90,15 +122,19 @@ export const useMatchStore = defineStore('matches', () => {
         return;
       }
 
-      const [matchSnap, registrationSnap, matchScoresSnap] = await Promise.all([
-        getDocs(query(collection(db, `tournaments/${tournamentId}/match`), where('stage_id', 'in', stageIds))),
+      const numericStageIds = stageIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+
+      const [matchSnap, registrationSnap, matchScoresSnap, participantSnap] = await Promise.all([
+        getDocs(query(collection(db, matchPath), where('stage_id', 'in', numericStageIds))),
         getDocs(collection(db, `tournaments/${tournamentId}/registrations`)),
-        getDocs(collection(db, `tournaments/${tournamentId}/match_scores`))
+        getDocs(collection(db, matchScoresPath)),
+        getDocs(collection(db, participantPath))
       ]);
 
       const bracketsMatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id })) as BracketsMatch[];
       const registrations = registrationSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Registration[];
       const matchScoresMap = new Map(matchScoresSnap.docs.map(d => [d.id, d.data()]));
+      const participants = participantSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Participant[];
 
       const adaptedMatches: Match[] = [];
       const stages = stageSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -110,6 +146,7 @@ export const useMatchStore = defineStore('matches', () => {
         const adapted = adaptBracketsMatchToLegacyMatch(
           bMatch,
           registrations,
+          participants,
           matchCategoryId,
           tournamentId
         );
@@ -117,6 +154,10 @@ export const useMatchStore = defineStore('matches', () => {
         if (adapted) {
           const scoreData = matchScoresMap.get(adapted.id);
           if (scoreData) {
+            // STATUS HANDLING:
+            // - /match.status (number 0-4) - brackets-manager internal use only
+            // - /match_scores.status (string) - authoritative for UI display
+            // - Always use match_scores.status when available
             if (scoreData.status) adapted.status = scoreData.status;
             if (scoreData.scores) adapted.scores = scoreData.scores;
             if (scoreData.courtId) adapted.courtId = scoreData.courtId;
@@ -155,11 +196,21 @@ export const useMatchStore = defineStore('matches', () => {
       await fetchMatches(tournamentId, categoryId);
     };
 
-    const qMatch = collection(db, `tournaments/${tournamentId}/match`);
+    // Build category-level paths for subscriptions
+    const matchPath = categoryId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/match`
+      : `tournaments/${tournamentId}/match`;
+    const matchScoresPath = categoryId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+      : `tournaments/${tournamentId}/match_scores`;
+
+    // Subscribe to /match collection (bracket structure changes)
+    const qMatch = collection(db, matchPath);
     const unsubMatch = onSnapshot(qMatch, () => refresh());
     unsubscibers.push(unsubMatch);
 
-    const qScores = collection(db, `tournaments/${tournamentId}/match_scores`);
+    // Subscribe to /match_scores collection (operational data changes)
+    const qScores = collection(db, matchScoresPath);
     const unsubScores = onSnapshot(qScores, () => refresh());
     unsubscibers.push(unsubScores);
 
@@ -168,32 +219,43 @@ export const useMatchStore = defineStore('matches', () => {
     };
   }
 
-  async function fetchMatch(tournamentId: string, matchId: string): Promise<void> {
+  async function fetchMatch(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
     loading.value = true;
     error.value = null;
 
     try {
-      const matchDoc = await getDoc(doc(db, `tournaments/${tournamentId}/match`, matchId));
+      const matchPath = getMatchPath(tournamentId, categoryId);
+      const matchDoc = await getDoc(doc(db, matchPath, matchId));
       if (!matchDoc.exists()) throw new Error('Match not found');
 
       const bMatch = { ...matchDoc.data(), id: matchDoc.id } as BracketsMatch;
 
-      const stageDoc = await getDoc(doc(db, `tournaments/${tournamentId}/stage`, bMatch.stage_id));
+      const stagePath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/stage`
+        : `tournaments/${tournamentId}/stage`;
+      const participantPath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/participant`
+        : `tournaments/${tournamentId}/participant`;
+      const stageDoc = await getDoc(doc(db, stagePath, bMatch.stage_id));
       const registrationSnap = await getDocs(collection(db, `tournaments/${tournamentId}/registrations`));
+      const participantSnap = await getDocs(collection(db, participantPath));
       const registrations = registrationSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Registration[];
+      const participants = participantSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Participant[];
 
       const stage = stageDoc.data() as any;
-      const categoryId = stage ? stage.tournament_id : '';
+      const matchCategoryId = stage ? stage.tournament_id : categoryId || '';
 
       const adapted = adaptBracketsMatchToLegacyMatch(
         bMatch,
         registrations,
-        categoryId,
+        participants,
+        matchCategoryId,
         tournamentId
       );
 
       if (adapted) {
-        const scoreDoc = await getDoc(doc(db, `tournaments/${tournamentId}/match_scores`, matchId));
+        const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);
+        const scoreDoc = await getDoc(doc(db, matchScoresPath, matchId));
         if (scoreDoc.exists()) {
           const scoreData = scoreDoc.data();
           adapted.scores = scoreData.scores || [];
@@ -214,16 +276,17 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  function subscribeMatch(tournamentId: string, matchId: string): void {
+  function subscribeMatch(tournamentId: string, matchId: string, categoryId?: string): void {
     if (currentMatchUnsubscribe) {
       currentMatchUnsubscribe();
       currentMatchUnsubscribe = null;
     }
 
+    const matchPath = getMatchPath(tournamentId, categoryId);
     currentMatchUnsubscribe = onSnapshot(
-      doc(db, `tournaments/${tournamentId}/match`, matchId),
+      doc(db, matchPath, matchId),
       async () => {
-        await fetchMatch(tournamentId, matchId);
+        await fetchMatch(tournamentId, matchId, categoryId);
       },
       (err) => {
         console.error('Error in match subscription:', err);
@@ -232,10 +295,13 @@ export const useMatchStore = defineStore('matches', () => {
     );
   }
 
-  async function startMatch(tournamentId: string, matchId: string): Promise<void> {
+  async function startMatch(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
     try {
+      const matchScoresPath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+        : `tournaments/${tournamentId}/match_scores`;
       await setDoc(
-        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
+        doc(db, matchScoresPath, matchId),
         {
           startedAt: serverTimestamp(),
           status: 'in_progress',
@@ -252,7 +318,8 @@ export const useMatchStore = defineStore('matches', () => {
   async function updateScore(
     tournamentId: string,
     matchId: string,
-    participant: 'participant1' | 'participant2'
+    participant: 'participant1' | 'participant2',
+    categoryId?: string
   ): Promise<void> {
     const match = currentMatch.value;
     if (!match) throw new Error('No match selected');
@@ -274,12 +341,16 @@ export const useMatchStore = defineStore('matches', () => {
 
     const matchResult = checkMatchComplete(scores, match.participant1Id!, match.participant2Id!);
     if (matchResult.isComplete) {
-      await completeMatch(tournamentId, matchId, scores, matchResult.winnerId!);
+      await completeMatch(tournamentId, matchId, scores, matchResult.winnerId!, categoryId);
       return;
     }
 
+    const matchScoresPath = categoryId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+      : `tournaments/${tournamentId}/match_scores`;
+
     await setDoc(
-      doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
+      doc(db, matchScoresPath, matchId),
       {
         scores,
         updatedAt: serverTimestamp(),
@@ -291,7 +362,8 @@ export const useMatchStore = defineStore('matches', () => {
   async function decrementScore(
     tournamentId: string,
     matchId: string,
-    participant: 'participant1' | 'participant2'
+    participant: 'participant1' | 'participant2',
+    categoryId?: string
   ): Promise<void> {
     const match = currentMatch.value;
     if (!match) throw new Error('No match selected');
@@ -307,8 +379,12 @@ export const useMatchStore = defineStore('matches', () => {
       currentGame.score2--;
     }
 
+    const matchScoresPath = categoryId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+      : `tournaments/${tournamentId}/match_scores`;
+
     await setDoc(
-      doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
+      doc(db, matchScoresPath, matchId),
       {
         scores,
         updatedAt: serverTimestamp(),
@@ -321,12 +397,20 @@ export const useMatchStore = defineStore('matches', () => {
     tournamentId: string,
     matchId: string,
     scores: GameScore[],
-    winnerId: string
+    winnerId: string,
+    categoryId?: string
   ): Promise<void> {
     try {
+      const matchScoresPath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+        : `tournaments/${tournamentId}/match_scores`;
+      const matchPath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/match`
+        : `tournaments/${tournamentId}/match`;
+
       // 1. Write final scores to match_scores
       await setDoc(
-        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
+        doc(db, matchScoresPath, matchId),
         {
           scores,
           winnerId,
@@ -340,11 +424,47 @@ export const useMatchStore = defineStore('matches', () => {
       // 2. Call Cloud Function to advance bracket
       try {
         const updateMatchFn = httpsCallable(functions, 'updateMatch');
+        let bracketWinnerId: string | number = winnerId;
+
+        try {
+          const matchDoc = await getDoc(doc(db, matchPath, matchId));
+          if (matchDoc.exists()) {
+            const bMatch = matchDoc.data() as BracketsMatch;
+            const opponent1 = bMatch.opponent1;
+            const opponent2 = bMatch.opponent2;
+            const opponent1RegistrationId = opponent1?.registrationId ?? opponent1?.id?.toString();
+            const opponent2RegistrationId = opponent2?.registrationId ?? opponent2?.id?.toString();
+
+            if (opponent1RegistrationId === winnerId) {
+              bracketWinnerId = opponent1?.id ?? winnerId;
+            } else if (opponent2RegistrationId === winnerId) {
+              bracketWinnerId = opponent2?.id ?? winnerId;
+            } else if (opponent1?.id?.toString() === winnerId) {
+              bracketWinnerId = opponent1.id;
+            } else if (opponent2?.id?.toString() === winnerId) {
+              bracketWinnerId = opponent2.id;
+            } else {
+              console.warn('[completeMatch] Winner registration ID did not match bracket opponents', {
+                matchId,
+                winnerId,
+                opponent1Id: opponent1?.id,
+                opponent2Id: opponent2?.id,
+                opponent1RegistrationId,
+                opponent2RegistrationId,
+              });
+            }
+          } else {
+            console.warn('[completeMatch] Bracket match not found for winner mapping', { matchId });
+          }
+        } catch (mapErr) {
+          console.warn('[completeMatch] Failed to map winner to bracket opponent ID', mapErr);
+        }
+
         await updateMatchFn({
           tournamentId,
           matchId,
           status: 'completed',
-          winnerId,
+          winnerId: bracketWinnerId,
           scores
         });
         console.log('[completeMatch] Cloud function advanced bracket successfully');
@@ -358,10 +478,13 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  async function resetMatch(tournamentId: string, matchId: string): Promise<void> {
+  async function resetMatch(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
     try {
+      const matchScoresPath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+        : `tournaments/${tournamentId}/match_scores`;
       await setDoc(
-        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
+        doc(db, matchScoresPath, matchId),
         {
           scores: [],
           winnerId: null,
@@ -381,11 +504,15 @@ export const useMatchStore = defineStore('matches', () => {
   async function assignMatchToCourt(
     tournamentId: string,
     matchId: string,
-    courtId: string
+    courtId: string,
+    categoryId?: string
   ): Promise<void> {
     try {
+      const matchScoresPath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+        : `tournaments/${tournamentId}/match_scores`;
       await setDoc(
-        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
+        doc(db, matchScoresPath, matchId),
         {
           courtId,
           status: 'ready',
@@ -405,10 +532,11 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  async function markMatchReady(tournamentId: string, matchId: string): Promise<void> {
+  async function markMatchReady(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
     try {
+      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);
       await setDoc(
-        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
+        doc(db, matchScoresPath, matchId),
         {
           status: 'ready',
           updatedAt: serverTimestamp(),
@@ -416,7 +544,7 @@ export const useMatchStore = defineStore('matches', () => {
         { merge: true }
       );
 
-      const courtSnap = await getDoc(doc(db, `tournaments/${tournamentId}/match_scores`, matchId));
+      const courtSnap = await getDoc(doc(db, matchScoresPath, matchId));
       const courtId = courtSnap.data()?.courtId;
       if (courtId) {
         await updateDoc(doc(db, `tournaments/${tournamentId}/courts`, courtId), {
@@ -430,9 +558,9 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  async function calculateWinner(tournamentId: string, matchId: string): Promise<void> {
+  async function calculateWinner(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
     try {
-      await fetchMatch(tournamentId, matchId);
+      await fetchMatch(tournamentId, matchId, categoryId);
 
       const matchData = currentMatch.value;
       if (!matchData) throw new Error('Match not found');
@@ -461,7 +589,7 @@ export const useMatchStore = defineStore('matches', () => {
         throw new Error('Could not determine winner from scores');
       }
 
-      await completeMatch(tournamentId, matchId, games, winnerId);
+      await completeMatch(tournamentId, matchId, games, winnerId, categoryId);
     } catch (err) {
       console.error('Error calculating winner:', err);
       throw err;
@@ -471,10 +599,11 @@ export const useMatchStore = defineStore('matches', () => {
   async function submitManualScores(
     tournamentId: string,
     matchId: string,
-    games: GameScore[]
+    games: GameScore[],
+    categoryId?: string
   ): Promise<void> {
     try {
-      await fetchMatch(tournamentId, matchId);
+      await fetchMatch(tournamentId, matchId, categoryId);
       if (!currentMatch.value) throw new Error('Match not found');
 
       const matchData = currentMatch.value;
@@ -497,10 +626,11 @@ export const useMatchStore = defineStore('matches', () => {
       const winnerId = p1Wins >= gamesNeeded ? participant1Id : (p2Wins >= gamesNeeded ? participant2Id : null);
 
       if (isMatchComplete && winnerId) {
-        await completeMatch(tournamentId, matchId, games, winnerId);
+        await completeMatch(tournamentId, matchId, games, winnerId, categoryId);
       } else {
+        const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);
         await setDoc(
-          doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
+          doc(db, matchScoresPath, matchId),
           {
             scores: games,
             updatedAt: serverTimestamp(),
@@ -590,6 +720,7 @@ export const useMatchStore = defineStore('matches', () => {
     completeMatch,
     resetMatch,
     assignMatchToCourt,
+    assignCourt: assignMatchToCourt,
     markMatchReady,
     calculateWinner,
     submitManualScores,

@@ -44,7 +44,7 @@ const firestore_adapter_1 = require("./storage/firestore-adapter");
  * Update match score and advance bracket if match is complete
  */
 exports.updateMatch = functions.https.onCall(async (request) => {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     const db = admin.firestore();
     // Verify authentication
     if (!request.auth) {
@@ -79,8 +79,9 @@ exports.updateMatch = functions.https.onCall(async (request) => {
         const rootPath = `tournaments/${tournamentId}`;
         console.log('🔧 [updateMatch] Creating BracketsManager with rootPath:', rootPath);
         const manager = new brackets_manager_1.BracketsManager(new firestore_adapter_1.FirestoreStorage(db, rootPath));
-        // Map status to brackets-manager status (0-4)
-        // 3 = running, 4 = completed
+        // STATUS MAPPING: Convert app string status to brackets-manager numeric status
+        // /match_scores.status (string) -> /match.status (number)
+        // "completed" -> 4, "in_progress" -> 3, "ready"/"scheduled" -> 2
         const bmStatus = status === 'completed' ? 4 : (status === 'in_progress' ? 3 : 2);
         console.log('📊 [updateMatch] Mapped status:', { clientStatus: status, bmStatus });
         const updateData = {
@@ -101,14 +102,17 @@ exports.updateMatch = functions.https.onCall(async (request) => {
             });
             if (!matchData)
                 throw new Error('Match not found');
-            // Check opponents
+            // Check opponents - use string comparison to handle type differences
             // opponent1.id might be null if it was a bye? No, played match has players.
-            if (((_c = matchData.opponent1) === null || _c === void 0 ? void 0 : _c.id) === winnerId) {
+            const opponent1Id = String((_d = (_c = matchData.opponent1) === null || _c === void 0 ? void 0 : _c.id) !== null && _d !== void 0 ? _d : '');
+            const opponent2Id = String((_f = (_e = matchData.opponent2) === null || _e === void 0 ? void 0 : _e.id) !== null && _f !== void 0 ? _f : '');
+            const winnerIdStr = String(winnerId);
+            if (opponent1Id === winnerIdStr) {
                 console.log('✅ [updateMatch] Winner is opponent1');
                 updateData.opponent1 = { ...matchData.opponent1, result: 'win' };
                 updateData.opponent2 = { ...matchData.opponent2, result: 'loss' };
             }
-            else if (((_d = matchData.opponent2) === null || _d === void 0 ? void 0 : _d.id) === winnerId) {
+            else if (opponent2Id === winnerIdStr) {
                 console.log('✅ [updateMatch] Winner is opponent2');
                 updateData.opponent1 = { ...matchData.opponent1, result: 'loss' };
                 updateData.opponent2 = { ...matchData.opponent2, result: 'win' };
@@ -120,7 +124,7 @@ exports.updateMatch = functions.https.onCall(async (request) => {
                 // But in `bracket.ts` we used `reg.id` as the seeding ID.
                 // And `reg.id` IS the registration ID in our system.
                 // So `matchData.opponent1.id` should be the registration ID.
-                console.warn(`⚠️  [updateMatch] Winner ID ${winnerId} does not match opponent1 (${(_e = matchData.opponent1) === null || _e === void 0 ? void 0 : _e.id}) or opponent2 (${(_f = matchData.opponent2) === null || _f === void 0 ? void 0 : _f.id})`);
+                console.warn(`⚠️  [updateMatch] Winner ID ${winnerId} does not match opponent1 (${(_g = matchData.opponent1) === null || _g === void 0 ? void 0 : _g.id}) or opponent2 (${(_h = matchData.opponent2) === null || _h === void 0 ? void 0 : _h.id})`);
             }
         }
         console.log('🚀 [updateMatch] Calling manager.update.match with updateData:', updateData);

@@ -1,23 +1,23 @@
 /**
  * Client-side Bracket Generator for Courtmaster
- * Uses brackets-manager library for proper progression
+ * Uses brackets-manager library with proper FirestoreStorage adapter
+ * Stores data in category-isolated subcollections
  */
 
 import { ref } from 'vue';
 import {
   db,
-  collection,
   doc,
-  getDocs,
   getDoc,
+  getDocs,
   setDoc,
-  writeBatch,
+  collection,
   query,
   where,
   serverTimestamp,
 } from '@/services/firebase';
 import { BracketsManager } from 'brackets-manager';
-import { InMemoryDatabase } from 'brackets-memory-db';
+import { ClientFirestoreStorage } from '@/services/brackets-storage';
 import type { Registration, Category } from '@/types';
 
 // ============================================
@@ -25,8 +25,8 @@ import type { Registration, Category } from '@/types';
 // ============================================
 
 export interface BracketOptions {
-  grandFinal?: 'simple' | 'double' | 'none'; // simple = one match, double = reset if LB wins
-  consolationFinal?: boolean; // Third place match
+  grandFinal?: 'simple' | 'double' | 'none';
+  consolationFinal?: boolean;
   seedOrdering?: ('natural' | 'reverse' | 'half_shift' | 'inner_outer')[];
 }
 
@@ -36,6 +36,7 @@ export interface BracketResult {
   matchCount: number;
   groupCount: number;
   roundCount: number;
+  participantCount: number;
 }
 
 // ============================================
@@ -48,7 +49,8 @@ export function useBracketGenerator() {
   const progress = ref(0);
 
   /**
-   * Generate bracket using brackets-manager library
+   * Generate bracket using brackets-manager library with FirestoreStorage
+   * Stores all data in category-isolated subcollections
    */
   async function generateBracket(
     tournamentId: string,
@@ -101,57 +103,81 @@ export function useBracketGenerator() {
 
       progress.value = 30;
 
-      // 5. Generate using brackets-manager (in-memory)
-      const storage = new InMemoryDatabase();
+      // 5. Create FirestoreStorage with category-isolated path
+      // This ensures each category's data is completely separate
+      const categoryPath = `tournaments/${tournamentId}/categories/${categoryId}`;
+      const storage = new ClientFirestoreStorage(db, categoryPath);
       const manager = new BracketsManager(storage);
 
-      // 5a. Initialize storage with participants FIRST (required by brackets-manager)
+      console.log(`💾 Using FirestoreStorage with path: ${categoryPath}`);
+
       const participantsData = sortedRegistrations.map((reg, index) => ({
-        id: index + 1, // Use numeric IDs like sample app
+        id: index + 1,
         tournament_id: categoryId,
-        name: reg.id, // Store registration ID as name for lookup
+        name: reg.id,
       }));
-      
-      storage.setData({
-        participant: participantsData,
-        stage: [],
-        group: [],
-        round: [],
-        match: [],
-        match_game: [],
-      });
-      
-      console.log(`💾 Initialized storage with ${participantsData.length} participants`);
+
+      await storage.insert('participant', participantsData);
+      console.log(`✅ Created ${participantsData.length} participants`);
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      console.log('🔍 Verifying participants in storage...');
+      const verifyParticipants = await storage.select('participant') as any[];
+      console.log(`   Found ${verifyParticipants?.length || 0} participants`);
+
+      if (verifyParticipants && verifyParticipants.length > 0) {
+        console.log('   First participant:', verifyParticipants[0]);
+
+        const testSelect = await storage.select('participant', 1);
+        console.log('   Select by ID 1:', testSelect ? 'FOUND' : 'NOT FOUND');
+      }
+
+      progress.value = 40;
 
       const stageType = category.format === 'pool_to_elimination'
         ? 'single_elimination'
         : category.format;
 
+      const settings: any = {
+        seedOrdering: options.seedOrdering || ['inner_outer'],
+      };
+
+      if (stageType === 'double_elimination') {
+        settings.grandFinal = options.grandFinal || 'double';
+      }
+
+      if (options.consolationFinal !== undefined) {
+        settings.consolationFinal = options.consolationFinal;
+      }
+
       const stage = await manager.create.stage({
         tournamentId: categoryId,
         name: category.name,
         type: stageType as any,
-        seeding,
-        settings: {
-          seedOrdering: options.seedOrdering || ['inner_outer'],
-          grandFinal: options.grandFinal || (stageType === 'double_elimination' ? 'double' : undefined),
-          consolationFinal: options.consolationFinal,
-        },
+        seedingIds: seeding,
+        settings,
       });
 
-      progress.value = 50;
+      // brackets-manager may not return id reliably, fetch from storage
+      let stageId = stage?.id;
+      if (stageId === undefined) {
+        const stages = await storage.select('stage', { tournament_id: categoryId }) as any[];
+        if (stages && stages.length > 0) {
+          stageId = stages[0].id;
+        }
+      }
+      console.log('📌 Stage created with ID:', stageId);
 
-      // 6. Export from memory and save to Firestore
-      await saveBracketsToFirestore(tournamentId, categoryId, storage, Number(stage.id), sortedRegistrations);
+      progress.value = 60;
 
-      progress.value = 80;
-
-      // 7. Update category status
+      // 8. Update category status
       await setDoc(
         doc(db, 'tournaments', tournamentId, 'categories', categoryId),
         {
           status: 'active',
-          stageId: stage.id,
+          stageId: stageId ?? null, // Use null instead of undefined for Firestore
+          bracketGeneratedAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         },
         { merge: true }
@@ -159,80 +185,22 @@ export function useBracketGenerator() {
 
       progress.value = 100;
 
-      // Get stats
-      const matches = await storage.select('match', { stage_id: stage.id });
-      const groups = await storage.select('group', { stage_id: stage.id });
-      const rounds = await storage.select('round', { stage_id: stage.id });
+      // Get stats from Firestore
+      const matches = await storage.select('match', { stage_id: stageId });
+      const groups = await storage.select('group', { stage_id: stageId });
+      const rounds = await storage.select('round', { stage_id: stageId });
+      const participantCount = participantsData.length;
 
       const result: BracketResult = {
         success: true,
-        stageId: Number(stage.id),
+        stageId: (stageId as number) ?? 0,
         matchCount: Array.isArray(matches) ? matches.length : 0,
         groupCount: Array.isArray(groups) ? groups.length : 0,
         roundCount: Array.isArray(rounds) ? rounds.length : 0,
+        participantCount,
       };
 
-      // Log detailed bracket structure
-      if (Array.isArray(matches) && Array.isArray(groups) && Array.isArray(rounds)) {
-        // Create lookups
-        const groupMap = new Map((groups as any[]).map(g => [String(g.id), g]));
-        const roundMap = new Map((rounds as any[]).map(r => [String(r.id), r]));
-        
-        const wb = matches.filter((m: any) => groupMap.get(String(m.group_id))?.number === 0);
-        const lb = matches.filter((m: any) => groupMap.get(String(m.group_id))?.number === 1);
-        const gf = matches.filter((m: any) => groupMap.get(String(m.group_id))?.number === 2);
-        
-        console.log('🏆 Bracket Structure:');
-        console.log(`   Winners Bracket: ${wb.length} matches`);
-        console.log(`   Losers Bracket: ${lb.length} matches`);
-        console.log(`   Grand Finals: ${gf.length} matches`);
-        
-        // Group WB by round
-        console.log('   WB by Round:');
-        const wbByRound = new Map();
-        wb.forEach((m: any) => {
-          const round = roundMap.get(String(m.round_id));
-          const roundNum = round?.number || m.round_id;
-          if (!wbByRound.has(roundNum)) wbByRound.set(roundNum, []);
-          wbByRound.get(roundNum).push(m);
-        });
-        [...wbByRound.entries()].sort((a, b) => a[0] - b[0]).forEach(([roundNum, ms]) => {
-          console.log(`     Round ${roundNum}: ${ms.length} matches`);
-        });
-        
-        // Group LB by round
-        console.log('   LB by Round:');
-        const lbByRound = new Map();
-        lb.forEach((m: any) => {
-          const round = roundMap.get(String(m.round_id));
-          const roundNum = round?.number || m.round_id;
-          if (!lbByRound.has(roundNum)) lbByRound.set(roundNum, []);
-          lbByRound.get(roundNum).push(m);
-        });
-        [...lbByRound.entries()].sort((a, b) => a[0] - b[0]).forEach(([roundNum, ms]) => {
-          console.log(`     Round ${roundNum}: ${ms.length} matches`);
-        });
-        
-        // Show first few WB matches
-        if (wb.length > 0) {
-          console.log('   Sample WB matches:');
-          wb.slice(0, 4).forEach((m: any) => {
-            const p1 = participantsData.find((p: any) => p.id === m.opponent1?.id)?.name?.slice(0, 8) || 'TBD';
-            const p2 = participantsData.find((p: any) => p.id === m.opponent2?.id)?.name?.slice(0, 8) || 'TBD';
-            console.log(`     Match ${m.number}: ${p1} vs ${p2}`);
-          });
-        }
-        if (lb.length > 0) {
-          console.log('   Sample LB matches:');
-          lb.slice(0, 4).forEach((m: any) => {
-            const p1 = participantsData.find((p: any) => p.id === m.opponent1?.id)?.name?.slice(0, 8) || 'TBD';
-            const p2 = participantsData.find((p: any) => p.id === m.opponent2?.id)?.name?.slice(0, 8) || 'TBD';
-            console.log(`     Match ${m.number}: ${p1} vs ${p2}`);
-          });
-        }
-      }
-
-      console.log(`✅ Bracket generated:`, result);
+      console.log(`✅ Bracket generated and saved to ${categoryPath}:`, result);
       return result;
 
     } catch (err) {
@@ -245,55 +213,41 @@ export function useBracketGenerator() {
   }
 
   /**
-   * Delete existing bracket
+   * Delete existing bracket for a category
    */
   async function deleteBracket(
     tournamentId: string,
     categoryId: string
   ): Promise<void> {
-    // Find stages for this category
-    const stagesQuery = query(
-      collection(db, 'tournaments', tournamentId, 'stage'),
-      where('tournament_id', '==', categoryId)
-    );
+    const categoryPath = `tournaments/${tournamentId}/categories/${categoryId}`;
+    const storage = new ClientFirestoreStorage(db, categoryPath);
 
-    const stagesSnap = await getDocs(stagesQuery);
-    const batch = writeBatch(db);
+    // Get all stages for this category
+    const stages = await storage.select('stage') as any[];
 
-    for (const stageDoc of stagesSnap.docs) {
-      const stageId = stageDoc.id;
-
-      // Delete all related collections
-      const collections = ['group', 'round', 'match', 'match_game', 'participant'];
-
-      for (const collName of collections) {
-        const collQuery = query(
-          collection(db, 'tournaments', tournamentId, collName),
-          where('stage_id', '==', stageId)
-        );
-        const collSnap = await getDocs(collQuery);
-        collSnap.docs.forEach(d => batch.delete(d.ref));
+    if (stages && Array.isArray(stages)) {
+      for (const stage of stages) {
+        // Delete all related data
+        await storage.delete('match', { stage_id: stage.id });
+        await storage.delete('round', { stage_id: stage.id });
+        await storage.delete('group', { stage_id: stage.id });
+        await storage.delete('participant', { tournament_id: categoryId });
+        await storage.delete('stage', stage.id);
       }
-
-      // Also delete participants linked by tournament_id
-      const partQuery = query(
-        collection(db, 'tournaments', tournamentId, 'participant'),
-        where('tournament_id', '==', stageId)
-      );
-      const partSnap = await getDocs(partQuery);
-      partSnap.docs.forEach(d => batch.delete(d.ref));
-
-      batch.delete(stageDoc.ref);
     }
-
-    await batch.commit();
 
     // Update category status
     await setDoc(
       doc(db, 'tournaments', tournamentId, 'categories', categoryId),
-      { status: 'setup', updatedAt: serverTimestamp() },
+      {
+        status: 'setup',
+        stageId: null,
+        updatedAt: serverTimestamp()
+      },
       { merge: true }
     );
+
+    console.log(`✅ Deleted bracket from ${categoryPath}`);
   }
 
   return {
@@ -321,171 +275,21 @@ function sortRegistrationsBySeed(registrations: Registration[]): Registration[] 
   return [...seeded, ...unseeded];
 }
 
-/**
- * Create seeding array for brackets-manager
- * 
- * Simple approach: [1, 2, 3, ..., N, null, null, ...]
- * brackets-manager with 'inner_outer' will automatically:
- * - Place top seeds in favorable positions
- * - Distribute BYEs to benefit highest seeds
- * 
- * Example 12 players (16-slot bracket):
- *   Input: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, null, null, null, null]
- *   inner_outer places BYEs at positions that give seeds 1-4 byes
- * 
- * registrations MUST be sorted by seed (best seed first = participant 1)
- */
 function createSeedingArray(registrations: Registration[]): (number | null)[] {
   const count = registrations.length;
-  
-  // Calculate bracket size (next power of 2)
   const bracketSize = Math.pow(2, Math.ceil(Math.log2(Math.max(count, 2))));
-  
-  // Create seeding: participant IDs in order, then nulls for BYEs
   const seeding: (number | null)[] = [];
-  
-  // Add participant IDs (1, 2, 3, ...)
+
   for (let i = 0; i < registrations.length; i++) {
-    seeding.push(i + 1); // Participant ID
+    seeding.push(i + 1);
   }
-  
-  // Pad with nulls (BYEs) to reach bracket size
+
   while (seeding.length < bracketSize) {
     seeding.push(null);
   }
-  
+
   console.log('🎯 Seeding array:', seeding.map((s, i) => s ? `Pos${i}:P${s}` : `Pos${i}:BYE`).join(', '));
   console.log(`   ${count} participants -> ${bracketSize}-slot bracket (${bracketSize - count} BYEs)`);
-  console.log('   brackets-manager inner_outer will optimize placement');
-  
+
   return seeding;
-}
-
-async function saveBracketsToFirestore(
-  tournamentId: string,
-  categoryId: string,
-  storage: InMemoryDatabase,
-  stageId: number,
-  registrations: Registration[]
-): Promise<void> {
-  console.log('💾 Starting saveBracketsToFirestore (minimal 3-collection)...', { tournamentId, categoryId, stageId });
-  
-  const batch = writeBatch(db);
-
-  // Get all data from memory
-  const [stage, groups, rounds, matches] = await Promise.all([
-    storage.select('stage', stageId),
-    storage.select('group', { stage_id: stageId }),
-    storage.select('round', { stage_id: stageId }),
-    storage.select('match', { stage_id: stageId }),
-  ]);
-  
-  // Create lookup maps for deriving fields
-  const groupMap = new Map((Array.isArray(groups) ? groups : []).map((g: any) => [String(g.id), g]));
-  const roundMap = new Map((Array.isArray(rounds) ? rounds : []).map((r: any) => [String(r.id), r]));
-  const registrationMap = new Map(registrations.map((r, i) => [i + 1, r.id]));
-  
-  console.log('📊 Retrieved from memory:', {
-    stage: stage ? 'yes' : 'no',
-    groupsCount: groupMap.size,
-    roundsCount: roundMap.size,
-    matchesCount: Array.isArray(matches) ? matches.length : 0,
-  });
-
-  // Save stage
-  if (stage) {
-    batch.set(doc(db, 'tournaments', tournamentId, 'stage', String(stageId)), {
-      id: String(stageId),
-      tournament_id: categoryId,
-      name: (stage as any).name,
-      type: (stage as any).type,
-    });
-  }
-
-  // Save matches with enhanced fields (derived from groups/rounds)
-  if (Array.isArray(matches)) {
-    for (const match of matches) {
-      const m = match as any;
-
-      // Derive round number and bracket type from lookups
-      const round = roundMap.get(String(m.round_id));
-      const group = groupMap.get(String(m.group_id));
-      
-      const roundNumber = round?.number || 1;
-      const bracketType = getBracketTypeFromGroupNumber(group?.number);
-      
-      // Keep sequential IDs for brackets-manager compatibility
-      // Store registration ID in a separate field for name resolution
-      const opponent1RegId = m.opponent1?.id ? registrationMap.get(Number(m.opponent1.id)) : null;
-      const opponent2RegId = m.opponent2?.id ? registrationMap.get(Number(m.opponent2.id)) : null;
-
-      // Sanitize match object
-      const sanitized = JSON.parse(JSON.stringify(m));
-
-      batch.set(
-        doc(db, 'tournaments', tournamentId, 'match', String(m.id)),
-        {
-          id: String(m.id),
-          stage_id: String(stageId),
-          // Enhanced fields (derived from groups/rounds)
-          round: roundNumber,
-          bracket: bracketType,
-          position: m.number,
-          // Store sequential IDs for brackets-manager compatibility
-          opponent1: m.opponent1 ? {
-            ...sanitized.opponent1,
-            id: sanitized.opponent1.id, // Keep sequential ID (1, 2, 3...)
-            registrationId: opponent1RegId, // Store registration ID separately
-          } : null,
-          opponent2: m.opponent2 ? {
-            ...sanitized.opponent2,
-            id: sanitized.opponent2.id, // Keep sequential ID (1, 2, 3...)
-            registrationId: opponent2RegId, // Store registration ID separately
-          } : null,
-          status: m.status,
-          ...(m.child_count && { child_count: m.child_count }),
-        }
-      );
-    }
-  }
-
-  // Commit batch with error handling
-  try {
-    await batch.commit();
-    console.log('✅ Batch commit completed (minimal collections)');
-  } catch (err) {
-    console.error('❌ Batch commit failed:', err);
-    throw err;
-  }
-  
-  // Verify matches were saved
-  try {
-    const matchesSnap = await getDocs(
-      query(collection(db, 'tournaments', tournamentId, 'match'), where('stage_id', '==', String(stageId)))
-    );
-    console.log(`✅ Verified ${matchesSnap.docs.length} matches saved to Firestore`);
-    
-    if (matchesSnap.docs.length === 0) {
-      console.warn('⚠️ WARNING: No matches found after save!');
-    }
-  } catch (err) {
-    console.error('❌ Verification query failed:', err);
-  }
-}
-
-/**
- * Get bracket type from group number
- * 0 = winners, 1 = losers, 2 = finals
- */
-function getBracketTypeFromGroupNumber(groupNumber: number | undefined): 'winners' | 'losers' | 'finals' {
-  switch (groupNumber) {
-    case 0:
-      return 'winners';
-    case 1:
-      return 'losers';
-    case 2:
-      return 'finals';
-    default:
-      return 'winners';
-  }
 }

@@ -208,7 +208,7 @@ async function checkAndMarkDueMatches() {
   for (const match of dueMatches) {
     try {
       // Mark match as ready
-      await matchStore.markMatchReady(tournamentId.value, match.id, match.courtId!);
+      await matchStore.markMatchReady(tournamentId.value, match.id, match.categoryId);
 
       // Log activity (non-blocking)
       const p1Name = getParticipantName(match.participant1Id);
@@ -239,7 +239,7 @@ async function manualMarkReady(match: Match) {
   }
 
   try {
-    await matchStore.markMatchReady(tournamentId.value, match.id, match.courtId);
+    await matchStore.markMatchReady(tournamentId.value, match.id, match.categoryId);
 
     // Log activity (non-blocking)
     const p1Name = getParticipantName(match.participant1Id);
@@ -264,6 +264,8 @@ async function manualMarkReady(match: Match) {
 onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
   tournamentStore.subscribeTournament(tournamentId.value);
+  // Subscribe to all matches - will need to iterate through categories
+  // For now, subscribe without categoryId to get all matches (tournament-level fallback)
   matchStore.subscribeMatches(tournamentId.value);
   registrationStore.subscribeRegistrations(tournamentId.value);
   registrationStore.subscribePlayers(tournamentId.value);
@@ -429,7 +431,7 @@ function goToScoring(match: Match) {
 // Start match - changes status to in_progress without navigating away
 async function startMatchInProgress(match: Match) {
   try {
-    await matchStore.startMatch(tournamentId.value, match.id);
+    await matchStore.startMatch(tournamentId.value, match.id, match.categoryId);
 
     // Log activity (non-blocking)
     const p1Name = getParticipantName(match.participant1Id);
@@ -488,7 +490,7 @@ async function submitManualScores() {
       .map((g, index) => {
         const isComplete = (g.score1 >= 21 || g.score2 >= 21) &&
           (Math.abs(g.score1 - g.score2) >= 2 || g.score1 === 30 || g.score2 === 30);
-        let winnerId = null;
+        let winnerId: string | undefined = undefined;
         if (isComplete) {
           winnerId = g.score1 > g.score2 ? match.participant1Id : match.participant2Id;
         }
@@ -501,7 +503,7 @@ async function submitManualScores() {
         };
       });
 
-    await matchStore.submitManualScores(tournamentId.value, match.id, games);
+    await matchStore.submitManualScores(tournamentId.value, match.id, games, match.categoryId);
 
     // Log activity if match completed (non-blocking)
     const p1Wins = games.filter(g => g.winnerId === match.participant1Id).length;

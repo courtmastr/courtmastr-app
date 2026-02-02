@@ -12,6 +12,12 @@
 import type { Match, MatchStatus, BracketPosition } from '@/types';
 import type { Registration } from '@/types';
 
+export interface Participant {
+  id: string;
+  name: string;
+  tournament_id: string;
+}
+
 // ============================================
 // Brackets-Manager Interfaces
 // ============================================
@@ -58,6 +64,7 @@ export interface BracketsStage {
 export function adaptBracketsMatchToLegacyMatch(
     bracketsMatch: BracketsMatch,
     registrations: Registration[] | null,
+    participants: Participant[] | null,
     categoryId: string,
     tournamentId: string
 ): Match | null {
@@ -72,9 +79,33 @@ export function adaptBracketsMatchToLegacyMatch(
     const bracketType = bracketsMatch.bracket || 'winners';
     const status = convertBracketsStatus(bracketsMatch.status);
 
-    // Use registrationId if available, otherwise fall back to sequential id
-    const participant1Id = bracketsMatch.opponent1?.registrationId || bracketsMatch.opponent1?.id?.toString() || undefined;
-    const participant2Id = bracketsMatch.opponent2?.registrationId || bracketsMatch.opponent2?.id?.toString() || undefined;
+    // Debug logging for participant resolution
+    console.log('🔍 [bracketMatchAdapter] Match:', bracketsMatch.id, {
+      opponent1Id: bracketsMatch.opponent1?.id,
+      opponent2Id: bracketsMatch.opponent2?.id,
+      participantsCount: participants?.length || 0
+    });
+
+    // Use loose equality (==) to handle type coercion between number and string IDs
+    const participant1 = participants?.find(p =>
+      p.id == bracketsMatch.opponent1?.id
+    );
+    const participant2 = participants?.find(p =>
+      p.id == bracketsMatch.opponent2?.id
+    );
+
+    console.log('🔍 [bracketMatchAdapter] Found participants:', {
+      participant1: participant1 ? { id: participant1.id, name: participant1.name } : null,
+      participant2: participant2 ? { id: participant2.id, name: participant2.name } : null
+    });
+
+    const participant1Id = participant1?.name || bracketsMatch.opponent1?.registrationId || undefined;
+    const participant2Id = participant2?.name || bracketsMatch.opponent2?.registrationId || undefined;
+
+    console.log('🔍 [bracketMatchAdapter] Final IDs:', {
+      participant1Id,
+      participant2Id
+    });
 
     let winnerId: string | undefined;
     if (bracketsMatch.status === 4) {
@@ -106,6 +137,9 @@ export function adaptBracketsMatchToLegacyMatch(
     };
 }
 
+// Converts brackets-manager numeric status to string status
+// Only used for initial conversion when match_scores doesn't exist yet
+// Once a match has operational data, match_scores.status takes precedence
 function convertBracketsStatus(bracketsStatus: number): MatchStatus {
     switch (bracketsStatus) {
         case 0:
@@ -130,10 +164,11 @@ function convertBracketsStatus(bracketsStatus: number): MatchStatus {
 export function adaptBracketsMatches(
     bracketsMatches: BracketsMatch[],
     registrations: Registration[] | null,
+    participants: Participant[] | null,
     categoryId: string,
     tournamentId: string
 ): Match[] {
     return bracketsMatches
-        .map(bm => adaptBracketsMatchToLegacyMatch(bm, registrations, categoryId, tournamentId))
+        .map(bm => adaptBracketsMatchToLegacyMatch(bm, registrations, participants, categoryId, tournamentId))
         .filter((m): m is Match => m !== null);
 }
