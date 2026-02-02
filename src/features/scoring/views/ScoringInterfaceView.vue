@@ -246,6 +246,16 @@ async function submitManualScores() {
       // Skip games where both scores are 0
       if (game.p1 === 0 && game.p2 === 0) continue;
 
+      // Validate: games cannot be tied
+      if (game.p1 === game.p2) {
+        notificationStore.showToast(
+          'error',
+          `Game ${validGames.length + 1} cannot be tied (${game.p1}-${game.p2}). One player must win.`
+        );
+        loading.value = false;
+        return;
+      }
+
       // Determine winner
       if (game.p1 > game.p2) {
         p1GamesWon++;
@@ -274,7 +284,8 @@ async function submitManualScores() {
     notificationStore.showToast('success', 'Scores submitted successfully');
 
     // If match is complete, go back
-    if (p1GamesWon >= 2 || p2GamesWon >= 2) {
+    const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+    if (p1GamesWon >= gamesNeeded || p2GamesWon >= gamesNeeded) {
       router.back();
     }
   } catch (error) {

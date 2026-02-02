@@ -264,9 +264,9 @@ async function manualMarkReady(match: Match) {
 onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
   tournamentStore.subscribeTournament(tournamentId.value);
-  // Subscribe to all matches - will need to iterate through categories
-  // For now, subscribe without categoryId to get all matches (tournament-level fallback)
-  matchStore.subscribeMatches(tournamentId.value);
+  // Subscribe to all matches across all categories
+  // This automatically watches categories and subscribes to each one
+  matchStore.subscribeAllMatches(tournamentId.value);
   registrationStore.subscribeRegistrations(tournamentId.value);
   registrationStore.subscribePlayers(tournamentId.value);
   activityStore.subscribeActivities(tournamentId.value);

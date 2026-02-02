@@ -174,7 +174,14 @@ export const useMatchStore = defineStore('matches', () => {
         return a.matchNumber - b.matchNumber;
       });
 
-      matches.value = adaptedMatches;
+      if (categoryId) {
+        matches.value = [
+          ...matches.value.filter(m => m.categoryId !== categoryId),
+          ...adaptedMatches
+        ];
+      } else {
+        matches.value = adaptedMatches;
+      }
 
     } catch (err) {
       console.error('Error fetching matches:', err);
@@ -216,6 +223,110 @@ export const useMatchStore = defineStore('matches', () => {
 
     matchesUnsubscribe = () => {
       unsubscibers.forEach(u => u());
+    };
+  }
+
+  /**
+   * Subscribe to matches across ALL categories in a tournament.
+   *
+   * This method automatically:
+   * - Watches the categories collection for additions/removals
+   * - Subscribes to each category's /match and /match_scores collections
+   * - Aggregates matches from all categories into the matches array
+   * - Handles cleanup when categories are removed
+   * - Manages all Firestore listeners properly on unmount
+   *
+   * Ideal for views that need to display matches from multiple categories:
+   * - Match Control (tournament-wide scheduling)
+   * - Live Scores (public display)
+   * - Tournament Dashboard (overview)
+   *
+   * Performance: Creates 2N+1 Firestore listeners (N = number of categories)
+   * - 1 listener for categories collection
+   * - N listeners for /match collections
+   * - N listeners for /match_scores collections
+   *
+   * @param tournamentId - The tournament ID to subscribe to
+   *
+   * @example
+   * // In a component
+   * onMounted(() => {
+   *   matchStore.subscribeAllMatches(tournamentId.value);
+   * });
+   *
+   * onUnmounted(() => {
+   *   matchStore.unsubscribeAll(); // Cleans up all listeners
+   * });
+   *
+   * @see subscribeMatches - For single-category subscriptions (more efficient)
+   */
+  function subscribeAllMatches(tournamentId: string): void {
+    if (matchesUnsubscribe) {
+      matchesUnsubscribe();
+      matchesUnsubscribe = null;
+    }
+
+    const categorySubscriptions = new Map<string, { match: () => void; scores: () => void }>();
+    let categoriesUnsubscribe: (() => void) | null = null;
+
+    const subscribeToCategory = (categoryId: string) => {
+      if (categorySubscriptions.has(categoryId)) return;
+
+      const matchPath = `tournaments/${tournamentId}/categories/${categoryId}/match`;
+      const matchScoresPath = `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
+
+      const unsubMatch = onSnapshot(collection(db, matchPath), () => {
+        fetchMatches(tournamentId, categoryId);
+      });
+
+      const unsubScores = onSnapshot(collection(db, matchScoresPath), () => {
+        fetchMatches(tournamentId, categoryId);
+      });
+
+      categorySubscriptions.set(categoryId, { match: unsubMatch, scores: unsubScores });
+    };
+
+    const unsubscribeFromCategory = (categoryId: string) => {
+      const subs = categorySubscriptions.get(categoryId);
+      if (subs) {
+        subs.match();
+        subs.scores();
+        categorySubscriptions.delete(categoryId);
+      }
+    };
+
+    categoriesUnsubscribe = onSnapshot(
+      collection(db, `tournaments/${tournamentId}/categories`),
+      (snapshot) => {
+        const currentCategoryIds = new Set(snapshot.docs.map(d => d.id));
+
+        for (const categoryId of currentCategoryIds) {
+          if (!categorySubscriptions.has(categoryId)) {
+            subscribeToCategory(categoryId);
+            fetchMatches(tournamentId, categoryId);
+          }
+        }
+
+        for (const [categoryId] of categorySubscriptions) {
+          if (!currentCategoryIds.has(categoryId)) {
+            unsubscribeFromCategory(categoryId);
+            matches.value = matches.value.filter(m => m.categoryId !== categoryId);
+          }
+        }
+      },
+      (err) => {
+        console.error('Error in categories subscription:', err);
+        error.value = 'Lost connection to tournament data';
+      }
+    );
+
+    matchesUnsubscribe = () => {
+      categoriesUnsubscribe?.();
+      for (const [_, subs] of categorySubscriptions) {
+        subs.match();
+        subs.scores();
+      }
+      categorySubscriptions.clear();
     };
   }
 
@@ -282,17 +393,36 @@ export const useMatchStore = defineStore('matches', () => {
       currentMatchUnsubscribe = null;
     }
 
+    const unsubscribers: (() => void)[] = [];
+
+    const refresh = async () => {
+      await fetchMatch(tournamentId, matchId, categoryId);
+    };
+
     const matchPath = getMatchPath(tournamentId, categoryId);
-    currentMatchUnsubscribe = onSnapshot(
+    const unsubMatch = onSnapshot(
       doc(db, matchPath, matchId),
-      async () => {
-        await fetchMatch(tournamentId, matchId, categoryId);
-      },
+      () => refresh(),
       (err) => {
         console.error('Error in match subscription:', err);
         error.value = 'Lost connection to match';
       }
     );
+    unsubscribers.push(unsubMatch);
+
+    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);
+    const unsubScores = onSnapshot(
+      doc(db, matchScoresPath, matchId),
+      () => refresh(),
+      (err) => {
+        console.error('Error in match_scores subscription:', err);
+      }
+    );
+    unsubscribers.push(unsubScores);
+
+    currentMatchUnsubscribe = () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
   }
 
   async function startMatch(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
@@ -300,9 +430,18 @@ export const useMatchStore = defineStore('matches', () => {
       const matchScoresPath = categoryId
         ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
         : `tournaments/${tournamentId}/match_scores`;
+
+      const initialScores: GameScore[] = [{
+        gameNumber: 1,
+        score1: 0,
+        score2: 0,
+        isComplete: false,
+      }];
+
       await setDoc(
         doc(db, matchScoresPath, matchId),
         {
+          scores: initialScores,
           startedAt: serverTimestamp(),
           status: 'in_progress',
           updatedAt: serverTimestamp(),
@@ -337,6 +476,24 @@ export const useMatchStore = defineStore('matches', () => {
     } else {
       if (participant === 'participant1') currentGame.score1++;
       else currentGame.score2++;
+
+      const config = BADMINTON_CONFIG;
+      const score1 = currentGame.score1;
+      const score2 = currentGame.score2;
+
+      const hasWinningScore = score1 >= config.pointsToWin || score2 >= config.pointsToWin;
+      const hasWinningMargin = Math.abs(score1 - score2) >= config.mustWinBy;
+      const hasMaxPoints = score1 >= config.maxPoints || score2 >= config.maxPoints;
+
+      if (hasWinningScore && (hasWinningMargin || hasMaxPoints)) {
+        currentGame.isComplete = true;
+        currentGame.winnerId = score1 > score2 ? match.participant1Id : match.participant2Id;
+
+        console.log(`[updateScore] Game ${currentGame.gameNumber} complete:`, {
+          finalScore: `${score1}-${score2}`,
+          winnerId: currentGame.winnerId
+        });
+      }
     }
 
     const matchResult = checkMatchComplete(scores, match.participant1Id!, match.participant2Id!);
@@ -474,6 +631,90 @@ export const useMatchStore = defineStore('matches', () => {
       }
     } catch (err) {
       console.error('Error completing match:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Record a walkover (forfeit) for a match.
+   *
+   * A walkover occurs when one player cannot compete (injury, no-show, etc.).
+   * This function:
+   * - Creates a default 21-0 score for the winner
+   * - Updates match status to 'walkover'
+   * - Advances the bracket via Cloud Function
+   *
+   * @param tournamentId - Tournament ID
+   * @param matchId - Match ID
+   * @param winnerId - Registration ID of the winner (player who didn't forfeit)
+   * @param categoryId - Optional category ID for category-level matches
+   */
+  async function recordWalkover(
+    tournamentId: string,
+    matchId: string,
+    winnerId: string,
+    categoryId?: string
+  ): Promise<void> {
+    try {
+      const matchScoresPath = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+        : `tournaments/${tournamentId}/match_scores`;
+
+      const walkoverScores: GameScore[] = [{
+        gameNumber: 1,
+        score1: winnerId === currentMatch.value?.participant1Id ? 21 : 0,
+        score2: winnerId === currentMatch.value?.participant2Id ? 21 : 0,
+        winnerId,
+        isComplete: true,
+      }];
+
+      await setDoc(
+        doc(db, matchScoresPath, matchId),
+        {
+          scores: walkoverScores,
+          winnerId,
+          status: 'walkover',
+          completedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      try {
+        const updateMatchFn = httpsCallable(functions, 'updateMatch');
+        const matchPath = categoryId
+          ? `tournaments/${tournamentId}/categories/${categoryId}/match`
+          : `tournaments/${tournamentId}/match`;
+
+        let bracketWinnerId: string | number = winnerId;
+        const matchDoc = await getDoc(doc(db, matchPath, matchId));
+
+        if (matchDoc.exists()) {
+          const bMatch = matchDoc.data() as BracketsMatch;
+          const opponent1RegistrationId = bMatch.opponent1?.registrationId ?? bMatch.opponent1?.id?.toString();
+          const opponent2RegistrationId = bMatch.opponent2?.registrationId ?? bMatch.opponent2?.id?.toString();
+
+          if (opponent1RegistrationId === winnerId) {
+            bracketWinnerId = bMatch.opponent1?.id ?? winnerId;
+          } else if (opponent2RegistrationId === winnerId) {
+            bracketWinnerId = bMatch.opponent2?.id ?? winnerId;
+          }
+        }
+
+        await updateMatchFn({
+          tournamentId,
+          matchId,
+          status: 'completed',
+          winnerId: bracketWinnerId,
+          scores: walkoverScores
+        });
+
+        console.log('[recordWalkover] Bracket advanced successfully');
+      } catch (cloudErr) {
+        console.error('[recordWalkover] Cloud function failed:', cloudErr);
+      }
+    } catch (err) {
+      console.error('Error recording walkover:', err);
       throw err;
     }
   }
@@ -712,12 +953,14 @@ export const useMatchStore = defineStore('matches', () => {
     matchesByRound,
     fetchMatches,
     subscribeMatches,
+    subscribeAllMatches,
     fetchMatch,
     subscribeMatch,
     startMatch,
     updateScore,
     decrementScore,
     completeMatch,
+    recordWalkover,
     resetMatch,
     assignMatchToCourt,
     assignCourt: assignMatchToCourt,

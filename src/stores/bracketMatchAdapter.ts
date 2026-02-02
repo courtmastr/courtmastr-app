@@ -99,8 +99,8 @@ export function adaptBracketsMatchToLegacyMatch(
       participant2: participant2 ? { id: participant2.id, name: participant2.name } : null
     });
 
-    const participant1Id = participant1?.name || bracketsMatch.opponent1?.registrationId || undefined;
-    const participant2Id = participant2?.name || bracketsMatch.opponent2?.registrationId || undefined;
+    const participant1Id = participant1?.id || bracketsMatch.opponent1?.registrationId || undefined;
+    const participant2Id = participant2?.id || bracketsMatch.opponent2?.registrationId || undefined;
 
     console.log('🔍 [bracketMatchAdapter] Final IDs:', {
       participant1Id,
