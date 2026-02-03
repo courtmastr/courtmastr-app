@@ -17,12 +17,54 @@ This phase fixes **2 critical type errors** that prevent proper TypeScript compi
 1. **Type Mismatch in BracketOptions** - Property name and type incompatibility
 2. **Naming Inconsistency** - `grandFinalReset` vs `grandFinal` used inconsistently
 
+### Design Decision: Option B - Use API Naming Throughout
+**Rationale:** Follow the brackets-manager library convention consistently across all layers (API, stores, composables, and UI). This provides better code consistency and reduces cognitive load.
+
+**Strategy:**
+- Use `grandFinal` and `consolationFinal` everywhere (TypeScript types, function parameters, UI state)
+- Create computed properties in UI to handle boolean switch ↔ enum conversion
+- Keep user-friendly labels in the UI ("Grand Final Reset", "Third Place Match")
+
 ### Success Criteria
 - ✅ Zero TypeScript build errors
 - ✅ Bracket generation works for all formats (single/double elimination, round robin)
-- ✅ Grand final options work correctly
+- ✅ Grand final options work correctly (tested with both 'simple' and 'double')
 - ✅ Consolation final option works
 - ✅ No unused variable warnings
+- ✅ Consistent API naming throughout codebase
+
+---
+
+## 🎨 Design Decisions (Approved by User)
+
+The following design decisions were confirmed by the user:
+
+### Question 1: Which naming convention should be the standard?
+**Answer:** Option B - Use API naming (`grandFinal`, `consolationFinal`) throughout
+**Rationale:** Follow the brackets-manager library convention for consistency
+
+### Question 2: What should happen to thirdPlaceMatch?
+**Answer:** Rename to `consolationFinal` (matches API)
+**Mapping:** Direct boolean mapping (same type)
+
+### Question 3: What about grandFinalReset (boolean) vs grandFinal (enum)?
+**Answer:** `grandFinalReset: true` maps to `grandFinal: 'double'`
+**Mapping:**
+- `true` → `'double'` (grand final with reset)
+- `false` → `'simple'` (grand final without reset)
+- Not applicable → `undefined` (for non-double-elimination formats)
+
+### Question 4: Should we test bracket generation after the fix?
+**Answer:** YES - Required testing
+
+### Question 5: Should we verify both single and double elimination brackets work?
+**Answer:** YES - Both formats must be tested
+
+**Implementation Strategy:**
+- Use API naming in all TypeScript types and component state
+- Create computed properties in UI to handle boolean switch ↔ enum conversion
+- Maintain user-friendly labels in UI ("Grand Final Reset", "Third Place Match")
+- Test all bracket formats thoroughly
 
 ---
 
@@ -216,14 +258,14 @@ npx tsc --noEmit src/composables/useTournamentSetup.ts
 
 ### File 3: `src/components/GenerateBracketDialog.vue`
 
-**Location:** Lines 23-29, 48-70
-**Changes:** Keep UI boolean switches, add conversion logic in `onSubmit()`
+**Location:** Lines 23-29, 48-92, 166, 174
+**Changes:** Use API naming throughout with computed properties for UI switches
 
-**Strategy:** The UI keeps boolean switches for better UX, but converts them to the correct format when submitting.
+**Strategy (Option B):** Use `grandFinal` and `consolationFinal` in component state, create computed properties for UI switches to handle boolean ↔ enum conversion. This provides consistent naming across all layers while maintaining good UX.
 
-#### Step 3.1: Keep internal state unchanged (lines 23-29)
+#### Step 3.1: Update reactive state to use API naming (lines 23-29)
 
-**This code stays the same:**
+**Find this code:**
 ```typescript
 const options = ref({
   grandFinalReset: true,
@@ -234,11 +276,49 @@ const options = ref({
 });
 ```
 
-**Reason:** UI bindings (lines 166, 174) use these boolean values.
+**Replace with:**
+```typescript
+const options = ref({
+  grandFinal: 'double' as 'simple' | 'double' | 'none',
+  consolationFinal: true,
+  autoSchedule: true,
+  startTime: new Date(),
+  selectedCourts: [] as string[],
+});
+```
 
-#### Step 3.2: Update `onSubmit()` with conversion logic
+**Key Changes:**
+- `grandFinalReset: true` → `grandFinal: 'double'` (use enum directly)
+- `thirdPlaceMatch: true` → `consolationFinal: true` (use API name)
 
-**Find this code (lines 48-70):**
+#### Step 3.2: Add computed properties for UI switches (after line 29)
+
+**Add this new code after the options ref:**
+```typescript
+// Computed properties for UI switches
+// These handle the boolean ↔ enum conversion for better UX
+const grandFinalReset = computed({
+  get: () => options.value.grandFinal === 'double',
+  set: (val: boolean) => {
+    options.value.grandFinal = val ? 'double' : 'simple';
+  }
+});
+
+const thirdPlaceMatch = computed({
+  get: () => options.value.consolationFinal,
+  set: (val: boolean) => {
+    options.value.consolationFinal = val;
+  }
+});
+```
+
+**Explanation:**
+- `grandFinalReset` computed: Converts between boolean switch and 'simple'/'double' enum
+- `thirdPlaceMatch` computed: Pass-through for consistent naming (boolean to boolean)
+
+#### Step 3.3: Update `onSubmit()` to use API naming (lines 48-70)
+
+**Find this code:**
 ```typescript
 async function onSubmit() {
   try {
@@ -274,12 +354,12 @@ async function onSubmit() {
       tournamentId: props.tournamentId,
       categoryId: props.categoryId,
       format: props.categoryFormat,
-      // Convert boolean to string enum for grandFinal
+      // Pass enum directly (only for double elimination)
       grandFinal: props.categoryFormat === 'double_elimination'
-        ? (options.value.grandFinalReset ? 'double' : 'simple')
+        ? options.value.grandFinal
         : undefined,
-      // Direct boolean mapping for consolationFinal
-      consolationFinal: options.value.thirdPlaceMatch,
+      // Pass boolean directly
+      consolationFinal: options.value.consolationFinal,
       autoSchedule: options.value.autoSchedule,
       startTime: options.value.startTime,
       courtIds: options.value.selectedCourts,
@@ -299,24 +379,124 @@ async function onSubmit() {
 ```
 
 **Key Changes:**
-- Line 54-57: Convert `grandFinalReset` boolean to `grandFinal` string enum
-  - Only for double elimination format
-  - `true` → `'double'` (grand final with reset)
-  - `false` → `'simple'` (grand final without reset)
-- Line 59: Rename `thirdPlaceMatch` to `consolationFinal` (direct boolean mapping)
+- Line 54-56: Pass `grandFinal` enum directly (no conversion needed - already correct type)
+- Line 58: Pass `consolationFinal` directly (already boolean)
+- Simpler code because state already matches API expectations
 
-#### Step 3.3: Verify UI bindings remain unchanged
+#### Step 3.4: Update `close()` function reset (lines 73-83)
 
-**These lines should NOT change:**
-- Line 166: `v-model="options.grandFinalReset"` (UI binding)
-- Line 174: `v-model="options.thirdPlaceMatch"` (UI binding)
-- Lines 76-82: `close()` function resets with boolean values
+**Find this code:**
+```typescript
+function close() {
+  emit('update:modelValue', false);
+  // Reset form
+  options.value = {
+    grandFinalReset: true,
+    thirdPlaceMatch: true,
+    autoSchedule: true,
+    startTime: new Date(),
+    selectedCourts: courts.value.map(c => c.id),
+  };
+}
+```
+
+**Replace with:**
+```typescript
+function close() {
+  emit('update:modelValue', false);
+  // Reset form
+  options.value = {
+    grandFinal: 'double',
+    consolationFinal: true,
+    autoSchedule: true,
+    startTime: new Date(),
+    selectedCourts: courts.value.map(c => c.id),
+  };
+}
+```
+
+**Key Changes:**
+- `grandFinalReset: true` → `grandFinal: 'double'`
+- `thirdPlaceMatch: true` → `consolationFinal: true`
+
+#### Step 3.5: Update UI template bindings (lines 166, 174)
+
+**Find this code (line 164-170):**
+```vue
+<v-switch
+  v-if="categoryFormat === 'double_elimination'"
+  v-model="options.grandFinalReset"
+  label="Grand Final Reset (if losers bracket winner wins first match)"
+  hide-details
+  density="compact"
+/>
+```
+
+**Replace with:**
+```vue
+<v-switch
+  v-if="categoryFormat === 'double_elimination'"
+  v-model="grandFinalReset"
+  label="Grand Final Reset (if losers bracket winner wins first match)"
+  hide-details
+  density="compact"
+/>
+```
+
+**Change:** `v-model="options.grandFinalReset"` → `v-model="grandFinalReset"` (use computed property)
+
+**Find this code (line 172-178):**
+```vue
+<v-switch
+  v-if="categoryFormat !== 'round_robin'"
+  v-model="options.thirdPlaceMatch"
+  label="Include Third Place Match"
+  hide-details
+  density="compact"
+/>
+```
+
+**Replace with:**
+```vue
+<v-switch
+  v-if="categoryFormat !== 'round_robin'"
+  v-model="thirdPlaceMatch"
+  label="Include Third Place Match"
+  hide-details
+  density="compact"
+/>
+```
+
+**Change:** `v-model="options.thirdPlaceMatch"` → `v-model="thirdPlaceMatch"` (use computed property)
+
+#### Step 3.6: Remove unused formatDuration function (lines 85-91)
+
+**Find and delete:**
+```typescript
+function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) return `${mins}m`;
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h ${mins}m`;
+}
+```
+
+**Action:** Delete this entire function (it's unused and flagged in the bug report)
 
 #### Test Step 3
 ```bash
 # Check TypeScript compilation for Vue component
 npx tsc --noEmit src/components/GenerateBracketDialog.vue
 ```
+
+**Benefits of Option B Approach:**
+- ✅ Consistent API naming throughout (`grandFinal`, `consolationFinal`)
+- ✅ Type safety at every layer
+- ✅ UI still uses simple boolean switches (good UX)
+- ✅ Computed properties handle conversion in one place
+- ✅ State matches API expectations (no conversion in onSubmit)
+- ✅ Follows brackets-manager library conventions
 
 ---
 
@@ -687,34 +867,59 @@ cd ..
 
 ### Phase 3: Manual Testing Checklist
 
-#### Test 1: Double Elimination with Grand Final Reset
+**REQUIRED:** Per user request, you MUST test bracket generation after the fix and verify both single and double elimination brackets work correctly.
+
+#### Test 1: Double Elimination with Grand Final Reset (grandFinal: 'double')
 
 1. Start the dev server: `npm run dev`
 2. Navigate to a tournament
-3. Create or select a double elimination category
+3. Create or select a **double elimination** category
 4. Click "Generate Bracket"
 5. **Verify:** "Grand Final Reset" switch is visible
 6. **Toggle ON** (should send `grandFinal: 'double'`)
 7. Click "Generate"
-8. **Verify:** Bracket generates successfully
-9. **Verify:** Grand final has reset capability (if loser wins, play again)
+8. **CRITICAL VERIFICATION:**
+   - ✅ Bracket generates successfully (no errors in console)
+   - ✅ Grand final has reset capability (if loser's bracket winner wins first match, they play again)
+   - ✅ Check browser console: No type errors or warnings
+   - ✅ Verify in Firestore: Check that bracket structure includes grand final reset matches
 
-#### Test 2: Double Elimination without Grand Final Reset
+#### Test 2: Double Elimination without Grand Final Reset (grandFinal: 'simple')
 
 1. Open "Generate Bracket" dialog
 2. **Toggle OFF** "Grand Final Reset" (should send `grandFinal: 'simple'`)
 3. Click "Generate"
-4. **Verify:** Bracket generates successfully
-5. **Verify:** Grand final is single match (no reset)
+4. **CRITICAL VERIFICATION:**
+   - ✅ Bracket generates successfully (no errors in console)
+   - ✅ Grand final is single match (no reset - winner-take-all)
+   - ✅ Check browser console: No type errors
+   - ✅ Verify bracket structure shows single grand final match
 
-#### Test 3: Single Elimination with Third Place Match
+#### Test 3: Single Elimination with Consolation Final (consolationFinal: true)
+
+**REQUIRED:** Per user request, verify single elimination brackets work correctly.
+
+1. Select a **single elimination** category
+2. Click "Generate Bracket"
+3. **Verify:** No "Grand Final Reset" option shown (only for double elimination)
+4. **Toggle ON** "Include Third Place Match" (sends `consolationFinal: true`)
+5. Click "Generate"
+6. **CRITICAL VERIFICATION:**
+   - ✅ Bracket generates successfully
+   - ✅ Bracket includes consolation final match (3rd place match)
+   - ✅ Check browser console: No type errors
+   - ✅ Verify bracket structure has the third-place match
+
+#### Test 3b: Single Elimination without Consolation Final
 
 1. Select a single elimination category
 2. Click "Generate Bracket"
-3. **Verify:** No "Grand Final Reset" option (only for double elimination)
-4. **Toggle ON** "Include Third Place Match"
-5. Click "Generate"
-6. **Verify:** Bracket includes consolation final match
+3. **Toggle OFF** "Include Third Place Match" (sends `consolationFinal: false`)
+4. Click "Generate"
+5. **CRITICAL VERIFICATION:**
+   - ✅ Bracket generates successfully
+   - ✅ No consolation final match (only championship progression)
+   - ✅ Check browser console: No type errors
 
 #### Test 4: Round Robin (No Options)
 
@@ -780,16 +985,37 @@ npm run lint
 
 **Solution:**
 1. Check browser console for errors
-2. Verify conversion logic in `GenerateBracketDialog.vue:onSubmit()`
-3. Ensure `grandFinal` receives correct enum value: `'simple'`, `'double'`, or `'none'`
-4. Check that `consolationFinal` is a boolean
+2. Verify `options.value.grandFinal` is `'simple'`, `'double'`, or `'none'`
+3. Verify `options.value.consolationFinal` is a boolean
+4. Check computed properties are defined correctly
+5. Inspect the API call payload in Network tab to confirm correct values sent
 
 ### Issue: UI switches don't work
 
+**Solution (Option B specific):**
+1. Verify v-model bindings use computed properties: `grandFinalReset` and `thirdPlaceMatch`
+2. Ensure computed properties are defined with both getter and setter
+3. Check that computed getter/setter correctly converts between boolean and enum
+4. Verify `options.value` uses API naming: `grandFinal` and `consolationFinal`
+5. Test computed conversion:
+   ```typescript
+   // grandFinalReset.get() should return: grandFinal === 'double'
+   // grandFinalReset.set(true) should set: grandFinal = 'double'
+   // grandFinalReset.set(false) should set: grandFinal = 'simple'
+   ```
+
+### Issue: TypeScript errors in computed properties
+
 **Solution:**
-1. Verify v-model bindings still use `grandFinalReset` and `thirdPlaceMatch`
-2. Ensure conversion happens only in `onSubmit()`, not in the reactive state
-3. Check that `close()` function resets with original property names
+1. Ensure proper type annotations: `'simple' | 'double' | 'none'`
+2. Check that Vue 3 `computed` is imported from 'vue'
+3. Verify syntax for computed with getter/setter:
+   ```typescript
+   const myComputed = computed({
+     get: () => /* return value */,
+     set: (val) => { /* update logic */ }
+   });
+   ```
 
 ### Issue: Too many files to cleanup
 
