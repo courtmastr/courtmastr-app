@@ -21,10 +21,11 @@ export const updateMatch = functions.https.onCall(
             );
         }
 
-        const { tournamentId, matchId, status, winnerId, scores } = request.data;
+        const { tournamentId, categoryId, matchId, status, winnerId, scores } = request.data;
 
         console.log('🎯 [updateMatch] Called with:', {
             tournamentId,
+            categoryId,
             matchId,
             status,
             winnerId,
@@ -38,6 +39,13 @@ export const updateMatch = functions.https.onCall(
             );
         }
 
+        if (!categoryId) {
+            throw new functions.https.HttpsError(
+                'invalid-argument',
+                'categoryId is required for match updates'
+            );
+        }
+
         try {
             // 1. Update match_scores collection (our custom storage for detailed scores)
             if (scores) {
@@ -45,6 +53,8 @@ export const updateMatch = functions.https.onCall(
                 await db
                     .collection('tournaments')
                     .doc(tournamentId)
+                    .collection('categories')
+                    .doc(categoryId)
                     .collection('match_scores')
                     .doc(matchId)
                     .set({ scores, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
@@ -52,9 +62,9 @@ export const updateMatch = functions.https.onCall(
             }
 
             // 2. Update brackets-manager match status/result
-            // Use the tournament document as the root (even components)
-            // Sub-collections will be created under it: tournaments/T1/participant, tournaments/T1/match, etc.
-            const rootPath = `tournaments/${tournamentId}`;
+            // Use the category document as the root with full path including categories
+            // Sub-collections will be created under it: tournaments/T1/categories/C1/participant, .../match, etc.
+            const rootPath = `tournaments/${tournamentId}/categories/${categoryId}`;
             console.log('🔧 [updateMatch] Creating BracketsManager with rootPath:', rootPath);
             const manager = new BracketsManager(new FirestoreStorage(db, rootPath));
 
@@ -70,10 +80,12 @@ export const updateMatch = functions.https.onCall(
             };
 
             if (status === 'completed' && winnerId) {
-                console.log('🏆 [updateMatch] Match completed with winnerId:', winnerId);
-                // Need to find which opponent won
-                // We need to fetch the match first to know which opponent ID matches the winner ID
-                // Note: brackets-manager update.match expects `opponent1: { result: 'win' }` etc.
+                console.log('🏆 [updateMatch] Match completed with winnerId (registration ID):', winnerId);
+
+                // winnerId is a registration ID, but brackets-manager uses numeric participant IDs
+                // We need to map the registration ID to the bracket participant numeric ID
+
+                // 1. Fetch match data
                 console.log('🔍 [updateMatch] Fetching match data for matchId:', matchId);
                 const matchData = await manager.storage.select('match', matchId);
                 console.log('📋 [updateMatch] Match data retrieved:', {
@@ -84,28 +96,43 @@ export const updateMatch = functions.https.onCall(
 
                 if (!matchData) throw new Error('Match not found');
 
-                // Check opponents - use string comparison to handle type differences
-                // opponent1.id might be null if it was a bye? No, played match has players.
-                const opponent1Id = String(matchData.opponent1?.id ?? '');
-                const opponent2Id = String(matchData.opponent2?.id ?? '');
-                const winnerIdStr = String(winnerId);
-                
-                if (opponent1Id === winnerIdStr) {
+                // 2. Fetch participants to map registration ID to numeric ID
+                console.log('👥 [updateMatch] Fetching participants to map registration ID');
+                const participants = await manager.storage.select('participant');
+                console.log('📋 [updateMatch] Participants fetched:', participants?.length);
+
+                // Find participant by registration ID (stored in participant.name field)
+                // participant.name = registration ID (Firestore document ID)
+                // participant.id = numeric brackets-manager ID
+                const winnerParticipant = participants?.find((p: any) => p.name === winnerId);
+
+                if (!winnerParticipant) {
+                    console.warn(`⚠️  [updateMatch] No participant found with name=${winnerId}`);
+                    throw new Error(`Winner participant not found for registration ID: ${winnerId}`);
+                }
+
+                const bracketWinnerId = winnerParticipant.id;
+                console.log('🎯 [updateMatch] Mapped registration ID to bracket participant ID:', {
+                    registrationId: winnerId,
+                    bracketParticipantId: bracketWinnerId
+                });
+
+                // 3. Check which opponent won and update accordingly
+                const opponent1Id = matchData.opponent1?.id;
+                const opponent2Id = matchData.opponent2?.id;
+
+                // Use loose equality to handle string/number type differences
+                if (opponent1Id == bracketWinnerId) {
                     console.log('✅ [updateMatch] Winner is opponent1');
                     updateData.opponent1 = { ...matchData.opponent1, result: 'win' };
                     updateData.opponent2 = { ...matchData.opponent2, result: 'loss' };
-                } else if (opponent2Id === winnerIdStr) {
+                } else if (opponent2Id == bracketWinnerId) {
                     console.log('✅ [updateMatch] Winner is opponent2');
                     updateData.opponent1 = { ...matchData.opponent1, result: 'loss' };
                     updateData.opponent2 = { ...matchData.opponent2, result: 'win' };
                 } else {
-                    // Fallback: registration ID logic? 
-                    // In our adapter we assumed participant ID matched registration name (which is what we use as ID).
-                    // brackets-manager participant ID is usually just a number/string ID.
-                    // But in `bracket.ts` we used `reg.id` as the seeding ID.
-                    // And `reg.id` IS the registration ID in our system.
-                    // So `matchData.opponent1.id` should be the registration ID.
-                    console.warn(`⚠️  [updateMatch] Winner ID ${winnerId} does not match opponent1 (${matchData.opponent1?.id}) or opponent2 (${matchData.opponent2?.id})`);
+                    console.warn(`⚠️  [updateMatch] Bracket winner ID ${bracketWinnerId} does not match opponent1 (${opponent1Id}) or opponent2 (${opponent2Id})`);
+                    throw new Error(`Winner participant ID ${bracketWinnerId} does not match either opponent in match ${matchId}`);
                 }
             }
 

@@ -79,13 +79,6 @@ export function adaptBracketsMatchToLegacyMatch(
     const bracketType = bracketsMatch.bracket || 'winners';
     const status = convertBracketsStatus(bracketsMatch.status);
 
-    // Debug logging for participant resolution
-    console.log('🔍 [bracketMatchAdapter] Match:', bracketsMatch.id, {
-      opponent1Id: bracketsMatch.opponent1?.id,
-      opponent2Id: bracketsMatch.opponent2?.id,
-      participantsCount: participants?.length || 0
-    });
-
     // Use loose equality (==) to handle type coercion between number and string IDs
     const participant1 = participants?.find(p =>
       p.id == bracketsMatch.opponent1?.id
@@ -94,18 +87,10 @@ export function adaptBracketsMatchToLegacyMatch(
       p.id == bracketsMatch.opponent2?.id
     );
 
-    console.log('🔍 [bracketMatchAdapter] Found participants:', {
-      participant1: participant1 ? { id: participant1.id, name: participant1.name } : null,
-      participant2: participant2 ? { id: participant2.id, name: participant2.name } : null
-    });
-
-    const participant1Id = participant1?.id || bracketsMatch.opponent1?.registrationId || undefined;
-    const participant2Id = participant2?.id || bracketsMatch.opponent2?.registrationId || undefined;
-
-    console.log('🔍 [bracketMatchAdapter] Final IDs:', {
-      participant1Id,
-      participant2Id
-    });
+    // participant.name contains the registration ID (Firestore document ID)
+    // participant.id is just the numeric brackets-manager ID
+    const participant1Id = participant1?.name || bracketsMatch.opponent1?.registrationId || undefined;
+    const participant2Id = participant2?.name || bracketsMatch.opponent2?.registrationId || undefined;
 
     let winnerId: string | undefined;
     if (bracketsMatch.status === 4) {

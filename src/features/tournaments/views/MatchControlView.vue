@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
@@ -70,6 +70,15 @@ function deselectAllCategories() {
   selectedCategoryIds.value = [];
 }
 
+// Open auto-schedule dialog with all categories pre-selected
+function openAutoScheduleDialog() {
+  // Auto-select all categories for better UX
+  if (categories.value.length > 0) {
+    selectedCategoryIds.value = categories.value.map(c => c.id);
+  }
+  showAutoScheduleDialog.value = true;
+}
+
 const allCategoriesSelected = computed(() =>
   categories.value.length > 0 && selectedCategoryIds.value.length === categories.value.length
 );
@@ -77,6 +86,14 @@ const allCategoriesSelected = computed(() =>
 const someCategoriesSelected = computed(() =>
   selectedCategoryIds.value.length > 0 && selectedCategoryIds.value.length < categories.value.length
 );
+
+// Reset selected categories when dialog closes
+watch(showAutoScheduleDialog, (newValue) => {
+  if (!newValue) {
+    // Dialog closed - reset selection for next time
+    selectedCategoryIds.value = [];
+  }
+});
 
 // Share links dialog
 const showShareDialog = ref(false);
@@ -546,7 +563,7 @@ function copyToClipboard(text: string, label: string) {
 // Get matches to schedule based on selected categories (multi-select)
 const matchesToScheduleForAuto = computed(() => {
   let result = matches.value.filter(
-    (m) => m.status === 'scheduled' && m.participant1Id && m.participant2Id && !m.courtId
+    (m) => (m.status === 'scheduled' || m.status === 'ready') && m.participant1Id && m.participant2Id && !m.courtId
   );
   // Filter by selected categories
   if (selectedCategoryIds.value.length > 0) {
@@ -712,6 +729,7 @@ async function runAutoSchedule() {
         await tournamentStore.updateMatchSchedule(
           tournamentId.value,
           match.id,
+          match.categoryId,
           bestCourt.id,
           matchStartTime
         );
@@ -770,7 +788,7 @@ async function releaseCourt(match: Match) {
         <v-btn
           variant="outlined"
           prepend-icon="mdi-calendar-clock"
-          @click="showAutoScheduleDialog = true"
+          @click="openAutoScheduleDialog"
         >
           Auto Schedule
         </v-btn>
@@ -883,7 +901,7 @@ async function releaseCourt(match: Match) {
             <v-list v-if="inProgressMatches.length > 0">
               <v-list-item
                 v-for="match in inProgressMatches"
-                :key="match.id"
+                :key="`${match.categoryId}-${match.id}`"
                 class="match-item"
               >
                 <div class="d-flex align-center w-100">
@@ -936,7 +954,7 @@ async function releaseCourt(match: Match) {
             <v-list v-if="readyMatches.length > 0" density="compact">
               <v-list-item
                 v-for="match in readyMatches"
-                :key="match.id"
+                :key="`${match.categoryId}-${match.id}`"
               >
                 <div class="d-flex align-center w-100">
                   <div class="flex-grow-1">
@@ -979,7 +997,7 @@ async function releaseCourt(match: Match) {
             <v-list density="compact">
               <v-list-item
                 v-for="match in scheduledWithCourtMatches.slice(0, 8)"
-                :key="match.id"
+                :key="`${match.categoryId}-${match.id}`"
               >
                 <div class="d-flex align-center w-100">
                   <div class="flex-grow-1">
@@ -1034,7 +1052,7 @@ async function releaseCourt(match: Match) {
             <v-list v-if="pendingMatches.length > 0" density="compact">
               <v-list-item
                 v-for="(match, index) in pendingMatches.slice(0, 10)"
-                :key="match.id"
+                :key="`${match.categoryId}-${match.id}`"
               >
                 <template #prepend>
                   <v-avatar size="28" color="grey-lighten-2">

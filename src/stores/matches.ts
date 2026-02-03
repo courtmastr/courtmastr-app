@@ -140,7 +140,7 @@ export const useMatchStore = defineStore('matches', () => {
       const stages = stageSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       for (const bMatch of bracketsMatches) {
-        const stage = stages.find(s => s.id === bMatch.stage_id);
+        const stage = stages.find(s => s.id == bMatch.stage_id);
         const matchCategoryId = stage ? (stage as any).tournament_id : categoryId || '';
 
         const adapted = adaptBracketsMatchToLegacyMatch(
@@ -303,7 +303,7 @@ export const useMatchStore = defineStore('matches', () => {
         for (const categoryId of currentCategoryIds) {
           if (!categorySubscriptions.has(categoryId)) {
             subscribeToCategory(categoryId);
-            fetchMatches(tournamentId, categoryId);
+            // Note: No immediate fetch needed - the onSnapshot listeners in subscribeToCategory will fire and fetch
           }
         }
 
@@ -347,7 +347,7 @@ export const useMatchStore = defineStore('matches', () => {
       const participantPath = categoryId
         ? `tournaments/${tournamentId}/categories/${categoryId}/participant`
         : `tournaments/${tournamentId}/participant`;
-      const stageDoc = await getDoc(doc(db, stagePath, bMatch.stage_id));
+      const stageDoc = await getDoc(doc(db, stagePath, String(bMatch.stage_id)));
       const registrationSnap = await getDocs(collection(db, `tournaments/${tournamentId}/registrations`));
       const participantSnap = await getDocs(collection(db, participantPath));
       const registrations = registrationSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Registration[];
@@ -581,47 +581,15 @@ export const useMatchStore = defineStore('matches', () => {
       // 2. Call Cloud Function to advance bracket
       try {
         const updateMatchFn = httpsCallable(functions, 'updateMatch');
-        let bracketWinnerId: string | number = winnerId;
 
-        try {
-          const matchDoc = await getDoc(doc(db, matchPath, matchId));
-          if (matchDoc.exists()) {
-            const bMatch = matchDoc.data() as BracketsMatch;
-            const opponent1 = bMatch.opponent1;
-            const opponent2 = bMatch.opponent2;
-            const opponent1RegistrationId = opponent1?.registrationId ?? opponent1?.id?.toString();
-            const opponent2RegistrationId = opponent2?.registrationId ?? opponent2?.id?.toString();
-
-            if (opponent1RegistrationId === winnerId) {
-              bracketWinnerId = opponent1?.id ?? winnerId;
-            } else if (opponent2RegistrationId === winnerId) {
-              bracketWinnerId = opponent2?.id ?? winnerId;
-            } else if (opponent1?.id?.toString() === winnerId) {
-              bracketWinnerId = opponent1.id;
-            } else if (opponent2?.id?.toString() === winnerId) {
-              bracketWinnerId = opponent2.id;
-            } else {
-              console.warn('[completeMatch] Winner registration ID did not match bracket opponents', {
-                matchId,
-                winnerId,
-                opponent1Id: opponent1?.id,
-                opponent2Id: opponent2?.id,
-                opponent1RegistrationId,
-                opponent2RegistrationId,
-              });
-            }
-          } else {
-            console.warn('[completeMatch] Bracket match not found for winner mapping', { matchId });
-          }
-        } catch (mapErr) {
-          console.warn('[completeMatch] Failed to map winner to bracket opponent ID', mapErr);
-        }
-
+        // Pass registration ID directly to cloud function
+        // Cloud function will handle mapping to bracket participant ID
         await updateMatchFn({
           tournamentId,
+          categoryId,  // Add categoryId for correct Firestore path
           matchId,
           status: 'completed',
-          winnerId: bracketWinnerId,
+          winnerId,  // Pass registration ID directly
           scores
         });
         console.log('[completeMatch] Cloud function advanced bracket successfully');
@@ -682,30 +650,15 @@ export const useMatchStore = defineStore('matches', () => {
 
       try {
         const updateMatchFn = httpsCallable(functions, 'updateMatch');
-        const matchPath = categoryId
-          ? `tournaments/${tournamentId}/categories/${categoryId}/match`
-          : `tournaments/${tournamentId}/match`;
 
-        let bracketWinnerId: string | number = winnerId;
-        const matchDoc = await getDoc(doc(db, matchPath, matchId));
-
-        if (matchDoc.exists()) {
-          const bMatch = matchDoc.data() as BracketsMatch;
-          const opponent1RegistrationId = bMatch.opponent1?.registrationId ?? bMatch.opponent1?.id?.toString();
-          const opponent2RegistrationId = bMatch.opponent2?.registrationId ?? bMatch.opponent2?.id?.toString();
-
-          if (opponent1RegistrationId === winnerId) {
-            bracketWinnerId = bMatch.opponent1?.id ?? winnerId;
-          } else if (opponent2RegistrationId === winnerId) {
-            bracketWinnerId = bMatch.opponent2?.id ?? winnerId;
-          }
-        }
-
+        // Pass registration ID directly to cloud function
+        // Cloud function will handle mapping to bracket participant ID
         await updateMatchFn({
           tournamentId,
+          categoryId,  // Add categoryId for correct Firestore path
           matchId,
           status: 'completed',
-          winnerId: bracketWinnerId,
+          winnerId,  // Pass registration ID directly
           scores: walkoverScores
         });
 

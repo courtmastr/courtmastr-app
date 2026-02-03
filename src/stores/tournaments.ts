@@ -8,6 +8,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -671,17 +672,19 @@ export const useTournamentStore = defineStore('tournaments', () => {
   async function updateMatchSchedule(
     tournamentId: string,
     matchId: string,
+    categoryId: string,
     courtId: string,
     scheduledTime: Date
   ): Promise<void> {
     try {
-      await updateDoc(
-        doc(db, `tournaments/${tournamentId}/match_scores`, matchId),
+      await setDoc(
+        doc(db, `tournaments/${tournamentId}/categories/${categoryId}/match_scores`, matchId),
         {
           courtId,
           scheduledTime: Timestamp.fromDate(scheduledTime),
           updatedAt: serverTimestamp(),
-        }
+        },
+        { merge: true }
       );
     } catch (err) {
       console.error('Error updating match schedule:', err);
