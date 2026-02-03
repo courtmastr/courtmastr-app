@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 
 const router = useRouter();
-const route = useRoute();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
 
@@ -14,7 +13,6 @@ const rail = ref(false);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const isAdmin = computed(() => authStore.isAdmin);
-const isScorekeeper = computed(() => authStore.isScorekeeper);
 const currentUser = computed(() => authStore.currentUser);
 const unreadCount = computed(() => notificationStore.unreadCount);
 

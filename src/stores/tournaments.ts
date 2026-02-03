@@ -17,18 +17,14 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
-  httpsCallable,
-  functions,
 } from '@/services/firebase';
 import { useBracketGenerator } from '@/composables/useBracketGenerator';
 import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import type {
   Tournament,
   TournamentStatus,
-  TournamentFormat,
   Category,
   Court,
-  TournamentSettings,
 } from '@/types';
 
 export const useTournamentStore = defineStore('tournaments', () => {
@@ -586,8 +582,8 @@ export const useTournamentStore = defineStore('tournaments', () => {
     tournamentId: string,
     categoryId: string,
     options: {
-      grandFinalReset?: boolean;
-      thirdPlaceMatch?: boolean;
+      grandFinal?: 'simple' | 'double' | 'none';
+      consolationFinal?: boolean;
     } = {}
   ): Promise<{ success: boolean; matchCount: number }> {
     const bracketGen = useBracketGenerator();
@@ -608,8 +604,8 @@ export const useTournamentStore = defineStore('tournaments', () => {
     tournamentId: string,
     categoryId: string,
     options: {
-      grandFinalReset?: boolean;
-      thirdPlaceMatch?: boolean;
+      grandFinal?: 'simple' | 'double' | 'none';
+      consolationFinal?: boolean;
     } = {}
   ): Promise<{ success: boolean; matchCount: number }> {
     const bracketGen = useBracketGenerator();

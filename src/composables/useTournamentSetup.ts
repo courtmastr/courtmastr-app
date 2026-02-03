@@ -12,8 +12,8 @@ export interface SetupOptions {
   categoryId: string;
   // Bracket options
   format?: 'single_elimination' | 'double_elimination' | 'round_robin';
-  grandFinalReset?: boolean;
-  thirdPlaceMatch?: boolean;
+  grandFinal?: 'simple' | 'double' | 'none';
+  consolationFinal?: boolean;
   // Schedule options
   autoSchedule?: boolean;
   startTime?: Date;
@@ -68,8 +68,8 @@ export function useTournamentSetup() {
         options.tournamentId,
         options.categoryId,
         {
-          grandFinalReset: options.grandFinalReset,
-          thirdPlaceMatch: options.thirdPlaceMatch,
+          grandFinal: options.grandFinal,
+          consolationFinal: options.consolationFinal,
         }
       );
 

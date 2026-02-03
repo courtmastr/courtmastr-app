@@ -9,7 +9,7 @@
  * - opponent IDs are registration IDs directly (no participant lookup needed)
  */
 
-import type { Match, MatchStatus, BracketPosition } from '@/types';
+import type { Match, MatchStatus } from '@/types';
 import type { Registration } from '@/types';
 
 export interface Participant {
@@ -63,7 +63,7 @@ export interface BracketsStage {
  */
 export function adaptBracketsMatchToLegacyMatch(
     bracketsMatch: BracketsMatch,
-    registrations: Registration[] | null,
+    _registrations: Registration[] | null,
     participants: Participant[] | null,
     categoryId: string,
     tournamentId: string

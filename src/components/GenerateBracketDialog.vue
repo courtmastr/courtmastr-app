@@ -21,11 +21,27 @@ const setup = useTournamentSetup();
 
 // Form state
 const options = ref({
-  grandFinalReset: true,
-  thirdPlaceMatch: true,
+  grandFinal: 'double' as 'simple' | 'double' | 'none',
+  consolationFinal: true,
   autoSchedule: true,
   startTime: new Date(),
   selectedCourts: [] as string[],
+});
+
+// Computed properties for UI switches
+// These handle the boolean ↔ enum conversion for better UX
+const grandFinalReset = computed({
+  get: () => options.value.grandFinal === 'double',
+  set: (val: boolean) => {
+    options.value.grandFinal = val ? 'double' : 'simple';
+  }
+});
+
+const thirdPlaceMatch = computed({
+  get: () => options.value.consolationFinal,
+  set: (val: boolean) => {
+    options.value.consolationFinal = val;
+  }
 });
 
 // Computed
@@ -51,8 +67,12 @@ async function onSubmit() {
       tournamentId: props.tournamentId,
       categoryId: props.categoryId,
       format: props.categoryFormat,
-      grandFinalReset: options.value.grandFinalReset,
-      thirdPlaceMatch: options.value.thirdPlaceMatch,
+      // Pass enum directly (only for double elimination)
+      grandFinal: props.categoryFormat === 'double_elimination'
+        ? options.value.grandFinal
+        : undefined,
+      // Pass boolean directly
+      consolationFinal: options.value.consolationFinal,
       autoSchedule: options.value.autoSchedule,
       startTime: options.value.startTime,
       courtIds: options.value.selectedCourts,
@@ -74,21 +94,15 @@ function close() {
   emit('update:modelValue', false);
   // Reset form
   options.value = {
-    grandFinalReset: true,
-    thirdPlaceMatch: true,
+    grandFinal: 'double',
+    consolationFinal: true,
     autoSchedule: true,
     startTime: new Date(),
     selectedCourts: courts.value.map(c => c.id),
   };
 }
 
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (hours === 0) return `${mins}m`;
-  if (mins === 0) return `${hours}h`;
-  return `${hours}h ${mins}m`;
-}
+
 </script>
 
 <template>
@@ -163,7 +177,7 @@ function formatDuration(minutes: number): string {
           
           <v-switch
             v-if="categoryFormat === 'double_elimination'"
-            v-model="options.grandFinalReset"
+            v-model="grandFinalReset"
             label="Grand Final Reset (if losers bracket winner wins first match)"
             hide-details
             density="compact"
@@ -171,7 +185,7 @@ function formatDuration(minutes: number): string {
           
           <v-switch
             v-if="categoryFormat !== 'round_robin'"
-            v-model="options.thirdPlaceMatch"
+            v-model="thirdPlaceMatch"
             label="Include Third Place Match"
             hide-details
             density="compact"

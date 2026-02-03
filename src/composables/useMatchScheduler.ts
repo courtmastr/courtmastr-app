@@ -18,7 +18,7 @@ import {
   Timestamp,
   serverTimestamp,
 } from '@/services/firebase';
-import type { Court, Match } from '@/types';
+import type { Court } from '@/types';
 
 // ============================================
 // Types
@@ -221,7 +221,7 @@ export function useMatchScheduler() {
    */
   async function clearSchedule(
     tournamentId: string,
-    categoryId?: string
+    _categoryId?: string
   ): Promise<{ cleared: number }> {
     // Get scheduled matches
     let matchesQuery = query(
@@ -279,7 +279,7 @@ import { setDoc } from 'firebase/firestore';
 function generateSchedule(
   matches: any[],
   config: ScheduleConfig,
-  respectDependencies: boolean
+  _respectDependencies: boolean
 ): ScheduleResult {
   const scheduled: ScheduledMatch[] = [];
   const unscheduled: string[] = [];

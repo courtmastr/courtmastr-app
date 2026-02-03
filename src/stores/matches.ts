@@ -42,12 +42,6 @@ export const useMatchStore = defineStore('matches', () => {
       : `tournaments/${tournamentId}/match`;
   }
 
-  function getStagePath(tournamentId: string, categoryId?: string): string {
-    return categoryId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/stage`
-      : `tournaments/${tournamentId}/stage`;
-  }
-
   const scheduledMatches = computed(() =>
     matches.value.filter((m) => m.status === 'scheduled')
   );
@@ -561,9 +555,6 @@ export const useMatchStore = defineStore('matches', () => {
       const matchScoresPath = categoryId
         ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
         : `tournaments/${tournamentId}/match_scores`;
-      const matchPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match`
-        : `tournaments/${tournamentId}/match`;
 
       // 1. Write final scores to match_scores
       await setDoc(
