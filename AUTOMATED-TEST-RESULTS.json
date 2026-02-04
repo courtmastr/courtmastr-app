@@ -1,13 +1,67 @@
 {
-  "timestamp": "2026-02-04T07:40:31.159Z",
+  "timestamp": "2026-02-04T13:23:52.652Z",
+  "duration": "76.30s",
+  "tournamentId": "yqOb0pkx1ROrwmnTyEYo",
+  "totalBugs": 3,
   "bugs": [
     {
-      "phase": "Phase 1",
-      "severity": "CRITICAL",
-      "title": "Login Failed",
-      "details": "URL: http://localhost:3000/login",
-      "timestamp": "2026-02-04T07:40:30.985Z"
+      "phase": "Phase 3",
+      "severity": "HIGH",
+      "title": "Total Matches Shows 0",
+      "details": "Tournament has 20 participants but Total Matches counter shows 0. Stats are reading from empty match_scores collection instead of match collection.",
+      "timestamp": "2026-02-04T13:22:55.075Z"
+    },
+    {
+      "phase": "Phase 7",
+      "severity": "HIGH",
+      "title": "Auto Schedule Error",
+      "details": "page.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Generate\")')\u001b[22m\n",
+      "timestamp": "2026-02-04T13:23:47.526Z"
+    },
+    {
+      "phase": "Phase 8",
+      "severity": "HIGH",
+      "title": "Queue Shows No Matches After Scheduling",
+      "details": "After auto-schedule, queue should contain scheduled matches but appears empty.",
+      "timestamp": "2026-02-04T13:23:52.652Z"
     }
   ],
-  "totalBugs": 1
+  "screenshots": [
+    {
+      "name": "tournament-dashboard",
+      "filename": "1770211374997-tournament-dashboard.png",
+      "filepath": "test-screenshots/1770211374997-tournament-dashboard.png"
+    },
+    {
+      "name": "brackets-generated",
+      "filename": "1770211385148-brackets-generated.png",
+      "filepath": "test-screenshots/1770211385148-brackets-generated.png"
+    },
+    {
+      "name": "tournament-started",
+      "filename": "1770211389250-tournament-started.png",
+      "filepath": "test-screenshots/1770211389250-tournament-started.png"
+    },
+    {
+      "name": "match-control",
+      "filename": "1770211394346-match-control.png",
+      "filepath": "test-screenshots/1770211394346-match-control.png"
+    },
+    {
+      "name": "auto-schedule-dialog",
+      "filename": "1770211397456-auto-schedule-dialog.png",
+      "filepath": "test-screenshots/1770211397456-auto-schedule-dialog.png"
+    },
+    {
+      "name": "queue-verification",
+      "filename": "1770211432611-queue-verification.png",
+      "filepath": "test-screenshots/1770211432611-queue-verification.png"
+    }
+  ],
+  "summary": {
+    "critical": 0,
+    "high": 3,
+    "medium": 0,
+    "low": 0
+  }
 }

@@ -300,13 +300,20 @@ function generateSchedule(
   const participantSchedule = new Map<string, Date>();
   const scheduledMatchIds = new Set<string>();
 
+  /**
+   * Extract participant IDs from match
+   * Uses participant1Id/participant2Id (from brackets-manager)
+   */
   const getMatchParticipantIds = (match: any): string[] => {
     const ids: string[] = [];
-    if (match.opponent1?.id) ids.push(match.opponent1.id);
-    if (match.opponent2?.id) ids.push(match.opponent2.id);
+    if (match.participant1Id) ids.push(match.participant1Id);
+    if (match.participant2Id) ids.push(match.participant2Id);
     return ids;
   };
 
+  /**
+   * Group matches by round number
+   */
   const matchesByRound = new Map<number, any[]>();
   for (const match of matches) {
     if (!matchesByRound.has(match.round)) {
@@ -321,25 +328,39 @@ function generateSchedule(
   let lastEndTime = config.startTime;
   const latestEnd = config.endTime || new Date(config.startTime.getTime() + 12 * 60 * 60 * 1000);
 
+  /**
+   * Process rounds sequentially (round 1, then round 2, etc.)
+   */
   for (const round of sortedRounds) {
     const roundMatches = matchesByRound.get(round)!;
 
+    /**
+     * Sort matches within round by priority:
+     * 1. Ready matches first (both participants present)
+     * 2. Then by position (matchNumber)
+     */
     const sortedMatches = roundMatches.sort((a, b) => {
-      const aReady = a.opponent1?.id && a.opponent2?.id ? 1 : 0;
-      const bReady = b.opponent1?.id && b.opponent2?.id ? 1 : 0;
+      const aReady = a.participant1Id && a.participant2Id ? 1 : 0;
+      const bReady = b.participant1Id && b.participant2Id ? 1 : 0;
       if (aReady !== bReady) return bReady - aReady;
-      return a.position - b.position;
+      return a.matchNumber - b.matchNumber;
     });
 
     for (const match of sortedMatches) {
       const matchId = match.id;
       const participantIds = getMatchParticipantIds(match);
 
+      // Skip TBD matches (no participants)
       if (participantIds.length === 0 && match.status === 0) {
         unscheduled.push({ matchId, reason: 'Waiting for participants (TBD match)' });
         continue;
       }
 
+      /**
+       * CRITICAL: Check bracket dependencies
+       * Feeding match = match where nextMatchId === currentMatch.id
+       * If feeding matches are unscheduled, skip this match
+       */
       if (respectDependencies) {
         const feedingMatches = matches.filter(
           (m) => m.nextMatchId === match.id && !scheduledMatchIds.has(m.id)
@@ -354,6 +375,10 @@ function generateSchedule(
         }
       }
 
+      /**
+       * Calculate earliest start time based on participant rest
+       * Rest time = minRestTimeMinutes * 60 * 1000 milliseconds
+       */
       let earliestStart = config.startTime;
       let restViolation = false;
       let restViolationDetails: { participantId: string; restEndTime: Date } | null = null;
@@ -381,6 +406,10 @@ function generateSchedule(
         continue;
       }
 
+      /**
+       * Try all courts, pick earliest available
+       * Court selection: Find court with earliest available time
+       */
       let bestCourt: Court | null = null;
       let bestStartTime = new Date(latestEnd.getTime());
 
@@ -400,6 +429,9 @@ function generateSchedule(
 
       const endTime = new Date(bestStartTime.getTime() + config.matchDurationMinutes * 60 * 1000);
 
+      /**
+       * Time window: Must end before tournament end time
+       */
       if (endTime > latestEnd) {
         unscheduled.push({
           matchId,
@@ -409,6 +441,9 @@ function generateSchedule(
         continue;
       }
 
+      /**
+       * Write to schedule with fields: courtId, scheduledTime, sequence, updatedAt
+       */
       scheduled.push({
         matchId,
         courtId: bestCourt.id,
