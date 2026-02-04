@@ -468,6 +468,7 @@ async function saveSchedule(
         courtId: slot.courtId,
         scheduledTime: Timestamp.fromDate(slot.scheduledTime),
         sequence: slot.sequence,
+        status: 'scheduled',
         updatedAt: serverTimestamp(),
       },
       { merge: true }
