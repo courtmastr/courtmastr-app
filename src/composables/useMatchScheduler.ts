@@ -41,14 +41,21 @@ export interface ScheduledMatch {
   sequence: number;
 }
 
+export interface UnscheduledMatch {
+  matchId: string;
+  reason?: string;
+  details?: Record<string, unknown>;
+}
+
 export interface ScheduleResult {
   scheduled: ScheduledMatch[];
-  unscheduled: string[]; // Match IDs that couldn't be scheduled
+  unscheduled: UnscheduledMatch[];
   stats: {
     totalMatches: number;
     scheduledCount: number;
-    courtUtilization: number; // percentage
-    estimatedDuration: number; // minutes
+    unscheduledCount: number;
+    courtUtilization: number;
+    estimatedDuration: number;
   };
 }
 
@@ -148,6 +155,7 @@ export function useMatchScheduler() {
           stats: {
             totalMatches: 0,
             scheduledCount: 0,
+            unscheduledCount: 0,
             courtUtilization: 0,
             estimatedDuration: 0,
           },
@@ -279,24 +287,19 @@ import { setDoc } from 'firebase/firestore';
 function generateSchedule(
   matches: any[],
   config: ScheduleConfig,
-  _respectDependencies: boolean
+  respectDependencies: boolean
 ): ScheduleResult {
   const scheduled: ScheduledMatch[] = [];
-  const unscheduled: string[] = [];
-  
-  // Track court availability
+  const unscheduled: UnscheduledMatch[] = [];
+
   const courtAvailability = new Map<string, Date>();
   for (const court of config.courts) {
     courtAvailability.set(court.id, config.startTime);
   }
-  
-  // Track participant (registration) last match end time
+
   const participantSchedule = new Map<string, Date>();
-  
-  // Track scheduled match IDs
   const scheduledMatchIds = new Set<string>();
-  
-  // Get registrations from participants
+
   const getMatchParticipantIds = (match: any): string[] => {
     const ids: string[] = [];
     if (match.opponent1?.id) ids.push(match.opponent1.id);
@@ -304,110 +307,137 @@ function generateSchedule(
     return ids;
   };
 
-  // Sort matches by priority
-  // 1. Ready matches first (both participants known)
-  // 2. By round number
-  // 3. By match number
-  const sortedMatches = [...matches].sort((a, b) => {
-    const aReady = a.opponent1?.id && a.opponent2?.id ? 1 : 0;
-    const bReady = b.opponent1?.id && b.opponent2?.id ? 1 : 0;
-    if (aReady !== bReady) return bReady - aReady;
-    
-    if (a.round !== b.round) return a.round - b.round;
-    return a.position - b.position;
-  });
+  const matchesByRound = new Map<number, any[]>();
+  for (const match of matches) {
+    if (!matchesByRound.has(match.round)) {
+      matchesByRound.set(match.round, []);
+    }
+    matchesByRound.get(match.round)!.push(match);
+  }
+
+  const sortedRounds = Array.from(matchesByRound.keys()).sort((a, b) => a - b);
 
   let sequence = 1;
   let lastEndTime = config.startTime;
+  const latestEnd = config.endTime || new Date(config.startTime.getTime() + 12 * 60 * 60 * 1000);
 
-  for (const match of sortedMatches) {
-    const matchId = match.id;
-    const participantIds = getMatchParticipantIds(match);
-    
-    // Skip if both participants are unknown (TBD match)
-    if (participantIds.length === 0 && match.status === 0) {
-      unscheduled.push(matchId);
-      continue;
-    }
+  for (const round of sortedRounds) {
+    const roundMatches = matchesByRound.get(round)!;
 
-    // Calculate earliest start time based on:
-    // 1. Court availability
-    // 2. Participant rest times
-    let earliestStart = config.startTime;
-    
-    // Check participant rest constraints
-    for (const pid of participantIds) {
-      const lastEnd = participantSchedule.get(pid);
-      if (lastEnd) {
-        const restEnd = new Date(lastEnd.getTime() + config.minRestTimeMinutes * 60 * 1000);
-        if (restEnd > earliestStart) {
-          earliestStart = restEnd;
-        }
-      }
-    }
-
-    // Find best court (earliest available)
-    let bestCourt: Court | null = null;
-    let bestStartTime = new Date(config.endTime?.getTime() || Date.now() + 86400000);
-
-    for (const court of config.courts) {
-      const availableTime = courtAvailability.get(court.id) || config.startTime;
-      const potentialStart = new Date(Math.max(availableTime.getTime(), earliestStart.getTime()));
-      
-      if (potentialStart < bestStartTime) {
-        bestStartTime = potentialStart;
-        bestCourt = court;
-      }
-    }
-
-    // Check if we found a valid slot
-    if (!bestCourt) {
-      unscheduled.push(matchId);
-      continue;
-    }
-
-    const endTime = new Date(bestStartTime.getTime() + config.matchDurationMinutes * 60 * 1000);
-    
-    // Check if within tournament end time
-    if (config.endTime && endTime > config.endTime) {
-      unscheduled.push(matchId);
-      continue;
-    }
-
-    // Schedule the match
-    scheduled.push({
-      matchId,
-      courtId: bestCourt.id,
-      courtNumber: bestCourt.number,
-      scheduledTime: bestStartTime,
-      estimatedEndTime: endTime,
-      sequence: sequence++,
+    const sortedMatches = roundMatches.sort((a, b) => {
+      const aReady = a.opponent1?.id && a.opponent2?.id ? 1 : 0;
+      const bReady = b.opponent1?.id && b.opponent2?.id ? 1 : 0;
+      if (aReady !== bReady) return bReady - aReady;
+      return a.position - b.position;
     });
 
-    scheduledMatchIds.add(matchId);
-    
-    // Update tracking
-    courtAvailability.set(bestCourt.id, endTime);
-    for (const pid of participantIds) {
-      participantSchedule.set(pid, endTime);
-    }
-    
-    if (endTime > lastEndTime) {
-      lastEndTime = endTime;
+    for (const match of sortedMatches) {
+      const matchId = match.id;
+      const participantIds = getMatchParticipantIds(match);
+
+      if (participantIds.length === 0 && match.status === 0) {
+        unscheduled.push({ matchId, reason: 'Waiting for participants (TBD match)' });
+        continue;
+      }
+
+      if (respectDependencies) {
+        const feedingMatches = matches.filter(
+          (m) => m.nextMatchId === match.id && !scheduledMatchIds.has(m.id)
+        );
+        if (feedingMatches.length > 0) {
+          unscheduled.push({
+            matchId,
+            reason: `Waiting for ${feedingMatches.length} feeding match(es) to complete`,
+            details: { feedingMatchIds: feedingMatches.map((m) => m.id) }
+          });
+          continue;
+        }
+      }
+
+      let earliestStart = config.startTime;
+      let restViolation = false;
+      let restViolationDetails: { participantId: string; restEndTime: Date } | null = null;
+
+      for (const pid of participantIds) {
+        const lastEnd = participantSchedule.get(pid);
+        if (lastEnd) {
+          const restEnd = new Date(lastEnd.getTime() + config.minRestTimeMinutes * 60 * 1000);
+          if (restEnd > earliestStart) {
+            earliestStart = restEnd;
+            if (restEnd > latestEnd) {
+              restViolation = true;
+              restViolationDetails = { participantId: pid, restEndTime: restEnd };
+            }
+          }
+        }
+      }
+
+      if (restViolation && restViolationDetails) {
+        unscheduled.push({
+          matchId,
+          reason: `Participant needs ${config.minRestTimeMinutes}-minute rest until ${restViolationDetails.restEndTime.toLocaleTimeString()}, but tournament ends at ${latestEnd.toLocaleTimeString()}`,
+          details: { participantId: restViolationDetails.participantId, restEndTime: restViolationDetails.restEndTime, tournamentEndTime: latestEnd }
+        });
+        continue;
+      }
+
+      let bestCourt: Court | null = null;
+      let bestStartTime = new Date(latestEnd.getTime());
+
+      for (const court of config.courts) {
+        const availableTime = courtAvailability.get(court.id) || config.startTime;
+        const potentialStart = new Date(Math.max(availableTime.getTime(), earliestStart.getTime()));
+        if (potentialStart < bestStartTime) {
+          bestStartTime = potentialStart;
+          bestCourt = court;
+        }
+      }
+
+      if (!bestCourt) {
+        unscheduled.push({ matchId, reason: 'No available courts' });
+        continue;
+      }
+
+      const endTime = new Date(bestStartTime.getTime() + config.matchDurationMinutes * 60 * 1000);
+
+      if (endTime > latestEnd) {
+        unscheduled.push({
+          matchId,
+          reason: `No available time slot. Match would end at ${endTime.toLocaleTimeString()}, but tournament ends at ${latestEnd.toLocaleTimeString()}`,
+          details: { estimatedEnd: endTime, tournamentEnd: latestEnd }
+        });
+        continue;
+      }
+
+      scheduled.push({
+        matchId,
+        courtId: bestCourt.id,
+        courtNumber: bestCourt.number,
+        scheduledTime: bestStartTime,
+        estimatedEndTime: endTime,
+        sequence: sequence++,
+      });
+
+      scheduledMatchIds.add(matchId);
+      courtAvailability.set(bestCourt.id, endTime);
+      for (const pid of participantIds) {
+        participantSchedule.set(pid, endTime);
+      }
+      if (endTime > lastEndTime) {
+        lastEndTime = endTime;
+      }
     }
   }
 
-  // Calculate stats
   const totalMatches = matches.length;
   const scheduledCount = scheduled.length;
+  const unscheduledCount = unscheduled.length;
   const duration = lastEndTime.getTime() - config.startTime.getTime();
   const estimatedDuration = Math.ceil(duration / (1000 * 60));
-  
-  // Court utilization: how much of available court time is used
   const totalCourtMinutes = config.courts.length * estimatedDuration;
   const usedMinutes = scheduledCount * config.matchDurationMinutes;
-  const courtUtilization = totalCourtMinutes > 0 
-    ? Math.round((usedMinutes / totalCourtMinutes) * 100) 
+  const courtUtilization = totalCourtMinutes > 0
+    ? Math.round((usedMinutes / totalCourtMinutes) * 100)
     : 0;
 
   return {
@@ -416,6 +446,7 @@ function generateSchedule(
     stats: {
       totalMatches,
       scheduledCount,
+      unscheduledCount,
       courtUtilization: Math.min(courtUtilization, 100),
       estimatedDuration,
     },

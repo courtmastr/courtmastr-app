@@ -38,16 +38,18 @@ const brackets_manager_1 = require("brackets-manager");
 const firestore_adapter_1 = require("./storage/firestore-adapter");
 const admin = __importStar(require("firebase-admin"));
 /**
- * Creates a BracketsManager instance scoped to a specific tournament.
+ * Creates a BracketsManager instance scoped to a specific category.
+ * Matches client-side behavior: stores data in category-isolated subcollections.
  *
  * @param tournamentId The ID of the tournament context.
+ * @param categoryId The ID of the category (for category-isolated storage).
  * @returns A fully configured BracketsManager instance.
  */
-function getBracketsManager(tournamentId) {
+function getBracketsManager(tournamentId, categoryId) {
     const db = admin.firestore();
-    // Use the tournament document as the root (even components)
-    // Sub-collections will be created under it: tournaments/T1/participant, tournaments/T1/match, etc.
-    const rootPath = `tournaments/${tournamentId}`;
+    // Category-isolated path to match client-side behavior
+    // Stores at: tournaments/{tournamentId}/categories/{categoryId}/participant, match, etc.
+    const rootPath = `tournaments/${tournamentId}/categories/${categoryId}`;
     const storage = new firestore_adapter_1.FirestoreStorage(db, rootPath);
     return new brackets_manager_1.BracketsManager(storage);
 }

@@ -68,8 +68,8 @@ export async function generateBracket(
   console.log(`   Total sorted: ${sortedRegistrations.length}`);
 
   // Delete existing bracket data for this category (if any)
-  // brackets-manager stores data in sub-collections under the tournament
-  const manager = getBracketsManager(tournamentId);
+  // brackets-manager stores data in category-isolated sub-collections
+  const manager = getBracketsManager(tournamentId, categoryId);
 
   // TODO: Fix stage deletion - currently causing "Could not delete match games" error
   /*

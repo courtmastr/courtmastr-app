@@ -280,10 +280,25 @@ async function regenerateBracket() {
   }
 }
 
+const scheduleResult = ref<{
+  scheduled: number;
+  unscheduled: number;
+  unscheduledDetails?: Array<{ matchId: string; reason?: string; details?: Record<string, unknown> }>;
+} | null>(null);
+
 async function generateSchedule() {
   try {
-    await tournamentStore.generateSchedule(tournamentId.value);
-    notificationStore.showToast('success', 'Schedule generated successfully!');
+    const result = await tournamentStore.generateSchedule(tournamentId.value);
+    scheduleResult.value = result;
+
+    if (result.unscheduled > 0 && result.unscheduledDetails) {
+      notificationStore.showToast(
+        'warning',
+        `${result.scheduled} matches scheduled, ${result.unscheduled} could not be scheduled`
+      );
+    } else {
+      notificationStore.showToast('success', 'Schedule generated successfully!');
+    }
   } catch (error) {
     notificationStore.showToast('error', 'Failed to generate schedule');
   }
@@ -445,6 +460,41 @@ async function updateStatus(status: string) {
               @manage-registrations="(categoryId) => router.push(`/tournaments/${tournamentId}/registrations?category=${categoryId}`)"
               @manage-seeds="openSeedingDialog"
             />
+
+            <!-- Schedule Result Alert -->
+            <v-alert
+              v-if="scheduleResult && scheduleResult.unscheduled > 0"
+              type="warning"
+              variant="tonal"
+              closable
+              class="mt-4"
+              @click:close="scheduleResult = null"
+            >
+              <div class="d-flex align-center">
+                <v-icon icon="mdi-alert" class="mr-2" />
+                <div class="font-weight-bold">
+                  {{ scheduleResult.unscheduled }} match(es) could not be scheduled
+                </div>
+              </div>
+
+              <v-divider class="my-2" />
+
+              <v-list density="compact" class="bg-transparent">
+                <v-list-item
+                  v-for="item in scheduleResult.unscheduledDetails"
+                  :key="item.matchId"
+                  class="px-0"
+                >
+                  <template #prepend>
+                    <v-icon icon="mdi-information" size="small" color="warning" />
+                  </template>
+                  <v-list-item-title>Match ID: {{ item.matchId }}</v-list-item-title>
+                  <v-list-item-subtitle class="text-warning">
+                    {{ item.reason || 'Unknown reason' }}
+                  </v-list-item-subtitle>
+                </v-list-item>
+              </v-list>
+            </v-alert>
 
             <!-- Tournament Info -->
             <v-card class="mt-4" variant="outlined">

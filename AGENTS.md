@@ -6,141 +6,140 @@ This document is **authoritative**. All agents MUST follow it. Violations consti
 
 ## 1. Project Snapshot
 
-**Stack (Fixed)**
+**Stack**
 - Frontend: Vue 3 + TypeScript + Vite
 - UI: Vuetify 3 (Material Design only)
-- State: Pinia (no Vuex, no globals)
+- State: Pinia (no Vuex)
 - Backend: Firebase (Firestore, Auth, Cloud Functions, Hosting)
 - PWA: Vite PWA Plugin
-- Package Manager: npm (MUST NOT change)
-- Node Version: Read from `.nvmrc` or `package.json` `engines`
+- Test: Vitest + @vue/test-utils + happy-dom
+- Package Manager: npm
 
 **Repository Layout**
-- Source: `src/`
-- Firebase Config: `firebase.json`
-- Cloud Functions: `functions/`
-- Debug KB: `docs/debug-kb/`
-- Logging Scripts: `scripts/`
+- Source: `src/` — Vue components, stores, composables, services
+- Types: `src/types/index.ts` — central type definitions
+- Tests: `tests/**/*.test.ts`
+- Firebase: `functions/` — Cloud Functions
+- Debug KB: `docs/debug-kb/` — error documentation
 
 ---
 
-## 2. Non-Negotiables
+## 2. Commands
+
+```bash
+# Development
+npm run dev              # Start dev server (port 3002)
+npm run emulators        # Start Firebase emulators
+npm run seed:simple      # Seed emulator with test data
+
+# Build & Deploy
+npm run build            # Type-check + build for production
+npm run preview          # Preview production build locally
+npm run deploy           # Build + deploy to Firebase
+
+# Testing
+npm run test             # Run tests in watch mode
+npm run test -- tests/unit/scoring.test.ts   # Run single test file
+npm run test -- --run    # Run tests once (CI mode)
+npm run test:coverage    # Run tests with coverage report
+
+# Linting & Types
+npm run lint             # ESLint with auto-fix
+npm run type-check       # TypeScript check only
+
+# Logging variants (use these)
+npm run dev:log
+npm run build:log
+npm run test:log
+npm run lint:log
+npm run emulators:log
+npm run deploy:log
+```
+
+---
+
+## 3. Code Style Guidelines
+
+**Vue Components**
+- Use `<script setup lang="ts">` (Composition API)
+- Import order: Vue → Vue Router → Pinia stores → composables → services → types
+- Use Vuetify components exclusively (`v-card`, `v-btn`, etc.)
+- Scoped styles only when needed: `<style scoped>`
+
+**TypeScript**
+- Strict mode enabled — no `any`, no `@ts-ignore`
+- Explicit return types on exported functions
+- Use `interface` for object shapes, `type` for unions/aliases
+- Prefer `const` arrow functions: `const fn = (): void => {}`
+
+**Naming Conventions**
+- Components: PascalCase (`TournamentCard.vue`)
+- Composables: camelCase starting with `use` (`useMatchScheduler.ts`)
+- Stores: camelCase ending with `Store` (`tournaments.ts` exports `useTournamentStore`)
+- Types/Interfaces: PascalCase (`Tournament`, `MatchStatus`)
+- Constants: UPPER_SNAKE_CASE (`BADMINTON_CONFIG`)
+
+**Imports & Paths**
+- Use `@/` alias for all imports from `src/`
+- Example: `import { useTournamentStore } from '@/stores/tournaments'`
+
+**Error Handling**
+- Try/catch with explicit error messages
+- Log errors with context: `console.error('Error fetching tournament:', err)`
+- Re-throw after logging for upstream handling
+- Never suppress errors silently
+
+**Pinia Stores**
+- Use Setup Store pattern (composable-style)
+- State: `ref()` — Getters: `computed()` — Actions: functions
+- Return all state/getters/actions explicitly at end
+
+---
+
+## 4. Non-Negotiables
 
 **MUST:**
-- Make smallest possible change to solve task
+- Make smallest possible change
 - Reuse existing patterns, components, stores
 - Search codebase before creating files
 - Run `:log` commands after changes
 - Follow Debug KB Protocol on failures
 
 **MUST NOT:**
-- Add dependencies unless explicitly instructed
+- Add dependencies unless instructed
 - Refactor unrelated code
 - Change linting/formatting rules
 - Switch package manager
-- Change Firestore schema/rules/auth unless instructed
-- Touch production deploy config unless instructed
+- Change Firestore rules unless instructed
 - Weaken security to "make it work"
+- Use `any` or suppress TypeScript errors
 
 ---
 
-## 3. Working Conventions
+## 5. Debug KB Protocol
 
-- Use Vue Composition API with `<script setup>`
-- Use Pinia for shared state only
-- Use Vuetify components exclusively
-- Keep TypeScript types explicit at module boundaries
-- Match existing code style exactly
-- No silent breaking changes
-
----
-
-## 4. Mandatory Agent Workflow
-
-1. **Understand**: Read task and locate relevant files
-2. **Search KB**: Check `docs/debug-kb/` for similar issues
-3. **Implement**: Minimal diff using existing patterns
-4. **Verify**: Run appropriate `:log` command
-5. **Handle Failure**: Follow Debug KB Protocol
-6. **Document**: Update KB with solution
-7. **Summarize**: Report files changed, commands run, KB updates
-
----
-
-## 5. Debug KB Protocol (STRICT)
-
-**A. Always Use `:log` Scripts**
-```bash
-npm run dev:log
-npm run build:log
-npm run test:log
-npm run lint:log
-npm run firebase:emulators:log
-npm run firebase:deploy:log
-```
-Safe probes only: `node -v`, `npm -v`, `firebase --version`
-
-**B. On Failure**
-When command fails, output shows:
+When a `:log` command fails, output shows:
 ```
 Fingerprint: <8-char-id>
 Log saved: docs/debug-kb/_artifacts/<file>.log
 ```
 
-Agents MUST:
+**On Failure:**
 1. Capture the fingerprint
-2. Search KB before fixes:
-   - `docs/debug-kb/<fingerprint>.md`
-   - `docs/debug-kb/index.yml`
-   - `grep error text docs/debug-kb/`
+2. Search KB: `docs/debug-kb/<fingerprint>.md`, `docs/debug-kb/index.yml`
 3. If entry exists: try Fix(final) first
-4. If not exists: create from TEMPLATE.md
-5. Record ONE attempt per change (Change + Result)
-6. Link artifact log file path
-7. Include: exact command, node version, firebase-tools version
+4. If not: create from TEMPLATE.md
+5. Record ONE attempt per change
 
-**C. On Success**
-Agents MUST:
-1. Write Root cause (ONE sentence)
-2. Write Fix (final) with exact steps
-3. Write Verification with runnable commands
-4. Set status to ✅ fixed or 🟡 workaround
-5. Update `docs/debug-kb/index.yml`
-
-**D. Never Skip Documentation**
-If unresolved:
-- Log all attempts
-- Mark status ❌ unresolved
-- Leave entry for future debugging
+**On Success:**
+- Write Root cause (ONE sentence)
+- Write Fix (final) with exact steps
+- Write Verification with runnable commands
+- Set status to ✅ fixed or 🟡 workaround
 
 ---
 
-## 6. Knowledge Base Quality Bar
-
-Every KB entry MUST include:
-- Exact command run
-- Runtime versions (node, firebase-tools)
-- Normalized error signature
-- Artifact log file link
-- Root cause as ONE sentence
-- Verification steps as runnable commands
-- No vague language
-
----
-
-## 7. Firebase Safety Rules
-
-Agents MUST:
-- Prefer Firebase emulators for debugging
-- Never log secrets or tokens
-- Never weaken Firestore rules to pass tests
-- Match Cloud Functions runtime to firebase.json
-- Avoid side effects on module import
-- Verify security rules before changes
-
----
-
-## 8. Data Model Rules (Post-Feb 2026 Migration)
+## 6. Data Model Rules
 
 **Collection Usage:**
 - `/match` = Bracket structure (brackets-manager, READ ONLY)
@@ -148,34 +147,41 @@ Agents MUST:
 - `/matches` = REMOVED (never reference)
 
 **ID & Status:**
-- All IDs stored as strings; both adapters normalize to strings
+- All IDs stored as strings
 - `/match_scores.status` (string) authoritative for UI
 - `/match.status` (numeric 0-4) brackets-manager internal only
 
-**Cloud Functions:** updateMatch, generateSchedule, advanceWinner use `/match` + `/match_scores` only
+**Participant ID Pattern (CRITICAL):**
+```typescript
+// ✅ ALWAYS use participant.name for registration ID:
+const registrationId = participant.name;  // Firestore doc ID
+
+// ❌ NEVER use participant.id for registration lookups:
+const registrationId = participant.id;    // Numeric brackets-manager ID only
+```
 
 Full rules: `docs/migration/DATA_MODEL_MIGRATION_RULES.md`
 
 ---
 
-## 9. Uncertainty Rule
+## 7. Where to Look
 
-If unsure about data shape, auth flow, Firestore rules intent, deployment behavior, or existing conventions: **STOP and ask one clarifying question.** Do NOT guess or invent behavior.
+| Task | Location | Notes |
+|------|----------|-------|
+| Add new feature | `src/features/<feature>/` | Create views/ and components/ |
+| Add shared component | `src/components/` | For layout, common UI |
+| Add store | `src/stores/<name>.ts` | Use Setup Store pattern |
+| Add composable | `src/composables/use<Name>.ts` | Must start with `use` |
+| Add types | `src/types/index.ts` | Central type definitions |
+| Add service | `src/services/<name>.ts` | External integrations |
+| Add test | `tests/unit/<name>.test.ts` | Follow existing patterns |
+| Add Cloud Function | `functions/src/<name>.ts` | Export from index.ts |
 
 ---
 
-## 10. Minimal Diff Rule
+## 8. Agent Output Requirements
 
-Agents MUST:
-- Touch only files directly related to the task
-- Avoid reformatting/reorganizing unrelated code
-- Avoid multi-concern changes in single task
-
----
-
-## 11. Agent Output Requirements
-
-After completing a task, agents MUST report:
+After completing a task, report:
 - Files changed (full paths)
 - Commands executed (exact)
 - Fingerprints handled
@@ -184,9 +190,19 @@ After completing a task, agents MUST report:
 
 ---
 
-## 12. Maintenance Rule
+## 9. Uncertainty Rule
 
-AGENTS.md MUST remain ≤ 180 lines. Prefer tightening language over adding sections. This file is a contract, not documentation.
+If unsure about data shape, auth flow, Firestore rules, deployment behavior, or existing conventions: **STOP and ask one clarifying question.** Do NOT guess or invent behavior.
+
+---
+
+## 10. Subdirectory Guides
+
+| Directory | Guide |
+|-----------|-------|
+| `src/stores/` | Setup Store pattern, Firebase listeners |
+| `src/features/` | Feature-based organization |
+| `src/composables/` | Reusable logic with `use` prefix |
 
 ---
 

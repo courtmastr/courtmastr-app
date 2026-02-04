@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import type { Stage, Match, MatchGame, Participant } from 'brackets-model';
-import { db } from '@/services/firebase';
+import { db, onSnapshot, collection } from '@/services/firebase';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { query, where, getDocs } from 'firebase/firestore';
 
 import 'brackets-viewer/dist/brackets-viewer.min.css';
 
@@ -31,6 +31,11 @@ const matches = ref<Match[]>([]);
 const matchGames = ref<MatchGame[]>([]);
 const participants = ref<Participant[]>([]);
 const containerId = `bracket-${Math.random().toString(36).slice(2)}`;
+
+// Real-time listener unsubscribe functions
+let matchUnsubscribe: (() => void) | null = null;
+let matchGameUnsubscribe: (() => void) | null = null;
+let matchScoresUnsubscribe: (() => void) | null = null;
 
 async function fetchRegistrationNames(): Promise<Map<string, string>> {
   const namesMap = new Map<string, string>();
@@ -156,6 +161,69 @@ async function fetchBracketData() {
   }
 }
 
+function setupRealtimeListeners() {
+  cleanupRealtimeListeners();
+  console.log(`🔄 [BracketsViewer] Setting up real-time listeners for category ${props.categoryId}`);
+
+  const basePath = `tournaments/${props.tournamentId}/categories/${props.categoryId}`;
+  const unsubscribers: (() => void)[] = [];
+
+  // Listener 1: /match collection
+  const matchPath = `${basePath}/match`;
+  const unsubMatch = onSnapshot(
+    collection(db, matchPath),
+    () => {
+      console.log('   🔄 Match collection changed');
+      fetchBracketData();
+    },
+    (error) => console.error('   ❌ Error listening to matches:', error)
+  );
+  unsubscribers.push(unsubMatch);
+
+  // Listener 2: /match_game collection
+  const matchGamesPath = `${basePath}/match_game`;
+  const unsubGame = onSnapshot(
+    collection(db, matchGamesPath),
+    () => {
+      console.log('   🔄 Match_game collection changed');
+      fetchBracketData();
+    },
+    (error) => console.error('   ❌ Error listening to match_games:', error)
+  );
+  unsubscribers.push(unsubGame);
+
+  // Listener 3: /match_scores collection
+  const matchScoresPath = `${basePath}/match_scores`;
+  const unsubScores = onSnapshot(
+    collection(db, matchScoresPath),
+    () => {
+      console.log('   🔄 Match_scores collection changed');
+      fetchBracketData();
+    },
+    (error) => console.error('   ❌ Error listening to match_scores:', error)
+  );
+  unsubscribers.push(unsubScores);
+
+  // Combine into single unsubscribe
+  const combinedUnsubscribe = () => unsubscribers.forEach(u => u());
+  matchUnsubscribe = combinedUnsubscribe;
+  matchGameUnsubscribe = combinedUnsubscribe;
+  matchScoresUnsubscribe = combinedUnsubscribe;
+
+  console.log('✅ [BracketsViewer] Real-time listeners active');
+}
+
+function cleanupRealtimeListeners() {
+  console.log('🧹 [BracketsViewer] Cleaning up real-time listeners');
+  const unsubscribe = matchUnsubscribe || matchGameUnsubscribe || matchScoresUnsubscribe;
+  if (unsubscribe) {
+    unsubscribe();
+  }
+  matchUnsubscribe = null;
+  matchGameUnsubscribe = null;
+  matchScoresUnsubscribe = null;
+}
+
 function renderBracket() {
   if (!bracketContainer.value) {
     console.error('❌ Bracket container not found');
@@ -178,6 +246,11 @@ function renderBracket() {
     const viewer = (window as any).bracketsViewer;
     if (!viewer || !viewer.render) {
       throw new Error('Brackets viewer library not loaded');
+    }
+
+    // Clear previous bracket before re-rendering
+    if (bracketContainer.value) {
+      bracketContainer.value.innerHTML = '';
     }
 
     // Deep clone to remove Vue proxies
@@ -208,10 +281,17 @@ function renderBracket() {
 onMounted(async () => {
   await loadBracketsViewer();
   await fetchBracketData();
+  setupRealtimeListeners();
 });
 
 watch(() => props.categoryId, async () => {
+  cleanupRealtimeListeners();
   await fetchBracketData();
+  setupRealtimeListeners();
+});
+
+onUnmounted(() => {
+  cleanupRealtimeListeners();
 });
 </script>
 

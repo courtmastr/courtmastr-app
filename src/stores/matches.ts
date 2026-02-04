@@ -20,6 +20,9 @@ import {
 import type { Match, GameScore, Registration } from '@/types';
 import { BADMINTON_CONFIG } from '@/types';
 import { adaptBracketsMatchToLegacyMatch, type BracketsMatch, type Participant } from './bracketMatchAdapter';
+import { useAdvanceWinner } from '@/composables/useAdvanceWinner';
+
+const USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER = false;
 
 export const useMatchStore = defineStore('matches', () => {
   const matches = ref<Match[]>([]);
@@ -169,10 +172,18 @@ export const useMatchStore = defineStore('matches', () => {
       });
 
       if (categoryId) {
-        matches.value = [
-          ...matches.value.filter(m => m.categoryId !== categoryId),
-          ...adaptedMatches
-        ];
+        const createKey = (m: Match) => `${m.categoryId}-${m.id}`;
+        const existingKeys = new Set(matches.value.map(createKey));
+        const seenKeys = new Set<string>();
+        const uniqueAdapted = adaptedMatches.filter(m => {
+          const key = createKey(m);
+          if (existingKeys.has(key) || seenKeys.has(key)) return false;
+          seenKeys.add(key);
+          return true;
+        });
+        const otherMatches = matches.value.filter(m => m.categoryId !== categoryId);
+        matches.value = [...otherMatches, ...uniqueAdapted];
+        console.log(`📊 Merged matches: ${otherMatches.length} from other categories + ${uniqueAdapted.length} new (${adaptedMatches.length - uniqueAdapted.length} duplicates filtered)`);
       } else {
         matches.value = adaptedMatches;
       }
@@ -263,6 +274,17 @@ export const useMatchStore = defineStore('matches', () => {
     const categorySubscriptions = new Map<string, { match: () => void; scores: () => void }>();
     let categoriesUnsubscribe: (() => void) | null = null;
 
+    const debouncedFetches = new Map<string, ReturnType<typeof setTimeout>>();
+
+    const debouncedFetch = (categoryId: string) => {
+      const existing = debouncedFetches.get(categoryId);
+      if (existing) clearTimeout(existing);
+      debouncedFetches.set(categoryId, setTimeout(() => {
+        fetchMatches(tournamentId, categoryId);
+        debouncedFetches.delete(categoryId);
+      }, 300));
+    };
+
     const subscribeToCategory = (categoryId: string) => {
       if (categorySubscriptions.has(categoryId)) return;
 
@@ -270,11 +292,11 @@ export const useMatchStore = defineStore('matches', () => {
       const matchScoresPath = `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
 
       const unsubMatch = onSnapshot(collection(db, matchPath), () => {
-        fetchMatches(tournamentId, categoryId);
+        debouncedFetch(categoryId);
       });
 
       const unsubScores = onSnapshot(collection(db, matchScoresPath), () => {
-        fetchMatches(tournamentId, categoryId);
+        debouncedFetch(categoryId);
       });
 
       categorySubscriptions.set(categoryId, { match: unsubMatch, scores: unsubScores });
@@ -321,6 +343,10 @@ export const useMatchStore = defineStore('matches', () => {
         subs.scores();
       }
       categorySubscriptions.clear();
+      for (const timeout of debouncedFetches.values()) {
+        clearTimeout(timeout);
+      }
+      debouncedFetches.clear();
     };
   }
 
@@ -569,24 +595,24 @@ export const useMatchStore = defineStore('matches', () => {
         { merge: true }
       );
 
-      // 2. Call Cloud Function to advance bracket
       try {
-        const updateMatchFn = httpsCallable(functions, 'updateMatch');
-
-        // Pass registration ID directly to cloud function
-        // Cloud function will handle mapping to bracket participant ID
-        await updateMatchFn({
-          tournamentId,
-          categoryId,  // Add categoryId for correct Firestore path
-          matchId,
-          status: 'completed',
-          winnerId,  // Pass registration ID directly
-          scores
-        });
-        console.log('[completeMatch] Cloud function advanced bracket successfully');
+        if (USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER) {
+          const updateMatchFn = httpsCallable(functions, 'updateMatch');
+          await updateMatchFn({
+            tournamentId,
+            categoryId,
+            matchId,
+            status: 'completed',
+            winnerId,
+            scores
+          });
+        } else {
+          const advancer = useAdvanceWinner();
+          await advancer.advanceWinner(tournamentId, categoryId!, matchId, winnerId);
+        }
+        console.log('[completeMatch] Bracket advanced successfully');
       } catch (cloudErr) {
-        console.error('[completeMatch] Cloud function failed:', cloudErr);
-        // Don't throw - match score is saved, bracket can be fixed manually
+        console.error('[completeMatch] Bracket advancement failed:', cloudErr);
       }
     } catch (err) {
       console.error('Error completing match:', err);
@@ -640,22 +666,23 @@ export const useMatchStore = defineStore('matches', () => {
       );
 
       try {
-        const updateMatchFn = httpsCallable(functions, 'updateMatch');
-
-        // Pass registration ID directly to cloud function
-        // Cloud function will handle mapping to bracket participant ID
-        await updateMatchFn({
-          tournamentId,
-          categoryId,  // Add categoryId for correct Firestore path
-          matchId,
-          status: 'completed',
-          winnerId,  // Pass registration ID directly
-          scores: walkoverScores
-        });
-
+        if (USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER) {
+          const updateMatchFn = httpsCallable(functions, 'updateMatch');
+          await updateMatchFn({
+            tournamentId,
+            categoryId,
+            matchId,
+            status: 'completed',
+            winnerId,
+            scores: walkoverScores
+          });
+        } else {
+          const advancer = useAdvanceWinner();
+          await advancer.advanceWinner(tournamentId, categoryId!, matchId, winnerId);
+        }
         console.log('[recordWalkover] Bracket advanced successfully');
       } catch (cloudErr) {
-        console.error('[recordWalkover] Cloud function failed:', cloudErr);
+        console.error('[recordWalkover] Bracket advancement failed:', cloudErr);
       }
     } catch (err) {
       console.error('Error recording walkover:', err);
