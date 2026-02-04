@@ -9,8 +9,11 @@ import {
   getDocs,
   updateDoc,
   setDoc,
+  writeBatch,
   query,
   where,
+  orderBy,
+  limit,
   onSnapshot,
   serverTimestamp,
   Timestamp,
@@ -911,6 +914,132 @@ export const useMatchStore = defineStore('matches', () => {
     return { isComplete: false };
   }
 
+  async function reorderQueue(
+    tournamentId: string,
+    matchIds: string[],
+    categoryId?: string
+  ): Promise<void> {
+    const batch = writeBatch(db);
+
+    matchIds.forEach((matchId, index) => {
+      const match = matches.value.find(m => m.id === matchId);
+      if (!match) return;
+
+      const path = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+        : `tournaments/${tournamentId}/match_scores`;
+      batch.update(doc(db, path, matchId), {
+        queuePosition: index + 1,
+        updatedAt: serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+  }
+
+  async function resetQueueToFIFO(tournamentId: string, categoryId?: string): Promise<void> {
+    const path = categoryId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+      : `tournaments/${tournamentId}/match_scores`;
+
+    const matchesQuery = query(
+      collection(db, path),
+      where('status', '==', 'scheduled'),
+      where('courtId', '==', null),
+      orderBy('queuedAt', 'asc')
+    );
+
+    const snapshot = await getDocs(matchesQuery);
+    const batch = writeBatch(db);
+
+    snapshot.docs.forEach((doc, index) => {
+      batch.update(doc.ref, {
+        queuePosition: index + 1,
+        updatedAt: serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+  }
+
+  async function sortQueueByRound(tournamentId: string, categoryId?: string): Promise<void> {
+    const matchesInQueue = matches.value.filter(
+      m => m.status === 'scheduled' && !m.courtId
+    );
+
+    const sorted = matchesInQueue.sort((a, b) => {
+      if (a.round !== b.round) return a.round - b.round;
+      return a.matchNumber - b.matchNumber;
+    });
+
+    const batch = writeBatch(db);
+    sorted.forEach((match, index) => {
+      const path = categoryId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+        : `tournaments/${tournamentId}/match_scores`;
+      batch.update(doc(db, path, match.id), {
+        queuePosition: index + 1,
+      });
+    });
+
+    await batch.commit();
+  }
+
+  async function announceMatch(
+    tournamentId: string,
+    matchId: string,
+    categoryId?: string
+  ): Promise<void> {
+    const path = categoryId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+      : `tournaments/${tournamentId}/match_scores`;
+    await updateDoc(doc(db, path, matchId), {
+      calledAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  async function delayMatch(
+    tournamentId: string,
+    matchId: string,
+    categoryId: string,
+    reason: string
+  ): Promise<void> {
+    const path = `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
+
+    const queueQuery = query(
+      collection(db, path),
+      where('status', '==', 'scheduled'),
+      orderBy('queuePosition', 'desc'),
+      limit(1)
+    );
+
+    const snapshot = await getDocs(queueQuery);
+    const maxPosition = snapshot.empty ? 0 : (snapshot.docs[0].data().queuePosition || 0);
+
+    const match = matches.value.find(m => m.id === matchId);
+    const batch = writeBatch(db);
+
+    batch.update(doc(db, path, matchId), {
+      queuePosition: maxPosition + 1,
+      courtId: null,
+      status: 'scheduled',
+      delayReason: reason,
+      delayedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    if (match?.courtId) {
+      batch.update(doc(db, `tournaments/${tournamentId}/courts`, match.courtId), {
+        status: 'available',
+        currentMatchId: null,
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  }
+
   return {
     matches,
     currentMatch,
@@ -938,6 +1067,11 @@ export const useMatchStore = defineStore('matches', () => {
     markMatchReady,
     calculateWinner,
     submitManualScores,
+    reorderQueue,
+    resetQueueToFIFO,
+    sortQueueByRound,
+    announceMatch,
+    delayMatch,
     unsubscribeAll,
     cleanup,
     clearCurrentMatch,

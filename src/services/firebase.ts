@@ -67,6 +67,7 @@ export {
   updateDoc,
   deleteDoc,
   writeBatch,
+  runTransaction,
   query,
   where,
   orderBy,
@@ -78,6 +79,7 @@ export {
   type DocumentSnapshot,
   type QuerySnapshot,
   type QueryDocumentSnapshot,
+  type Transaction,
 } from 'firebase/firestore';
 
 export {
