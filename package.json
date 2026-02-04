@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
+    "@playwright/test": "^1.58.1",
     "brackets-manager": "^1.8.2",
     "brackets-viewer": "^1.9.0",
     "date-fns": "^4.1.0",
@@ -53,6 +54,7 @@
     "brackets-memory-db": "^1.0.5",
     "firebase-tools": "^15.5.1",
     "happy-dom": "^20.3.7",
+    "playwright": "^1.58.1",
     "sass": "^1.97.3",
     "typescript": "~5.9.3",
     "vite": "^7.2.4",
