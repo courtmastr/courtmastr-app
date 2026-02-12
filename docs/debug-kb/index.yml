@@ -1,3 +1,17 @@
+- id: 427ce2a8
+  title: Build fails with existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-11"
+  fingerprint: "427ce2a8"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-11-21-28-18.vue-tsc-b.log"
+- id: c868b52b
+  title: Build fails with pre-existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-06"
+  fingerprint: "c868b52b"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-06-04-30-42.vue-tsc-b.log"
 - id: 0f6cb24c
   title: Build fails with existing TypeScript unused and type errors
   status: "❌ unresolved"

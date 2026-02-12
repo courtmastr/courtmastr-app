@@ -92,6 +92,30 @@ This might be a routing/auth issue. The Overview tab works fine and shows bracke
 
 ---
 
+## BUG #2 Update: Auto Schedule Button Click Blocked by Overlay
+
+### Severity: HIGH
+### Phase: Phase 7 - Auto Schedule
+
+**New Evidence (Automated Test):**
+Auto Schedule dialog opens and court checkboxes are selectable, but the click on the schedule button is blocked by an overlay scrim.
+
+**Playwright Error:**
+```
+<div class="v-overlay__scrim"></div> from <div class="v-overlay-container">…</div> subtree intercepts pointer events
+```
+
+**Impact:**
+- Auto Schedule cannot be executed in headless automation
+- Likely indicates the dialog is still in a transition state or another overlay is active
+
+**Next Investigation:**
+1. Verify button text is "Schedule {N} Matches"
+2. Check if a secondary modal or menu overlay remains open
+3. Add explicit wait for dialog transition to finish
+
+---
+
 ## Next Steps for Testing
 
 To continue testing, I need to:

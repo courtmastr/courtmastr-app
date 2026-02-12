@@ -1,67 +1,118 @@
 {
-  "timestamp": "2026-02-04T13:23:52.652Z",
-  "duration": "76.30s",
-  "tournamentId": "yqOb0pkx1ROrwmnTyEYo",
-  "totalBugs": 3,
+  "timestamp": "2026-02-04T23:53:47.042Z",
+  "duration": "61.02s",
+  "totalBugs": 5,
   "bugs": [
     {
-      "phase": "Phase 3",
-      "severity": "HIGH",
-      "title": "Total Matches Shows 0",
-      "details": "Tournament has 20 participants but Total Matches counter shows 0. Stats are reading from empty match_scores collection instead of match collection.",
-      "timestamp": "2026-02-04T13:22:55.075Z"
+      "phase": "Phase 1",
+      "severity": "CRITICAL",
+      "title": "Login Error",
+      "details": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/login\", waiting until \"load\"\u001b[22m\n",
+      "timestamp": "2026-02-04T23:52:46.822Z"
     },
     {
-      "phase": "Phase 7",
+      "phase": "Phase 2",
       "severity": "HIGH",
-      "title": "Auto Schedule Error",
-      "details": "page.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Generate\")')\u001b[22m\n",
-      "timestamp": "2026-02-04T13:23:47.526Z"
+      "title": "Tournament Navigation Error",
+      "details": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/tournaments\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/tournaments\", waiting until \"load\"\u001b[22m\n",
+      "timestamp": "2026-02-04T23:52:46.943Z"
+    },
+    {
+      "phase": "Phase 5",
+      "severity": "HIGH",
+      "title": "Start Tournament Error",
+      "details": "page.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Actions\")')\u001b[22m\n",
+      "timestamp": "2026-02-04T23:53:47.024Z"
+    },
+    {
+      "phase": "Phase 6",
+      "severity": "HIGH",
+      "title": "Match Control Error",
+      "details": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/tournaments/undefined/match-control\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/tournaments/undefined/match-control\", waiting until \"load\"\u001b[22m\n",
+      "timestamp": "2026-02-04T23:53:47.029Z"
     },
     {
       "phase": "Phase 8",
-      "severity": "HIGH",
-      "title": "Queue Shows No Matches After Scheduling",
-      "details": "After auto-schedule, queue should contain scheduled matches but appears empty.",
-      "timestamp": "2026-02-04T13:23:52.652Z"
+      "severity": "MEDIUM",
+      "title": "Queue Verification Error",
+      "details": "page.reload: net::ERR_CONNECTION_REFUSED\nCall log:\n\u001b[2m  - waiting for navigation until \"load\"\u001b[22m\n",
+      "timestamp": "2026-02-04T23:53:47.041Z"
     }
   ],
   "screenshots": [
     {
+      "name": "login-error",
+      "filename": "1770249166822-login-error.png",
+      "filepath": "test-screenshots/1770249166822-login-error.png"
+    },
+    {
       "name": "tournament-dashboard",
-      "filename": "1770211374997-tournament-dashboard.png",
-      "filepath": "test-screenshots/1770211374997-tournament-dashboard.png"
+      "filename": "1770249166944-tournament-dashboard.png",
+      "filepath": "test-screenshots/1770249166944-tournament-dashboard.png"
+    }
+  ],
+  "phaseResults": [
+    {
+      "name": "Phase 1: Login",
+      "passed": false,
+      "warning": false,
+      "failed": true,
+      "bugs": 1
     },
     {
-      "name": "brackets-generated",
-      "filename": "1770211385148-brackets-generated.png",
-      "filepath": "test-screenshots/1770211385148-brackets-generated.png"
+      "name": "Phase 2: Find Tournament",
+      "passed": false,
+      "warning": false,
+      "failed": true,
+      "bugs": 1
     },
     {
-      "name": "tournament-started",
-      "filename": "1770211389250-tournament-started.png",
-      "filepath": "test-screenshots/1770211389250-tournament-started.png"
+      "name": "Phase 3: Verify Data",
+      "passed": true,
+      "warning": false,
+      "failed": false,
+      "bugs": 0
     },
     {
-      "name": "match-control",
-      "filename": "1770211394346-match-control.png",
-      "filepath": "test-screenshots/1770211394346-match-control.png"
+      "name": "Phase 4: Generate Brackets",
+      "passed": true,
+      "warning": false,
+      "failed": false,
+      "bugs": 0
     },
     {
-      "name": "auto-schedule-dialog",
-      "filename": "1770211397456-auto-schedule-dialog.png",
-      "filepath": "test-screenshots/1770211397456-auto-schedule-dialog.png"
+      "name": "Phase 5: Start Tournament",
+      "passed": false,
+      "warning": false,
+      "failed": true,
+      "bugs": 1
     },
     {
-      "name": "queue-verification",
-      "filename": "1770211432611-queue-verification.png",
-      "filepath": "test-screenshots/1770211432611-queue-verification.png"
+      "name": "Phase 6: Match Control",
+      "passed": false,
+      "warning": false,
+      "failed": true,
+      "bugs": 1
+    },
+    {
+      "name": "Phase 7: Auto Schedule",
+      "passed": true,
+      "warning": false,
+      "failed": false,
+      "bugs": 0
+    },
+    {
+      "name": "Phase 8: Verify Queue",
+      "passed": false,
+      "warning": true,
+      "failed": false,
+      "bugs": 1
     }
   ],
   "summary": {
-    "critical": 0,
+    "critical": 1,
     "high": 3,
-    "medium": 0,
+    "medium": 1,
     "low": 0
   }
 }

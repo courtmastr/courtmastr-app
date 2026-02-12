@@ -43,6 +43,20 @@ npm run test -- tests/unit/scoring.test.ts   # Run single test file
 npm run test -- --run    # Run tests once (CI mode)
 npm run test:coverage    # Run tests with coverage report
 
+# E2E Testing (Playwright)
+npx playwright test                    # Run all E2E tests
+npx playwright test --ui               # Run with UI mode
+npx playwright test --headed           # Run in headed mode (see browser)
+npx playwright show-report             # View test report
+
+# E2E Testing (Agent-Browser for OpenCode)
+./scripts/agent-browser.sh setup       # Setup agent-browser
+./scripts/agent-browser.sh open        # Open app in agent-browser
+./scripts/agent-browser.sh snapshot    # Get page snapshot
+./scripts/agent-browser.sh login       # Login as admin
+./scripts/agent-browser.sh test full   # Run full test flow
+./scripts/agent-browser.sh debug       # Interactive debug mode
+
 # Linting & Types
 npm run lint             # ESLint with auto-fix
 npm run type-check       # TypeScript check only
@@ -203,6 +217,73 @@ If unsure about data shape, auth flow, Firestore rules, deployment behavior, or 
 | `src/stores/` | Setup Store pattern, Firebase listeners |
 | `src/features/` | Feature-based organization |
 | `src/composables/` | Reusable logic with `use` prefix |
+
+---
+
+## 11. Testing with Agent-Browser (For OpenCode)
+
+**Overview**
+Agent-browser is a headless browser automation CLI optimized for AI agents. It provides accessibility tree snapshots with deterministic refs (@e1, @e2) that reduce token usage by 93% compared to standard DOM dumps.
+
+**Quick Start**
+```bash
+# Setup (one-time)
+./scripts/agent-browser.sh setup
+
+# Open app and get snapshot
+./scripts/agent-browser.sh open http://localhost:3000
+./scripts/agent-browser.sh snapshot
+
+# Login as admin
+./scripts/agent-browser.sh login
+
+# Interactive debug mode
+./scripts/agent-browser.sh debug
+```
+
+**Agent-Browser Commands**
+```bash
+agent-browser open <url>              # Navigate to URL
+agent-browser snapshot -i -c          # Get interactive snapshot (compact)
+agent-browser click @e5               # Click element by ref
+agent-browser fill @e3 "text"         # Fill input by ref
+agent-browser screenshot [path]       # Take screenshot
+agent-browser close                   # Close browser
+```
+
+**Using in Code**
+```typescript
+import { AgentBrowser } from './e2e/utils/agent-browser';
+
+const browser = new AgentBrowser();
+await browser.open('http://localhost:3000');
+const snapshot = await browser.snapshot();
+// snapshot.data.refs contains @e1, @e2, etc.
+await browser.click('@e5');
+await browser.fill('@e3', 'admin@courtmaster.local');
+```
+
+**Integration with Playwright**
+```typescript
+import { test, expect } from './e2e/fixtures/agent-browser-fixtures';
+
+test('example', async ({ page, agentBrowser }) => {
+  // Use Playwright for structured testing
+  await page.goto('/tournaments');
+  
+  // Use agent-browser for debugging
+  await debugWithAgentBrowser(page, agentBrowser, 'Check tournament list');
+});
+```
+
+**When to Use What**
+| Task | Tool | Reason |
+|------|------|--------|
+| CI/CD automated testing | Playwright | Structured, reports, parallelization |
+| Interactive debugging | Agent-browser | Real-time, snapshots, AI-optimized |
+| Mobile testing | Agent-browser | iOS Simulator support |
+| Quick smoke tests | Agent-browser | Fast CLI commands |
+| Complex user flows | Both | Playwright structure + agent-browser debugging |
 
 ---
 
