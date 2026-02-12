@@ -38,3 +38,10 @@ ui-debug.log
 # Service account keys
 serviceAccountKey.json
 *-firebase-adminsdk-*.json
+
+# Generated test artifacts
+.playwright-mcp/
+e2e-report/
+test-results/
+test-screenshots/
+test-videos/
