@@ -6,6 +6,7 @@ import router from './router';
 import vuetify from './plugins/vuetify';
 import { initializeFirebase } from './services/firebase';
 import { useAuthStore } from './stores/auth';
+import './style.scss'; // Import global styles
 
 // Initialize Firebase
 initializeFirebase();

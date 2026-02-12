@@ -18,7 +18,8 @@ import {
   Timestamp,
   serverTimestamp,
 } from '@/services/firebase';
-import type { Court } from '@/types';
+import type { Court, Match, Registration } from '@/types';
+import { adaptBracketsMatchToLegacyMatch, type BracketsMatch, type Participant } from '@/stores/bracketMatchAdapter';
 
 // ============================================
 // Types
@@ -74,17 +75,21 @@ export function useMatchScheduler() {
   async function scheduleMatches(
     tournamentId: string,
     options: {
-      categoryId?: string;
+      categoryId: string;
       courtIds?: string[];
       startTime?: Date;
       respectDependencies?: boolean;
-    } = {}
+    }
   ): Promise<ScheduleResult> {
     loading.value = true;
     error.value = null;
     progress.value = 0;
 
     try {
+      if (!options.categoryId) {
+        throw new Error('categoryId is required for scheduling');
+      }
+
       // 1. Get tournament settings
       const tournamentDoc = await getDoc(doc(db, 'tournaments', tournamentId));
       if (!tournamentDoc.exists()) {
@@ -121,39 +126,114 @@ export function useMatchScheduler() {
 
       progress.value = 20;
 
-      // 3. Get unscheduled matches from brackets-manager
-      const matchesQuery = query(
-        collection(db, 'tournaments', tournamentId, 'match'),
-        where('status', 'in', [0, 1, 2]), // locked, waiting, ready
-        orderBy('round'),
-        orderBy('position')
-      );
-      
-      const matchesSnap = await getDocs(matchesQuery);
-      let matches = matchesSnap.docs.map(d => ({
-        id: d.id,
-        ...d.data(),
-      })) as any[];
+      // Query matches directly without complex filters to avoid index issues
+      const matchPath = `tournaments/${tournamentId}/categories/${options.categoryId}/match`;
+      const participantPath = `tournaments/${tournamentId}/categories/${options.categoryId}/participant`;
+      const matchScoresPath = `tournaments/${tournamentId}/categories/${options.categoryId}/match_scores`;
 
-      // Filter by category if specified
-      if (options.categoryId) {
-        // Need to get stages for this category first
-        const stagesQuery = query(
-          collection(db, 'tournaments', tournamentId, 'stage'),
-          where('tournament_id', '==', options.categoryId)
-        );
-        const stagesSnap = await getDocs(stagesQuery);
-        const stageIds = stagesSnap.docs.map(d => d.id);
-        
-        matches = matches.filter(m => stageIds.includes(m.stage_id));
+      console.log('[scheduleMatches] Querying matches from:', {
+        matchPath,
+        tournamentId,
+        categoryId: options.categoryId
+      });
+
+      let matches: Match[] = [];
+      let adaptedMatches: Match[] = [];
+
+      try {
+        const [matchSnap, registrationSnap, participantSnap, matchScoresSnap] = await Promise.all([
+          getDocs(collection(db, matchPath)),
+          getDocs(collection(db, `tournaments/${tournamentId}/registrations`)),
+          getDocs(collection(db, participantPath)),
+          getDocs(collection(db, matchScoresPath))
+        ]);
+
+        console.log('[scheduleMatches] Raw query results:', {
+          matches: matchSnap.size,
+          registrations: registrationSnap.size,
+          participants: participantSnap.size,
+          matchScores: matchScoresSnap.size
+        });
+
+        if (matchSnap.size === 0) {
+          console.warn('[scheduleMatches] No matches found in Firestore at path:', matchPath);
+        }
+
+        const bracketsMatches = matchSnap.docs.map(d => {
+          const data = d.data();
+          console.log('[scheduleMatches] Sample match data:', { id: d.id, status: data.status, stage_id: data.stage_id });
+          return { ...data, id: d.id };
+        }) as BracketsMatch[];
+        const registrations = registrationSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Registration[];
+        const participants = participantSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Participant[];
+        const matchScoresMap = new Map(matchScoresSnap.docs.map(d => [d.id, d.data()]));
+
+        console.log('[scheduleMatches] Starting adaptation of', bracketsMatches.length, 'matches');
+
+        // Adapt brackets-manager matches to legacy format
+        adaptedMatches = [];
+        for (const bMatch of bracketsMatches) {
+          const adapted = adaptBracketsMatchToLegacyMatch(
+            bMatch,
+            registrations,
+            participants,
+            options.categoryId,
+            tournamentId
+          );
+
+          if (adapted) {
+            // Merge with match_scores data if it exists
+            const scoreData = matchScoresMap.get(adapted.id);
+            if (scoreData) {
+              if (scoreData.status) adapted.status = scoreData.status as any;
+              if (scoreData.courtId) adapted.courtId = scoreData.courtId as string;
+              if (scoreData.scheduledTime) adapted.scheduledTime = scoreData.scheduledTime instanceof Timestamp ? scoreData.scheduledTime.toDate() : scoreData.scheduledTime as Date;
+            }
+            adaptedMatches.push(adapted);
+          }
+        }
+
+        console.log('[scheduleMatches] Adapted matches:', adaptedMatches.length);
+        if (adaptedMatches.length > 0) {
+          console.log('[scheduleMatches] First adapted match:', {
+            id: adaptedMatches[0].id,
+            status: adaptedMatches[0].status,
+            round: adaptedMatches[0].round,
+            matchNumber: adaptedMatches[0].matchNumber,
+            participant1Id: adaptedMatches[0].participant1Id,
+            participant2Id: adaptedMatches[0].participant2Id,
+            courtId: adaptedMatches[0].courtId,
+            scheduledTime: adaptedMatches[0].scheduledTime
+          });
+        }
+
+        // Filter matches ready for scheduling
+        matches = adaptedMatches.filter(m => {
+          // Include matches that are:
+          // 1. Not yet completed or walkover
+          // 2. Don't already have a court assignment or scheduled time
+          // Note: We include TBD matches (without participants yet) as they need time slots
+          const isSchedulable =
+            m.status !== 'completed' &&
+            m.status !== 'walkover' &&
+            !m.courtId &&
+            !m.scheduledTime;
+          return isSchedulable;
+        });
+
+        console.log(`[scheduleMatches] Found ${matches.length} schedulable matches out of ${adaptedMatches.length} adapted`);
+      } catch (queryError) {
+        console.error('[scheduleMatches] Error querying matches:', queryError);
+        throw queryError;
       }
 
       if (matches.length === 0) {
+        console.log('[scheduleMatches] No schedulable matches found');
         return {
           scheduled: [],
           unscheduled: [],
           stats: {
-            totalMatches: 0,
+            totalMatches: adaptedMatches.length,
             scheduledCount: 0,
             unscheduledCount: 0,
             courtUtilization: 0,
@@ -176,12 +256,26 @@ export function useMatchScheduler() {
         courts,
       };
 
+      console.log('[scheduleMatches] Scheduling configuration:', {
+        categoryId: options.categoryId,
+        matchCount: matches.length,
+        courts: courts.length,
+        startTime: config.startTime,
+        respectDependencies: options.respectDependencies,
+        sampleMatches: matches.slice(0, 3).map(m => ({
+          id: m.id,
+          round: m.round,
+          matchNumber: m.matchNumber,
+          participant1Id: m.participant1Id,
+          participant2Id: m.participant2Id,
+        }))
+      });
+
       const schedule = generateSchedule(matches, config, options.respectDependencies !== false);
 
       progress.value = 70;
 
-      // 5. Save schedule to Firestore
-      await saveSchedule(tournamentId, schedule.scheduled);
+      await saveSchedule(tournamentId, options.categoryId, schedule.scheduled);
 
       progress.value = 100;
 
@@ -201,13 +295,13 @@ export function useMatchScheduler() {
    */
   async function scheduleSingleMatch(
     tournamentId: string,
+    categoryId: string,
     matchId: string,
     courtId: string,
     scheduledTime: Date
   ): Promise<void> {
-    // Update match_scores collection (Courtmaster's pattern)
     await setDoc(
-      doc(db, 'tournaments', tournamentId, 'match_scores', matchId),
+      doc(db, 'tournaments', tournamentId, 'categories', categoryId, 'match_scores', matchId),
       {
         courtId,
         scheduledTime: Timestamp.fromDate(scheduledTime),
@@ -229,11 +323,11 @@ export function useMatchScheduler() {
    */
   async function clearSchedule(
     tournamentId: string,
-    _categoryId?: string
+    categoryId: string
   ): Promise<{ cleared: number }> {
-    // Get scheduled matches
+    const matchScoresPath = `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
     let matchesQuery = query(
-      collection(db, 'tournaments', tournamentId, 'match_scores'),
+      collection(db, matchScoresPath),
       where('courtId', '!=', null)
     );
     
@@ -343,7 +437,7 @@ function generateSchedule(
       const aReady = a.participant1Id && a.participant2Id ? 1 : 0;
       const bReady = b.participant1Id && b.participant2Id ? 1 : 0;
       if (aReady !== bReady) return bReady - aReady;
-      return a.matchNumber - b.matchNumber;
+      return (a.matchNumber || a.position || 0) - (b.matchNumber || b.position || 0);
     });
 
     for (const match of sortedMatches) {
@@ -490,13 +584,21 @@ function generateSchedule(
 
 async function saveSchedule(
   tournamentId: string,
+  categoryId: string,
   scheduled: ScheduledMatch[]
 ): Promise<void> {
   const batch = writeBatch(db);
 
   for (const slot of scheduled) {
-    // Save to match_scores collection (following Courtmaster pattern)
-    const scoreRef = doc(db, 'tournaments', tournamentId, 'match_scores', slot.matchId);
+    const scoreRef = doc(
+      db,
+      'tournaments',
+      tournamentId,
+      'categories',
+      categoryId,
+      'match_scores',
+      slot.matchId
+    );
     batch.set(
       scoreRef,
       {

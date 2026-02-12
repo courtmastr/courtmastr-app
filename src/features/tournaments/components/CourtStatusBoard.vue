@@ -98,44 +98,46 @@ function getParticipantNames(match: Match): string {
               </v-icon>
               {{ court.name }}
               <v-spacer />
-              <v-menu>
-                <template #activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon="mdi-dots-vertical"
-                    size="x-small"
-                    variant="text"
-                  />
-                </template>
-                <v-list density="compact">
-                  <v-list-item
-                    v-if="court.status === 'in_use'"
-                    @click="emit('releaseCourt', court.id)"
-                  >
-                    <v-list-item-title>
-                      <v-icon start size="small">mdi-close-circle</v-icon>
-                      Release Court
-                    </v-list-item-title>
-                  </v-list-item>
-                  <v-list-item
-                    v-if="court.status !== 'maintenance'"
-                    @click="emit('setMaintenance', court.id)"
-                  >
-                    <v-list-item-title>
-                      <v-icon start size="small">mdi-wrench</v-icon>
-                      Set Maintenance
-                    </v-list-item-title>
-                  </v-list-item>
-                  <v-list-item
-                    v-if="court.status === 'maintenance'"
-                    @click="emit('restoreCourt', court.id)"
-                  >
-                    <v-list-item-title>
-                      <v-icon start size="small">mdi-check</v-icon>
-                      Restore Court
-                    </v-list-item-title>
-                  </v-list-item>
-                </v-list>
+               <v-menu>
+                 <template #activator="{ props }">
+                   <v-btn
+                     v-bind="props"
+                     icon="mdi-dots-vertical"
+                     size="default"
+                     variant="text"
+                     min-width="44"
+                     min-height="44"
+                   />
+                 </template>
+                 <v-list density="comfortable">
+                   <v-list-item
+                     v-if="court.status === 'in_use'"
+                     @click="emit('releaseCourt', court.id)"
+                   >
+                     <v-list-item-title>
+                       <v-icon start size="default">mdi-close-circle</v-icon>
+                       Release Court
+                     </v-list-item-title>
+                   </v-list-item>
+                   <v-list-item
+                     v-if="court.status !== 'maintenance'"
+                     @click="emit('setMaintenance', court.id)"
+                   >
+                     <v-list-item-title>
+                       <v-icon start size="default">mdi-wrench</v-icon>
+                       Set Maintenance
+                     </v-list-item-title>
+                   </v-list-item>
+                   <v-list-item
+                     v-if="court.status === 'maintenance'"
+                     @click="emit('restoreCourt', court.id)"
+                   >
+                     <v-list-item-title>
+                       <v-icon start size="default">mdi-check</v-icon>
+                       Restore Court
+                     </v-list-item-title>
+                   </v-list-item>
+                 </v-list>
               </v-menu>
             </v-card-title>
 
@@ -212,5 +214,17 @@ function getParticipantNames(match: Match): string {
 <style scoped>
 .v-card {
   height: 100%;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .v-card {
+    margin-bottom: 12px;
+  }
+  
+  /* Ensure proper spacing on mobile */
+  :deep(.v-card-text) {
+    padding: 12px !important;
+  }
 }
 </style>

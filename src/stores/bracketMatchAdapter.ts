@@ -72,12 +72,22 @@ export function adaptBracketsMatchToLegacyMatch(
     const hasOpponent2 = bracketsMatch.opponent2?.id != null;
 
     if (!hasOpponent1 && !hasOpponent2) {
+        // Skip logging - too many TBD matches
         return null;
     }
 
     const roundNumber = bracketsMatch.round || 1;
     const bracketType = bracketsMatch.bracket || 'winners';
     const status = convertBracketsStatus(bracketsMatch.status);
+
+    // Only log first few matches to avoid console spam
+    if (Math.random() < 0.1) {  // Log ~10% of matches
+        console.log('[adaptBracketsMatch] Converting match:', bracketsMatch.id,
+            '| brackets status:', bracketsMatch.status,
+            '→ legacy status:', status,
+            '| round:', roundNumber,
+            '| category:', categoryId);
+    }
 
     // Use loose equality (==) to handle type coercion between number and string IDs
     const participant1 = participants?.find(p =>
@@ -125,19 +135,30 @@ export function adaptBracketsMatchToLegacyMatch(
 // Converts brackets-manager numeric status to string status
 // Only used for initial conversion when match_scores doesn't exist yet
 // Once a match has operational data, match_scores.status takes precedence
+//
+// Brackets-Manager Status Codes:
+// - 0 (Locked) = Match structure exists but participants not assigned yet (TBD)
+// - 1 (Waiting) = Waiting for previous round to complete
+// - 2 (Ready) = Both participants assigned and ready to schedule
+// - 3 (Running) = Match in progress
+// - 4 (Completed) = Match finished
+//
+// IMPORTANT: Brackets-manager doesn't track court assignments!
+// - All statuses 0, 1, 2 mean "not yet assigned to a court" → map to 'ready'
+// - Court assignment is tracked separately in match_scores collection
+// - When a match is assigned to a court, match_scores.status = 'scheduled' (overrides this)
 function convertBracketsStatus(bracketsStatus: number): MatchStatus {
     switch (bracketsStatus) {
         case 0:
         case 1:
-            return 'scheduled';
         case 2:
-            return 'ready';
+            return 'ready';          // All unscheduled matches that need court assignment
         case 3:
-            return 'in_progress';
+            return 'in_progress';    // Currently playing
         case 4:
-            return 'completed';
+            return 'completed';      // Finished
         default:
-            return 'scheduled';
+            return 'ready';
     }
 }
 

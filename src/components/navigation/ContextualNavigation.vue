@@ -22,18 +22,19 @@
             Start Tournament
           </v-btn>
           <v-btn 
-            v-if="tournamentStatus === 'active'" 
+            v-if="tournamentStatus === 'active' && !isInMatchControl" 
             color="warning" 
             @click="navigateToMatchControl"
           >
-            Manage Live Operations
+            Enter Match Control
           </v-btn>
           <v-btn 
-            v-if="tournamentStatus === 'active'" 
-            color="info" 
-            @click="navigateToCourts"
+            v-if="tournamentStatus === 'active' && isInMatchControl" 
+            color="primary" 
+            variant="tonal"
+            @click="exitMatchControl"
           >
-            View Court Status
+            Exit Match Control
           </v-btn>
           <v-btn 
             v-if="tournamentStatus === 'completed'" 
@@ -50,13 +51,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 
 const router = useRouter();
 const tournamentStore = useTournamentStore();
+const route = useRoute();
 
 const tournamentStatus = computed(() => tournamentStore.currentTournament?.status || 'setup');
+const isInMatchControl = computed(() => route.path.includes('/match-control'));
 
 async function navigateToBrackets() {
   // Navigate to bracket generation
@@ -81,12 +84,19 @@ async function navigateToMatchControl() {
   }
 }
 
-async function navigateToCourts() {
+async function exitMatchControl() {
   const tournamentId = tournamentStore.currentTournament?.id;
   if (tournamentId) {
-    router.push(`/tournaments/${tournamentId}/courts`);
+    router.push(`/tournaments/${tournamentId}`);
   }
 }
+
+// function navigateToCourts() {
+//   const tournamentId = tournamentStore.currentTournament?.id;
+//   if (tournamentId) {
+//     router.push(`/tournaments/${tournamentId}/courts`);
+//   }
+// }
 
 async function viewResults() {
    const tournamentId = tournamentStore.currentTournament?.id;

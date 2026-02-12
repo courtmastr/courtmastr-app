@@ -1,0 +1,310 @@
+@import './styles/variables.scss';
+
+/* ===========================
+   Global Styles - CourtMaster v1
+   =========================== */
+
+/* CSS Reset & Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: $font-family-base;
+  line-height: $line-height-normal;
+  font-weight: $font-weight-normal;
+
+  color-scheme: light;
+  color: $text-primary;
+  background-color: $background;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: $background;
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Typography Utilities */
+.text-gradient {
+  background: $primary-gradient;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Smooth Transitions */
+a,
+button,
+.v-btn,
+.v-card {
+  transition: $transition-base;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: $background;
+}
+
+::-webkit-scrollbar-thumb {
+  background: $border;
+  border-radius: $border-radius-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: $text-secondary;
+}
+
+/* Utility Classes */
+.shadow-sm {
+  box-shadow: $shadow-sm;
+}
+
+.shadow-md {
+  box-shadow: $shadow-md;
+}
+
+.shadow-lg {
+  box-shadow: $shadow-lg;
+}
+
+.shadow-xl {
+  box-shadow: $shadow-xl;
+}
+
+.rounded-sm {
+  border-radius: $border-radius-sm;
+}
+
+.rounded-md {
+  border-radius: $border-radius-md;
+}
+
+.rounded-lg {
+  border-radius: $border-radius-lg;
+}
+
+.rounded-xl {
+  border-radius: $border-radius-xl;
+}
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.slide-up {
+  animation: slideUp 0.8s ease-out forwards;
+}
+
+/* Compact Header */
+.compact-header {
+  position: relative;
+
+  .v-btn {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: $font-weight-medium;
+  }
+}
+
+/* Modern Stats Grid */
+.stat-card {
+  height: 100%;
+  border: 1px solid rgba($border, 0.5);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.1);
+    border-color: rgba($primary-base, 0.3);
+  }
+
+  // Background decoration
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, rgba($white, 0.1), rgba($white, 0));
+    border-radius: 0 0 0 100%;
+    z-index: 0;
+  }
+
+  .stat-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    transition: transform 0.3s ease;
+
+    .v-icon {
+      font-size: 24px;
+    }
+  }
+
+  &:hover .stat-icon-wrapper {
+    transform: scale(1.1) rotate(5deg);
+  }
+
+  // Variants
+  &.stat-primary {
+    .stat-icon-wrapper {
+      background: rgba($primary-base, 0.1);
+      color: $primary-base;
+    }
+  }
+
+  &.stat-success {
+    border-left: 4px solid $success;
+
+    .stat-icon-wrapper {
+      background: rgba($success, 0.1);
+      color: $success;
+    }
+  }
+
+  &.stat-warning {
+    border-left: 4px solid $warning;
+
+    .stat-icon-wrapper {
+      background: rgba($warning, 0.1);
+      color: $warning;
+    }
+  }
+
+  &.stat-info {
+    border-left: 4px solid $info;
+
+    .stat-icon-wrapper {
+      background: rgba($info, 0.1);
+      color: $info;
+    }
+  }
+
+  &.stat-secondary {
+    border-left: 4px solid $secondary-base;
+
+    .stat-icon-wrapper {
+      background: rgba($secondary-base, 0.1);
+      color: $secondary-base;
+    }
+  }
+}
+
+// Global Polish
+.v-btn {
+  text-transform: none !important;
+  letter-spacing: 0.3px;
+}
+
+/* Brackets Viewer Library Overrides (Admin) */
+.brackets-viewer {
+  --match-background: #ffffff;
+  --match-border-color: #e0e0e0;
+  --text-color: #333333;
+  --win-color: #4CAF50;
+  --loss-color: #757575;
+  --connector-color: #e0e0e0;
+
+  font-family: inherit !important;
+
+  .match {
+    background-color: var(--match-background) !important;
+    border: 1px solid var(--match-border-color) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.2s ease;
+
+    &:hover {
+      border-color: $primary-base !important;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1) !important;
+      z-index: 5;
+    }
+  }
+
+  .team {
+    color: var(--text-color) !important;
+    font-size: 0.85rem !important;
+    padding: 6px 10px !important;
+
+    &.win {
+      background: linear-gradient(90deg, rgba($success, 0.1), transparent) !important;
+      font-weight: 600 !important;
+      border-left: 3px solid $success !important;
+
+      .score {
+        background-color: $success !important;
+        color: white !important;
+        font-weight: bold !important;
+        border-radius: 4px !important;
+      }
+    }
+
+    &.lose {
+      opacity: 0.7;
+    }
+  }
+
+  .label {
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    color: $text-secondary !important;
+    background: transparent !important;
+  }
+
+  .connector {
+    stroke: var(--connector-color) !important;
+  }
+}

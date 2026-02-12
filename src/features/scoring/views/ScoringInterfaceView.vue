@@ -20,9 +20,10 @@ const tournamentId = computed(() => route.params.tournamentId as string);
 const matchId = computed(() => route.params.matchId as string);
 const match = computed(() => matchStore.currentMatch);
 const loading = ref(false);
+const pageError = ref<string | null>(null);
+const initialized = ref(false);
 
 // Manual scorecard mode
-const scoringMode = ref<'tap' | 'manual'>('tap');
 const manualScores = ref<{ game1: { p1: number; p2: number }; game2: { p1: number; p2: number }; game3: { p1: number; p2: number } }>({
   game1: { p1: 0, p2: 0 },
   game2: { p1: 0, p2: 0 },
@@ -91,16 +92,27 @@ const canStartMatch = computed(() => {
   return match.value?.status === 'ready' && match.value.participant1Id && match.value.participant2Id;
 });
 
-// Track previous status to detect completion
-const previousStatus = ref<string | null>(null);
-
 onMounted(async () => {
-  await tournamentStore.fetchTournament(tournamentId.value);
-  // Get categoryId from route query if available
   const categoryId = route.query.category as string | undefined;
-  matchStore.subscribeMatch(tournamentId.value, matchId.value, categoryId);
-  registrationStore.subscribeRegistrations(tournamentId.value);
-  registrationStore.subscribePlayers(tournamentId.value);
+
+  try {
+    await tournamentStore.fetchTournament(tournamentId.value);
+    await matchStore.fetchMatch(tournamentId.value, matchId.value, categoryId);
+    matchStore.subscribeMatch(tournamentId.value, matchId.value, categoryId);
+    registrationStore.subscribeRegistrations(tournamentId.value);
+    registrationStore.subscribePlayers(tournamentId.value);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '';
+    if (errorMessage.toLowerCase().includes('match not found')) {
+      pageError.value = 'Match not found';
+    } else if (errorMessage.toLowerCase().includes('tournament not found')) {
+      pageError.value = 'Tournament not found';
+    } else {
+      pageError.value = 'Failed to load scoring page';
+    }
+  } finally {
+    initialized.value = true;
+  }
 });
 
 onUnmounted(() => {
@@ -297,7 +309,26 @@ async function submitManualScores() {
 </script>
 
 <template>
-  <v-container class="fill-height" v-if="match">
+  <v-container v-if="pageError" class="fill-height">
+    <v-row justify="center" align="center">
+      <v-col cols="12" md="8" lg="6">
+        <v-card>
+          <v-card-text class="text-center py-8">
+            <v-icon size="64" color="grey-lighten-1">mdi-alert-circle-outline</v-icon>
+            <h2 class="text-h6 mt-4">{{ pageError }}</h2>
+            <p class="text-body-2 text-grey mt-2">
+              The scoring page could not be opened for this route.
+            </p>
+            <v-btn class="mt-4" color="primary" @click="router.back()">
+              Go Back
+            </v-btn>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
+
+  <v-container class="fill-height" v-else-if="match">
     <v-row justify="center" align="center">
       <v-col cols="12" md="10" lg="8">
         <!-- Header -->
@@ -489,7 +520,10 @@ async function submitManualScores() {
   <!-- Loading -->
   <v-container v-else class="fill-height">
     <v-row align="center" justify="center">
-      <v-progress-circular indeterminate size="64" color="primary" />
+      <v-progress-circular v-if="!initialized" indeterminate size="64" color="primary" />
+      <v-alert v-else type="error" variant="tonal">
+        Failed to load match details.
+      </v-alert>
     </v-row>
   </v-container>
 

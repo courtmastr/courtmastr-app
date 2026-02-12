@@ -449,11 +449,18 @@ export const useMatchStore = defineStore('matches', () => {
   }
 
   async function startMatch(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
-    try {
-      const matchScoresPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-        : `tournaments/${tournamentId}/match_scores`;
+    const matchScoresPath = categoryId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
+      : `tournaments/${tournamentId}/match_scores`;
 
+    console.log('[matchStore.startMatch] Starting match', {
+      tournamentId,
+      matchId,
+      categoryId,
+      matchScoresPath,
+    });
+
+    try {
       const initialScores: GameScore[] = [{
         gameNumber: 1,
         score1: 0,
@@ -471,8 +478,14 @@ export const useMatchStore = defineStore('matches', () => {
         },
         { merge: true }
       );
+
+      console.log('[matchStore.startMatch] ✅ Match scores updated successfully', {
+        matchId,
+        status: 'in_progress',
+        path: matchScoresPath,
+      });
     } catch (err) {
-      console.error('Error starting match:', err);
+      console.error('[matchStore.startMatch] ❌ Error starting match:', err);
       throw err;
     }
   }

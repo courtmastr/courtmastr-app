@@ -106,6 +106,18 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true },
   },
 
+  // Participants alias
+  {
+    path: '/tournaments/:tournamentId/participants',
+    redirect: to => `/tournaments/${to.params.tournamentId}/registrations`
+  },
+
+  // Courts redirect
+  {
+    path: '/tournaments/:tournamentId/courts',
+    redirect: to => `/tournaments/${to.params.tournamentId}/match-control`
+  },
+
   // Match control (for organizers)
   {
     path: '/tournaments/:tournamentId/match-control',

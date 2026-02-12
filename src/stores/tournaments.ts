@@ -11,9 +11,11 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   serverTimestamp,
   Timestamp,
@@ -30,6 +32,7 @@ import type {
   TournamentStatus,
   Category,
   Court,
+  Match,
 } from '@/types';
 
 export const useTournamentStore = defineStore('tournaments', () => {
@@ -387,65 +390,60 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
     try {
       // Find matches scheduled for this court
-      const matchesQuery = query(
-        collection(db, `tournaments/${tournamentId}/match_scores`),
-        where('courtId', '==', courtId)
-        // Remove status filter - match_scores doesn't have status field
-      );
-      const matchesSnapshot = await getDocs(matchesQuery);
-
       // Find available courts (excluding the one going to maintenance)
       const availableCourtsList = courts.value.filter(
         (c) => c.id !== courtId && c.status === 'available'
       );
 
-      // Reassign each match to an available court
-      for (const matchDoc of matchesSnapshot.docs) {
-        if (availableCourtsList.length === 0) {
-          // No courts available - just unassign the court from the match
-          await updateDoc(
-            doc(db, `tournaments/${tournamentId}/match_scores`, matchDoc.id),
-            {
+      for (const category of categories.value) {
+        const matchesQuery = query(
+          collection(db, `tournaments/${tournamentId}/categories/${category.id}/match_scores`),
+          where('courtId', '==', courtId)
+        );
+        const matchesSnapshot = await getDocs(matchesQuery);
+
+        // Reassign each match to an available court
+        for (const matchDoc of matchesSnapshot.docs) {
+          if (availableCourtsList.length === 0) {
+            // No courts available - just unassign the court from the match
+            await updateDoc(matchDoc.ref, {
               courtId: null,
               updatedAt: serverTimestamp(),
-            }
-          );
-          reassignedMatches.push({
-            matchId: matchDoc.id,
-            oldCourtId: courtId,
-            newCourtId: '',
-            newCourtName: 'Queue (no courts available)',
-          });
-        } else {
-          // Assign to first available court
-          const newCourt = availableCourtsList[0];
-          await updateDoc(
-            doc(db, `tournaments/${tournamentId}/match_scores`, matchDoc.id),
-            {
+            });
+            reassignedMatches.push({
+              matchId: matchDoc.id,
+              oldCourtId: courtId,
+              newCourtId: '',
+              newCourtName: 'Queue (no courts available)',
+            });
+          } else {
+            // Assign to first available court
+            const newCourt = availableCourtsList[0];
+            await updateDoc(matchDoc.ref, {
               courtId: newCourt.id,
               updatedAt: serverTimestamp(),
-            }
-          );
+            });
 
-          // Update new court status
-          await updateDoc(
-            doc(db, `tournaments/${tournamentId}/courts`, newCourt.id),
-            {
-              status: 'in_use',
-              currentMatchId: matchDoc.id,
-              updatedAt: serverTimestamp(),
-            }
-          );
+            // Update new court status
+            await updateDoc(
+              doc(db, `tournaments/${tournamentId}/courts`, newCourt.id),
+              {
+                status: 'in_use',
+                currentMatchId: matchDoc.id,
+                updatedAt: serverTimestamp(),
+              }
+            );
 
-          reassignedMatches.push({
-            matchId: matchDoc.id,
-            oldCourtId: courtId,
-            newCourtId: newCourt.id,
-            newCourtName: newCourt.name,
-          });
+            reassignedMatches.push({
+              matchId: matchDoc.id,
+              oldCourtId: courtId,
+              newCourtId: newCourt.id,
+              newCourtName: newCourt.name,
+            });
 
-          // Remove this court from available list for next iteration
-          availableCourtsList.shift();
+            // Remove this court from available list for next iteration
+            availableCourtsList.shift();
+          }
         }
       }
 
@@ -577,39 +575,35 @@ export const useTournamentStore = defineStore('tournaments', () => {
     const courtsToRelease = new Set<string>();
 
     try {
-      // Get all scheduled matches from match_scores, then filter by category
-      const matchesQuery = query(
-        collection(db, `tournaments/${tournamentId}/match_scores`)
-        // Remove status filter - match_scores doesn't have status
-      );
+      const categoryIdsToReset = categoryIds === 'all'
+        ? categories.value.map((category) => category.id)
+        : categoryIds;
 
-      const matchesSnapshot = await getDocs(matchesQuery);
+      for (const categoryId of categoryIdsToReset) {
+        const matchesQuery = query(
+          collection(db, `tournaments/${tournamentId}/categories/${categoryId}/match_scores`)
+        );
 
-      // Reset each match (filter by category if not 'all')
-      for (const matchDoc of matchesSnapshot.docs) {
-        const matchData = matchDoc.data();
+        const matchesSnapshot = await getDocs(matchesQuery);
 
-        // Skip if category not in selected list (unless 'all')
-        if (categoryIds !== 'all' && !categoryIds.includes(matchData.categoryId)) {
-          continue;
-        }
+        // Reset each match
+        for (const matchDoc of matchesSnapshot.docs) {
+          const matchData = matchDoc.data();
 
-        // Track courts that need to be released
-        if (matchData.courtId) {
-          courtsToRelease.add(matchData.courtId);
-        }
+          // Track courts that need to be released
+          if (matchData.courtId) {
+            courtsToRelease.add(matchData.courtId);
+          }
 
-        // Clear court and scheduled time assignments
-        await updateDoc(
-          doc(db, `tournaments/${tournamentId}/match_scores`, matchDoc.id),
-          {
+          // Clear court and scheduled time assignments
+          await updateDoc(matchDoc.ref, {
             courtId: null,
             scheduledTime: null,
             sequence: null, // Also clear sequence
             updatedAt: serverTimestamp(),
-          }
-        );
-        resetCount++;
+          });
+          resetCount++;
+        }
       }
 
       // Release all affected courts back to available
@@ -629,18 +623,13 @@ export const useTournamentStore = defineStore('tournaments', () => {
       }
 
       // Count skipped (running/completed) matches from brackets-manager collection
-      const skippedQuery = query(
-        collection(db, `tournaments/${tournamentId}/match`),
-        where('status', 'in', [3, 4])  // 3=running, 4=completed (numeric)
-      );
-      const skippedSnapshot = await getDocs(skippedQuery);
-      // Filter by category if not 'all'
-      if (categoryIds === 'all') {
-        skippedCount = skippedSnapshot.size;
-      } else {
-        skippedCount = skippedSnapshot.docs.filter(
-          doc => categoryIds.includes(doc.data().categoryId)
-        ).length;
+      for (const categoryId of categoryIdsToReset) {
+        const skippedQuery = query(
+          collection(db, `tournaments/${tournamentId}/categories/${categoryId}/match`),
+          where('status', 'in', [3, 4])
+        );
+        const skippedSnapshot = await getDocs(skippedQuery);
+        skippedCount += skippedSnapshot.size;
       }
 
       return { resetCount, skippedCount, releasedCourts };
@@ -733,14 +722,13 @@ export const useTournamentStore = defineStore('tournaments', () => {
     }
   }
 
-  // Generate schedule (client-side scheduling)
   async function generateSchedule(
     tournamentId: string,
     options: {
-      categoryId?: string;
+      categoryId: string;
       courtIds?: string[];
       startTime?: Date;
-    } = {}
+    }
   ): Promise<{
     scheduled: number;
     unscheduled: number;
@@ -790,10 +778,9 @@ export const useTournamentStore = defineStore('tournaments', () => {
     }
   }
   
-  // Clear schedule for matches that haven't started
   async function clearSchedule(
     tournamentId: string,
-    categoryId?: string
+    categoryId: string
   ): Promise<{ cleared: number }> {
     const scheduler = useMatchScheduler();
     return await scheduler.clearSchedule(tournamentId, categoryId);

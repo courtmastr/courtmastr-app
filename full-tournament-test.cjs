@@ -34,6 +34,20 @@ class TournamentTester {
     this.bugs = [];
     this.screenshots = [];
     this.startTime = Date.now();
+    this.phaseResults = [];
+    this.previousResults = this.loadPreviousResults();
+  }
+
+  loadPreviousResults() {
+    try {
+      if (fs.existsSync(CONFIG.resultsFile)) {
+        const data = fs.readFileSync(CONFIG.resultsFile, 'utf8');
+        return JSON.parse(data);
+      }
+    } catch (error) {
+      this.log('Could not load previous results', 'warning');
+    }
+    return null;
   }
 
   log(message, type = 'info') {
@@ -64,6 +78,17 @@ class TournamentTester {
 
   async delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  trackPhase(name, result) {
+    const bugsInPhase = this.bugs.filter(b => b.phase === name || b.phase.includes(name.split(':')[0]));
+    this.phaseResults.push({
+      name,
+      passed: result && bugsInPhase.length === 0,
+      warning: result && bugsInPhase.length > 0,
+      failed: !result,
+      bugs: bugsInPhase.length
+    });
   }
 
   async init() {
@@ -347,8 +372,8 @@ class TournamentTester {
     this.log('PHASE 7: Test Auto Schedule', 'phase');
     
     try {
-      // Click Auto Schedule button
-      const autoScheduleBtn = this.page.locator('button:has-text("Auto Schedule")');
+      // Click Auto Schedule button using data-test-id
+      const autoScheduleBtn = this.page.locator('[data-test-id="auto-schedule-open-btn"]');
       
       if (!(await autoScheduleBtn.isVisible().catch(() => false))) {
         this.log('Auto Schedule button not found', 'warning');
@@ -356,7 +381,8 @@ class TournamentTester {
       }
       
       await autoScheduleBtn.click();
-      await this.delay(3000);
+      await this.page.waitForSelector('[data-test-id="auto-schedule-dialog"]');
+      await this.delay(1000);
       
       await this.screenshot('auto-schedule-dialog');
       
@@ -373,8 +399,10 @@ class TournamentTester {
       const timeString = now.toISOString().slice(0, 16);
       await this.page.fill('input[type="datetime-local"]', timeString);
       
-      // Click Generate
-      await this.page.click('button:has-text("Generate")');
+      // Click generate using data-test-id for reliability
+      const generateButton = this.page.locator('[data-test-id="auto-schedule-generate-btn"]');
+      await generateButton.waitFor({ state: 'visible' });
+      await generateButton.click();
       await this.delay(5000);
       
       await this.screenshot('auto-schedule-result');
@@ -437,6 +465,7 @@ class TournamentTester {
       totalBugs: this.bugs.length,
       bugs: this.bugs,
       screenshots: this.screenshots,
+      phaseResults: this.phaseResults,
       summary: {
         critical: this.bugs.filter(b => b.severity === 'CRITICAL').length,
         high: this.bugs.filter(b => b.severity === 'HIGH').length,
@@ -447,29 +476,110 @@ class TournamentTester {
     
     fs.writeFileSync(CONFIG.resultsFile, JSON.stringify(report, null, 2));
     
-    this.log('='.repeat(60), 'info');
+    // Generate comparison if previous results exist
+    let comparison = null;
+    if (this.previousResults) {
+      comparison = this.compareWithPrevious();
+    }
+    
+    this.log('');
+    this.log('='.repeat(70), 'info');
     this.log('TESTING COMPLETE', 'info');
-    this.log('='.repeat(60), 'info');
+    this.log('='.repeat(70), 'info');
+    
+    // Phase-by-phase results
+    this.log('');
+    this.log('PHASE RESULTS:', 'info');
+    this.log('-'.repeat(70), 'info');
+    this.phaseResults.forEach((phase, i) => {
+      const status = phase.passed ? '✅ PASS' : phase.warning ? '⚠️  WARN' : '❌ FAIL';
+      const bugCount = phase.bugs > 0 ? `(${phase.bugs} bugs)` : '';
+      const prevStatus = this.getPreviousPhaseStatus(phase.name);
+      const trend = prevStatus ? this.getTrendIndicator(phase.passed, prevStatus.passed) : '';
+      this.log(`${(i + 1).toString().padStart(2)}. ${phase.name.padEnd(30)} ${status.padEnd(10)} ${bugCount.padEnd(12)} ${trend}`);
+    });
+    
+    // Comparison to previous run
+    if (comparison) {
+      this.log('');
+      this.log('COMPARISON TO PREVIOUS RUN:', 'info');
+      this.log('-'.repeat(70), 'info');
+      this.log(`Previous: ${comparison.previousDate}`, 'info');
+      this.log(`Duration: ${comparison.durationTrend}`, 'info');
+      this.log(`Bugs:     ${comparison.bugTrend}`, comparison.bugDelta > 0 ? 'error' : comparison.bugDelta < 0 ? 'success' : 'info');
+      this.log(`Improvements: ${comparison.improvements}`, 'success');
+      this.log(`Regressions:  ${comparison.regressions}`, comparison.regressions > 0 ? 'error' : 'info');
+    }
+    
+    this.log('');
+    this.log('-'.repeat(70), 'info');
     this.log(`Duration: ${duration}s`, 'info');
     this.log(`Total Bugs: ${this.bugs.length}`, this.bugs.length > 0 ? 'error' : 'success');
     this.log(`  Critical: ${report.summary.critical}`, 'error');
     this.log(`  High: ${report.summary.high}`, 'warning');
     this.log(`  Medium: ${report.summary.medium}`, 'warning');
     this.log(`  Low: ${report.summary.low}`, 'info');
-    this.log('', 'info');
+    this.log('');
     this.log(`Results saved to: ${CONFIG.resultsFile}`, 'success');
     this.log(`Screenshots: ${CONFIG.screenshotsDir}/`, 'success');
     this.log(`Videos: ${CONFIG.videosDir}/`, 'success');
     
     if (this.bugs.length > 0) {
-      this.log('', 'info');
+      this.log('');
       this.log('BUGS FOUND:', 'error');
       this.bugs.forEach((bug, i) => {
         this.log(`  ${i + 1}. [${bug.severity}] ${bug.title}`, 'error');
+        this.log(`      Phase: ${bug.phase}`, 'error');
       });
     }
     
     return report;
+  }
+
+  getPreviousPhaseStatus(phaseName) {
+    if (!this.previousResults || !this.previousResults.phaseResults) return null;
+    return this.previousResults.phaseResults.find(p => p.name === phaseName);
+  }
+
+  getTrendIndicator(currentPassed, previousPassed) {
+    if (previousPassed === undefined) return '';
+    if (currentPassed && !previousPassed) return '↗️  IMPROVED';
+    if (!currentPassed && previousPassed) return '↘️  REGRESSED';
+    if (currentPassed && previousPassed) return '➡️  STABLE';
+    return '➡️  STILL FAILING';
+  }
+
+  compareWithPrevious() {
+    const prev = this.previousResults;
+    const current = {
+      bugs: this.bugs.length,
+      passedPhases: this.phaseResults.filter(p => p.passed).length,
+      duration: (Date.now() - this.startTime) / 1000
+    };
+    
+    const prevDuration = parseFloat(prev.duration) || 0;
+    const prevBugs = prev.totalBugs || 0;
+    const prevPassed = prev.phaseResults ? prev.phaseResults.filter(p => p.passed).length : 0;
+    
+    let improvements = 0;
+    let regressions = 0;
+    
+    this.phaseResults.forEach(phase => {
+      const prevPhase = this.getPreviousPhaseStatus(phase.name);
+      if (prevPhase) {
+        if (!prevPhase.passed && phase.passed) improvements++;
+        if (prevPhase.passed && !phase.passed) regressions++;
+      }
+    });
+    
+    return {
+      previousDate: prev.timestamp ? new Date(prev.timestamp).toLocaleString() : 'Unknown',
+      durationTrend: current.duration < prevDuration ? `-${(prevDuration - current.duration).toFixed(1)}s faster` : `+${(current.duration - prevDuration).toFixed(1)}s slower`,
+      bugTrend: current.bugs < prevBugs ? `${prevBugs - current.bugs} fewer` : current.bugs > prevBugs ? `${current.bugs - prevBugs} more` : 'Same',
+      bugDelta: current.bugs - prevBugs,
+      improvements,
+      regressions
+    };
   }
 
   async cleanup() {
@@ -487,17 +597,15 @@ class TournamentTester {
     try {
       await this.init();
       
-      // Run all phases
-      const results = {
-        login: await this.login(),
-        findTournament: await this.findTournament(),
-        verifyData: await this.verifyTournamentData(),
-        generateBrackets: await this.generateBrackets(),
-        startTournament: await this.startTournament(),
-        matchControl: await this.testMatchControl(),
-        autoSchedule: await this.testAutoSchedule(),
-        verifyQueue: await this.verifyQueue()
-      };
+      // Run all phases and track results
+      this.trackPhase('Phase 1: Login', await this.login());
+      this.trackPhase('Phase 2: Find Tournament', await this.findTournament());
+      this.trackPhase('Phase 3: Verify Data', await this.verifyTournamentData());
+      this.trackPhase('Phase 4: Generate Brackets', await this.generateBrackets());
+      this.trackPhase('Phase 5: Start Tournament', await this.startTournament());
+      this.trackPhase('Phase 6: Match Control', await this.testMatchControl());
+      this.trackPhase('Phase 7: Auto Schedule', await this.testAutoSchedule());
+      this.trackPhase('Phase 8: Verify Queue', await this.verifyQueue());
       
       const report = await this.generateReport();
       

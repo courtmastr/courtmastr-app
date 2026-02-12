@@ -77,15 +77,20 @@ async function submitRegistration() {
       const category = categories.value.find((c) => c.id === categoryId);
       const isDoubles = category?.type === 'doubles' || category?.type === 'mixed_doubles';
 
-      await registrationStore.createRegistration(tournamentId.value, {
+      const registrationData: any = {
         tournamentId: tournamentId.value,
         categoryId,
         participantType: 'player',
         playerId,
-        partnerPlayerId: isDoubles ? partnerPlayerId : undefined,
         status: tournament.value.settings.requireApproval ? 'pending' : 'approved',
         registeredBy: authStore.currentUser?.id || playerId,
-      });
+      };
+
+      if (isDoubles && partnerPlayerId) {
+        registrationData.partnerPlayerId = partnerPlayerId;
+      }
+
+      await registrationStore.createRegistration(tournamentId.value, registrationData);
     }
 
     submitted.value = true;

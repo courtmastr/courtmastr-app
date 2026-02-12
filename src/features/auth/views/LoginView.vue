@@ -63,9 +63,10 @@ async function handleLogin() {
               {{ error }}
             </v-alert>
 
-            <v-form @submit.prevent="handleLogin">
+            <v-form @submit.prevent="handleLogin" data-testid="login-form">
               <v-text-field
                 v-model="email"
+                data-testid="login-email"
                 label="Email"
                 type="email"
                 prepend-inner-icon="mdi-email"
@@ -76,6 +77,7 @@ async function handleLogin() {
 
               <v-text-field
                 v-model="password"
+                data-testid="login-password"
                 label="Password"
                 :type="showPassword ? 'text' : 'password'"
                 prepend-inner-icon="mdi-lock"
@@ -88,6 +90,7 @@ async function handleLogin() {
 
               <v-btn
                 type="submit"
+                data-testid="login-submit"
                 color="primary"
                 size="large"
                 block

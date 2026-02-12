@@ -37,6 +37,18 @@ let matchUnsubscribe: (() => void) | null = null;
 let matchGameUnsubscribe: (() => void) | null = null;
 let matchScoresUnsubscribe: (() => void) | null = null;
 
+// Debounced fetch function to prevent excessive updates
+let fetchTimeout: number | null = null;
+
+function debouncedFetchBracketData() {
+  if (fetchTimeout) {
+    clearTimeout(fetchTimeout);
+  }
+  fetchTimeout = setTimeout(() => {
+    fetchBracketData();
+  }, 300); // 300ms debounce
+}
+
 async function fetchRegistrationNames(): Promise<Map<string, string>> {
   const namesMap = new Map<string, string>();
   
@@ -170,38 +182,38 @@ function setupRealtimeListeners() {
 
   // Listener 1: /match collection
   const matchPath = `${basePath}/match`;
-  const unsubMatch = onSnapshot(
-    collection(db, matchPath),
-    () => {
-      console.log('   🔄 Match collection changed');
-      fetchBracketData();
-    },
-    (error) => console.error('   ❌ Error listening to matches:', error)
-  );
+    const unsubMatch = onSnapshot(
+      collection(db, matchPath),
+      () => {
+        console.log('   🔄 Match collection changed');
+        debouncedFetchBracketData();
+      },
+      (error) => console.error('   ❌ Error listening to matches:', error)
+    );
   unsubscribers.push(unsubMatch);
 
   // Listener 2: /match_game collection
   const matchGamesPath = `${basePath}/match_game`;
-  const unsubGame = onSnapshot(
-    collection(db, matchGamesPath),
-    () => {
-      console.log('   🔄 Match_game collection changed');
-      fetchBracketData();
-    },
-    (error) => console.error('   ❌ Error listening to match_games:', error)
-  );
+    const unsubGame = onSnapshot(
+      collection(db, matchGamesPath),
+      () => {
+        console.log('   🔄 Match_game collection changed');
+        debouncedFetchBracketData();
+      },
+      (error) => console.error('   ❌ Error listening to match_games:', error)
+    );
   unsubscribers.push(unsubGame);
 
   // Listener 3: /match_scores collection
   const matchScoresPath = `${basePath}/match_scores`;
-  const unsubScores = onSnapshot(
-    collection(db, matchScoresPath),
-    () => {
-      console.log('   🔄 Match_scores collection changed');
-      fetchBracketData();
-    },
-    (error) => console.error('   ❌ Error listening to match_scores:', error)
-  );
+    const unsubScores = onSnapshot(
+      collection(db, matchScoresPath),
+      () => {
+        console.log('   🔄 Match_scores collection changed');
+        debouncedFetchBracketData();
+      },
+      (error) => console.error('   ❌ Error listening to match_scores:', error)
+    );
   unsubscribers.push(unsubScores);
 
   // Combine into single unsubscribe
@@ -218,6 +230,11 @@ function cleanupRealtimeListeners() {
   const unsubscribe = matchUnsubscribe || matchGameUnsubscribe || matchScoresUnsubscribe;
   if (unsubscribe) {
     unsubscribe();
+  }
+  // Clear any pending debounce timeouts
+  if (fetchTimeout) {
+    clearTimeout(fetchTimeout);
+    fetchTimeout = null;
   }
   matchUnsubscribe = null;
   matchGameUnsubscribe = null;
@@ -295,30 +312,42 @@ onUnmounted(() => {
 });
 </script>
 
-<template>
-  <div class="brackets-manager-viewer">
-    <div v-if="loading" class="loading">
-      <v-progress-circular indeterminate color="primary" />
-      <span>Loading bracket...</span>
-    </div>
-    
-    <div v-else-if="error" class="error">
-      <v-alert type="error" :text="error" />
-    </div>
-    
-    <div v-else-if="stages.length === 0" class="no-bracket">
-      <v-alert type="info" text="No bracket generated yet for this category" />
-    </div>
-    
-    <div v-else>
-      <div :id="containerId" ref="bracketContainer" class="bracket-container brackets-viewer" />
-    </div>
-  </div>
-</template>
+ <template>
+   <div class="brackets-manager-viewer">
+     <div v-if="loading" class="loading">
+       <v-progress-circular indeterminate color="primary" />
+       <span>Loading bracket...</span>
+     </div>
+     
+     <div v-else-if="error" class="error">
+       <v-alert type="error" :text="error" />
+     </div>
+     
+     <div v-else-if="stages.length === 0" class="no-bracket">
+       <v-alert type="info" text="No bracket generated yet for this category" />
+     </div>
+     
+     <div v-else>
+       <!-- Add live indicator as per feedback -->
+       <div class="bracket-header d-flex align-center mb-2">
+         <h3 class="text-h6 font-weight-bold">Bracket</h3>
+         <v-chip size="small" color="success" variant="elevated" class="ml-2">
+           <v-icon start size="x-small">mdi-sync</v-icon>
+           Live
+         </v-chip>
+       </div>
+       <div :id="containerId" ref="bracketContainer" class="bracket-container brackets-viewer" />
+     </div>
+   </div>
+ </template>
 
 <style scoped>
 .brackets-manager-viewer {
   width: 100%;
+}
+
+.bracket-header {
+  padding: 8px 0;
 }
 
 .loading, .error, .no-bracket {

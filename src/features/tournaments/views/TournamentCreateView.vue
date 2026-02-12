@@ -65,8 +65,48 @@ const steps = [
   { title: 'Settings', icon: 'mdi-cog' },
 ];
 
+const endDateError = computed(() => {
+  if (!startDate.value || !endDate.value) return '';
+  const start = new Date(startDate.value);
+  const end = new Date(endDate.value);
+  if (end < start) {
+    return 'End date must be after start date';
+  }
+  return '';
+});
+
+const registrationDeadlineError = computed(() => {
+  if (!startDate.value || !registrationDeadline.value) return '';
+  const start = new Date(startDate.value);
+  const deadline = new Date(registrationDeadline.value);
+  if (deadline > start) {
+    return 'Registration deadline must be before start date';
+  }
+  return '';
+});
+
+const dateError = computed(() => {
+  if (endDateError.value) {
+    return endDateError.value;
+  }
+
+  if (registrationDeadlineError.value) {
+    return registrationDeadlineError.value;
+  }
+
+  return '';
+});
+
+const endDateErrorMessages = computed(() => {
+  return endDateError.value ? [endDateError.value] : [];
+});
+
+const registrationDeadlineErrorMessages = computed(() => {
+  return registrationDeadlineError.value ? [registrationDeadlineError.value] : [];
+});
+
 const isStep1Valid = computed(() => {
-  return name.value.length >= 3 && startDate.value && endDate.value;
+  return name.value.length >= 3 && startDate.value && endDate.value && !dateError.value;
 });
 
 const isStep3Valid = computed(() => {
@@ -182,6 +222,15 @@ function prevStep() {
     currentStep.value--;
   }
 }
+
+function handleSubmit() {
+  if (currentStep.value < steps.length) {
+    nextStep();
+    return;
+  }
+
+  void createTournament();
+}
 </script>
 
 <template>
@@ -198,7 +247,8 @@ function prevStep() {
         </div>
 
         <!-- Stepper -->
-        <v-stepper v-model="currentStep" alt-labels>
+        <form @submit.prevent="handleSubmit">
+          <v-stepper v-model="currentStep" alt-labels>
           <v-stepper-header>
             <template v-for="(step, index) in steps" :key="index">
               <v-stepper-item
@@ -218,6 +268,7 @@ function prevStep() {
                 <v-card-text>
                   <v-text-field
                     v-model="name"
+                    data-testid="tournament-name"
                     label="Tournament Name"
                     placeholder="e.g., Summer Badminton Championship 2024"
                     required
@@ -225,6 +276,7 @@ function prevStep() {
 
                   <v-textarea
                     v-model="description"
+                    data-testid="tournament-description"
                     label="Description"
                     placeholder="Brief description of the tournament..."
                     rows="3"
@@ -232,6 +284,7 @@ function prevStep() {
 
                   <v-text-field
                     v-model="location"
+                    data-testid="tournament-location"
                     label="Location"
                     placeholder="e.g., City Sports Complex"
                     prepend-inner-icon="mdi-map-marker"
@@ -241,6 +294,7 @@ function prevStep() {
                     <v-col cols="12" md="6">
                       <v-text-field
                         v-model="startDate"
+                        data-testid="tournament-start-date"
                         label="Start Date"
                         type="date"
                         required
@@ -249,8 +303,10 @@ function prevStep() {
                     <v-col cols="12" md="6">
                       <v-text-field
                         v-model="endDate"
+                        data-testid="tournament-end-date"
                         label="End Date"
                         type="date"
+                        :error-messages="endDateErrorMessages"
                         required
                       />
                     </v-col>
@@ -258,9 +314,21 @@ function prevStep() {
 
                   <v-text-field
                     v-model="registrationDeadline"
+                    data-testid="tournament-registration-deadline"
                     label="Registration Deadline (Optional)"
                     type="date"
+                    :error-messages="registrationDeadlineErrorMessages"
                   />
+
+                  <v-alert
+                    v-if="dateError"
+                    type="error"
+                    variant="tonal"
+                    class="mt-4"
+                    data-testid="date-error"
+                  >
+                    {{ dateError }}
+                  </v-alert>
                 </v-card-text>
               </v-card>
             </v-stepper-window-item>
@@ -347,6 +415,7 @@ function prevStep() {
                         variant="text"
                         color="error"
                         size="small"
+                        type="button"
                         @click="removeCustomCategory(index)"
                       />
                     </v-col>
@@ -356,6 +425,7 @@ function prevStep() {
                     variant="outlined"
                     prepend-icon="mdi-plus"
                     class="mt-4"
+                    type="button"
                     @click="addCustomCategory"
                   >
                     Add Custom Category
@@ -398,6 +468,7 @@ function prevStep() {
                         variant="text"
                         color="error"
                         size="small"
+                        type="button"
                         :disabled="courts.length === 1"
                         @click="removeCourt(index)"
                       />
@@ -408,6 +479,7 @@ function prevStep() {
                     variant="outlined"
                     prepend-icon="mdi-plus"
                     class="mt-4"
+                    type="button"
                     @click="addCourt"
                   >
                     Add Court
@@ -473,6 +545,7 @@ function prevStep() {
             <v-btn
               v-if="currentStep > 1"
               variant="text"
+              type="button"
               @click="prevStep"
             >
               Back
@@ -481,6 +554,7 @@ function prevStep() {
             <v-btn
               v-if="currentStep < steps.length"
               color="primary"
+              type="button"
               :disabled="
                 (currentStep === 1 && !isStep1Valid) ||
                 (currentStep === 3 && !isStep3Valid) ||
@@ -494,12 +568,13 @@ function prevStep() {
               v-else
               color="primary"
               :loading="loading"
-              @click="createTournament"
+              type="submit"
             >
               Create Tournament
             </v-btn>
           </v-card-actions>
-        </v-stepper>
+          </v-stepper>
+        </form>
       </v-col>
     </v-row>
   </v-container>

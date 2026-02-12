@@ -1,5 +1,5 @@
 <template>
-  <v-navigation-drawer v-model="drawer" :rail="rail" permanent @click="rail = false">
+  <v-navigation-drawer v-model="drawer" :rail="rail" @click="rail = false">
     <!-- User Profile Section -->
     <v-list-item
       :title="currentUser?.displayName || 'User'"
@@ -60,7 +60,7 @@
       </v-list-group>
 
       <!-- Collapsible Live Operations Section -->
-      <v-list-group value="live-operations">
+      <v-list-group value="live-operations" v-if="currentTournamentId">
         <template #activator="{ props }">
           <v-list-item
             v-bind="props"
@@ -96,7 +96,7 @@
       </v-list-group>
 
       <!-- Collapsible Registration Section -->
-      <v-list-group value="registration">
+      <v-list-group value="registration" v-if="currentTournamentId">
         <template #activator="{ props }">
           <v-list-item
             v-bind="props"
@@ -169,13 +169,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRoute } from 'vue-router';
 
-const drawer = ref(true);
-const rail = ref(false);
+// Allow parent to control drawer state
+const drawer = defineModel<boolean>('drawer');
+
+// Persist rail (minimized) state
+// Default to true (minimized) if no value is set, or if value is 'true'
+const storedRail = localStorage.getItem('courtmaster_sidebar_rail');
+const rail = ref(storedRail === null ? true : storedRail === 'true');
+
+watch(rail, (newValue) => {
+  localStorage.setItem('courtmaster_sidebar_rail', String(newValue));
+});
+
+
 
 const authStore = useAuthStore();
 const tournamentStore = useTournamentStore();
@@ -192,3 +203,53 @@ function handleLogout() {
   authStore.signOut();
 }
 </script>
+
+<style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
+.v-list-item--nav {
+  margin-bottom: 4px;
+}
+
+// Active state styling using Design System
+:deep(.v-list-item--active) {
+  background: linear-gradient(90deg, rgba($primary-base, 0.1), rgba($primary-base, 0.05));
+  color: $primary-base !important;
+  
+  &::before {
+    opacity: 0; // Disable default Vuetify overlay to use our gradient
+  }
+  
+  .v-list-item__prepend {
+    color: $primary-base;
+  }
+  
+  .v-list-item-title {
+    font-weight: $font-weight-bold;
+  }
+}
+
+// Group active state
+:deep(.v-list-group__items) {
+  .v-list-item {
+    padding-left: 24px !important;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 0;
+      background-color: $primary-base;
+      transition: height 0.2s ease;
+      border-radius: 0 4px 4px 0;
+    }
+    
+    &.v-list-item--active::before {
+      height: 70%;
+    }
+  }
+}
+</style>

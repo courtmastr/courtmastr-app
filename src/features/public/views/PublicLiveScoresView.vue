@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
@@ -23,11 +23,17 @@ const recentlyCompletedMatches = computed(() =>
     .slice(0, 5)
 );
 const activities = computed(() => activityStore.recentActivities);
+const notFound = ref(false);
 
 onMounted(async () => {
-  await tournamentStore.fetchTournament(tournamentId.value);
+  try {
+    await tournamentStore.fetchTournament(tournamentId.value);
+  } catch {
+    notFound.value = true;
+    return;
+  }
   tournamentStore.subscribeTournament(tournamentId.value);
-  matchStore.subscribeMatches(tournamentId.value);
+  matchStore.subscribeAllMatches(tournamentId.value);
   registrationStore.subscribeRegistrations(tournamentId.value);
   registrationStore.subscribePlayers(tournamentId.value);
   activityStore.subscribeActivities(tournamentId.value);
@@ -87,6 +93,22 @@ function getGamesScore(match: any): string {
 
 <template>
   <v-container fluid>
+    <!-- Not Found -->
+    <v-row v-if="notFound">
+      <v-col cols="12">
+        <v-card>
+          <v-card-text class="text-center py-8">
+            <v-icon size="64" color="grey-lighten-1">mdi-alert-circle-outline</v-icon>
+            <h2 class="text-h6 mt-4">Tournament not found</h2>
+            <p class="text-body-2 text-grey mt-2">
+              This tournament does not exist or has been removed.
+            </p>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <template v-else>
     <!-- Header -->
     <v-row class="mb-4">
       <v-col cols="12">
@@ -230,6 +252,7 @@ function getGamesScore(match: any): string {
         />
       </v-col>
     </v-row>
+    </template>
   </v-container>
 </template>
 

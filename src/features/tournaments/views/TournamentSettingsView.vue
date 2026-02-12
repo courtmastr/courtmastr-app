@@ -135,14 +135,17 @@ async function saveSettings() {
   }
 }
 
-async function deleteTournament() {
-  if (!confirm('Are you sure you want to delete this tournament? This action cannot be undone.')) {
-    return;
-  }
+const showDeleteDialog = ref(false);
 
+function deleteTournament() {
+  showDeleteDialog.value = true;
+}
+
+async function confirmDelete() {
   loading.value = true;
   try {
     await tournamentStore.deleteTournament(tournamentId.value);
+    showDeleteDialog.value = false;
     notificationStore.showToast('success', 'Tournament deleted');
     router.push('/tournaments');
   } catch (error) {
@@ -173,16 +176,19 @@ async function deleteTournament() {
             <v-text-field
               v-model="name"
               label="Tournament Name"
+              data-testid="tournament-name"
               required
             />
             <v-textarea
               v-model="description"
               label="Description"
+              data-testid="tournament-description"
               rows="3"
             />
             <v-text-field
               v-model="location"
               label="Location"
+              data-testid="tournament-location"
               prepend-inner-icon="mdi-map-marker"
             />
             <v-row>
@@ -190,6 +196,7 @@ async function deleteTournament() {
                 <v-text-field
                   v-model="startDate"
                   label="Start Date"
+                  data-testid="tournament-start-date"
                   type="date"
                   required
                 />
@@ -198,6 +205,7 @@ async function deleteTournament() {
                 <v-text-field
                   v-model="endDate"
                   label="End Date"
+                  data-testid="tournament-end-date"
                   type="date"
                   required
                 />
@@ -369,6 +377,7 @@ async function deleteTournament() {
             color="error"
             variant="outlined"
             prepend-icon="mdi-delete"
+            data-testid="delete-tournament-btn"
             :loading="loading"
             @click="deleteTournament"
           >
@@ -384,5 +393,48 @@ async function deleteTournament() {
         </div>
       </v-col>
     </v-row>
+
+    <!-- Delete Confirmation Dialog -->
+    <v-dialog v-model="showDeleteDialog" data-testid="delete-tournament-dialog" max-width="500">
+      <v-card>
+        <v-card-title class="text-h5 text-error">
+          <v-icon start icon="mdi-alert" color="error" />
+          Delete Tournament?
+        </v-card-title>
+        
+        <v-card-text>
+          <p class="mb-4">
+            Are you sure you want to delete <strong>{{ tournament.name }}</strong>?
+          </p>
+          <v-alert
+            type="error"
+            variant="tonal"
+            border="start"
+            class="mb-0"
+          >
+            <strong>Warning:</strong> This action cannot be undone. All matches, players, and data associated with this tournament will be permanently removed.
+          </v-alert>
+        </v-card-text>
+        
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="showDeleteDialog = false"
+            :disabled="loading"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="error"
+            variant="elevated"
+            @click="confirmDelete"
+            :loading="loading"
+          >
+            Delete Permanently
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>

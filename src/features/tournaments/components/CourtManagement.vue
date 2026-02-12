@@ -211,7 +211,7 @@ function getStatusColor(status: CourtStatus): string {
         <v-btn variant="outlined" class="mr-2" @click="addMultipleCourts" :loading="loading">
           Add Multiple
         </v-btn>
-        <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddDialog">
+        <v-btn color="primary" prepend-icon="mdi-plus" data-testid="add-court-btn" @click="openAddDialog">
           Add Court
         </v-btn>
       </div>
@@ -252,12 +252,13 @@ function getStatusColor(status: CourtStatus): string {
               {{ court.status === 'available' ? 'Set Maintenance' : 'Set Available' }}
             </v-btn>
             <v-spacer />
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="openEditDialog(court)" />
+            <v-btn icon="mdi-pencil" size="small" variant="text" data-testid="edit-court-btn" @click="openEditDialog(court)" />
             <v-btn
               icon="mdi-delete"
               size="small"
               variant="text"
               color="error"
+              data-testid="delete-court-btn"
               :disabled="court.status === 'in_use'"
               @click="deleteCourt(court)"
             />
@@ -285,6 +286,7 @@ function getStatusColor(status: CourtStatus): string {
           <v-text-field
             v-model="form.name"
             label="Court Name"
+            data-testid="court-name-input"
             placeholder="e.g., Court 1, Main Court, etc."
           />
           <v-text-field
@@ -314,7 +316,7 @@ function getStatusColor(status: CourtStatus): string {
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="showDialog = false">Cancel</v-btn>
-          <v-btn color="primary" :loading="loading" @click="saveCourt">
+          <v-btn color="primary" data-testid="save-court-btn" :loading="loading" @click="saveCourt">
             {{ editingCourt ? 'Update' : 'Add' }}
           </v-btn>
         </v-card-actions>
