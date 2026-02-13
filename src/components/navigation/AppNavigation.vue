@@ -5,6 +5,7 @@
       :title="currentUser?.displayName || 'User'"
       :subtitle="currentUser?.email"
       nav
+      :ripple="false"
     >
       <template #prepend>
         <v-avatar color="primary">
@@ -13,6 +14,7 @@
       </template>
       <template #append>
         <v-btn
+          v-if="!rail"
           icon="mdi-chevron-left"
           variant="text"
           @click.stop="rail = !rail"
@@ -31,6 +33,7 @@
             prepend-icon="mdi-tournament"
             title="Tournament Management"
             rounded="lg"
+            :ripple="false"
           />
         </template>
         
@@ -40,6 +43,7 @@
           title="Dashboard"
           rounded="lg"
           class="ml-4"
+          :ripple="false"
         />
         
         <v-list-item
@@ -48,6 +52,7 @@
           title="Create Tournament"
           rounded="lg"
           class="ml-4"
+          :ripple="false"
         />
         
         <v-list-item
@@ -56,6 +61,7 @@
           title="Archived Tournaments"
           rounded="lg"
           class="ml-4"
+          :ripple="false"
         />
       </v-list-group>
 
@@ -67,6 +73,7 @@
             prepend-icon="mdi-monitor"
             title="Live Operations"
             rounded="lg"
+            :ripple="false"
           />
         </template>
         
@@ -76,6 +83,7 @@
           title="Match Control"
           rounded="lg"
           class="ml-4"
+          :ripple="false"
         />
         
         <v-list-item
@@ -84,6 +92,7 @@
           title="Court Management"
           rounded="lg"
           class="ml-4"
+          :ripple="false"
         />
         
         <v-list-item
@@ -92,6 +101,7 @@
           title="Scoring Dashboard"
           rounded="lg"
           class="ml-4"
+          :ripple="false"
         />
       </v-list-group>
 
@@ -103,6 +113,7 @@
             prepend-icon="mdi-account-multiple"
             title="Registration"
             rounded="lg"
+            :ripple="false"
           />
         </template>
         
@@ -112,6 +123,7 @@
           title="Manage Registrations"
           rounded="lg"
           class="ml-4"
+          :ripple="false"
         />
         
         <v-list-item
@@ -120,6 +132,7 @@
           title="Participants"
           rounded="lg"
           class="ml-4"
+          :ripple="false"
         />
       </v-list-group>
     </v-list>
@@ -134,6 +147,7 @@
               prepend-icon="mdi-cog"
               title="Settings"
               rounded="lg"
+              :ripple="false"
             />
           </template>
           
@@ -143,6 +157,7 @@
             title="Profile"
             rounded="lg"
             class="ml-4"
+            :ripple="false"
           />
           
           <v-list-item
@@ -151,6 +166,7 @@
             title="Preferences"
             rounded="lg"
             class="ml-4"
+            :ripple="false"
           />
           
           <v-divider class="my-2 ml-4" />
@@ -161,6 +177,7 @@
             title="Logout"
             rounded="lg"
             class="ml-4"
+            :ripple="false"
           />
         </v-list-group>
       </v-list>

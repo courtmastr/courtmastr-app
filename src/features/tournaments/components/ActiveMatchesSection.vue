@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { differenceInMinutes } from 'date-fns';
+import { useMatchDuration } from '@/composables/useMatchDuration';
 
 interface Match {
   id: string;
@@ -9,7 +9,7 @@ interface Match {
   participant2Name?: string;
   categoryName?: string;
   courtName?: string;
-  startedAt?: Date;
+  startedAt?: Date | string; // Allow string date
   scores?: Array<{ score1: number; score2: number }>;
   status: string;
 }
@@ -24,36 +24,12 @@ const emit = defineEmits<{
   viewDetails: [matchId: string];
 }>();
 
+const { getMatchDuration, getDurationColor } = useMatchDuration();
+
 function getParticipantNames(match: Match): string {
   const p1 = match.participant1Name || 'Player 1';
   const p2 = match.participant2Name || 'Player 2';
   return `${p1} vs ${p2}`;
-}
-
-function getMatchDuration(match: Match): { text: string; minutes: number; isLong: boolean } {
-  if (!match.startedAt) {
-    return { text: 'Just started', minutes: 0, isLong: false };
-  }
-
-  const minutes = differenceInMinutes(new Date(), match.startedAt);
-
-  if (minutes < 1) {
-    return { text: 'Just started', minutes: 0, isLong: false };
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-
-  let text = '';
-  if (hours > 0) {
-    text = `${hours}h ${mins}m`;
-  } else {
-    text = `${mins}m`;
-  }
-
-  const isLong = minutes > 45;
-
-  return { text, minutes, isLong };
 }
 
 function getCurrentScore(match: Match): string {
@@ -65,11 +41,6 @@ function getCurrentScore(match: Match): string {
   return `${currentGame.score1}-${currentGame.score2}`;
 }
 
-function getDurationColor(duration: { text: string; minutes: number; isLong: boolean }): string {
-  if (duration.minutes > 60) return 'error';
-  if (duration.minutes > 45) return 'warning';
-  return 'success';
-}
 
 </script>
 
@@ -96,7 +67,7 @@ function getDurationColor(duration: { text: string; minutes: number; isLong: boo
           <td>
             <div class="d-flex align-center">
               <v-icon 
-                :color="getDurationColor(getMatchDuration(match))" 
+                :color="getDurationColor(match)" 
                 size="10" 
                 class="mr-2 pulse-badge"
               >mdi-circle</v-icon>

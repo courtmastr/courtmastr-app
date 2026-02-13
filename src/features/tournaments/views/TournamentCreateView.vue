@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, toRaw } from 'vue';
 import { useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useAuthStore } from '@/stores/auth';
@@ -146,41 +146,122 @@ function removeCustomCategory(index: number) {
 }
 
 async function createTournament() {
-  if (!authStore.currentUser) return;
+  if (!authStore.currentUser) {
+    console.log('[createTournament] No current user, aborting');
+    return;
+  }
+
+  if (loading.value) {
+    console.log('[createTournament] Already loading, aborting');
+    return;
+  }
+
+  // Validate required fields
+  console.log('[createTournament] Validating fields:', { 
+    name: name.value, 
+    startDate: startDate.value, 
+    endDate: endDate.value,
+    selectedCategories: selectedCategories.value,
+    customCategories: customCategories.value
+  });
+  
+  if (!name.value || !startDate.value || !endDate.value) {
+    console.log('[createTournament] Missing required fields');
+    notificationStore.showToast('error', 'Please fill in all required fields');
+    loading.value = false;
+    return;
+  }
+
+  // Validate that at least one category is selected
+  if (selectedCategories.value.length === 0 && customCategories.value.filter(c => c.name).length === 0) {
+    console.log('[createTournament] No categories selected');
+    notificationStore.showToast('error', 'Please select at least one category');
+    loading.value = false;
+    return;
+  }
 
   loading.value = true;
 
+  // Set a timeout to prevent infinite hanging
+  const timeoutId = setTimeout(() => {
+    console.error('[createTournament] TIMEOUT: Tournament creation taking too long');
+    loading.value = false;
+    notificationStore.showToast('error', 'Tournament creation timed out. Please try again.');
+  }, 15000);
+
   try {
+    console.log('[createTournament] Starting tournament creation...');
+
     // Create tournament
-    const tournamentId = await tournamentStore.createTournament({
+    console.log('[createTournament] About to call tournamentStore.createTournament...');
+    console.log('[createTournament] Data:', {
       name: name.value,
-      description: description.value,
       sport: 'badminton',
       format: format.value,
       status: 'draft',
-      startDate: new Date(startDate.value),
-      endDate: new Date(endDate.value),
-      registrationDeadline: registrationDeadline.value
-        ? new Date(registrationDeadline.value)
-        : undefined,
-      location: location.value,
-      settings: settings.value,
-      createdBy: authStore.currentUser.id,
+      startDate: startDate.value,
+      endDate: endDate.value,
+      createdBy: authStore.currentUser?.id,
     });
+    
+    // Build tournament data, omitting undefined/null values
+    // Use toRaw to convert Vue proxies to plain objects for Firestore
+    const startDateObj = new Date(startDate.value);
+    const endDateObj = new Date(endDate.value);
+
+    if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+      throw new Error('Invalid date format');
+    }
+
+    const tournamentData: any = {
+      name: name.value,
+      sport: 'badminton',
+      format: format.value,
+      status: 'draft',
+      startDate: startDateObj,
+      endDate: endDateObj,
+      settings: { ...toRaw(settings.value) },
+      createdBy: authStore.currentUser.id,
+    };
+
+    // Only add optional fields if they have values
+    if (description.value) {
+      tournamentData.description = description.value;
+    }
+    if (location.value) {
+      tournamentData.location = location.value;
+    }
+    if (registrationDeadline.value) {
+      tournamentData.registrationDeadline = new Date(registrationDeadline.value);
+    }
+
+    console.log('[createTournament] About to call store...');
+    const startTime = Date.now();
+    const tournamentId = await tournamentStore.createTournament(tournamentData);
+    console.log(`[createTournament] Store call completed in ${Date.now() - startTime}ms`);
+    console.log('[createTournament] Tournament created:', tournamentId);
 
     // Add selected predefined categories
-    for (const index of selectedCategories.value) {
+    console.log('[createTournament] Adding categories... selectedCategories:', selectedCategories.value);
+    if (selectedCategories.value.length === 0) {
+      console.log('[createTournament] WARNING: No categories selected!');
+    }
+
+    // Process categories in batches to avoid hanging
+    const categoryPromises = selectedCategories.value.map(async (index) => {
       const template = CATEGORY_TEMPLATES[parseInt(index)];
-      await tournamentStore.addCategory(tournamentId, {
+      console.log('[createTournament] Adding category:', template.name);
+      return tournamentStore.addCategory(tournamentId, {
         ...template,
         status: 'setup',
       });
-    }
+    });
 
     // Add custom categories
-    for (const customCat of customCategories.value) {
-      if (customCat.name) {
-        await tournamentStore.addCategory(tournamentId, {
+    const customCategoryPromises = customCategories.value
+      .filter(cat => cat.name)
+      .map(async (customCat) => {
+        return tournamentStore.addCategory(tournamentId, {
           name: customCat.name,
           type: customCat.type as 'singles' | 'doubles' | 'mixed_doubles',
           gender: customCat.gender as 'men' | 'women' | 'mixed' | 'open',
@@ -189,24 +270,36 @@ async function createTournament() {
           seedingEnabled: true,
           status: 'setup',
         });
-      }
-    }
+      });
+
+    await Promise.all([...categoryPromises, ...customCategoryPromises]);
+    console.log('[createTournament] Categories added');
 
     // Add courts
-    for (const court of courts.value) {
-      await tournamentStore.addCourt(tournamentId, {
+    console.log('[createTournament] Adding courts...');
+    const courtPromises = courts.value.map(async (court) => {
+      return tournamentStore.addCourt(tournamentId, {
         name: court.name,
         number: court.number,
         status: 'available',
       });
-    }
+    });
 
+    await Promise.all(courtPromises);
+    console.log('[createTournament] Courts added');
+
+    console.log('[createTournament] Showing success toast and navigating...');
     notificationStore.showToast('success', 'Tournament created successfully!');
-    router.push(`/tournaments/${tournamentId}`);
-  } catch (error) {
-    console.error('Error creating tournament:', error);
-    notificationStore.showToast('error', 'Failed to create tournament');
+    await router.push(`/tournaments/${tournamentId}`);
+    console.log('[createTournament] Navigation complete');
+    clearTimeout(timeoutId);
+  } catch (error: any) {
+    console.error('[createTournament] Error creating tournament:', error);
+    clearTimeout(timeoutId);
+    const errorMessage = error?.message || error?.toString() || 'Unknown error';
+    notificationStore.showToast('error', `Failed to create tournament: ${errorMessage}`);
   } finally {
+    console.log('[createTournament] Finally block - setting loading to false');
     loading.value = false;
   }
 }
@@ -223,13 +316,29 @@ function prevStep() {
   }
 }
 
-function handleSubmit() {
+async function handleSubmit() {
+  console.log(`[handleSubmit] Called, currentStep: ${currentStep.value}, steps.length: ${steps.length}, loading: ${loading.value}`);
+  
+  // Prevent double submission
+  if (loading.value) {
+    console.log('[handleSubmit] Already loading, ignoring duplicate submit');
+    return;
+  }
+
   if (currentStep.value < steps.length) {
+    console.log('[handleSubmit] Advancing to next step');
     nextStep();
     return;
   }
 
-  void createTournament();
+  console.log('[handleSubmit] On final step, calling createTournament');
+  try {
+    await createTournament();
+    console.log('[handleSubmit] createTournament completed');
+  } catch (err) {
+    console.error('[handleSubmit] Failed to create tournament:', err);
+  }
+  console.log('[handleSubmit] Finished');
 }
 </script>
 

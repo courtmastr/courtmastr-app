@@ -5,11 +5,17 @@
       :items="searchResults"
       item-title="title"
       item-value="path"
-      placeholder="Search CourtMaster..."
+      placeholder="Search CourtMaster (v2)..."
+      label="Search"
       prepend-inner-icon="mdi-magnify"
       variant="outlined"
       density="compact"
       hide-details
+      auto-select-first
+      :filter="() => true"
+      :menu-props="{ maxHeight: 400 }"
+      name="courtmaster-global-search"
+      autocomplete="off"
       @update:modelValue="navigateToItem"
       @keyup.enter="performSearch"
     >
@@ -45,22 +51,35 @@ interface SearchResult {
 }
 
 const searchResults = computed((): SearchResult[] => {
-  const results: SearchResult[] = [];
+  // Use a map to prevent duplicates, keyed by path
+  const resultsMap = new Map<string, SearchResult>();
+  const titlesSeen = new Set<string>();
   
   // Add tournament results
-  tournamentStore.tournaments.forEach(tournament => {
-    if (tournament.name.toLowerCase().includes(searchTerm.value.toLowerCase())) {
-      results.push({
-        title: tournament.name,
-        subtitle: `Tournament • ${tournament.status}`,
-        path: `/tournaments/${tournament.id}/dashboard`,
-        icon: 'mdi-tournament',
-      });
-    }
-  });
+  if (tournamentStore.tournaments && Array.isArray(tournamentStore.tournaments)) {
+    tournamentStore.tournaments.forEach(tournament => {
+      // Basic validation
+      if (!tournament || !tournament.name) return;
+      
+      if (tournament.name.toLowerCase().includes(searchTerm.value.toLowerCase())) {
+        const path = `/tournaments/${tournament.id}/dashboard`;
+        
+        // Strict deduplication: If we already have this path OR this exact title, skip?
+        // Actually, distinct tournaments might have same name. Path is the source of truth.
+        
+        resultsMap.set(path, {
+          title: tournament.name,
+          subtitle: `Tournament • ${tournament.status || 'Active'}`,
+          path: path,
+          icon: 'mdi-tournament',
+        });
+        titlesSeen.add(tournament.name);
+      }
+    });
+  }
 
   // Add common navigation items
-  results.push(
+  const commonItems: SearchResult[] = [
     {
       title: 'Tournament Dashboard',
       subtitle: 'Manage your tournaments',
@@ -97,9 +116,32 @@ const searchResults = computed((): SearchResult[] => {
       path: '/scoring',
       icon: 'mdi-scoreboard',
     }
-  );
+  ];
 
-  return results;
+  // Merge common items
+  commonItems.forEach(item => {
+    // Only add if it matches search
+    if (
+      item.title.toLowerCase().includes(searchTerm.value.toLowerCase()) || 
+      item.subtitle.toLowerCase().includes(searchTerm.value.toLowerCase())
+    ) {
+      // Check if path already exists to avoid duplicates
+      if (!resultsMap.has(item.path)) {
+        resultsMap.set(item.path, item);
+      }
+    }
+  });
+  
+  const finalResults = Array.from(resultsMap.values());
+  console.log('GlobalSearch: Debugging Duplicates', {
+    searchTerm: searchTerm.value,
+    tournamentsCount: tournamentStore.tournaments.length,
+    mapSze: resultsMap.size,
+    finalResultsLength: finalResults.length,
+    finalResults: finalResults
+  });
+
+  return finalResults;
 });
 
 function navigateToItem(path: string | null) {

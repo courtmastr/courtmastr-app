@@ -11,6 +11,7 @@ import ActivityFeed from '@/components/ActivityFeed.vue';
 import MatchQueueList from '@/features/tournaments/components/MatchQueueList.vue';
 import QuickActionsBar from '@/features/tournaments/components/QuickActionsBar.vue';
 import ActiveMatchesSection from '@/features/tournaments/components/ActiveMatchesSection.vue';
+import { useMatchDuration } from '@/composables/useMatchDuration';
 import type { Match, Court } from '@/types';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
 
@@ -25,6 +26,8 @@ const registrationStore = useRegistrationStore();
 const notificationStore = useNotificationStore();
 const activityStore = useActivityStore();
 const scheduler = useMatchScheduler();
+const { getDurationColor, getMatchDuration } = useMatchDuration();
+
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 
@@ -141,7 +144,6 @@ watch(showAutoScheduleDialog, (newValue) => {
 // Share links dialog
 const showShareDialog = ref(false);
 const scoringUrl = computed(() => `${window.location.origin}/tournaments/${tournamentId.value}/score`);
-const liveUrl = computed(() => `${window.location.origin}/tournaments/${tournamentId.value}/live`);
 
 // Current time for auto-ready calculations (updates every minute)
 const currentTime = ref(new Date());
@@ -240,17 +242,18 @@ const readyMatches = computed(() => {
   return result;
 });
 
-const inProgressMatches = computed(() => {
-  let result = matches.value.filter((m) => m.status === 'in_progress');
-  if (selectedCategory.value && selectedCategory.value !== 'all') {
-    result = result.filter((m) => m.categoryId === selectedCategory.value);
-  }
-  return result;
-});
+
 
 // Enrich in-progress matches with participant names and court names for ActiveMatchesSection
+// Also include READY matches that have a court assigned, so they appear in the list
 const enrichedInProgressMatches = computed(() => {
-  return inProgressMatches.value.map(match => ({
+  // Get both In Progress AND Ready matches that have a court
+  const matchesToShow = matches.value.filter(m => 
+    (m.status === 'in_progress' || (m.status === 'ready' && m.courtId)) &&
+    (selectedCategory.value === 'all' || m.categoryId === selectedCategory.value)
+  );
+
+  return matchesToShow.map(match => ({
     ...match,
     participant1Name: getParticipantName(match.participant1Id),
     participant2Name: getParticipantName(match.participant2Id),
@@ -552,14 +555,17 @@ function getCourtName(courtId: string | undefined): string {
 }
 
 function getMatchForCourt(courtId: string): Match | undefined {
-  return inProgressMatches.value.find((m) => m.courtId === courtId) ||
-         readyMatches.value.find((m) => m.courtId === courtId);
+  // Search ALL matches, ignoring category filters, to ensure we always show
+  // why a court is busy.
+  return matches.value.find((m) => 
+    m.courtId === courtId && 
+    (m.status === 'in_progress' || m.status === 'ready' || m.status === 'warmup')
+  );
 }
 
 function getCurrentScore(match: Match): string {
   if (!match.scores || match.scores.length === 0) return '0 - 0';
-  const current = match.scores[match.scores.length - 1];
-  return `${current.score1} - ${current.score2}`;
+  return match.scores.map(s => `${s.score1}-${s.score2}`).join(', ');
 }
 
 function getGamesScore(match: Match): string {
@@ -598,14 +604,34 @@ async function assignCourt() {
   }
 }
 
+// Release Court Dialog State
+const showReleaseDialog = ref(false);
+const courtToReleaseId = ref<string | null>(null);
+
+function releaseCourt(courtId: string) {
+  courtToReleaseId.value = courtId;
+  showReleaseDialog.value = true;
+}
+
+async function confirmReleaseCourt() {
+  if (!courtToReleaseId.value) return;
+  
+  try {
+    await tournamentStore.releaseCourtManual(tournamentId.value, courtToReleaseId.value);
+    notificationStore.showToast('success', 'Court released manually');
+    showReleaseDialog.value = false;
+  } catch (error) {
+    console.error('Failed to release court:', error);
+    notificationStore.showToast('error', 'Failed to release court');
+  }
+}
+
 async function quickAssignCourt(match: Match, court: Court) {
   try {
     await matchStore.assignCourt(tournamentId.value, match.id, court.id);
     notificationStore.showToast('success', `Assigned to ${court.name}`);
 
     // Log activity (non-blocking - don't fail assignment if logging fails)
-    const p1Name = getParticipantName(match.participant1Id);
-    const p2Name = getParticipantName(match.participant2Id);
     const categoryName = getCategoryName(match.categoryId);
     activityStore.logMatchReady(
       tournamentId.value,
@@ -655,45 +681,12 @@ async function saveSchedule() {
   }
 }
 
-function goToScoring(match: Match) {
-  console.log('[goToScoring] Navigating to scoring interface', {
-    matchId: match.id,
-    tournamentId: tournamentId.value,
-    categoryId: match.categoryId,
-    status: match.status,
-    courtId: match.courtId,
-    participants: {
-      p1: match.participant1Id,
-      p2: match.participant2Id,
-    },
-    route: {
-      name: 'scoring-interface',
-      params: {
-        tournamentId: tournamentId.value,
-        matchId: match.id,
-      },
-      query: {
-        category: match.categoryId,
-      }
-    }
-  });
 
-  router.push({
-    name: 'scoring-interface',
-    params: {
-      tournamentId: tournamentId.value,
-      matchId: match.id,
-    },
-    query: {
-      category: match.categoryId,
-    },
-  });
-}
 
 function openScoreDialog(matchId: string) {
   const match = matches.value.find(m => m.id === matchId);
   if (match) {
-    goToScoring(match);
+    openManualScoreDialog(match);
   }
 }
 
@@ -1027,6 +1020,13 @@ async function runAutoSchedule() {
 const autoAssignEnabled = ref(true);
 const autoStartEnabled = ref(false);
 
+// Watch for tournament settings updates to sync auto-assign state
+watch(() => tournament.value?.settings, (settings) => {
+  if (settings && typeof settings.autoAssignEnabled !== 'undefined') {
+    autoAssignEnabled.value = settings.autoAssignEnabled;
+  }
+}, { immediate: true });
+
 // Watch for ready matches to auto-start
 watch(() => readyMatches.value, async (newMatches) => {
   if (autoStartEnabled.value && newMatches.length > 0) {
@@ -1061,6 +1061,69 @@ watch(() => readyMatches.value, async (newMatches) => {
   }
 }, { deep: true, immediate: true });
 
+// Watch for auto-assign opportunities
+watch(
+  [() => autoAssignEnabled.value, () => availableCourts.value, () => pendingMatches.value],
+  async ([isEnabled, courts, matches]) => {
+    // Detailed logging for debugging auto-assign behavior
+    if (isEnabled) {
+      console.log('[AutoAssign] Watcher triggered:', {
+        enabled: isEnabled,
+        availableCourts: courts.length,
+        availableCourtNames: courts.map(c => c.name),
+        pendingMatches: matches.length,
+        firstPendingMatch: matches[0] ? `${getParticipantName(matches[0].participant1Id)} vs ${getParticipantName(matches[0].participant2Id)}` : 'None'
+      });
+    }
+
+    if (!isEnabled || courts.length === 0 || matches.length === 0) return;
+
+    // We have enabled auto-assign, available courts, and pending matches.
+    // Assign as many as possible.
+    const assignCount = Math.min(courts.length, matches.length);
+    if (assignCount > 0) {
+      console.log(`[AutoAssign] Attempting to assign ${assignCount} matches`);
+      
+      // We need to act carefully to avoid race conditions or assigning same court twice in one tick
+      // But since we are reactive, we can just take the first pair and let the system update.
+      // Actually, handling one at a time is safer and simpler because the state update will trigger this watch again.
+      
+      const match = matches[0];
+      const court = courts[0];
+      
+      const p1Name = getParticipantName(match.participant1Id);
+      const p2Name = getParticipantName(match.participant2Id);
+      
+      console.log(`[AutoAssign] Assigning ${p1Name} vs ${p2Name} to ${court.name}`);
+      
+      try {
+        await tournamentStore.assignMatchToCourt(
+          tournamentId.value,
+          match.id,
+          court.id,
+          match.categoryId
+        );
+        
+        notificationStore.showToast('success', `Auto-assigned to ${court.name}`);
+        
+        // Log activity
+        const p1 = getParticipantName(match.participant1Id);
+        const p2 = getParticipantName(match.participant2Id);
+        const categoryName = getCategoryName(match.categoryId);
+        activityStore.logActivity(
+          tournamentId.value,
+          'court_assigned',
+          `Auto-assigned: ${p1} vs ${p2} → ${court.name} (${categoryName})`
+        );
+        
+      } catch (error) {
+        console.error('[AutoAssign] Failed to assign match:', error);
+      }
+    }
+  },
+  { deep: true, immediate: true }
+);
+
 /**
  * Manually assign a match to a court
  */
@@ -1092,17 +1155,7 @@ async function handleManualAssign(matchId: string, courtId: string) {
   }
 }
 
-/**
- * Auto-assign next queued match to a court
- */
-async function handleAutoAssign(courtId: string) {
-  const nextMatch = pendingMatches.value[0];
-  if (!nextMatch) {
-    notificationStore.showToast('info', 'No matches in queue');
-    return;
-  }
-  await handleManualAssign(nextMatch.id, courtId);
-}
+
 
 
 
@@ -1385,7 +1438,7 @@ function toggleAutoStart(enabled: boolean) {
                 >
                   <div class="pa-2 d-flex justify-space-between align-center border-b">
                     <span class="text-caption font-weight-bold text-truncate">{{ court.name }}</span>
-                    <v-icon size="12" :color="court.status === 'available' ? 'success' : 'error'">
+                    <v-icon size="12" :color="court.status === 'available' ? 'success' : (getMatchForCourt(court.id) ? getDurationColor(getMatchForCourt(court.id)!) : 'error')">
                       mdi-circle
                     </v-icon>
                   </div>
@@ -1409,8 +1462,17 @@ function toggleAutoStart(enabled: boolean) {
                        </v-chip>
                     </div>
                     
-                    <div v-else class="text-caption text-medium-emphasis">
-                      In Use
+                    <div v-else class="text-caption text-medium-emphasis d-flex flex-column align-center">
+                      <span>In Use</span>
+                      <v-btn
+                        size="x-small"
+                        variant="text"
+                        color="error"
+                        class="mt-1"
+                        @click="releaseCourt(court.id)"
+                      >
+                        Clear
+                      </v-btn>
                     </div>
                   </div>
                 </v-card>
@@ -1528,6 +1590,65 @@ function toggleAutoStart(enabled: boolean) {
            <v-spacer></v-spacer>
            <v-btn color="grey" variant="text" @click="showScheduleDialog = false">Cancel</v-btn>
            <v-btn color="primary" @click="saveSchedule">Save</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="showManualScoreDialog" max-width="500">
+      <v-card>
+        <v-card-title>Manual Score Entry</v-card-title>
+        <v-card-text>
+          <div v-if="selectedMatch" class="d-flex justify-space-between mb-4 px-2">
+             <div class="font-weight-bold text-truncate" style="max-width: 45%">
+               {{ getParticipantName(selectedMatch.participant1Id) }}
+             </div>
+             <div class="font-weight-bold text-truncate" style="max-width: 45%; text-align: right">
+               {{ getParticipantName(selectedMatch.participant2Id) }}
+             </div>
+          </div>
+          
+          <div v-for="(game, index) in manualScores" :key="index" class="d-flex align-center mb-3">
+            <div class="text-caption mr-2 font-weight-medium" style="width: 60px">Game {{ index + 1 }}</div>
+            <v-text-field
+              v-model.number="game.score1"
+              type="number"
+              density="compact"
+              variant="outlined"
+              hide-details
+              class="mr-2 text-center"
+              min="0"
+            ></v-text-field>
+            <span class="mx-2 font-weight-bold text-medium-emphasis">-</span>
+            <v-text-field
+              v-model.number="game.score2"
+              type="number"
+              density="compact"
+              variant="outlined"
+              hide-details
+              class="ml-2 text-center"
+              min="0"
+            ></v-text-field>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="grey" variant="text" @click="showManualScoreDialog = false">Cancel</v-btn>
+          <v-btn color="primary" @click="submitManualScores" :loading="submittingScores">Save Scores</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Release Court Confirmation Dialog -->
+    <v-dialog v-model="showReleaseDialog" max-width="400">
+      <v-card>
+        <v-card-title class="text-h6">Force Release Court?</v-card-title>
+        <v-card-text>
+          Are you sure you want to force release this court? Only do this if the court is "In Use" but has no active match (Zombie Court).
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="grey-darken-1" variant="text" @click="showReleaseDialog = false">Cancel</v-btn>
+          <v-btn color="error" variant="text" @click="confirmReleaseCourt">Release</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

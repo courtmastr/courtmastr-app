@@ -121,6 +121,7 @@ async function submitBugReport() {
       <v-app-bar-nav-icon
         v-if="isAuthenticated"
         @click="drawer = !drawer"
+        :ripple="false"
       />
 
       <v-toolbar-title>
@@ -144,6 +145,7 @@ async function submitBugReport() {
             class="mr-2"
             v-bind="props"
             @click="showBugDialog = true"
+            :ripple="false"
           />
         </template>
       </v-tooltip>

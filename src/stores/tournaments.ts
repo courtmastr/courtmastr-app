@@ -21,6 +21,7 @@ import {
   Timestamp,
   httpsCallable,
   functions,
+  type DocumentReference,
 } from '@/services/firebase';
 import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import { useBracketGenerator } from '@/composables/useBracketGenerator';
@@ -202,8 +203,14 @@ export const useTournamentStore = defineStore('tournaments', () => {
     loading.value = true;
     error.value = null;
 
+    console.log('[tournamentStore.createTournament] db is:', db ? 'defined' : 'UNDEFINED');
+    if (!db) {
+      throw new Error('Firestore db is not initialized');
+    }
+
     try {
-      const docRef = await addDoc(collection(db, 'tournaments'), {
+      // Race addDoc against a timeout to prevent hanging
+      const addDocPromise = addDoc(collection(db, 'tournaments'), {
         ...tournamentData,
         startDate: Timestamp.fromDate(tournamentData.startDate),
         endDate: Timestamp.fromDate(tournamentData.endDate),
@@ -213,7 +220,12 @@ export const useTournamentStore = defineStore('tournaments', () => {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('addDoc timed out after 5s')), 5000);
+      });
+      
+      const docRef = await Promise.race([addDocPromise, timeoutPromise]) as DocumentReference;
       return docRef.id;
     } catch (err) {
       console.error('Error creating tournament:', err);

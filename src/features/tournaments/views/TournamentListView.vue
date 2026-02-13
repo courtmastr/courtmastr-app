@@ -66,7 +66,7 @@ function viewTournament(tournament: Tournament): void {
             v-if="isAdmin"
             color="primary"
             prepend-icon="mdi-plus"
-            to="/tournaments/create"
+            @click="router.push('/tournaments/create')"
           >
             Create Tournament
           </v-btn>
@@ -94,7 +94,8 @@ function viewTournament(tournament: Tournament): void {
             v-if="isAdmin"
             color="primary"
             class="mt-4"
-            to="/tournaments/create"
+            aria-hidden="true"
+            @click="router.push('/tournaments/create')"
           >
             Create Tournament
           </v-btn>
@@ -122,8 +123,8 @@ function viewTournament(tournament: Tournament): void {
               </v-avatar>
             </template>
 
-            <v-card-title>{{ tournament.name }}</v-card-title>
-            <v-card-subtitle>
+            <v-card-title style="white-space: normal; line-height: 1.2; height: auto; min-height: 32px;" class="mb-1">{{ tournament.name }}</v-card-title>
+            <v-card-subtitle style="white-space: normal; height: auto;">
               {{ formatDate(tournament.startDate) }}
               <span v-if="tournament.location"> - {{ tournament.location }}</span>
             </v-card-subtitle>
@@ -140,7 +141,7 @@ function viewTournament(tournament: Tournament): void {
           </v-card-item>
 
           <v-card-text v-if="tournament.description">
-            <p class="text-body-2 text-truncate">
+            <p class="text-body-2 text-truncate" style="white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;">
               {{ tournament.description }}
             </p>
           </v-card-text>

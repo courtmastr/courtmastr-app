@@ -92,7 +92,7 @@ export const useMatchStore = defineStore('matches', () => {
 
     try {
       // Build category-level paths for bracket data
-      const stagePath = categoryId 
+      const stagePath = categoryId
         ? `tournaments/${tournamentId}/categories/${categoryId}/stage`
         : `tournaments/${tournamentId}/stage`;
       const matchPath = categoryId
@@ -176,17 +176,18 @@ export const useMatchStore = defineStore('matches', () => {
 
       if (categoryId) {
         const createKey = (m: Match) => `${m.categoryId}-${m.id}`;
-        const existingKeys = new Set(matches.value.map(createKey));
+        // Dedup within the newly fetched batch only (not against existing matches)
         const seenKeys = new Set<string>();
         const uniqueAdapted = adaptedMatches.filter(m => {
           const key = createKey(m);
-          if (existingKeys.has(key) || seenKeys.has(key)) return false;
+          if (seenKeys.has(key)) return false;
           seenKeys.add(key);
           return true;
         });
+        // Replace all matches for this category with fresh data
         const otherMatches = matches.value.filter(m => m.categoryId !== categoryId);
         matches.value = [...otherMatches, ...uniqueAdapted];
-        console.log(`📊 Merged matches: ${otherMatches.length} from other categories + ${uniqueAdapted.length} new (${adaptedMatches.length - uniqueAdapted.length} duplicates filtered)`);
+        console.log(`📊 Merged matches: ${otherMatches.length} from other categories + ${uniqueAdapted.length} refreshed for category ${categoryId}`);
       } else {
         matches.value = adaptedMatches;
       }
@@ -598,7 +599,57 @@ export const useMatchStore = defineStore('matches', () => {
         ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
         : `tournaments/${tournamentId}/match_scores`;
 
-      // 1. Write final scores to match_scores
+      console.log('[completeMatch] Starting completion:', {
+        matchId,
+        categoryId,
+        winnerId,
+        matchScoresPath,
+        scores: scores.map(s => `${s.score1}-${s.score2}`)
+      });
+
+      // 1. Get current match data to release court
+      const matchDoc = await getDoc(doc(db, matchScoresPath, matchId));
+      const matchData = matchDoc.data();
+      let courtId = matchData?.courtId;
+
+      console.log('[completeMatch] match_scores doc:', {
+        exists: matchDoc.exists(),
+        courtId,
+        status: matchData?.status,
+        allFields: matchData ? Object.keys(matchData) : 'N/A'
+      });
+
+      // Fallback: check in-memory match data if courtId not found in doc
+      if (!courtId) {
+        const inMemoryMatch = currentMatch.value;
+        if (inMemoryMatch?.id === matchId && inMemoryMatch?.courtId) {
+          courtId = inMemoryMatch.courtId;
+          console.log('[completeMatch] Using fallback courtId from currentMatch:', courtId);
+        } else {
+          // Second fallback: check the matches array
+          const arrayMatch = matches.value.find(m => m.id === matchId);
+          if (arrayMatch?.courtId) {
+            courtId = arrayMatch.courtId;
+            console.log('[completeMatch] Using fallback courtId from matches array:', courtId);
+          } else {
+            // Third fallback: Query courts collection for currentMatchId
+            // This handles "Zombie Courts" where the match lost the link but the court still has it.
+            console.log('[completeMatch] 🔍 Searching courts for currentMatchId:', matchId);
+            const courtsRef = collection(db, `tournaments/${tournamentId}/courts`);
+            const q = query(courtsRef, where('currentMatchId', '==', matchId));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+              courtId = querySnapshot.docs[0].id;
+              console.log('[completeMatch] ✅ Found court via currentMatchId query:', courtId);
+            } else {
+              console.warn('[completeMatch] ⚠️ No courtId found anywhere for match', matchId);
+            }
+          }
+        }
+      }
+
+      // 2. Write final scores to match_scores
       await setDoc(
         doc(db, matchScoresPath, matchId),
         {
@@ -607,9 +658,28 @@ export const useMatchStore = defineStore('matches', () => {
           status: 'completed',
           completedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
+          // Don't clear courtId from the match record so we have history, 
+          // but logically the court is free.
         },
         { merge: true }
       );
+
+      console.log('[completeMatch] ✅ Match scores written, status=completed');
+
+      // 3. Release court if assigned
+      if (courtId) {
+        console.log('[completeMatch] Releasing court:', courtId);
+        await updateDoc(doc(db, `tournaments/${tournamentId}/courts`, courtId), {
+          status: 'available',
+          currentMatchId: null,
+          assignedMatchId: null,
+          lastFreedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        console.log('[completeMatch] ✅ Court', courtId, 'released');
+      } else {
+        console.warn('[completeMatch] ⚠️ No court to release for match', matchId);
+      }
 
       try {
         if (USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER) {
@@ -669,6 +739,11 @@ export const useMatchStore = defineStore('matches', () => {
         isComplete: true,
       }];
 
+      // Get current match data to release court
+      const matchDoc = await getDoc(doc(db, matchScoresPath, matchId));
+      const matchData = matchDoc.data();
+      const courtId = matchData?.courtId;
+
       await setDoc(
         doc(db, matchScoresPath, matchId),
         {
@@ -680,6 +755,17 @@ export const useMatchStore = defineStore('matches', () => {
         },
         { merge: true }
       );
+
+      // Release court if assigned
+      if (courtId) {
+        await updateDoc(doc(db, `tournaments/${tournamentId}/courts`, courtId), {
+          status: 'available',
+          currentMatchId: null,
+          assignedMatchId: null,
+          lastFreedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
 
       try {
         if (USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER) {
@@ -850,10 +936,21 @@ export const useMatchStore = defineStore('matches', () => {
       }
 
       const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+
+      console.log('[submitManualScores] Win calculation:', {
+        p1Wins,
+        p2Wins,
+        gamesNeeded,
+        gamesPerMatch: BADMINTON_CONFIG.gamesPerMatch,
+        totalGames: games.length,
+        games: games.map(g => ({ w: g.winnerId, s1: g.score1, s2: g.score2 }))
+      });
+
       const isMatchComplete = p1Wins >= gamesNeeded || p2Wins >= gamesNeeded;
       const winnerId = p1Wins >= gamesNeeded ? participant1Id : (p2Wins >= gamesNeeded ? participant2Id : null);
 
       if (isMatchComplete && winnerId) {
+        console.log('[submitManualScores] Match complete! Winner:', winnerId);
         await completeMatch(tournamentId, matchId, games, winnerId, categoryId);
       } else {
         const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);

@@ -200,6 +200,7 @@ After completing a task, report:
 - Commands executed (exact)
 - Fingerprints handled
 - KB files created or updated
+- Coding patterns added/updated (CP-NNN), if bug fix
 - Verification evidence
 
 ---
@@ -284,6 +285,39 @@ test('example', async ({ page, agentBrowser }) => {
 | Mobile testing | Agent-browser | iOS Simulator support |
 | Quick smoke tests | Agent-browser | Fast CLI commands |
 | Complex user flows | Both | Playwright structure + agent-browser debugging |
+
+---
+
+## 12. Coding Pattern Guide
+
+**Location:** `docs/coding-patterns/CODING_PATTERNS.md`
+
+This is a **living document** of anti-patterns and correct patterns learned from bug fixes. All agents MUST:
+
+1. **Read before coding** — Scan relevant categories for known anti-patterns.
+2. **Update after fixing bugs** — Run `/capture-pattern` workflow (see `.agent/workflows/capture-pattern.md`).
+
+### Post-Fix Protocol (Mandatory)
+
+After fixing **any** bug, before closing the task:
+
+1. Add or update a pattern in `docs/coding-patterns/CODING_PATTERNS.md`
+2. Include: anti-pattern code, correct pattern code, and a detection command
+3. Run the detection command and report violations found
+4. If a fix guide is needed (like `docs/fix/replace-native-dialogs.md`), create one in `docs/fix/`
+
+### Quick Reference — Active Patterns
+
+| ID | Category | Rule |
+|----|----------|------|
+| CP-001 | UI | No native `confirm()`/`alert()`/`prompt()` — use `v-dialog` |
+| CP-002 | Data | Cross-collection refs need reverse lookup fallbacks |
+| CP-003 | Data | Update both sides of relationships atomically (`writeBatch`) |
+| CP-004 | Quality | No duplicate function declarations in same scope |
+| CP-005 | Quality | Always show user feedback via `notificationStore.showToast` |
+| CP-006 | Firestore | Use `serverTimestamp()`, never `new Date()` |
+
+Full details and detection commands: `docs/coding-patterns/CODING_PATTERNS.md`
 
 ---
 

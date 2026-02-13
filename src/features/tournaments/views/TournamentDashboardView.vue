@@ -481,6 +481,9 @@ async function handleDeleteTournament() {
                 title="Generate Schedule"
                 @click="generateSchedule"
               />
+              <v-list-item
+                v-if="tournament.status === 'active'"
+                prepend-icon="mdi-check"
                 title="Complete Tournament"
                 @click="updateStatus('completed')"
               />
