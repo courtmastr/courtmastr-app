@@ -6,6 +6,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import CategoryManagement from '../components/CategoryManagement.vue';
 import CourtManagement from '../components/CourtManagement.vue';
@@ -19,6 +20,7 @@ const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
+const { getParticipantName } = useParticipantResolver();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -65,27 +67,6 @@ const stats = computed(() => {
 });
 
 const players = computed(() => registrationStore.players);
-
-// Helper to get participant name from registration ID
-function getParticipantName(registrationId: string | undefined): string {
-  if (!registrationId) return 'TBD';
-
-  const registration = registrations.value.find((r) => r.id === registrationId);
-  if (!registration) return 'TBD';
-
-  // For teams (doubles), show team name
-  if (registration.teamName) {
-    return registration.teamName;
-  }
-
-  // For singles, show player name
-  const player = players.value.find((p) => p.id === registration.playerId);
-  if (player) {
-    return `${player.firstName} ${player.lastName}`;
-  }
-
-  return 'Unknown';
-}
 
 // Helper to get category name from match
 function getCategoryName(categoryId: string): string {
@@ -152,23 +133,30 @@ const enrichedActiveMatches = computed(() => {
 });
 
 function handleEnterScore(matchId: string) {
-  router.push(`/tournaments/${tournamentId.value}/matches/${matchId}/score`);
+  const match = matches.value.find((m) => m.id === matchId);
+  router.push({
+    path: `/tournaments/${tournamentId.value}/matches/${matchId}/score`,
+    query: match?.categoryId ? { category: match.categoryId } : undefined
+  });
 }
 
-async function handleCompleteMatch(matchId: string) {
-  // Find the match
+function handleCompleteMatch(matchId: string) {
   const match = matches.value.find((m) => m.id === matchId);
   if (!match) return;
+  matchToComplete.value = match;
+  showCompleteMatchDialog.value = true;
+}
 
-  const winner = prompt(
-    'Enter winner: 1 for ' +
-      getParticipantName(match.participant1Id) +
-      ', 2 for ' +
-      getParticipantName(match.participant2Id)
-  );
-  if (!winner || (winner !== '1' && winner !== '2')) return;
-
-  matchStore.completeMatch(tournamentId.value, matchId, winner === '1' ? match.participant1Id : match.participant2Id);
+async function confirmCompleteMatch(winnerId: string) {
+  if (!matchToComplete.value) return;
+  showCompleteMatchDialog.value = false;
+  try {
+    await matchStore.completeMatch(tournamentId.value, matchToComplete.value.id, winnerId);
+    notificationStore.showToast('success', 'Match completed');
+  } catch (error) {
+    notificationStore.showToast('error', 'Failed to complete match');
+  }
+  matchToComplete.value = null;
 }
 
 function getCurrentScore(match: any): string {
@@ -247,6 +235,10 @@ async function generateBracket(categoryId: string) {
 const showRegenerateBracketDialog = ref(false);
 const regenerateCategoryId = ref<string | null>(null);
 const regenerateInProgress = ref(false);
+
+// Complete match dialog state
+const showCompleteMatchDialog = ref(false);
+const matchToComplete = ref<any>(null);
 
 // Seeding state
 const showSeedingDialog = ref(false);
@@ -696,6 +688,7 @@ async function handleDeleteTournament() {
         <v-tab value="brackets">Brackets</v-tab>
         <v-tab value="matches">Matches</v-tab>
         <v-tab v-if="isAdmin" value="registrations">Registrations</v-tab>
+        <v-tab :to="`/tournaments/${tournamentId}/leaderboard`">Leaderboard</v-tab>
       </v-tabs>
 
       <v-divider />
@@ -884,7 +877,7 @@ async function handleDeleteTournament() {
                   v-if="item.status === 'ready' || item.status === 'in_progress'"
                   size="small"
                   color="primary"
-                  :to="`/tournaments/${tournamentId}/matches/${item.id}/score`"
+                  :to="{ path: `/tournaments/${tournamentId}/matches/${item.id}/score`, query: item.categoryId ? { category: item.categoryId } : undefined }"
                 >
                   Score
                 </v-btn>
@@ -1114,6 +1107,36 @@ async function handleDeleteTournament() {
         >
           Delete Forever
         </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Complete Match Winner Dialog -->
+  <v-dialog v-model="showCompleteMatchDialog" max-width="400" persistent>
+    <v-card v-if="matchToComplete">
+      <v-card-title>Select Winner</v-card-title>
+      <v-card-text>
+        <p class="mb-4">Who won this match?</p>
+        <v-btn
+          block
+          color="primary"
+          class="mb-2"
+          @click="confirmCompleteMatch(matchToComplete.participant1Id)"
+        >
+          {{ getParticipantName(matchToComplete.participant1Id) }}
+        </v-btn>
+        <v-btn
+          block
+          color="primary"
+          variant="outlined"
+          @click="confirmCompleteMatch(matchToComplete.participant2Id)"
+        >
+          {{ getParticipantName(matchToComplete.participant2Id) }}
+        </v-btn>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="showCompleteMatchDialog = false">Cancel</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

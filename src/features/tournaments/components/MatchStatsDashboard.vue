@@ -88,12 +88,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Match, Court } from '@/types';
 
 const props = defineProps<{
   matches: Match[];
   courts: Court[];
 }>();
+
+const { getParticipantName } = useParticipantResolver();
 
 const stats = computed(() => {
   const total = props.matches.length;
@@ -146,10 +149,6 @@ function formatDuration(minutes: number): string {
   const mins = minutes % 60;
   if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
-}
-
-function getParticipantName(id?: string): string {
-  return id || 'TBD';
 }
 
 function formatTime(timestamp: any): string {

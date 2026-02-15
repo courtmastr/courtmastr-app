@@ -6,7 +6,10 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
 import { useActivityStore } from '@/stores/activities';
+import { useAuthStore } from '@/stores/auth';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { BADMINTON_CONFIG } from '@/types';
+import ScoreCorrectionDialog from '../components/ScoreCorrectionDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -15,6 +18,8 @@ const registrationStore = useRegistrationStore();
 const tournamentStore = useTournamentStore();
 const notificationStore = useNotificationStore();
 const activityStore = useActivityStore();
+const authStore = useAuthStore();
+const { getParticipantName } = useParticipantResolver();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const matchId = computed(() => route.params.matchId as string);
@@ -31,7 +36,19 @@ const manualScores = ref<{ game1: { p1: number; p2: number }; game2: { p1: numbe
 });
 const showManualScoreDialog = ref(false);
 
-// Get participant names
+// Walkover dialog state
+const showWalkoverConfirm = ref(false);
+const walkoverWinnerId = ref<string | null>(null);
+
+// Score correction dialog state
+const showCorrectionDialog = ref(false);
+
+// Check if user can correct scores
+const canCorrectMatch = computed(() => {
+  return authStore.isAdmin || authStore.isScorekeeper;
+});
+
+// Get participant names using composable
 const participant1Name = computed(() => {
   if (!match.value?.participant1Id) return 'TBD';
   return getParticipantName(match.value.participant1Id);
@@ -41,20 +58,6 @@ const participant2Name = computed(() => {
   if (!match.value?.participant2Id) return 'TBD';
   return getParticipantName(match.value.participant2Id);
 });
-
-function getParticipantName(registrationId: string | undefined): string {
-  if (!registrationId) return 'TBD';
-
-  const registration = registrationStore.registrations.find((r) => r.id === registrationId);
-  if (!registration) return 'Unknown';
-
-  if (registration.teamName) return registration.teamName;
-
-  const player = registrationStore.players.find((p) => p.id === registration.playerId);
-  if (player) return `${player.firstName} ${player.lastName}`;
-
-  return 'Unknown';
-}
 
 // Current game
 const currentGame = computed(() => {
@@ -206,12 +209,17 @@ async function removePoint(participant: 'participant1' | 'participant2') {
   }
 }
 
-async function recordWalkover(winnerId: string) {
-  if (!confirm('Record walkover? This will end the match.')) return;
+function requestWalkover(winnerId: string) {
+  walkoverWinnerId.value = winnerId;
+  showWalkoverConfirm.value = true;
+}
 
+async function confirmWalkover() {
+  if (!walkoverWinnerId.value) return;
+  showWalkoverConfirm.value = false;
   loading.value = true;
   try {
-    await matchStore.recordWalkover(tournamentId.value, matchId.value, winnerId);
+    await matchStore.recordWalkover(tournamentId.value, matchId.value, walkoverWinnerId.value);
     notificationStore.showToast('success', 'Walkover recorded');
     router.back();
   } catch (error) {
@@ -305,6 +313,10 @@ async function submitManualScores() {
   } finally {
     loading.value = false;
   }
+}
+
+function onScoreCorrected() {
+  showCorrectionDialog.value = false;
 }
 </script>
 
@@ -482,10 +494,10 @@ async function submitManualScores() {
                 </v-btn>
               </template>
               <v-list>
-                <v-list-item @click="recordWalkover(match.participant1Id!)">
+                <v-list-item @click="requestWalkover(match.participant1Id!)">
                   {{ participant1Name }} wins (walkover)
                 </v-list-item>
-                <v-list-item @click="recordWalkover(match.participant2Id!)">
+                <v-list-item @click="requestWalkover(match.participant2Id!)">
                   {{ participant2Name }} wins (walkover)
                 </v-list-item>
               </v-list>
@@ -511,6 +523,17 @@ async function submitManualScores() {
             >
               Back to Matches
             </v-btn>
+
+            <v-btn
+              v-if="canCorrectMatch"
+              color="warning"
+              variant="outlined"
+              class="mt-4 ml-2"
+              prepend-icon="mdi-pencil"
+              @click="showCorrectionDialog = true"
+            >
+              Correct Score
+            </v-btn>
           </v-card-text>
         </v-card>
       </v-col>
@@ -526,6 +549,19 @@ async function submitManualScores() {
       </v-alert>
     </v-row>
   </v-container>
+
+  <!-- Walkover Confirmation Dialog -->
+  <v-dialog v-model="showWalkoverConfirm" max-width="400" persistent>
+    <v-card>
+      <v-card-title>Record Walkover?</v-card-title>
+      <v-card-text>This will end the match immediately. Are you sure?</v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="showWalkoverConfirm = false">Cancel</v-btn>
+        <v-btn color="warning" @click="confirmWalkover">Confirm Walkover</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 
   <!-- Manual Score Entry Dialog -->
   <v-dialog v-model="showManualScoreDialog" max-width="500" persistent>
@@ -659,6 +695,15 @@ async function submitManualScores() {
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <!-- Score Correction Dialog -->
+  <score-correction-dialog
+    v-model="showCorrectionDialog"
+    :match="match"
+    :tournament-id="tournamentId"
+    :category-id="match?.categoryId"
+    @corrected="onScoreCorrected"
+  />
 </template>
 
 <style scoped>

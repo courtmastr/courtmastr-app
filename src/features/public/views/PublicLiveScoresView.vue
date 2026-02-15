@@ -5,6 +5,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useActivityStore } from '@/stores/activities';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import ActivityFeed from '@/components/ActivityFeed.vue';
 
 const route = useRoute();
@@ -12,6 +13,7 @@ const tournamentStore = useTournamentStore();
 const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
 const activityStore = useActivityStore();
+const { getParticipantName } = useParticipantResolver();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -44,27 +46,6 @@ onUnmounted(() => {
   matchStore.unsubscribeAll();
   activityStore.unsubscribe();
 });
-
-function getParticipantName(registrationId: string | undefined): string {
-  if (!registrationId) return 'TBD';
-
-  // participantId is actually a registration ID
-  const registration = registrationStore.registrations.find((r) => r.id === registrationId);
-  if (!registration) return 'Unknown';
-
-  // For teams (doubles), show team name
-  if (registration.teamName) {
-    return registration.teamName;
-  }
-
-  // For singles, show player name
-  const player = registrationStore.players.find((p) => p.id === registration.playerId);
-  if (player) {
-    return `${player.firstName} ${player.lastName}`;
-  }
-
-  return 'Unknown';
-}
 
 function getCourtName(courtId: string | undefined): string {
   if (!courtId) return 'Court';

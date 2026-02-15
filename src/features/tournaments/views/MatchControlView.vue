@@ -7,6 +7,7 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useNotificationStore } from '@/stores/notifications';
 import { useActivityStore } from '@/stores/activities';
 import { useMatchScheduler } from '@/composables/useMatchScheduler';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import ActivityFeed from '@/components/ActivityFeed.vue';
 import MatchQueueList from '@/features/tournaments/components/MatchQueueList.vue';
 import QuickActionsBar from '@/features/tournaments/components/QuickActionsBar.vue';
@@ -27,6 +28,7 @@ const notificationStore = useNotificationStore();
 const activityStore = useActivityStore();
 const scheduler = useMatchScheduler();
 const { getDurationColor, getMatchDuration } = useMatchDuration();
+const { getParticipantName } = useParticipantResolver();
 
 
 const tournamentId = computed(() => route.params.tournamentId as string);
@@ -70,7 +72,7 @@ const scheduleFilters = ref({
   status: 'all' as 'all' | 'scheduled' | 'ready' | 'in_progress' | 'completed' | 'cancelled',
   courtId: 'all' as string,
   searchQuery: '',
-  sortBy: 'matchNumber' as string,
+  sortBy: 'round' as string,
   sortDesc: false,
 });
 
@@ -175,7 +177,7 @@ const pendingMatches = computed(() => {
   let result = matches.value.filter(
     (m) => (m.status === 'ready' || m.status === 'scheduled') &&
            m.participant1Id && m.participant2Id &&
-           (!m.courtId || !m.scheduledTime)
+           !m.courtId
   );
   if (selectedCategory.value && selectedCategory.value !== 'all') {
     result = result.filter((m) => m.categoryId === selectedCategory.value);
@@ -253,13 +255,28 @@ const enrichedInProgressMatches = computed(() => {
     (selectedCategory.value === 'all' || m.categoryId === selectedCategory.value)
   );
 
-  return matchesToShow.map(match => ({
+  const enriched = matchesToShow.map(match => ({
     ...match,
     participant1Name: getParticipantName(match.participant1Id),
     participant2Name: getParticipantName(match.participant2Id),
     categoryName: getCategoryName(match.categoryId),
     courtName: courts.value.find(c => c.id === match.courtId)?.name
   })) as any;
+
+  // Debug: Log enriched matches to diagnose data mismatch
+  if (enriched.length > 0) {
+    console.log('[enrichedInProgressMatches] Computed matches:', enriched.map((m: Match & { participant1Name?: string; participant2Name?: string; courtName?: string }) => ({
+      id: m.id,
+      p1Id: m.participant1Id,
+      p2Id: m.participant2Id,
+      p1Name: m.participant1Name,
+      p2Name: m.participant2Name,
+      court: m.courtName,
+      status: m.status
+    })));
+  }
+
+  return enriched;
 });
 
 
@@ -303,10 +320,10 @@ const filteredMatches = computed(() => {
 
     switch (sortBy) {
       case 'matchNumber':
-        comparison = a.matchNumber - b.matchNumber;
+        comparison = a.matchNumber - b.matchNumber || a.round - b.round;
         break;
       case 'round':
-        comparison = a.round - b.round;
+        comparison = a.round - b.round || a.matchNumber - b.matchNumber;
         break;
       case 'category':
         comparison = getCategoryName(a.categoryId).localeCompare(getCategoryName(b.categoryId));
@@ -361,7 +378,7 @@ function resetScheduleFilters() {
     status: 'all',
     courtId: 'all',
     searchQuery: '',
-    sortBy: 'matchNumber',
+    sortBy: 'round',
     sortDesc: false,
   };
 }
@@ -515,6 +532,11 @@ onMounted(async () => {
   autoReadyInterval = setInterval(checkAndMarkDueMatches, 30000);
   // Also check immediately on mount
   checkAndMarkDueMatches();
+  
+  // Run consistency check to fix any zombie courts/matches
+  setTimeout(() => {
+    matchStore.checkAndFixConsistency(tournamentId.value);
+  }, 2000); // Small delay to ensure data is loaded
 });
 
 onUnmounted(() => {
@@ -530,19 +552,6 @@ onUnmounted(() => {
 });
 
 // Helper functions
-function getParticipantName(registrationId: string | undefined): string {
-  if (!registrationId) return 'TBD';
-  const registration = registrationStore.registrations.find((r) => r.id === registrationId);
-  if (!registration) return 'Unknown';
-
-  if (registration.teamName) return registration.teamName;
-
-  const player = registrationStore.players.find((p) => p.id === registration.playerId);
-  if (player) return `${player.firstName} ${player.lastName}`;
-
-  return 'Unknown';
-}
-
 function getCategoryName(categoryId: string): string {
   const category = categories.value.find((c) => c.id === categoryId);
   return category?.name || 'Unknown';
@@ -552,6 +561,12 @@ function getCourtName(courtId: string | undefined): string {
   if (!courtId) return '-';
   const court = courts.value.find((c) => c.id === courtId);
   return court?.name || 'Unknown';
+}
+
+function getBracketCode(match: Match): string {
+  if (match.bracketPosition?.bracket === 'losers') return 'LB';
+  if (match.bracketPosition?.bracket === 'finals') return 'F';
+  return 'WB';
 }
 
 function getMatchForCourt(courtId: string): Match | undefined {
@@ -608,7 +623,9 @@ async function assignCourt() {
 const showReleaseDialog = ref(false);
 const courtToReleaseId = ref<string | null>(null);
 
-function releaseCourt(courtId: string) {
+async function releaseCourt(courtId: string) {
+  const court = courts.value.find(c => c.id === courtId);
+  if (!court) return;
   courtToReleaseId.value = courtId;
   showReleaseDialog.value = true;
 }
@@ -616,10 +633,31 @@ function releaseCourt(courtId: string) {
 async function confirmReleaseCourt() {
   if (!courtToReleaseId.value) return;
   
+  const courtId = courtToReleaseId.value;
+  const court = courts.value.find(c => c.id === courtId);
+  
+  showReleaseDialog.value = false;
+  courtToReleaseId.value = null;
+
+  if (!court) return;
+
   try {
-    await tournamentStore.releaseCourtManual(tournamentId.value, courtToReleaseId.value);
+    // If there's a match on this court, we should unschedule it properly
+    // to avoid the "In Progress but Unassigned" state.
+    if (court.currentMatchId) {
+       const match = matches.value.find(m => m.id === court.currentMatchId);
+       if (match) {
+         console.log('[releaseCourt] Unscheduling match instead of just releasing court');
+         await matchStore.unscheduleMatch(tournamentId.value, match.id, match.categoryId);
+         notificationStore.showToast('success', 'Court released and match unscheduled');
+         return;
+       }
+    }
+
+    // Fallback: Just release the court manually
+    await tournamentStore.releaseCourtManual(tournamentId.value, courtId);
     notificationStore.showToast('success', 'Court released manually');
-    showReleaseDialog.value = false;
+      notificationStore.showToast('success', 'Court released manually');
   } catch (error) {
     console.error('Failed to release court:', error);
     notificationStore.showToast('error', 'Failed to release court');
@@ -633,6 +671,8 @@ async function quickAssignCourt(match: Match, court: Court) {
 
     // Log activity (non-blocking - don't fail assignment if logging fails)
     const categoryName = getCategoryName(match.categoryId);
+    const p1Name = getParticipantName(match.participant1Id);
+    const p2Name = getParticipantName(match.participant2Id);
     activityStore.logMatchReady(
       tournamentId.value,
       match.id,
@@ -684,9 +724,43 @@ async function saveSchedule() {
 
 
 function openScoreDialog(matchId: string) {
+  console.log('[openScoreDialog] EMERGENCY DEBUG:', {
+    requestedMatchId: matchId,
+    rawMatchesArray: matches.value,
+    enrichedMatchesArray: enrichedInProgressMatches.value,
+    totalMatchesInStore: matches.value.length,
+    totalEnrichedMatches: enrichedInProgressMatches.value.length
+  });
+  
   const match = matches.value.find(m => m.id === matchId);
-  if (match) {
-    openManualScoreDialog(match);
+  const enrichedMatch = enrichedInProgressMatches.value.find((m: any) => m.id === matchId);
+  
+  console.log('[openScoreDialog] CRITICAL MISMATCH CHECK:', {
+    matchId,
+    rawMatch: match ? {
+      id: match.id,
+      p1Id: match.participant1Id,
+      p2Id: match.participant2Id,
+      p1Name: getParticipantName(match.participant1Id),
+      p2Name: getParticipantName(match.participant2Id)
+    } : 'NOT FOUND',
+    enrichedMatch: enrichedMatch ? {
+      id: enrichedMatch.id,
+      p1Id: enrichedMatch.participant1Id,
+      p2Id: enrichedMatch.participant2Id,
+      p1Name: enrichedMatch.participant1Name,
+      p2Name: enrichedMatch.participant2Name
+    } : 'NOT FOUND'
+  });
+  
+  // Use enriched match data if available (this is what the UI showed)
+  const matchToUse = enrichedMatch || match;
+  
+  if (matchToUse) {
+    openManualScoreDialog(matchToUse);
+  } else {
+    console.error('[openScoreDialog] Match not found:', matchId);
+    notificationStore.showToast('error', 'Match not found');
   }
 }
 
@@ -740,6 +814,24 @@ async function startMatchInProgress(match: Match) {
 
 // Open manual score entry dialog
 function openManualScoreDialog(match: Match) {
+  // Validate that both participants are assigned
+  if (!match.participant1Id || !match.participant2Id) {
+    const p1Name = getParticipantName(match.participant1Id);
+    const p2Name = getParticipantName(match.participant2Id);
+    console.error('[openManualScoreDialog] BLOCKED: Match missing participants:', {
+      matchId: match.id,
+      participant1Id: match.participant1Id,
+      participant2Id: match.participant2Id,
+      p1Name,
+      p2Name,
+      status: match.status,
+      courtId: match.courtId,
+      categoryId: match.categoryId
+    });
+    notificationStore.showToast('error', `Cannot score match ${match.id}: ${p1Name} vs ${p2Name}. Both players must be assigned first. This match may be waiting for a previous round to complete.`);
+    return;
+  }
+
   selectedMatch.value = match;
   // Pre-fill with existing scores if any
   if (match.scores && match.scores.length > 0) {
@@ -788,7 +880,23 @@ async function submitManualScores() {
         };
       });
 
-    await matchStore.submitManualScores(tournamentId.value, match.id, games, match.categoryId);
+    console.log('[MatchControlView] Submitting scores for match:', {
+      id: match.id,
+      p1: match.participant1Id,
+      p2: match.participant2Id,
+      games
+    });
+
+    await matchStore.submitManualScores(
+      tournamentId.value,
+      match.id,
+      games,
+      match.categoryId,
+      {
+        p1: match.participant1Id || '',
+        p2: match.participant2Id || '',
+      }
+    );
 
     // Log activity if match completed (non-blocking)
     const p1Wins = games.filter(g => g.winnerId === match.participant1Id).length;
@@ -1156,7 +1264,58 @@ async function handleManualAssign(matchId: string, courtId: string) {
 }
 
 
+const showConsistencyDialog = ref(false);
+const showUnscheduleDialog = ref(false);
+const matchToUnscheduleId = ref<string | null>(null);
 
+function handleConsistencyCheck() {
+  showConsistencyDialog.value = true;
+}
+
+async function confirmConsistencyCheck() {
+  showConsistencyDialog.value = false;
+  try {
+    await matchStore.checkAndFixConsistency(tournamentId.value);
+    notificationStore.showToast('success', 'Data consistency check completed');
+  } catch (error) {
+    console.error('Consistency check failed:', error);
+    notificationStore.showToast('error', 'Failed to run consistency check');
+  }
+}
+
+async function handleUnschedule(matchId: string) {
+  matchToUnscheduleId.value = matchId;
+  showUnscheduleDialog.value = true;
+}
+
+async function confirmUnschedule() {
+  if (!matchToUnscheduleId.value) return;
+  
+  const matchId = matchToUnscheduleId.value;
+  const match = matches.value.find(m => m.id === matchId);
+  
+  showUnscheduleDialog.value = false;
+  matchToUnscheduleId.value = null;
+
+  if (!match) return;
+
+  try {
+    await matchStore.unscheduleMatch(tournamentId.value, matchId, match.categoryId);
+    notificationStore.showToast('success', 'Match unscheduled and moved to queue');
+    
+    // Log activity
+    const p1 = getParticipantName(match.participant1Id);
+    const p2 = getParticipantName(match.participant2Id);
+    activityStore.logActivity(
+      tournamentId.value,
+      'match_update',
+       `Unscheduled: ${p1} vs ${p2}`
+    );
+  } catch (error) {
+    console.error('Failed to unschedule:', error);
+    notificationStore.showToast('error', 'Failed to unschedule match');
+  }
+}
 
 
 /**
@@ -1184,6 +1343,8 @@ function toggleAutoStart(enabled: boolean) {
     notificationStore.showToast('info', 'Auto-start disabled');
   }
 }
+
+
 </script>
 
 <style lang="scss" scoped>
@@ -1367,6 +1528,24 @@ function toggleAutoStart(enabled: boolean) {
         ></v-select>
       </div>
 
+      <!-- View Mode Toggle -->
+      <v-btn-toggle
+        v-model="viewMode"
+        mandatory
+        density="compact"
+        color="primary"
+        variant="outlined"
+        class="mr-2"
+        divided
+      >
+        <v-btn value="queue" prepend-icon="mdi-view-dashboard">
+          <span class="hidden-sm-and-down">Live Board</span>
+        </v-btn>
+        <v-btn value="schedule" prepend-icon="mdi-format-list-bulleted">
+          <span class="hidden-sm-and-down">All Matches</span>
+        </v-btn>
+      </v-btn-toggle>
+
       <!-- Exit Button -->
       <v-btn
         color="primary"
@@ -1381,7 +1560,8 @@ function toggleAutoStart(enabled: boolean) {
 
     <!-- Main Content Grid -->
     <div class="flex-grow-1 overflow-hidden">
-      <v-row class="fill-height ma-0" no-gutters>
+      <!-- VIEW MODE: QUEUE (Original Layout) -->
+      <v-row v-if="viewMode === 'queue'" class="fill-height ma-0" no-gutters>
         <!-- LEFT PANEL: Active Matches & Courts (Flexible, Scrollable) -->
         <v-col cols="12" md="8" class="d-flex flex-column border-e fill-height">
           <!-- Top Stats Bar -->
@@ -1417,6 +1597,7 @@ function toggleAutoStart(enabled: boolean) {
                 :matches="enrichedInProgressMatches"
                 @completeMatch="openCompleteMatchDialog"
                 @enterScore="openScoreDialog"
+                @unschedule="handleUnschedule"
               />
             </div>
 
@@ -1424,6 +1605,17 @@ function toggleAutoStart(enabled: boolean) {
              <div class="d-flex align-center mb-2 mt-6">
               <v-icon start size="20" color="secondary">mdi-stadium</v-icon>
               <h3 class="text-subtitle-1 font-weight-bold">Court Status</h3>
+              <v-spacer></v-spacer>
+              <v-btn
+                icon="mdi-database-refresh"
+                variant="text"
+                size="small"
+                color="warning"
+                @click="handleConsistencyCheck"
+              >
+                <v-icon>mdi-database-refresh</v-icon>
+                <v-tooltip activator="parent" location="top">Fix Court Data Integrity</v-tooltip>
+              </v-btn>
             </div>
             
             <v-slide-group show-arrows>
@@ -1451,7 +1643,7 @@ function toggleAutoStart(enabled: boolean) {
                     
                     <div v-else-if="getMatchForCourt(court.id)" class="active-match-info w-100">
                        <div class="text-caption font-weight-bold text-primary mb-1">
-                         {{ getMatchForCourt(court.id)?.categoryName?.slice(0, 15) }}...
+                         {{ getCategoryName(getMatchForCourt(court.id)?.categoryId || '')?.slice(0, 15) }}...
                        </div>
                        <div class="player-names text-truncate px-1">
                           {{ getParticipantName(getMatchForCourt(court.id)?.participant1Id).split(' ')[0] }} vs 
@@ -1517,6 +1709,201 @@ function toggleAutoStart(enabled: boolean) {
           </div>
         </v-col>
       </v-row>
+
+      <!-- VIEW MODE: SCHEDULE (Full List) -->
+      <div v-else-if="viewMode === 'schedule'" class="fill-height d-flex flex-column bg-background">
+        <!-- Schedule Filters Toolbar -->
+        <div class="px-4 py-3 bg-surface border-b d-flex align-center gap-4 flex-wrap">
+          <div style="width: 250px">
+            <v-text-field
+              v-model="scheduleFilters.searchQuery"
+              prepend-inner-icon="mdi-magnify"
+              label="Search participants"
+              density="compact"
+              variant="outlined"
+              hide-details
+              clearable
+            ></v-text-field>
+          </div>
+          
+          <div style="width: 180px">
+            <v-select
+              v-model="scheduleFilters.status"
+              :items="statusOptions"
+              item-title="name"
+              item-value="value"
+              label="Status"
+              density="compact"
+              variant="outlined"
+              hide-details
+            ></v-select>
+          </div>
+
+          <div style="width: 180px">
+            <v-select
+              v-model="scheduleFilters.courtId"
+              :items="courtOptions"
+              item-title="name"
+              item-value="id"
+              label="Filter by Court"
+              density="compact"
+              variant="outlined"
+              hide-details
+            ></v-select>
+          </div>
+
+          <v-spacer></v-spacer>
+
+          <v-btn
+             variant="text"
+             color="grey"
+             prepend-icon="mdi-filter-off"
+             size="small"
+             @click="resetScheduleFilters"
+          >
+            Clear Filters
+          </v-btn>
+        </div>
+
+        <!-- Schedule Table -->
+        <div class="flex-grow-1 overflow-auto">
+          <v-data-table
+            :items="filteredMatches"
+            :headers="[
+              { title: 'Match', key: 'matchNumber', align: 'start', sortable: true },
+              { title: 'Category', key: 'categoryId', sortable: true },
+              { title: 'Round', key: 'round', sortable: true },
+              { title: 'Participants', key: 'participants', sortable: false },
+              { title: 'Score', key: 'score', sortable: false },
+              { title: 'Court', key: 'courtId', sortable: true },
+              { title: 'Scheduled', key: 'scheduledTime', sortable: true },
+              { title: 'Status', key: 'status', sortable: true },
+              { title: 'Actions', key: 'actions', align: 'end', sortable: false },
+            ]"
+            item-value="id"
+            hover
+            sticky-header
+            class="fill-height"
+            fixed-header
+          >
+            <!-- Custom Slots -->
+            <template #item.matchNumber="{ item }">
+              <div class="d-flex flex-column py-1">
+                <span class="font-weight-bold text-grey">#{{ item.id }}</span>
+                <span class="text-caption text-medium-emphasis">{{ getBracketCode(item) }}-{{ item.matchNumber }}</span>
+              </div>
+            </template>
+
+            <template #item.categoryId="{ item }">
+              <v-chip size="x-small" variant="outlined">{{ getCategoryName(item.categoryId) }}</v-chip>
+            </template>
+            
+            <template #item.participants="{ item }">
+              <div class="d-flex flex-column py-1">
+                <span :class="{'font-weight-bold text-success': item.winnerId === item.participant1Id}">
+                  {{ getParticipantName(item.participant1Id) }}
+                </span>
+                <span :class="{'font-weight-bold text-success': item.winnerId === item.participant2Id}">
+                  {{ getParticipantName(item.participant2Id) }}
+                </span>
+              </div>
+            </template>
+
+            <template #item.score="{ item }">
+               <span v-if="item.scores && item.scores.length > 0" class="font-weight-medium font-mono text-body-2">
+                 {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
+               </span>
+               <span v-else class="text-caption text-grey">-</span>
+            </template>
+
+            <template #item.courtId="{ item }">
+              <div v-if="item.courtId">
+                <v-icon size="small" :color="item.status === 'in_progress' ? 'success' : 'grey'" class="mr-1">mdi-court-sport</v-icon>
+                {{ getCourtName(item.courtId) }}
+              </div>
+              <span v-else class="text-grey-lighten-1">-</span>
+            </template>
+
+            <template #item.scheduledTime="{ item }">
+              <div v-if="item.scheduledTime" class="d-flex align-center text-caption">
+                <v-icon size="small" class="mr-1">mdi-clock-outline</v-icon>
+                {{ new Date(item.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+              </div>
+            </template>
+
+            <template #item.status="{ item }">
+              <v-chip
+                size="small"
+                :color="quickFilters.find(f => f.value === item.status)?.color || (item.status === 'completed' ? 'success' : 'grey')"
+                variant="flat"
+                class="text-uppercase font-weight-bold"
+                style="font-size: 10px; height: 20px;"
+              >
+                {{ item.status.replace('_', ' ') }}
+              </v-chip>
+            </template>
+
+            <template #item.actions="{ item }">
+              <div class="d-flex justify-end gap-1">
+                 <!-- Actions available based on status -->
+                 <v-btn
+                   v-if="item.status === 'ready' || item.status === 'in_progress'"
+                   size="small"
+                   color="primary"
+                   variant="tonal"
+                   prepend-icon="mdi-scoreboard"
+                   @click="openScoreDialog(item.id)"
+                 >
+                   Score
+                 </v-btn>
+                 
+                 <v-btn
+                   v-if="!item.courtId && (item.status === 'scheduled' || item.status === 'ready')"
+                   size="small"
+                   color="secondary"
+                   variant="tonal"
+                   prepend-icon="mdi-court-sport"
+                   @click="openAssignCourtDialog(item)"
+                 >
+                   Assign
+                 </v-btn>
+                 
+                <v-menu>
+                  <template #activator="{ props }">
+                    <v-btn icon="mdi-dots-vertical" variant="text" size="small" v-bind="props"></v-btn>
+                  </template>
+                  <v-list density="compact">
+                    <v-list-item prepend-icon="mdi-pencil" title="Edit Schedule" @click="openScheduleDialog(item)"></v-list-item>
+                    <v-list-item 
+                      v-if="item.status !== 'completed' && item.status !== 'walkover'"
+                      prepend-icon="mdi-flag-checkered" 
+                      title="Force Complete" 
+                      @click="openCompleteMatchDialog(item.id)"
+                    ></v-list-item>
+                    <v-list-item 
+                       v-if="item.status === 'scheduled' || item.status === 'ready'"
+                       prepend-icon="mdi-calendar-remove" 
+                       title="Unschedule" 
+                       color="warning"
+                       @click="handleUnschedule(item.id)"
+                    ></v-list-item>
+                  </v-list>
+                </v-menu>
+              </div>
+            </template>
+            
+            <template #no-data>
+              <div class="text-center py-8 text-grey">
+                <v-icon size="48" class="mb-2">mdi-filter-off</v-icon>
+                <div>No matches found matching standard filters</div>
+                <v-btn color="primary" variant="text" size="small" class="mt-2" @click="resetScheduleFilters">
+                  Reset Filters
+                </v-btn>
+              </div>
+            </template>
+          </v-data-table>
+        </div>
+      </div>
     </div>
 
     <!-- Dialogs -->
@@ -1638,17 +2025,47 @@ function toggleAutoStart(enabled: boolean) {
       </v-card>
     </v-dialog>
 
-    <!-- Release Court Confirmation Dialog -->
-    <v-dialog v-model="showReleaseDialog" max-width="400">
+    <!-- Unschedule Confirmation Dialog -->
+    <v-dialog v-model="showUnscheduleDialog" max-width="400">
       <v-card>
-        <v-card-title class="text-h6">Force Release Court?</v-card-title>
+        <v-card-title>Unschedule Match?</v-card-title>
         <v-card-text>
-          Are you sure you want to force release this court? Only do this if the court is "In Use" but has no active match (Zombie Court).
+          Are you sure you want to unschedule this match? It will be moved back to the queue and the court will be released.
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="grey-darken-1" variant="text" @click="showReleaseDialog = false">Cancel</v-btn>
-          <v-btn color="error" variant="text" @click="confirmReleaseCourt">Release</v-btn>
+          <v-btn color="grey" variant="text" @click="showUnscheduleDialog = false">Cancel</v-btn>
+          <v-btn color="warning" @click="confirmUnschedule">Unschedule</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Release Court Confirmation -->
+    <v-dialog v-model="showReleaseDialog" max-width="400">
+      <v-card>
+        <v-card-title class="text-h6">Release Court?</v-card-title>
+        <v-card-text>
+          Are you sure you want to release this court? If a match is currently assigned, it will be unscheduled.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="showReleaseDialog = false">Cancel</v-btn>
+          <v-btn color="warning" @click="confirmReleaseCourt">Release</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Consistency Check Confirmation -->
+    <v-dialog v-model="showConsistencyDialog" max-width="400">
+      <v-card>
+        <v-card-title class="text-h6">Run Diagnostics?</v-card-title>
+        <v-card-text>
+          This will scan for and fix data inconsistencies, such as 'Zombie Courts' (courts marked busy but with no match) and double-booked matches.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="showConsistencyDialog = false">Cancel</v-btn>
+          <v-btn color="warning" @click="confirmConsistencyCheck">Run Fix</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

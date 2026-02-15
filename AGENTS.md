@@ -113,11 +113,12 @@ npm run deploy:log
 ## 4. Non-Negotiables
 
 **MUST:**
-- Make smallest possible change
-- Reuse existing patterns, components, stores
-- Search codebase before creating files
-- Run `:log` commands after changes
-- Follow Debug KB Protocol on failures
+- **Check `docs/coding-patterns/CODING_PATTERNS.md` BEFORE writing code.**
+- Make smallest possible change (No "Fluff" Changes).
+- Reuse existing patterns, components, stores.
+- Search codebase before creating files.
+- Run `:log` commands after changes.
+- Follow Debug KB Protocol on failures.
 
 **MUST NOT:**
 - Add dependencies unless instructed
@@ -218,6 +219,71 @@ If unsure about data shape, auth flow, Firestore rules, deployment behavior, or 
 | `src/stores/` | Setup Store pattern, Firebase listeners |
 | `src/features/` | Feature-based organization |
 | `src/composables/` | Reusable logic with `use` prefix |
+
+### 10.1 Composable Patterns
+
+**MANDATORY: Use Centralized Composables**
+
+Before implementing any logic in a component, check if a composable already exists:
+
+| Composable | Purpose | Use When |
+|------------|---------|----------|
+| `useParticipantResolver()` | Resolve participant names from registration IDs | Displaying player/team names anywhere |
+| `useMatchScheduler()` | Schedule matches to courts | Match scheduling operations |
+| `useMatchDuration()` | Calculate match duration with color coding | Displaying match duration |
+| `useNavigation()` | Role-based navigation items | Building navigation menus |
+| `useNotification()` | Toast notifications | User feedback |
+
+**Pattern: Two-Step Participant Resolution**
+```typescript
+// CORRECT: Use composable
+const { getParticipantName } = useParticipantResolver();
+const name = getParticipantName(match.participant1Id); // "John Smith"
+
+// WRONG: Inline lookup (duplicated 15+ times across codebase)
+const player = players.value.find(p => p.id === id);
+const name = player ? `${player.firstName} ${player.lastName}` : 'Unknown';
+```
+
+**Why:** `participant1Id`/`participant2Id` are **registration IDs**, not player IDs. The resolution requires:
+1. Find registration by ID
+2. If team → return `teamName`
+3. If singles → find player by `playerId` → return `firstName + lastName`
+
+**Detection:**
+```bash
+# Find components that should use composables
+grep -rn "function getParticipantName" src/features/ --include="*.vue" | grep -v "useParticipantResolver"
+```
+
+### 10.2 Match Navigation Pattern
+
+**MANDATORY: Pass `categoryId` When Navigating to Match Scoring**
+
+Matches are stored at category-scoped paths: `tournaments/{id}/categories/{categoryId}/match/{matchId}`
+
+```typescript
+// CORRECT: Pass categoryId as query parameter
+function goToScoring(matchId: string, categoryId?: string) {
+  router.push({
+    path: `/tournaments/${tournamentId}/matches/${matchId}/score`,
+    query: categoryId ? { category: categoryId } : undefined
+  });
+}
+
+// In template:
+@click="goToScoring(match.id, match.categoryId)"
+
+// CORRECT: Using router-link with query
+:to="{ 
+  path: `/tournaments/${tournamentId}/matches/${match.id}/score`, 
+  query: match.categoryId ? { category: match.categoryId } : undefined 
+}"
+```
+
+**Why:** Without `categoryId`, `fetchMatch()` cannot determine the correct Firestore path and returns "Match not found". The `ScoringInterfaceView` reads `route.query.category` to build the correct collection path.
+
+**See:** CP-012 in `docs/coding-patterns/CODING_PATTERNS.md`
 
 ---
 

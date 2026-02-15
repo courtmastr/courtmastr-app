@@ -50,6 +50,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Match } from '@/types';
 
 const props = defineProps<{
@@ -62,6 +63,8 @@ const emit = defineEmits<{
   confirm: [winnerId: string, reason: string];
 }>();
 
+const { getParticipantName } = useParticipantResolver();
+
 const selectedWinner = ref<string>('');
 const reason = ref('');
 
@@ -71,10 +74,6 @@ watch(() => props.modelValue, (open) => {
     reason.value = '';
   }
 });
-
-function getParticipantName(id?: string): string {
-  return id || 'TBD';
-}
 
 function confirm() {
   if (selectedWinner.value) {

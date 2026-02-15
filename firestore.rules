@@ -125,6 +125,13 @@ service cloud.firestore {
       match /match_scores/{matchId} {
         allow read: if true;
         allow write: if isAuthenticated();
+
+        // Score correction history - readable by all, writable by scorekeepers only
+        match /corrections/{correctionId} {
+          allow read: if isAuthenticated();
+          allow create: if isScorekeeper();
+          allow update, delete: if false; // Immutable history
+        }
       }
 
       // Category-isolated bracket collections (new architecture)
@@ -166,6 +173,13 @@ service cloud.firestore {
         match /match_scores/{matchId} {
           allow read: if true;
           allow write: if isAuthenticated();
+
+          // Score correction history - readable by all, writable by scorekeepers only
+          match /corrections/{correctionId} {
+            allow read: if isAuthenticated();
+            allow create: if isScorekeeper();
+            allow update, delete: if false; // Immutable history
+          }
         }
       }
 

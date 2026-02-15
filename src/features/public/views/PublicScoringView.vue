@@ -4,12 +4,14 @@ import { useRoute } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Match } from '@/types';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
 const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
+const { getParticipantName } = useParticipantResolver();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -81,20 +83,6 @@ onUnmounted(() => {
   matchStore.unsubscribeAll();
   registrationStore.unsubscribeAll();
 });
-
-function getParticipantName(registrationId: string | undefined): string {
-  if (!registrationId) return 'TBD';
-
-  const registration = registrationStore.registrations.find((r) => r.id === registrationId);
-  if (!registration) return 'Unknown';
-
-  if (registration.teamName) return registration.teamName;
-
-  const player = registrationStore.players.find((p) => p.id === registration.playerId);
-  if (player) return `${player.firstName} ${player.lastName}`;
-
-  return 'Unknown';
-}
 
 function getCategoryName(categoryId: string): string {
   const category = tournamentStore.categories.find((c) => c.id === categoryId);

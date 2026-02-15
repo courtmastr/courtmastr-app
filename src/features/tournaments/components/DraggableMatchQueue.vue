@@ -69,6 +69,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import draggable from 'vuedraggable';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Match, Court } from '@/types';
 
 const props = defineProps<{
@@ -82,6 +83,8 @@ const emit = defineEmits<{
   resetOrder: [];
   sortByRound: [];
 }>();
+
+const { getParticipantName } = useParticipantResolver();
 
 const localMatches = ref<Match[]>([...props.matches]);
 const selectedCourt = ref<Record<string, string>>({});
@@ -98,10 +101,6 @@ function onDragEnd() {
 function assignMatch(matchId: string, courtId: string) {
   emit('assign', matchId, courtId);
   selectedCourt.value[matchId] = '';
-}
-
-function getParticipantName(id?: string): string {
-  return id || 'TBD';
 }
 </script>
 

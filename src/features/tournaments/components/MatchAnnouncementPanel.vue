@@ -54,6 +54,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Match } from '@/types';
 
 const props = defineProps<{
@@ -65,13 +66,11 @@ const emit = defineEmits<{
   announceAll: [];
 }>();
 
+const { getParticipantName } = useParticipantResolver();
+
 const readyMatches = computed(() => {
   return props.matches.filter(m => m.status === 'ready' && m.courtId);
 });
-
-function getParticipantName(id?: string): string {
-  return id || 'TBD';
-}
 
 function getCourtName(id?: string): string {
   if (!id) return 'No Court';
