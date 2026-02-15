@@ -39,9 +39,8 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
     });
 
     if (pathArray[1]) {
-      // In a real implementation, we would fetch the tournament name
       breadcrumbs.push({
-        title: 'Tournament Dashboard', // Would get actual tournament name
+        title: 'Tournament',
         to: `/tournaments/${pathArray[1]}`
       });
 
@@ -66,24 +65,34 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
             title: 'Court Management',
             to: `/tournaments/${pathArray[1]}/courts`
           });
+        } else if (pathArray[2] === 'matches') {
+          breadcrumbs.push({
+            title: 'Matches',
+            to: `/tournaments/${pathArray[1]}/matches`
+          });
+        } else if (pathArray[2] === 'settings') {
+          breadcrumbs.push({
+            title: 'Settings',
+            to: `/tournaments/${pathArray[1]}/settings`
+          });
+        } else if (pathArray[2] === 'leaderboard') {
+          breadcrumbs.push({
+            title: 'Leaderboard',
+            to: `/tournaments/${pathArray[1]}/leaderboard`
+          });
+        } else if (pathArray[2] === 'categories' && pathArray[4] === 'leaderboard') {
+          breadcrumbs.push({
+            title: 'Category Leaderboard',
+            to: `/tournaments/${pathArray[1]}/categories/${pathArray[3]}/leaderboard`
+          });
         } else if (pathArray[2] === 'scoring') {
           breadcrumbs.push({
-            title: 'Scoring Dashboard',
-            to: `/tournaments/${pathArray[1]}/scoring`
+            title: 'Score Matches',
+            to: `/tournaments/${pathArray[1]}/matches`
           });
         }
       }
     }
-  } else if (pathArray[0] === 'profile') {
-    breadcrumbs.push({
-      title: 'Profile',
-      to: '/profile'
-    });
-  } else if (pathArray[0] === 'settings') {
-    breadcrumbs.push({
-      title: 'Settings',
-      to: '/settings'
-    });
   }
 
   return breadcrumbs;

@@ -22,6 +22,7 @@ const emit = defineEmits<{
   completeMatch: [matchId: string];
   enterScore: [matchId: string];
   viewDetails: [matchId: string];
+  unschedule: [matchId: string];
 }>();
 
 const { getMatchDuration, getDurationColor } = useMatchDuration();
@@ -29,6 +30,16 @@ const { getMatchDuration, getDurationColor } = useMatchDuration();
 function getParticipantNames(match: Match): string {
   const p1 = match.participant1Name || 'Player 1';
   const p2 = match.participant2Name || 'Player 2';
+  
+  // Debug: Log what we're displaying vs the actual IDs
+  console.log('[ActiveMatchesSection] Displaying match:', {
+    matchId: match.id,
+    p1Name: p1,
+    p2Name: p2,
+    p1Id: match.participant1Id,
+    p2Id: match.participant2Id
+  });
+  
   return `${p1} vs ${p2}`;
 }
 
@@ -108,6 +119,15 @@ function getCurrentScore(match: Match): string {
                 density="comfortable"
                 @click="emit('enterScore', match.id)"
                 title="Enter Score"
+              ></v-btn>
+              <v-btn
+                icon="mdi-undo-variant"
+                size="small"
+                variant="text"
+                color="warning"
+                density="comfortable"
+                @click="emit('unschedule', match.id)"
+                title="Unschedule / Release"
               ></v-btn>
               <v-btn
                 icon="mdi-check"

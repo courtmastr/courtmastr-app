@@ -21,14 +21,19 @@ const unreadCount = computed(() => notificationStore.unreadCount);
 
 // Determine when to show different navigation elements
 const showBreadcrumbs = computed(() => {
-  // Show breadcrumbs on all pages except home/dashboard
-  return !['/', '/tournaments'].includes(route.path);
+  return isAuthenticated.value && !['/', '/tournaments'].includes(route.path);
 });
 
 const showContextualNav = computed(() => {
-  // Show contextual navigation on tournament-specific pages
-  return route.path.includes('/tournaments/') && 
-         !route.path.includes('/tournaments/create');
+  const publicTournamentRoutes = ['self-registration', 'public-bracket', 'public-live-scores', 'public-scoring'];
+  const routeName = route.name as string | undefined;
+
+  return Boolean(
+    isAuthenticated.value &&
+    route.params.tournamentId &&
+    routeName &&
+    !publicTournamentRoutes.includes(routeName)
+  );
 });
 
 const showSearch = computed(() => {
@@ -46,8 +51,14 @@ const userMenuItems = computed(() => {
   }
 
   return [
-    { title: 'Profile', icon: 'mdi-account', action: () => router.push('/profile') },
-    { title: 'Settings', icon: 'mdi-cog', action: () => router.push('/preferences') },
+    { title: 'My Tournaments', icon: 'mdi-view-dashboard', action: () => router.push('/tournaments') },
+    ...(route.params.tournamentId && authStore.isOrganizer
+      ? [{
+          title: 'Tournament Settings',
+          icon: 'mdi-cog',
+          action: () => router.push(`/tournaments/${route.params.tournamentId as string}/settings`),
+        }]
+      : []),
     { divider: true },
     { title: 'Logout', icon: 'mdi-logout', action: handleLogout },
   ];

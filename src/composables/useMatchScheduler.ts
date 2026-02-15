@@ -19,7 +19,12 @@ import {
   serverTimestamp,
 } from '@/services/firebase';
 import type { Court, Match, Registration } from '@/types';
-import { adaptBracketsMatchToLegacyMatch, type BracketsMatch, type Participant } from '@/stores/bracketMatchAdapter';
+import {
+  adaptBracketsMatchToLegacyMatch,
+  buildMatchStructureMaps,
+  type BracketsMatch,
+  type Participant,
+} from '@/stores/bracketMatchAdapter';
 
 // ============================================
 // Types
@@ -95,7 +100,7 @@ export function useMatchScheduler() {
       if (!tournamentDoc.exists()) {
         throw new Error('Tournament not found');
       }
-      
+
       const tournament = tournamentDoc.data();
       const settings = tournament?.settings || {
         matchDurationMinutes: 30,
@@ -109,12 +114,12 @@ export function useMatchScheduler() {
         collection(db, 'tournaments', tournamentId, 'courts'),
         where('status', 'in', ['available', 'in_use'])
       );
-      
+
       if (options.courtIds && options.courtIds.length > 0) {
         // If specific courts specified, filter them
         courtsQuery = query(courtsQuery, where('__name__', 'in', options.courtIds));
       }
-      
+
       const courtsSnap = await getDocs(courtsQuery);
       const courts = courtsSnap.docs
         .map(d => ({ id: d.id, ...d.data() } as Court))
@@ -130,6 +135,8 @@ export function useMatchScheduler() {
       const matchPath = `tournaments/${tournamentId}/categories/${options.categoryId}/match`;
       const participantPath = `tournaments/${tournamentId}/categories/${options.categoryId}/participant`;
       const matchScoresPath = `tournaments/${tournamentId}/categories/${options.categoryId}/match_scores`;
+      const roundPath = `tournaments/${tournamentId}/categories/${options.categoryId}/round`;
+      const groupPath = `tournaments/${tournamentId}/categories/${options.categoryId}/group`;
 
       console.log('[scheduleMatches] Querying matches from:', {
         matchPath,
@@ -141,11 +148,13 @@ export function useMatchScheduler() {
       let adaptedMatches: Match[] = [];
 
       try {
-        const [matchSnap, registrationSnap, participantSnap, matchScoresSnap] = await Promise.all([
+        const [matchSnap, registrationSnap, participantSnap, matchScoresSnap, roundSnap, groupSnap] = await Promise.all([
           getDocs(collection(db, matchPath)),
           getDocs(collection(db, `tournaments/${tournamentId}/registrations`)),
           getDocs(collection(db, participantPath)),
-          getDocs(collection(db, matchScoresPath))
+          getDocs(collection(db, matchScoresPath)),
+          getDocs(collection(db, roundPath)),
+          getDocs(collection(db, groupPath)),
         ]);
 
         console.log('[scheduleMatches] Raw query results:', {
@@ -167,6 +176,9 @@ export function useMatchScheduler() {
         const registrations = registrationSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Registration[];
         const participants = participantSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Participant[];
         const matchScoresMap = new Map(matchScoresSnap.docs.map(d => [d.id, d.data()]));
+        const rounds = roundSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const groups = groupSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const structureMaps = buildMatchStructureMaps(rounds, groups);
 
         console.log('[scheduleMatches] Starting adaptation of', bracketsMatches.length, 'matches');
 
@@ -178,14 +190,24 @@ export function useMatchScheduler() {
             registrations,
             participants,
             options.categoryId,
-            tournamentId
+            tournamentId,
+            structureMaps
           );
 
           if (adapted) {
             // Merge with match_scores data if it exists
             const scoreData = matchScoresMap.get(adapted.id);
             if (scoreData) {
-              if (scoreData.status) adapted.status = scoreData.status as any;
+              // GUARD: Bracket status 4 (completed) must not be overridden
+              // by stale match_scores status — prevents re-scheduling completed matches
+              const bracketCompleted = bMatch.status === 4;
+              if (scoreData.status) {
+                if (bracketCompleted && scoreData.status !== 'completed' && scoreData.status !== 'walkover') {
+                  console.warn(`[scheduleMatches] ⚠️ Ignoring stale match_scores status "${scoreData.status}" for completed bracket match ${adapted.id}`);
+                } else {
+                  adapted.status = scoreData.status as any;
+                }
+              }
               if (scoreData.courtId) adapted.courtId = scoreData.courtId as string;
               if (scoreData.scheduledTime) adapted.scheduledTime = scoreData.scheduledTime instanceof Timestamp ? scoreData.scheduledTime.toDate() : scoreData.scheduledTime as Date;
             }
@@ -330,14 +352,14 @@ export function useMatchScheduler() {
       collection(db, matchScoresPath),
       where('courtId', '!=', null)
     );
-    
+
     const matchesSnap = await getDocs(matchesQuery);
     const batch = writeBatch(db);
     let cleared = 0;
 
     for (const matchDoc of matchesSnap.docs) {
       const data = matchDoc.data();
-      
+
       // Only clear if match hasn't started (no startedAt)
       if (!data.startedAt) {
         batch.update(matchDoc.ref, {

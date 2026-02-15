@@ -220,11 +220,11 @@ export const useTournamentStore = defineStore('tournaments', () => {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      
+
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('addDoc timed out after 5s')), 5000);
       });
-      
+
       const docRef = await Promise.race([addDocPromise, timeoutPromise]) as DocumentReference;
       return docRef.id;
     } catch (err) {
@@ -506,6 +506,17 @@ export const useTournamentStore = defineStore('tournaments', () => {
     courtId: string,
     categoryId: string
   ): Promise<void> {
+    // 1. Check if court is available
+    const courtDoc = await getDoc(doc(db, `tournaments/${tournamentId}/courts`, courtId));
+    if (!courtDoc.exists()) {
+      throw new Error('Court not found');
+    }
+
+    const courtData = courtDoc.data();
+    if (courtData.status === 'in_use' && courtData.currentMatchId !== matchId) {
+      throw new Error(`Court ${courtData.name} is already in use by another match!`);
+    }
+
     const batch = writeBatch(db);
 
     // Update match_scores
@@ -661,6 +672,42 @@ export const useTournamentStore = defineStore('tournaments', () => {
     }
   }
 
+  // Helper to execute bracket operation (generate or regenerate) with cloud/local branching
+  async function executeBracketOperation(
+    tournamentId: string,
+    categoryId: string,
+    options: {
+      grandFinal?: 'simple' | 'double' | 'none';
+      consolationFinal?: boolean;
+    },
+    preOperation?: () => Promise<void>
+  ): Promise<{ success: boolean; matchCount: number }> {
+    const bracketGen = useBracketGenerator();
+    loading.value = true;
+    error.value = null;
+
+    try {
+      if (preOperation) {
+        await preOperation();
+      }
+
+      if (USE_CLOUD_FUNCTION_FOR_BRACKETS) {
+        const generateBracketFn = httpsCallable(functions, 'generateBracket');
+        await generateBracketFn({ tournamentId, categoryId, ...options });
+        return { success: true, matchCount: 0 };
+      } else {
+        const result = await bracketGen.generateBracket(tournamentId, categoryId, options);
+        return result;
+      }
+    } catch (err) {
+      console.error('Error executing bracket operation:', err);
+      error.value = err instanceof Error ? err.message : 'Failed to execute bracket operation';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function generateBracket(
     tournamentId: string,
     categoryId: string,
@@ -669,31 +716,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
       consolationFinal?: boolean;
     } = {}
   ): Promise<{ success: boolean; matchCount: number }> {
-    if (USE_CLOUD_FUNCTION_FOR_BRACKETS) {
-      loading.value = true;
-      error.value = null;
-      try {
-        const generateBracketFn = httpsCallable(functions, 'generateBracket');
-        await generateBracketFn({ tournamentId, categoryId, ...options });
-        return { success: true, matchCount: 0 };
-      } catch (err) {
-        console.error('Error generating bracket:', err);
-        error.value = err instanceof Error ? err.message : 'Failed to generate bracket';
-        throw err;
-      } finally {
-        loading.value = false;
-      }
-    } else {
-      const bracketGen = useBracketGenerator();
-      try {
-        const result = await bracketGen.generateBracket(tournamentId, categoryId, options);
-        return result;
-      } catch (err) {
-        console.error('Error generating bracket:', err);
-        error.value = bracketGen.error.value || 'Failed to generate bracket';
-        throw err;
-      }
-    }
+    return executeBracketOperation(tournamentId, categoryId, options);
   }
 
   async function regenerateBracket(
@@ -704,34 +727,10 @@ export const useTournamentStore = defineStore('tournaments', () => {
       consolationFinal?: boolean;
     } = {}
   ): Promise<{ success: boolean; matchCount: number }> {
-    if (USE_CLOUD_FUNCTION_FOR_BRACKETS) {
-      const bracketGen = useBracketGenerator();
-      loading.value = true;
-      error.value = null;
-      try {
-        await bracketGen.deleteBracket(tournamentId, categoryId);
-        const generateBracketFn = httpsCallable(functions, 'generateBracket');
-        await generateBracketFn({ tournamentId, categoryId, ...options });
-        return { success: true, matchCount: 0 };
-      } catch (err) {
-        console.error('Error regenerating bracket:', err);
-        error.value = err instanceof Error ? err.message : 'Failed to regenerate bracket';
-        throw err;
-      } finally {
-        loading.value = false;
-      }
-    } else {
-      const bracketGen = useBracketGenerator();
-      try {
-        await bracketGen.deleteBracket(tournamentId, categoryId);
-        const result = await bracketGen.generateBracket(tournamentId, categoryId, options);
-        return result;
-      } catch (err) {
-        console.error('Error regenerating bracket:', err);
-        error.value = bracketGen.error.value || 'Failed to regenerate bracket';
-        throw err;
-      }
-    }
+    const bracketGen = useBracketGenerator();
+    return executeBracketOperation(tournamentId, categoryId, options, async () => {
+      await bracketGen.deleteBracket(tournamentId, categoryId);
+    });
   }
 
   async function generateSchedule(
@@ -789,7 +788,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
       }
     }
   }
-  
+
   async function clearSchedule(
     tournamentId: string,
     categoryId: string

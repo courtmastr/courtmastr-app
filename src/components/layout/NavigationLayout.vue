@@ -56,6 +56,6 @@ const showContextualNav = computed(() => {
 
 const showSearch = computed(() => {
   // Show search on most pages except very specific ones
-  return !route.path.includes('/scoring') || !route.path.includes('/public');
+  return !route.path.includes('/matches') && !route.path.includes('/public');
 });
 </script>

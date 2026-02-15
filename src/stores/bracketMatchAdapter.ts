@@ -1,12 +1,9 @@
 /**
- * Adapter to convert brackets-manager data to legacy Match format
- * 
- * This adapter enables the existing Match Store, scoring system, and UI
- * to work with brackets-manager as the single source of truth.
- * 
- * OPTIMIZED VERSION: Works with minimal 3-collection schema (stage, match, registrations)
- * - round and bracket fields are derived from match document directly
- * - opponent IDs are registration IDs directly (no participant lookup needed)
+ * Adapter to convert brackets-manager data to legacy Match format.
+ *
+ * This adapter supports two match schemas:
+ * 1) Enhanced match docs with direct `round` and `bracket` fields
+ * 2) Canonical brackets-manager docs with `round_id`/`group_id` + /round + /group collections
  */
 
 import type { Match, MatchStatus } from '@/types';
@@ -23,13 +20,13 @@ export interface Participant {
 // ============================================
 
 export interface BracketsMatch {
-    id: string;
-    stage_id: string;
-    round?: number;
+    id: string | number;
+    stage_id: string | number;
+    round?: number | string;
     bracket?: 'winners' | 'losers' | 'finals';
-    group_id?: string;
-    round_id?: string;
-    number: number;
+    group_id?: string | number;
+    round_id?: string | number;
+    number?: number | string;
     opponent1: { id: string | number | null; registrationId?: string; position?: number; result?: string } | null;
     opponent2: { id: string | number | null; registrationId?: string; position?: number; result?: string } | null;
     status: number;
@@ -37,10 +34,26 @@ export interface BracketsMatch {
 }
 
 export interface BracketsStage {
-    id: string;
+    id: string | number;
     tournament_id: string;
     name: string;
     type: 'single_elimination' | 'double_elimination' | 'round_robin';
+}
+
+export interface BracketsRound {
+    id: string | number;
+    number?: number | string;
+    group_id?: string | number;
+}
+
+export interface BracketsGroup {
+    id: string | number;
+    number?: number | string;
+}
+
+export interface MatchStructureMaps {
+    roundNumberByRoundId: Map<string, number>;
+    bracketByRoundId: Map<string, 'winners' | 'losers' | 'finals'>;
 }
 
 // ============================================
@@ -50,10 +63,7 @@ export interface BracketsStage {
 /**
  * Convert brackets-manager match to legacy Match interface
  * 
- * OPTIMIZED: Works with minimal 3-collection schema
- * - round is read directly from match.round (not from rounds collection)
- * - bracket is read directly from match.bracket (not from groups collection)
- * - opponent IDs are registration IDs directly (not participant IDs)
+ * Works with both enhanced and canonical brackets-manager schemas.
  * 
  * @param bracketsMatch - Match from brackets-manager (with enhanced fields)
  * @param registrations - All registrations for participant name lookup (optional)
@@ -66,7 +76,8 @@ export function adaptBracketsMatchToLegacyMatch(
     _registrations: Registration[] | null,
     participants: Participant[] | null,
     categoryId: string,
-    tournamentId: string
+    tournamentId: string,
+    structureMaps?: MatchStructureMaps
 ): Match | null {
     const hasOpponent1 = bracketsMatch.opponent1?.id != null;
     const hasOpponent2 = bracketsMatch.opponent2?.id != null;
@@ -76,8 +87,9 @@ export function adaptBracketsMatchToLegacyMatch(
         return null;
     }
 
-    const roundNumber = bracketsMatch.round || 1;
-    const bracketType = bracketsMatch.bracket || 'winners';
+    const roundNumber = resolveRoundNumber(bracketsMatch, structureMaps);
+    const bracketType = resolveBracketType(bracketsMatch, structureMaps);
+    const matchNumber = toPositiveNumber(bracketsMatch.number) ?? 1;
     const status = convertBracketsStatus(bracketsMatch.status);
 
     // Only log first few matches to avoid console spam
@@ -112,15 +124,15 @@ export function adaptBracketsMatchToLegacyMatch(
     }
 
     return {
-        id: bracketsMatch.id,
+        id: String(bracketsMatch.id),
         tournamentId,
         categoryId,
         round: roundNumber,
-        matchNumber: bracketsMatch.number,
+        matchNumber,
         bracketPosition: {
             bracket: bracketType,
             round: roundNumber,
-            position: bracketsMatch.number,
+            position: matchNumber,
         },
         participant1Id,
         participant2Id,
@@ -129,6 +141,89 @@ export function adaptBracketsMatchToLegacyMatch(
         scores: [],
         createdAt: new Date(),
         updatedAt: new Date(),
+    };
+}
+
+function toMapKey(value: string | number | null | undefined): string | null {
+    if (value === null || value === undefined) return null;
+    return String(value);
+}
+
+function toPositiveNumber(value: unknown): number | null {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed) || parsed < 1) return null;
+    return Math.floor(parsed);
+}
+
+function resolveRoundNumber(bracketsMatch: BracketsMatch, structureMaps?: MatchStructureMaps): number {
+    const roundIdKey = toMapKey(bracketsMatch.round_id);
+    if (roundIdKey && structureMaps?.roundNumberByRoundId.has(roundIdKey)) {
+        return structureMaps.roundNumberByRoundId.get(roundIdKey) as number;
+    }
+
+    return toPositiveNumber(bracketsMatch.round) ?? 1;
+}
+
+function resolveBracketType(
+    bracketsMatch: BracketsMatch,
+    structureMaps?: MatchStructureMaps
+): 'winners' | 'losers' | 'finals' {
+    const roundIdKey = toMapKey(bracketsMatch.round_id);
+    if (roundIdKey && structureMaps?.bracketByRoundId.has(roundIdKey)) {
+        return structureMaps.bracketByRoundId.get(roundIdKey) as 'winners' | 'losers' | 'finals';
+    }
+    return bracketsMatch.bracket || 'winners';
+}
+
+function mapGroupNumberToBracket(groupNumber: number): 'winners' | 'losers' | 'finals' {
+    switch (groupNumber) {
+        case 2:
+            return 'losers';
+        case 3:
+            return 'finals';
+        case 1:
+        default:
+            return 'winners';
+    }
+}
+
+export function buildMatchStructureMaps(
+    rounds: BracketsRound[],
+    groups: BracketsGroup[]
+): MatchStructureMaps {
+    const groupNumberByGroupId = new Map<string, number>();
+    for (const group of groups) {
+        const groupId = toMapKey(group.id);
+        const groupNumber = toPositiveNumber(group.number);
+        if (groupId && groupNumber !== null) {
+            groupNumberByGroupId.set(groupId, groupNumber);
+        }
+    }
+
+    const roundNumberByRoundId = new Map<string, number>();
+    const bracketByRoundId = new Map<string, 'winners' | 'losers' | 'finals'>();
+
+    for (const round of rounds) {
+        const roundId = toMapKey(round.id);
+        const roundNumber = toPositiveNumber(round.number);
+        const groupId = toMapKey(round.group_id);
+        if (!roundId) continue;
+
+        if (roundNumber !== null) {
+            roundNumberByRoundId.set(roundId, roundNumber);
+        }
+
+        if (groupId) {
+            const groupNumber = groupNumberByGroupId.get(groupId);
+            if (groupNumber) {
+                bracketByRoundId.set(roundId, mapGroupNumberToBracket(groupNumber));
+            }
+        }
+    }
+
+    return {
+        roundNumberByRoundId,
+        bracketByRoundId,
     };
 }
 
@@ -172,9 +267,10 @@ export function adaptBracketsMatches(
     registrations: Registration[] | null,
     participants: Participant[] | null,
     categoryId: string,
-    tournamentId: string
+    tournamentId: string,
+    structureMaps?: MatchStructureMaps
 ): Match[] {
     return bracketsMatches
-        .map(bm => adaptBracketsMatchToLegacyMatch(bm, registrations, participants, categoryId, tournamentId))
+        .map(bm => adaptBracketsMatchToLegacyMatch(bm, registrations, participants, categoryId, tournamentId, structureMaps))
         .filter((m): m is Match => m !== null);
 }

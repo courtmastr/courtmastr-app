@@ -2,6 +2,7 @@
   <div class="global-search pa-4">
     <v-autocomplete
       v-model="selectedItem"
+      v-model:search="searchTerm"
       :items="searchResults"
       item-title="title"
       item-value="path"
@@ -34,10 +35,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 import { useTournamentStore } from '@/stores/tournaments';
 
 const router = useRouter();
+const route = useRoute();
+const authStore = useAuthStore();
 const tournamentStore = useTournamentStore();
 
 const selectedItem = ref<string | null>(null);
@@ -50,103 +54,102 @@ interface SearchResult {
   icon: string;
 }
 
+const currentTournamentId = computed(() => {
+  const routeTournamentId = route.params.tournamentId as string | undefined;
+  return routeTournamentId || tournamentStore.currentTournament?.id || null;
+});
+
 const searchResults = computed((): SearchResult[] => {
-  // Use a map to prevent duplicates, keyed by path
+  const query = searchTerm.value.trim().toLowerCase();
   const resultsMap = new Map<string, SearchResult>();
-  const titlesSeen = new Set<string>();
-  
-  // Add tournament results
-  if (tournamentStore.tournaments && Array.isArray(tournamentStore.tournaments)) {
-    tournamentStore.tournaments.forEach(tournament => {
-      // Basic validation
-      if (!tournament || !tournament.name) return;
-      
-      if (tournament.name.toLowerCase().includes(searchTerm.value.toLowerCase())) {
-        const path = `/tournaments/${tournament.id}/dashboard`;
-        
-        // Strict deduplication: If we already have this path OR this exact title, skip?
-        // Actually, distinct tournaments might have same name. Path is the source of truth.
-        
-        resultsMap.set(path, {
-          title: tournament.name,
-          subtitle: `Tournament • ${tournament.status || 'Active'}`,
-          path: path,
-          icon: 'mdi-tournament',
-        });
-        titlesSeen.add(tournament.name);
-      }
+
+  const addResult = (item: SearchResult): void => {
+    if (resultsMap.has(item.path)) return;
+
+    if (!query) {
+      resultsMap.set(item.path, item);
+      return;
+    }
+
+    const titleMatch = item.title.toLowerCase().includes(query);
+    const subtitleMatch = item.subtitle.toLowerCase().includes(query);
+    if (titleMatch || subtitleMatch) {
+      resultsMap.set(item.path, item);
+    }
+  };
+
+  if (Array.isArray(tournamentStore.tournaments)) {
+    tournamentStore.tournaments.forEach((tournament) => {
+      if (!tournament?.id || !tournament.name) return;
+      addResult({
+        title: tournament.name,
+        subtitle: `Tournament • ${tournament.status}`,
+        path: `/tournaments/${tournament.id}`,
+        icon: 'mdi-tournament',
+      });
     });
   }
 
-  // Add common navigation items
-  const commonItems: SearchResult[] = [
-    {
-      title: 'Tournament Dashboard',
-      subtitle: 'Manage your tournaments',
-      path: '/tournaments',
-      icon: 'mdi-view-dashboard',
-    },
-    {
-      title: 'Create New Tournament',
+  addResult({
+    title: 'All Tournaments',
+    subtitle: 'View and manage tournaments',
+    path: '/tournaments',
+    icon: 'mdi-view-dashboard',
+  });
+
+  if (authStore.isOrganizer) {
+    addResult({
+      title: 'Create Tournament',
       subtitle: 'Start a new tournament',
       path: '/tournaments/create',
       icon: 'mdi-plus-circle',
-    },
-    {
-      title: 'Match Control',
-      subtitle: 'Live tournament operations',
-      path: '/tournaments/active/match-control',
-      icon: 'mdi-controller',
-    },
-    {
-      title: 'Tournament Brackets',
-      subtitle: 'View tournament brackets',
-      path: '/tournaments/brackets',
-      icon: 'mdi-brackets',
-    },
-    {
-      title: 'Court Management',
-      subtitle: 'Manage tournament courts',
-      path: '/tournaments/courts',
-      icon: 'mdi-stadium',
-    },
-    {
-      title: 'Scoring Dashboard',
-      subtitle: 'Manage match scoring',
-      path: '/scoring',
-      icon: 'mdi-scoreboard',
-    }
-  ];
+    });
+  }
 
-  // Merge common items
-  commonItems.forEach(item => {
-    // Only add if it matches search
-    if (
-      item.title.toLowerCase().includes(searchTerm.value.toLowerCase()) || 
-      item.subtitle.toLowerCase().includes(searchTerm.value.toLowerCase())
-    ) {
-      // Check if path already exists to avoid duplicates
-      if (!resultsMap.has(item.path)) {
-        resultsMap.set(item.path, item);
-      }
-    }
-  });
-  
-  const finalResults = Array.from(resultsMap.values());
-  console.log('GlobalSearch: Debugging Duplicates', {
-    searchTerm: searchTerm.value,
-    tournamentsCount: tournamentStore.tournaments.length,
-    mapSze: resultsMap.size,
-    finalResultsLength: finalResults.length,
-    finalResults: finalResults
-  });
+  if (currentTournamentId.value) {
+    const tournamentId = currentTournamentId.value;
 
-  return finalResults;
+    addResult({
+      title: 'Tournament Leaderboard',
+      subtitle: 'View standings and tiebreakers',
+      path: `/tournaments/${tournamentId}/leaderboard`,
+      icon: 'mdi-podium-gold',
+    });
+
+    if (authStore.isOrganizer) {
+      addResult({
+        title: 'Match Control',
+        subtitle: 'Queue, courts, and live operations',
+        path: `/tournaments/${tournamentId}/match-control`,
+        icon: 'mdi-controller',
+      });
+
+      addResult({
+        title: 'Manage Registrations',
+        subtitle: 'Approve and manage participants',
+        path: `/tournaments/${tournamentId}/registrations`,
+        icon: 'mdi-account-multiple',
+      });
+    }
+
+    if (authStore.isScorekeeper) {
+      addResult({
+        title: 'Score Matches',
+        subtitle: 'Open active and ready matches',
+        path: `/tournaments/${tournamentId}/matches`,
+        icon: 'mdi-scoreboard',
+      });
+    }
+  }
+
+  return Array.from(resultsMap.values()).slice(0, 25);
 });
 
 function navigateToItem(path: string | null) {
   if (path) {
     router.push(path);
+    selectedItem.value = null;
+    searchTerm.value = '';
   }
 }
 

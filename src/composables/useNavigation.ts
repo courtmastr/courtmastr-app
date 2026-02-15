@@ -1,4 +1,5 @@
 import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useTournamentStore } from '@/stores/tournaments';
 
@@ -8,6 +9,10 @@ import { useTournamentStore } from '@/stores/tournaments';
 export function useNavigation() {
   const authStore = useAuthStore();
   const tournamentStore = useTournamentStore();
+  const route = useRoute();
+  const currentTournamentId = computed(() =>
+    (route.params.tournamentId as string | undefined) || tournamentStore.currentTournament?.id || ''
+  );
 
   // Check user roles
   const isAdmin = computed(() => authStore.userRole === 'admin');
@@ -35,13 +40,6 @@ export function useNavigation() {
         to: '/tournaments/create',
         allowed: true,
       });
-      
-      items.push({
-        title: 'System Settings',
-        icon: 'mdi-cog',
-        to: '/admin/settings',
-        allowed: true,
-      });
     }
 
     // Organizer items
@@ -49,27 +47,27 @@ export function useNavigation() {
       items.push({
         title: 'Tournament Management',
         icon: 'mdi-view-dashboard',
-        to: '/tournaments/manage',
+        to: '/tournaments',
         allowed: true,
       });
     }
 
-    // Scorekeeper items
-    if (isAdmin.value || isOrganizer.value || isScorekeeper.value) {
+    // Scorekeeper items for the current tournament
+    if ((isAdmin.value || isOrganizer.value || isScorekeeper.value) && currentTournamentId.value) {
       items.push({
-        title: 'Scoring Dashboard',
+        title: 'Score Matches',
         icon: 'mdi-scoreboard',
-        to: '/scoring',
+        to: `/tournaments/${currentTournamentId.value}/matches`,
         allowed: true,
       });
     }
 
     // Player-specific items
-    if (isPlayer.value) {
+    if (isPlayer.value && currentTournamentId.value) {
       items.push({
-        title: 'My Registrations',
+        title: 'Register',
         icon: 'mdi-account-card-details',
-        to: '/my-registrations',
+        to: `/tournaments/${currentTournamentId.value}/register`,
         allowed: true,
       });
     }
@@ -81,14 +79,14 @@ export function useNavigation() {
   // Tournament-specific navigation items
   const tournamentNavigationItems = computed(() => {
     const items = [];
-    const tournamentId = tournamentStore.currentTournament?.id;
+    const tournamentId = currentTournamentId.value;
 
     if (tournamentId) {
       items.push(
         {
           title: 'Dashboard',
           icon: 'mdi-view-dashboard',
-          to: `/tournaments/${tournamentId}/dashboard`,
+          to: `/tournaments/${tournamentId}`,
           allowed: true,
         },
         {
@@ -101,12 +99,6 @@ export function useNavigation() {
           title: 'Match Control',
           icon: 'mdi-controller',
           to: `/tournaments/${tournamentId}/match-control`,
-          allowed: isAdmin.value || isOrganizer.value,
-        },
-        {
-          title: 'Courts',
-          icon: 'mdi-stadium',
-          to: `/tournaments/${tournamentId}/courts`,
           allowed: isAdmin.value || isOrganizer.value,
         },
         {
@@ -132,7 +124,7 @@ export function useNavigation() {
       return isAdmin.value || isOrganizer.value;
     }
     
-    if (route.includes('/scoring')) {
+    if (route.includes('/matches')) {
       return isAdmin.value || isOrganizer.value || isScorekeeper.value;
     }
     

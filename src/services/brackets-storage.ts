@@ -1,6 +1,6 @@
 import { CrudInterface, Table, OmitId, DataTypes } from 'brackets-manager';
 import { Firestore } from 'firebase/firestore';
-import { collection, doc, getDocs, setDoc, query, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, query, where, writeBatch, Query, DocumentData } from 'firebase/firestore';
 
 /**
  * ADAPTER CONSISTENCY:
@@ -173,14 +173,21 @@ export class ClientFirestoreStorage implements CrudInterface {
     return snapshot.docs.map(doc => doc.data() as T);
   }
 
-  async update<T>(table: Table, arg: number | string | Partial<T>, value: T): Promise<boolean> {
+  private buildFilteredQuery<T>(
+    table: Table,
+    arg: number | string | Partial<T> | undefined
+  ): Query<DocumentData> {
     const colRef = this.getCollectionRef(table);
     let q = query(colRef);
+
+    if (arg === undefined) {
+      return q;
+    }
 
     if (typeof arg === 'number' || typeof arg === 'string') {
       const id = typeof arg === 'string' && /^\d+$/.test(arg) ? parseInt(arg, 10) : arg;
       q = query(q, where('id', '==', id));
-    } else if (arg !== null && arg !== undefined) {
+    } else {
       for (const [key, val] of Object.entries(arg)) {
         if (val !== undefined) {
           q = query(q, where(key, '==', val));
@@ -188,6 +195,11 @@ export class ClientFirestoreStorage implements CrudInterface {
       }
     }
 
+    return q;
+  }
+
+  async update<T>(table: Table, arg: number | string | Partial<T>, value: T): Promise<boolean> {
+    const q = this.buildFilteredQuery(table, arg);
     const snapshot = await getDocs(q);
     if (snapshot.empty) return false;
 
@@ -202,11 +214,9 @@ export class ClientFirestoreStorage implements CrudInterface {
   }
 
   async delete<T>(table: Table, arg?: number | string | Partial<T>): Promise<boolean> {
-    const colRef = this.getCollectionRef(table);
-    let q = query(colRef);
-
     if (arg === undefined) {
-      const snapshot = await getDocs(q);
+      const colRef = this.getCollectionRef(table);
+      const snapshot = await getDocs(query(colRef));
       if (snapshot.empty) return true;
 
       const batch = writeBatch(this.db);
@@ -215,17 +225,7 @@ export class ClientFirestoreStorage implements CrudInterface {
       return true;
     }
 
-    if (typeof arg === 'number' || typeof arg === 'string') {
-      const id = typeof arg === 'string' && /^\d+$/.test(arg) ? parseInt(arg, 10) : arg;
-      q = query(q, where('id', '==', id));
-    } else {
-      for (const [key, val] of Object.entries(arg)) {
-        if (val !== undefined) {
-          q = query(q, where(key, '==', val));
-        }
-      }
-    }
-
+    const q = this.buildFilteredQuery(table, arg);
     const snapshot = await getDocs(q);
     if (snapshot.empty) return false;
 

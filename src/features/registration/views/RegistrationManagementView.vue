@@ -36,6 +36,10 @@ const showBulkCheckInDialog = ref(false);
 const showEditPlayerDialog = ref(false);
 const showImportDialog = ref(false);
 const showPaymentDialog = ref(false);
+const showDeletePlayerDialog = ref(false);
+
+// Delete player dialog state
+const playerToDeleteId = ref<string | null>(null);
 
 // Payment dialog state
 const editingPayment = ref<{
@@ -410,13 +414,16 @@ async function savePlayer() {
   }
 }
 
-async function deletePlayer(playerId: string) {
-  if (!confirm('Are you sure you want to delete this player? This will also affect any registrations.')) {
-    return;
-  }
+function requestDeletePlayer(playerId: string) {
+  playerToDeleteId.value = playerId;
+  showDeletePlayerDialog.value = true;
+}
 
+async function confirmDeletePlayer() {
+  if (!playerToDeleteId.value) return;
+  showDeletePlayerDialog.value = false;
   try {
-    await registrationStore.deletePlayer(tournamentId.value, playerId);
+    await registrationStore.deletePlayer(tournamentId.value, playerToDeleteId.value);
     notificationStore.showToast('success', 'Player deleted');
   } catch (error) {
     notificationStore.showToast('error', 'Failed to delete player');
@@ -1195,7 +1202,7 @@ const canApprove = computed(() => {
                 variant="text"
                 color="error"
                 title="Delete Player"
-                @click="deletePlayer(item.id)"
+                @click="requestDeletePlayer(item.id)"
               />
             </template>
           </v-data-table>
@@ -1593,6 +1600,21 @@ const canApprove = computed(() => {
           >
             Import {{ importPreview.length }} Players
           </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete Player Confirmation Dialog -->
+    <v-dialog v-model="showDeletePlayerDialog" max-width="400" persistent>
+      <v-card>
+        <v-card-title>Delete Player?</v-card-title>
+        <v-card-text>
+          Are you sure? This will also affect any registrations for this player.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showDeletePlayerDialog = false">Cancel</v-btn>
+          <v-btn color="error" @click="confirmDeletePlayer">Delete</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

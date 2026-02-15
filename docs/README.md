@@ -15,6 +15,12 @@ This directory contains design documents, technical specifications, and other do
 - [Data Model Migration Rules](./migration/DATA_MODEL_MIGRATION_RULES.md) - Rules for data model transitions
 - [Debug Knowledge Base](./debug-kb/index.yml) - Error resolution and troubleshooting
 
+### Feature Specifications
+- [User Management Dashboard](./features/USER_MANAGEMENT_DASHBOARD.md) - Complete specification for user administration interface (CRITICAL - Not Implemented)
+- [Reporting & Analytics](./features/REPORTING_ANALYTICS.md) - Comprehensive reporting system with dashboards, charts, and exports (HIGH PRIORITY - Not Implemented)
+- [Player Check-in](./features/PLAYER_CHECK_IN.md) - Tournament day check-in system with self-service and QR codes (HIGH PRIORITY - Partially Implemented)
+- [Score Correction](./features/SCORE_CORRECTION.md) - Post-match score editing with audit trail (HIGH PRIORITY - Partially Implemented)
+
 ### System Architecture
 - [Feature Modules Guide](../src/features/AGENTS.md) - Architecture documentation for feature-based organization
 - [Project Contract](../AGENTS.md) - System-wide rules and conventions

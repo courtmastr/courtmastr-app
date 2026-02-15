@@ -75,6 +75,7 @@ export {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  increment,
   type DocumentReference,
   type DocumentSnapshot,
   type QuerySnapshot,

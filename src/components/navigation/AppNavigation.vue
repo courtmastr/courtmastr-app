@@ -47,18 +47,10 @@
         />
         
         <v-list-item
+          v-if="isOrganizer"
           to="/tournaments/create"
           prepend-icon="mdi-plus-circle"
           title="Create Tournament"
-          rounded="lg"
-          class="ml-4"
-          :ripple="false"
-        />
-        
-        <v-list-item
-          to="/tournaments/archived"
-          prepend-icon="mdi-archive"
-          title="Archived Tournaments"
           rounded="lg"
           class="ml-4"
           :ripple="false"
@@ -78,6 +70,7 @@
         </template>
         
         <v-list-item
+          v-if="isOrganizer"
           :to="`/tournaments/${currentTournamentId}/match-control`"
           prepend-icon="mdi-controller"
           title="Match Control"
@@ -87,7 +80,8 @@
         />
         
         <v-list-item
-          :to="`/tournaments/${currentTournamentId}/courts`"
+          v-if="isOrganizer"
+          :to="`/tournaments/${currentTournamentId}/match-control`"
           prepend-icon="mdi-stadium"
           title="Court Management"
           rounded="lg"
@@ -96,9 +90,10 @@
         />
         
         <v-list-item
-          :to="`/tournaments/${currentTournamentId}/scoring`"
+          v-if="isScorekeeper"
+          :to="`/tournaments/${currentTournamentId}/matches`"
           prepend-icon="mdi-scoreboard"
-          title="Scoring Dashboard"
+          title="Score Matches"
           rounded="lg"
           class="ml-4"
           :ripple="false"
@@ -106,7 +101,7 @@
       </v-list-group>
 
       <!-- Collapsible Registration Section -->
-      <v-list-group value="registration" v-if="currentTournamentId">
+      <v-list-group value="registration" v-if="currentTournamentId && isOrganizer">
         <template #activator="{ props }">
           <v-list-item
             v-bind="props"
@@ -125,7 +120,7 @@
           class="ml-4"
           :ripple="false"
         />
-        
+
         <v-list-item
           :to="`/tournaments/${currentTournamentId}/participants`"
           prepend-icon="mdi-account-group"
@@ -152,18 +147,29 @@
           </template>
           
           <v-list-item
-            to="/profile"
-            prepend-icon="mdi-account"
-            title="Profile"
+            to="/tournaments"
+            prepend-icon="mdi-view-dashboard"
+            title="All Tournaments"
             rounded="lg"
             class="ml-4"
             :ripple="false"
           />
-          
+
           <v-list-item
-            to="/preferences"
-            prepend-icon="mdi-tune"
-            title="Preferences"
+            v-if="currentTournamentId && isOrganizer"
+            :to="`/tournaments/${currentTournamentId}/settings`"
+            prepend-icon="mdi-cog"
+            title="Tournament Settings"
+            rounded="lg"
+            class="ml-4"
+            :ripple="false"
+          />
+
+          <v-list-item
+            v-if="currentTournamentId"
+            :to="`/tournaments/${currentTournamentId}/leaderboard`"
+            prepend-icon="mdi-podium-gold"
+            title="Leaderboard"
             rounded="lg"
             class="ml-4"
             :ripple="false"
@@ -187,37 +193,39 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useTournamentStore } from '@/stores/tournaments';
-import { useRoute } from 'vue-router';
 
 // Allow parent to control drawer state
 const drawer = defineModel<boolean>('drawer');
 
 // Persist rail (minimized) state
-// Default to true (minimized) if no value is set, or if value is 'true'
+// Default to false (expanded) for better organizer usability.
 const storedRail = localStorage.getItem('courtmaster_sidebar_rail');
-const rail = ref(storedRail === null ? true : storedRail === 'true');
+const rail = ref(storedRail === null ? false : storedRail === 'true');
 
 watch(rail, (newValue) => {
   localStorage.setItem('courtmaster_sidebar_rail', String(newValue));
 });
 
-
-
 const authStore = useAuthStore();
 const tournamentStore = useTournamentStore();
 const route = useRoute();
+const router = useRouter();
 
 const currentUser = computed(() => authStore.currentUser);
+const isOrganizer = computed(() => authStore.isOrganizer);
+const isScorekeeper = computed(() => authStore.isScorekeeper);
 const currentTournamentId = computed(() => {
   // Try to get tournament ID from route, otherwise use the current tournament from store
   const routeParams = route.params;
   return routeParams.tournamentId as string || tournamentStore.currentTournament?.id || '';
 });
 
-function handleLogout() {
-  authStore.signOut();
+async function handleLogout(): Promise<void> {
+  await authStore.signOut();
+  await router.push('/');
 }
 </script>
 

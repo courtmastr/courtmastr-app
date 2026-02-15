@@ -1,3 +1,31 @@
+- id: 4bfd0fdb
+  title: Build fails with existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-15"
+  fingerprint: "4bfd0fdb"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-15-05-31-33.vue-tsc-b.log"
+- id: 804beb28
+  title: Build fails with existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-15"
+  fingerprint: "804beb28"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-15-04-59-51.vue-tsc-b.log"
+- id: 435e808f
+  title: Vitest fails on deprecated firebase/testing import
+  status: "❌ unresolved"
+  date: "2026-02-15"
+  fingerprint: "435e808f"
+  command: "npm run test:log -- --run"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-15-04-43-16.vitest-run.log"
+- id: 6f587dbe
+  title: Build fails with existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-15"
+  fingerprint: "6f587dbe"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-15-04-33-44.vue-tsc-b.log"
 - id: 427ce2a8
   title: Build fails with existing TypeScript unused and type errors
   status: "❌ unresolved"

@@ -1,6 +1,6 @@
 <template>
   <div class="contextual-nav-container">
-    <v-card variant="tonal" color="info" class="mb-4">
+    <v-card variant="tonal" :color="statusColor" class="mb-4">
       <v-card-title class="d-flex align-center">
         <v-icon start>mdi-information</v-icon>
         Tournament Status: {{ tournamentStatus }}
@@ -8,25 +8,46 @@
       <v-card-text>
         <div class="status-actions d-flex flex-wrap gap-2">
           <v-btn 
-            v-if="tournamentStatus === 'setup'" 
+            v-if="tournamentStatus === 'draft'" 
             color="primary" 
-            @click="navigateToBrackets"
+            @click="openSetupTab"
           >
-            Generate Brackets
+            Setup Categories
+          </v-btn>
+          <v-btn
+            v-if="tournamentStatus === 'draft' && isOrganizer"
+            color="success"
+            @click="openRegistration"
+          >
+            Open Registration
           </v-btn>
           <v-btn 
             v-if="tournamentStatus === 'registration'" 
+            color="primary"
+            @click="navigateToRegistrations"
+          >
+            Review Registrations
+          </v-btn>
+          <v-btn
+            v-if="tournamentStatus === 'registration' && isOrganizer"
             color="success" 
             @click="startTournament"
           >
             Start Tournament
           </v-btn>
           <v-btn 
-            v-if="tournamentStatus === 'active' && !isInMatchControl" 
+            v-if="tournamentStatus === 'active' && !isInMatchControl && isOrganizer" 
             color="warning" 
             @click="navigateToMatchControl"
           >
             Enter Match Control
+          </v-btn>
+          <v-btn 
+            v-if="tournamentStatus === 'active' && isScorekeeper" 
+            color="primary"
+            @click="navigateToScoring"
+          >
+            Score Matches
           </v-btn>
           <v-btn 
             v-if="tournamentStatus === 'active' && isInMatchControl" 
@@ -38,10 +59,10 @@
           </v-btn>
           <v-btn 
             v-if="tournamentStatus === 'completed'" 
-            color="secondary" 
+            color="primary" 
             @click="viewResults"
           >
-            View Results
+            View Leaderboard
           </v-btn>
         </div>
       </v-card-text>
@@ -50,60 +71,99 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
+import { useAuthStore } from '@/stores/auth';
+import { useNotificationStore } from '@/stores/notifications';
 
 const router = useRouter();
 const tournamentStore = useTournamentStore();
+const authStore = useAuthStore();
+const notificationStore = useNotificationStore();
 const route = useRoute();
 
-const tournamentStatus = computed(() => tournamentStore.currentTournament?.status || 'setup');
+const tournamentId = computed(() => {
+  const routeTournamentId = route.params.tournamentId as string | undefined;
+  return routeTournamentId || tournamentStore.currentTournament?.id || '';
+});
+const tournamentStatus = computed(() => tournamentStore.currentTournament?.status || 'draft');
+const isOrganizer = computed(() => authStore.isOrganizer);
+const isScorekeeper = computed(() => authStore.isScorekeeper);
 const isInMatchControl = computed(() => route.path.includes('/match-control'));
+const statusColor = computed(() => {
+  if (tournamentStatus.value === 'active') return 'success';
+  if (tournamentStatus.value === 'registration') return 'info';
+  if (tournamentStatus.value === 'completed') return 'secondary';
+  return 'primary';
+});
 
-async function navigateToBrackets() {
-  // Navigate to bracket generation
-  const tournamentId = tournamentStore.currentTournament?.id;
-  if (tournamentId) {
-    router.push(`/tournaments/${tournamentId}/brackets`);
+onMounted(async () => {
+  if (!tournamentId.value) return;
+  if (tournamentStore.currentTournament?.id === tournamentId.value) return;
+
+  try {
+    await tournamentStore.fetchTournament(tournamentId.value);
+  } catch (error) {
+    console.error('Error loading tournament for contextual navigation:', error);
   }
+});
+
+async function openRegistration() {
+  if (!tournamentId.value) return;
+  try {
+    await tournamentStore.updateTournamentStatus(tournamentId.value, 'registration');
+    notificationStore.showToast('success', 'Registration opened');
+  } catch (error) {
+    console.error('Failed to open registration:', error);
+    notificationStore.showToast('error', 'Failed to open registration');
+  }
+}
+
+function openSetupTab() {
+  if (!tournamentId.value) return;
+  router.push({
+    path: `/tournaments/${tournamentId.value}`,
+    query: { tab: 'categories' },
+  });
+}
+
+function navigateToRegistrations() {
+  if (!tournamentId.value) return;
+  router.push(`/tournaments/${tournamentId.value}/registrations`);
 }
 
 async function startTournament() {
-  // Logic to start tournament
-  const tournamentId = tournamentStore.currentTournament?.id;
-  if (tournamentId) {
-    await tournamentStore.updateTournamentStatus(tournamentId, 'active' as const);
+  if (!tournamentId.value) return;
+
+  try {
+    await tournamentStore.updateTournamentStatus(tournamentId.value, 'active');
+    notificationStore.showToast('success', 'Tournament started');
+  } catch (error) {
+    console.error('Failed to start tournament:', error);
+    notificationStore.showToast('error', 'Failed to start tournament');
   }
 }
 
-async function navigateToMatchControl() {
-  const tournamentId = tournamentStore.currentTournament?.id;
-  if (tournamentId) {
-    router.push(`/tournaments/${tournamentId}/match-control`);
-  }
+function navigateToMatchControl() {
+  if (!tournamentId.value) return;
+  router.push(`/tournaments/${tournamentId.value}/match-control`);
 }
 
-async function exitMatchControl() {
-  const tournamentId = tournamentStore.currentTournament?.id;
-  if (tournamentId) {
-    router.push(`/tournaments/${tournamentId}`);
-  }
+function navigateToScoring() {
+  if (!tournamentId.value) return;
+  router.push(`/tournaments/${tournamentId.value}/matches`);
 }
 
-// function navigateToCourts() {
-//   const tournamentId = tournamentStore.currentTournament?.id;
-//   if (tournamentId) {
-//     router.push(`/tournaments/${tournamentId}/courts`);
-//   }
-// }
+function exitMatchControl() {
+  if (!tournamentId.value) return;
+  router.push(`/tournaments/${tournamentId.value}`);
+}
 
-async function viewResults() {
-   const tournamentId = tournamentStore.currentTournament?.id;
-   if (tournamentId) {
-     router.push(`/tournaments/${tournamentId}/results`);
-   }
- }
+function viewResults() {
+  if (!tournamentId.value) return;
+  router.push(`/tournaments/${tournamentId.value}/leaderboard`);
+}
 </script>
 
 <style scoped>

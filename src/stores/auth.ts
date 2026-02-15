@@ -125,9 +125,7 @@ export const useAuthStore = defineStore('auth', () => {
         checkAuth();
       });
     } catch (err: unknown) {
-      const firebaseError = err as { code?: string; message?: string };
-      error.value = getAuthErrorMessage(firebaseError.code || 'unknown');
-      throw err;
+      handleAuthError(err);
     } finally {
       loading.value = false;
     }
@@ -143,9 +141,7 @@ export const useAuthStore = defineStore('auth', () => {
       await updateProfile(user, { displayName });
       await createUserProfile(user, role);
     } catch (err: unknown) {
-      const firebaseError = err as { code?: string; message?: string };
-      error.value = getAuthErrorMessage(firebaseError.code || 'unknown');
-      throw err;
+      handleAuthError(err);
     } finally {
       loading.value = false;
     }
@@ -205,6 +201,13 @@ export const useAuthStore = defineStore('auth', () => {
     };
 
     return errorMessages[code] || 'An authentication error occurred';
+  }
+
+  // Helper to handle auth errors consistently across signIn, register, and signOut
+  function handleAuthError(err: unknown): never {
+    const firebaseError = err as { code?: string; message?: string };
+    error.value = getAuthErrorMessage(firebaseError.code || 'unknown');
+    throw err;
   }
 
   return {
