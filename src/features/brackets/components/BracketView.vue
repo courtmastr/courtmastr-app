@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Match } from '@/types';
 
 const props = defineProps<{
@@ -11,6 +12,7 @@ const props = defineProps<{
 
 const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
+const { getParticipantName } = useParticipantResolver();
 
 const loading = ref(true);
 const windowWidth = ref(window.innerWidth);
@@ -78,8 +80,7 @@ const roundNames = computed(() => {
   return names;
 });
 
-const registrations = computed(() => registrationStore.registrations);
-const players = computed(() => registrationStore.players);
+
 
 onMounted(async () => {
   await matchStore.fetchMatches(props.tournamentId, props.categoryId);
@@ -109,22 +110,8 @@ function getParticipantName(registrationId: string | undefined, match?: Match): 
     return 'TBD';
   }
 
-  // Look up the registration first
-  const registration = registrations.value.find((r) => r.id === registrationId);
-  if (!registration) return 'Unknown';
-
-  // For teams (doubles), show team name
-  if (registration.teamName) {
-    return registration.teamName;
-  }
-
-  // For singles, show player name
-  const player = players.value.find((p) => p.id === registration.playerId);
-  if (player) {
-    return `${player.firstName} ${player.lastName}`;
-  }
-
-  return 'Unknown';
+  // Use centralized composable for name resolution
+  return getParticipantName(registrationId);
 }
 
 // Check if a slot is a bye
