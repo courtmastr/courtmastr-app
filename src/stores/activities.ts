@@ -4,7 +4,6 @@ import { ref, computed } from 'vue';
 import {
   db,
   collection,
-  doc,
   getDocs,
   addDoc,
   query,

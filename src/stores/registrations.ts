@@ -5,7 +5,6 @@ import {
   db,
   collection,
   doc,
-  getDoc,
   getDocs,
   addDoc,
   updateDoc,
@@ -165,10 +164,33 @@ export const useRegistrationStore = defineStore('registrations', () => {
     playerData: Omit<Player, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<string> {
     try {
+      const normalizedEmail = playerData.email?.toLowerCase().trim() || '';
+      if (normalizedEmail) {
+        const existingPlayer = players.value.find(
+          (p) => p.email?.toLowerCase().trim() === normalizedEmail
+        );
+
+        if (existingPlayer) {
+          throw new Error(`A player with email "${playerData.email}" already exists`);
+        }
+
+        // Re-check against Firestore to avoid race conditions when local state is stale.
+        const playersSnapshot = await getDocs(collection(db, `tournaments/${tournamentId}/players`));
+        const duplicateInStore = playersSnapshot.docs.some((playerDoc) => {
+          const playerEmail = playerDoc.data().email;
+          return typeof playerEmail === 'string' && playerEmail.toLowerCase().trim() === normalizedEmail;
+        });
+
+        if (duplicateInStore) {
+          throw new Error(`A player with email "${playerData.email}" already exists`);
+        }
+      }
+
       const docRef = await addDoc(
         collection(db, `tournaments/${tournamentId}/players`),
         {
           ...playerData,
+          ...(normalizedEmail ? { emailNormalized: normalizedEmail } : {}),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }
@@ -187,10 +209,12 @@ export const useRegistrationStore = defineStore('registrations', () => {
     updates: Partial<Player>
   ): Promise<void> {
     try {
+      const normalizedEmail = updates.email?.toLowerCase().trim();
       await updateDoc(
         doc(db, `tournaments/${tournamentId}/players`, playerId),
         {
           ...updates,
+          ...(normalizedEmail !== undefined ? { emailNormalized: normalizedEmail } : {}),
           updatedAt: serverTimestamp(),
         }
       );
@@ -236,10 +260,18 @@ export const useRegistrationStore = defineStore('registrations', () => {
     registrationData: Omit<Registration, 'id' | 'registeredAt' | 'approvedAt' | 'approvedBy'>
   ): Promise<string> {
     try {
+      // Filter out undefined values
+      const safeData = Object.entries(registrationData).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as Record<string, any>);
+
       const docRef = await addDoc(
         collection(db, `tournaments/${tournamentId}/registrations`),
         {
-          ...registrationData,
+          ...safeData,
           registeredAt: serverTimestamp(),
         }
       );
@@ -303,12 +335,30 @@ export const useRegistrationStore = defineStore('registrations', () => {
     await updateRegistrationStatus(tournamentId, registrationId, 'checked_in');
   }
 
+  // Undo check-in (return to approved)
+  async function undoCheckInRegistration(
+    tournamentId: string,
+    registrationId: string,
+    approvedBy?: string
+  ): Promise<void> {
+    await updateRegistrationStatus(tournamentId, registrationId, 'approved', approvedBy);
+  }
+
   // Withdraw registration
   async function withdrawRegistration(
     tournamentId: string,
     registrationId: string
   ): Promise<void> {
     await updateRegistrationStatus(tournamentId, registrationId, 'withdrawn');
+  }
+
+  // Reinstate withdrawn registration (return to approved)
+  async function reinstateRegistration(
+    tournamentId: string,
+    registrationId: string,
+    approvedBy?: string
+  ): Promise<void> {
+    await updateRegistrationStatus(tournamentId, registrationId, 'approved', approvedBy);
   }
 
   // Set seed for registration
@@ -449,7 +499,9 @@ export const useRegistrationStore = defineStore('registrations', () => {
     approveRegistration,
     rejectRegistration,
     checkInRegistration,
+    undoCheckInRegistration,
     withdrawRegistration,
+    reinstateRegistration,
     setSeed,
     updateSeed,
     updatePaymentStatus,

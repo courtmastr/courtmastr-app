@@ -1,0 +1,122 @@
+// CourtMaster v1 UI - Foundation Variables
+// Modern, polished design tokens for enhanced visual appearance
+
+// ===========================
+// Color Palette
+// ===========================
+
+// Primary - Modern Blue Gradient
+$primary-base: #007AFF;
+$primary-dark: #0066FF;
+$primary-light: #4DA3FF;
+$primary-gradient: linear-gradient(135deg, $primary-base 0%, $primary-dark 100%);
+
+// Secondary - Purple Accent
+$secondary-base: #5856D6;
+$secondary-light: #7875E0;
+$secondary-dark: #4240B3;
+
+// Semantic Colors (iOS-inspired)
+$success: #34C759;
+$warning: #FF9500;
+$error: #FF3B30;
+$info: #007AFF;
+
+// Neutrals
+$white: #FFFFFF;
+$background: #F8F9FA;
+$background-dark: #F1F3F5;
+$surface: #FFFFFF;
+$border: #E0E0E0;
+$border-light: #F1F1F1;
+
+// Text
+$text-primary: #1A1A1A;
+$text-secondary: #6B7280;
+$text-disabled: #9CA3AF;
+
+// ===========================
+// Typography
+// ===========================
+
+// Font Family
+$font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+
+// Font Sizes (5-tier system)
+$font-size-xs: 12px;
+$font-size-sm: 14px;
+$font-size-base: 16px;
+$font-size-lg: 20px;
+$font-size-xl: 28px;
+$font-size-2xl: 36px;
+$font-size-3xl: 48px;
+
+// Line Heights
+$line-height-tight: 1.25;
+$line-height-normal: 1.5;
+$line-height-relaxed: 1.75;
+
+// Font Weights
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+// ===========================
+// Spacing
+// ===========================
+
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+$spacing-2xl: 48px;
+$spacing-3xl: 64px;
+
+// ===========================
+// Borders & Radius
+// ===========================
+
+$border-radius-sm: 8px;
+$border-radius-md: 12px;
+$border-radius-lg: 16px;
+$border-radius-xl: 24px;
+$border-radius-full: 9999px;
+
+$border-width: 1px;
+
+// ===========================
+// Shadows
+// ===========================
+
+$shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+$shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+// ===========================
+// Transitions
+// ===========================
+
+$transition-duration-fast: 150ms;
+$transition-duration-base: 200ms;
+$transition-duration-slow: 300ms;
+
+$transition-timing: cubic-bezier(0.4, 0.0, 0.2, 1); // Material ease-out
+$transition-timing-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55); // Back ease-out
+
+$transition-base: all $transition-duration-base $transition-timing;
+
+// ===========================
+// Z-Index Scale
+// ===========================
+
+$z-index-dropdown: 1000;
+$z-index-sticky: 1020;
+$z-index-fixed: 1030;
+$z-index-modal-backdrop: 1040;
+$z-index-modal: 1050;
+$z-index-popover: 1060;
+$z-index-tooltip: 1070;

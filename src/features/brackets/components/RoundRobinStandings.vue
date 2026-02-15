@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useMatchStore } from '@/stores/matches';
-import { useRegistrationStore } from '@/stores/registrations';
+import { useMatchStore } from '@/stores/matchStore';
+import { useRegistrationStore } from '@/stores/registrationStore';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Match } from '@/types';
 
 const props = defineProps<{
@@ -11,12 +12,12 @@ const props = defineProps<{
 
 const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
+const { getParticipantName } = useParticipantResolver();
 
 const loading = ref(true);
 const activeTab = ref('standings');
 
 const registrations = computed(() => registrationStore.registrations);
-const players = computed(() => registrationStore.players);
 
 // All matches for this category
 const allMatches = computed(() =>
@@ -161,24 +162,6 @@ watch(
     loading.value = false;
   }
 );
-
-function getParticipantName(registrationId: string | undefined): string {
-  if (!registrationId) return 'TBD';
-
-  const registration = registrations.value.find((r) => r.id === registrationId);
-  if (!registration) return 'Unknown';
-
-  if (registration.teamName) {
-    return registration.teamName;
-  }
-
-  const player = players.value.find((p) => p.id === registration.playerId);
-  if (player) {
-    return `${player.firstName} ${player.lastName}`;
-  }
-
-  return 'Unknown';
-}
 
 function getMatchStatusColor(status: string): string {
   const colors: Record<string, string> = {

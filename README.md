@@ -2,6 +2,11 @@
 
 A modern tournament management system for badminton tournaments, built with Vue 3, TypeScript, Vuetify, and Firebase.
 
+## Documentation
+
+- **[Product Requirements Document (PRD)](docs/PRD.md)** - Product overview, features, and user flows
+- **[Technical Design Document (TDD)](docs/TDD.md)** - Architecture, data models, and implementation details
+
 ## Features
 
 - **Tournament Management**: Create and manage badminton tournaments with single/double elimination formats
@@ -26,7 +31,7 @@ A modern tournament management system for badminton tournaments, built with Vue 
 - Node.js 18+
 - Firebase CLI (`npm install -g firebase-tools`)
 
-### Installation
+### Installation & Local Development
 
 1. **Clone and install dependencies**
    ```bash
@@ -38,110 +43,56 @@ A modern tournament management system for badminton tournaments, built with Vue 
    ```bash
    # Copy environment template
    cp .env.template .env.development
-
    # Edit .env.development with your Firebase credentials
    ```
 
-3. **Install Cloud Functions dependencies**
+3. **Start Development (Local Emulators)**
+   Run these in separate terminal windows:
+
+   **Terminal 1: Firebase Emulators**
    ```bash
-   cd functions
-   npm install
-   cd ..
+   npm install -D firebase-tools && npm run build --prefix functions && ./node_modules/.bin/firebase emulators:start --project demo-courtmaster
    ```
 
-4. **Start development**
+   **Terminal 2: Vite Dev Server**
    ```bash
-   # Start Firebase emulators (in one terminal)
-   npm run emulators
-
-   # Start Vite dev server (in another terminal)
    npm run dev
    ```
 
-5. **Access the app**
-   - Frontend: http://localhost:3000
-   - Firebase Emulator UI: http://localhost:4000
+   **Terminal 3: Seed Data (Optional)**
+   ```bash
+   npm run seed:simple
+   ```
 
-## Project Structure
+   - **Frontend**: [http://localhost:3000](http://localhost:3000)
+   - **Emulator UI**: [http://localhost:4000](http://localhost:4000)
 
-```
-courtmaster-v2/
-├── src/
-│   ├── components/          # Shared components
-│   │   ├── common/          # Generic UI components
-│   │   └── layout/          # Layout components
-│   ├── features/            # Feature modules
-│   │   ├── auth/            # Authentication
-│   │   ├── tournaments/     # Tournament management
-│   │   ├── scoring/         # Match scoring
-│   │   ├── brackets/        # Bracket visualization
-│   │   ├── registration/    # Player registration
-│   │   └── public/          # Public-facing views
-│   ├── stores/              # Pinia stores
-│   ├── services/            # Firebase services
-│   ├── types/               # TypeScript types
-│   ├── router/              # Vue Router config
-│   ├── plugins/             # Vue plugins (Vuetify)
-│   └── utils/               # Utility functions
-├── functions/               # Cloud Functions
-│   └── src/
-│       ├── bracket.ts       # Bracket generation
-│       ├── scheduling.ts    # Schedule optimization
-│       └── index.ts         # Function exports
-├── tests/                   # Test files
-│   ├── unit/                # Unit tests
-│   └── components/          # Component tests
-└── public/                  # Static assets
-```
+---
 
-## Available Scripts
+## Going Live Locally (Preview)
 
+Before deploying, you can preview the production build on your local machine:
+
+1. **Build and Preview**
+   ```bash
+   npm run build
+   npm run preview
+   ```
+   - **Preview URL**: [http://localhost:4173](http://localhost:4173) (default Vite preview port)
+
+---
+
+## Deployment (Production)
+
+### 1. Firebase Setup
+1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+2. Enable **Firestore**, **Authentication**, and **Functions**.
+3. **Upgrade to Blaze Plan** (Required for Cloud Functions).
+4. Copy your production credentials to `.env.production`.
+
+### 2. Deploy to Production
 ```bash
-# Development
-npm run dev              # Start development server
-npm run emulators        # Start Firebase emulators
-
-# Testing
-npm run test             # Run tests
-npm run test:coverage    # Run tests with coverage
-
-# Build & Deploy
-npm run build            # Build for production
-npm run deploy           # Build and deploy to Firebase
-npm run deploy:hosting   # Deploy hosting only
-npm run deploy:functions # Deploy functions only
-npm run deploy:rules     # Deploy Firestore rules only
-
-# Code Quality
-npm run type-check       # Run TypeScript type checking
-npm run lint             # Lint and fix code
-```
-
-## User Roles
-
-1. **Admin**: Full access to create/manage tournaments, approve registrations, manage users
-2. **Scorekeeper**: Can score matches, view tournament details
-3. **Viewer**: Read-only access to public tournament information
-
-## Scoring Rules (Badminton)
-
-- Games to 21 points
-- Win by 2 points
-- Maximum 30 points (first to 30 wins at 29-29)
-- Best of 3 games
-
-## Deployment
-
-### Firebase Setup
-
-1. Create a Firebase project at https://console.firebase.google.com
-2. Enable Firestore, Authentication (Email/Password), and Functions
-3. Copy your Firebase config to `.env.production`
-
-### Deploy
-
-```bash
-# Deploy everything
+# Build and deploy everything
 npm run deploy
 
 # Or deploy components separately

@@ -79,10 +79,8 @@ async function generateSchedule(tournamentId) {
     const matchesSnapshot = await db
         .collection('tournaments')
         .doc(tournamentId)
-        .collection('matches')
-        .where('status', 'in', ['scheduled', 'ready'])
-        .orderBy('round')
-        .orderBy('matchNumber')
+        .collection('match')
+        .where('status', 'in', [0, 1, 2])
         .get();
     const matches = matchesSnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -103,18 +101,23 @@ async function generateSchedule(tournamentId) {
     const schedule = scheduleMatches(matches, courts, config);
     // Update matches with scheduled times and courts
     const batch = db.batch();
-    for (const slot of schedule) {
-        const matchRef = db
+    const scheduledSlots = schedule.map((slot, index) => ({
+        ...slot,
+        time: slot.startTime,
+        sequence: index + 1,
+    }));
+    for (const slot of scheduledSlots) {
+        const scoreRef = db
             .collection('tournaments')
             .doc(tournamentId)
-            .collection('matches')
+            .collection('match_scores')
             .doc(slot.matchId);
-        batch.update(matchRef, {
+        batch.set(scoreRef, {
             courtId: slot.courtId,
-            scheduledTime: admin.firestore.Timestamp.fromDate(slot.startTime),
-            status: 'scheduled',
+            scheduledTime: slot.time,
+            sequence: slot.sequence,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        }, { merge: true });
     }
     await batch.commit();
 }

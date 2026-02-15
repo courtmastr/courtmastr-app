@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bracket Viewer Test</title>
+  
+  <!-- Brackets Viewer CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/brackets-viewer@latest/dist/brackets-viewer.min.css">
+  
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      margin-top: 0;
+      color: #333;
+    }
+    
+    .info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    
+    .bracket-container {
+      margin-top: 20px;
+      overflow-x: auto;
+    }
+    
+    .buttons {
+      margin-bottom: 20px;
+    }
+    
+    button {
+      padding: 10px 20px;
+      margin-right: 10px;
+      background: #2196f3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    button:hover {
+      background: #1976d2;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏸 Bracket Viewer Test</h1>
+    
+    <div class="info">
+      <strong>Instructions:</strong>
+      <ol>
+        <li>Go to Courtmaster and generate a bracket</li>
+        <li>Click "Load from Firestore" below to view it</li>
+        <li>Check if connecting lines appear between matches</li>
+      </ol>
+    </div>
+    
+    <div class="buttons">
+      <button onclick="loadFromFirestore()">📥 Load from Firestore</button>
+      <button onclick="loadSample()">📋 Load Sample Data</button>
+      <button onclick="clearBracket()">🗑️ Clear</button>
+    </div>
+    
+    <div id="status"></div>
+    <div id="bracket" class="bracket-container"></div>
+  </div>
+
+  <!-- Brackets Viewer JS -->
+  <script src="https://cdn.jsdelivr.net/npm/brackets-viewer@latest/dist/brackets-viewer.min.js"></script>
+  
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+    import { getFirestore, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+    
+    // Make Firebase available globally
+    window.FirebaseApp = { initializeApp, getFirestore, collection, query, where, getDocs };
+  </script>
+  
+  <script>
+    // Firebase config for emulator
+    const firebaseConfig = {
+      projectId: 'demo-courtmaster',
+      apiKey: 'fake-api-key',
+      authDomain: 'demo-courtmaster.firebaseapp.com',
+    };
+    
+    let db = null;
+    
+    async function initFirebase() {
+      if (!db) {
+        const app = window.FirebaseApp.initializeApp(firebaseConfig);
+        db = window.FirebaseApp.getFirestore(app);
+        // Connect to emulator
+        const { connectFirestoreEmulator } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+        connectFirestoreEmulator(db, 'localhost', 8080);
+      }
+      return db;
+    }
+    
+    async function loadFromFirestore() {
+      const status = document.getElementById('status');
+      status.innerHTML = '<p>Loading...</p>';
+      
+      try {
+        await initFirebase();
+        
+        // Get tournament and category IDs from user
+        const tournamentId = prompt('Enter Tournament ID:', 'D6e6osIKfPDy72KTir4i');
+        const categoryId = prompt('Enter Category ID:', 'HouhHQdNLpT9217b14go');
+        
+        if (!tournamentId || !categoryId) {
+          status.innerHTML = '<p>❌ Cancelled</p>';
+          return;
+        }
+        
+        // Get stage
+        const { collection, query, where, getDocs } = window.FirebaseApp;
+        const stageSnap = await getDocs(query(
+          collection(db, 'tournaments', tournamentId, 'stage'),
+          where('tournament_id', '==', categoryId)
+        ));
+        
+        if (stageSnap.empty) {
+          status.innerHTML = '<p>❌ No bracket found</p>';
+          return;
+        }
+        
+        const stageData = { id: stageSnap.docs[0].data().id, ...stageSnap.docs[0].data() };
+        
+        // Get all data
+        const [matchSnap, participantSnap, groupSnap, roundSnap] = await Promise.all([
+          getDocs(collection(db, 'tournaments', tournamentId, 'match')),
+          getDocs(collection(db, 'tournaments', tournamentId, 'participant')),
+          getDocs(collection(db, 'tournaments', tournamentId, 'group')),
+          getDocs(collection(db, 'tournaments', tournamentId, 'round')),
+        ]);
+        
+        const data = {
+          stages: [stageData],
+          matches: matchSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+          participants: participantSnap.docs.map(d => ({ id: d.data().id, ...d.data() })),
+          groups: groupSnap.docs.map(d => ({ id: d.data().id, ...d.data() })),
+          rounds: roundSnap.docs.map(d => ({ id: d.data().id, ...d.data() })),
+        };
+        
+        // Log counts
+        const wb = data.matches.filter(m => data.groups.find(g => String(g.id) === String(m.group_id))?.number === 0);
+        const lb = data.matches.filter(m => data.groups.find(g => String(g.id) === String(m.group_id))?.number === 1);
+        const gf = data.matches.filter(m => data.groups.find(g => String(g.id) === String(m.group_id))?.number === 2);
+        
+        status.innerHTML = `
+          <div class="info">
+            <strong>Loaded:</strong><br>
+            Stages: ${data.stages.length}<br>
+            WB Matches: ${wb.length}<br>
+            LB Matches: ${lb.length}<br>
+            GF Matches: ${gf.length}<br>
+            Participants: ${data.participants.length}<br>
+            Groups: ${data.groups.length}<br>
+            Rounds: ${data.rounds.length}
+          </div>
+        `;
+        
+        // Render
+        renderBracket(data);
+        
+      } catch (err) {
+        status.innerHTML = `<p>❌ Error: ${err.message}</p>`;
+        console.error(err);
+      }
+    }
+    
+    function loadSample() {
+      // 12 player double elimination sample
+      const data = {
+        stages: [{
+          id: 0,
+          tournament_id: 'sample',
+          name: "Men's Singles (Sample)",
+          type: 'double_elimination'
+        }],
+        participants: [
+          { id: 1, tournament_id: 0, name: 'Player 1' },
+          { id: 2, tournament_id: 0, name: 'Player 2' },
+          { id: 3, tournament_id: 0, name: 'Player 3' },
+          { id: 4, tournament_id: 0, name: 'Player 4' },
+          { id: 5, tournament_id: 0, name: 'Player 5' },
+          { id: 6, tournament_id: 0, name: 'Player 6' },
+          { id: 7, tournament_id: 0, name: 'Player 7' },
+          { id: 8, tournament_id: 0, name: 'Player 8' },
+          { id: 9, tournament_id: 0, name: 'Player 9' },
+          { id: 10, tournament_id: 0, name: 'Player 10' },
+          { id: 11, tournament_id: 0, name: 'Player 11' },
+          { id: 12, tournament_id: 0, name: 'Player 12' },
+        ],
+        groups: [
+          { id: 0, stage_id: 0, number: 0 },
+          { id: 1, stage_id: 0, number: 1 },
+          { id: 2, stage_id: 0, number: 2 },
+        ],
+        rounds: [
+          { id: 0, stage_id: 0, group_id: 0, number: 1 },
+          { id: 1, stage_id: 0, group_id: 0, number: 2 },
+          { id: 2, stage_id: 0, group_id: 0, number: 3 },
+          { id: 3, stage_id: 0, group_id: 0, number: 4 },
+          { id: 4, stage_id: 0, group_id: 1, number: 1 },
+          { id: 5, stage_id: 0, group_id: 1, number: 2 },
+        ],
+        matches: []
+      };
+      
+      // Create some sample matches
+      let matchId = 0;
+      
+      // WB Round 1 (4 matches with BYEs)
+      data.matches.push({ id: matchId++, stage_id: 0, group_id: 0, round_id: 0, number: 1, opponent1: { id: 1 }, opponent2: null, status: 2 }); // BYE
+      data.matches.push({ id: matchId++, stage_id: 0, group_id: 0, round_id: 0, number: 2, opponent1: { id: 9 }, opponent2: { id: 8 }, status: 2 });
+      data.matches.push({ id: matchId++, stage_id: 0, group_id: 0, round_id: 0, number: 3, opponent1: { id: 5 }, opponent2: null, status: 2 }); // BYE
+      data.matches.push({ id: matchId++, stage_id: 0, group_id: 0, round_id: 0, number: 4, opponent1: { id: 13 }, opponent2: { id: 4 }, status: 2 });
+      
+      document.getElementById('status').innerHTML = '<p>📋 Sample data loaded</p>';
+      renderBracket(data);
+    }
+    
+    function clearBracket() {
+      document.getElementById('bracket').innerHTML = '';
+      document.getElementById('status').innerHTML = '';
+    }
+    
+    function renderBracket(data) {
+      const container = document.getElementById('bracket');
+      container.innerHTML = '';
+      
+      try {
+        window.bracketsViewer.render({
+          stages: data.stages,
+          matches: data.matches,
+          participants: data.participants,
+          matchGames: [],
+        }, {
+          selector: '#bracket',
+          participantOriginPlacement: 'before',
+          showSlotsOrigin: true,
+          showLowerBracketSlotsOrigin: true,
+        });
+        
+        console.log('✅ Bracket rendered');
+        console.log('Stages:', data.stages);
+        console.log('Matches:', data.matches.length);
+        console.log('Participants:', data.participants.length);
+        
+      } catch (err) {
+        container.innerHTML = `<p>❌ Render error: ${err.message}</p>`;
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>

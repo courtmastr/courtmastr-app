@@ -3,8 +3,8 @@ import { ref, computed } from 'vue';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
 import { useActivityStore } from '@/stores/activities';
-import { useRegistrationStore } from '@/stores/registrations';
 import { useMatchStore } from '@/stores/matches';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Court, CourtStatus } from '@/types';
 
 const props = defineProps<{
@@ -14,8 +14,8 @@ const props = defineProps<{
 const tournamentStore = useTournamentStore();
 const notificationStore = useNotificationStore();
 const activityStore = useActivityStore();
-const registrationStore = useRegistrationStore();
 const matchStore = useMatchStore();
+const { getParticipantName } = useParticipantResolver();
 
 const courts = computed(() => tournamentStore.courts);
 
@@ -23,6 +23,14 @@ const courts = computed(() => tournamentStore.courts);
 const showDialog = ref(false);
 const editingCourt = ref<Court | null>(null);
 const loading = ref(false);
+
+// Delete court dialog state
+const showDeleteCourtDialog = ref(false);
+const courtToDelete = ref<Court | null>(null);
+
+// Add multiple courts dialog state
+const showAddMultipleDialog = ref(false);
+const multipleCourtCount = ref(4);
 
 // Form state
 const form = ref({
@@ -87,36 +95,24 @@ async function saveCourt() {
   }
 }
 
-async function deleteCourt(court: Court) {
+function requestDeleteCourt(court: Court) {
   if (court.status === 'in_use') {
     notificationStore.showToast('error', 'Cannot delete court while in use');
     return;
   }
+  courtToDelete.value = court;
+  showDeleteCourtDialog.value = true;
+}
 
-  if (!confirm(`Delete "${court.name}"? This cannot be undone.`)) {
-    return;
-  }
-
+async function confirmDeleteCourt() {
+  if (!courtToDelete.value) return;
+  showDeleteCourtDialog.value = false;
   try {
-    await tournamentStore.deleteCourt(props.tournamentId, court.id);
+    await tournamentStore.deleteCourt(props.tournamentId, courtToDelete.value.id);
     notificationStore.showToast('success', 'Court deleted');
   } catch (error) {
     notificationStore.showToast('error', 'Failed to delete court');
   }
-}
-
-// Helper to get participant name
-function getParticipantName(registrationId: string | undefined): string {
-  if (!registrationId) return 'TBD';
-  const registration = registrationStore.registrations.find((r) => r.id === registrationId);
-  if (!registration) return 'Unknown';
-
-  if (registration.teamName) return registration.teamName;
-
-  const player = registrationStore.players.find((p) => p.id === registration.playerId);
-  if (player) return `${player.firstName} ${player.lastName}`;
-
-  return 'Unknown';
 }
 
 async function toggleCourtStatus(court: Court) {
@@ -168,16 +164,18 @@ async function toggleCourtStatus(court: Court) {
   }
 }
 
-async function addMultipleCourts() {
-  const count = prompt('How many courts to add?', '4');
-  if (!count) return;
+function openAddMultipleDialog() {
+  multipleCourtCount.value = 4;
+  showAddMultipleDialog.value = true;
+}
 
-  const numCourts = parseInt(count);
+async function confirmAddMultipleCourts() {
+  const numCourts = multipleCourtCount.value;
   if (isNaN(numCourts) || numCourts < 1 || numCourts > 20) {
     notificationStore.showToast('error', 'Please enter a number between 1 and 20');
     return;
   }
-
+  showAddMultipleDialog.value = false;
   loading.value = true;
   try {
     const startNumber = courts.value.length + 1;
@@ -208,10 +206,10 @@ function getStatusColor(status: CourtStatus): string {
     <div class="d-flex justify-space-between align-center mb-4">
       <h3 class="text-h6">Courts ({{ courts.length }})</h3>
       <div>
-        <v-btn variant="outlined" class="mr-2" @click="addMultipleCourts" :loading="loading">
+        <v-btn variant="outlined" class="mr-2" @click="openAddMultipleDialog" :loading="loading">
           Add Multiple
         </v-btn>
-        <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddDialog">
+        <v-btn color="primary" prepend-icon="mdi-plus" data-testid="add-court-btn" @click="openAddDialog">
           Add Court
         </v-btn>
       </div>
@@ -252,14 +250,15 @@ function getStatusColor(status: CourtStatus): string {
               {{ court.status === 'available' ? 'Set Maintenance' : 'Set Available' }}
             </v-btn>
             <v-spacer />
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="openEditDialog(court)" />
+            <v-btn icon="mdi-pencil" size="small" variant="text" data-testid="edit-court-btn" @click="openEditDialog(court)" />
             <v-btn
               icon="mdi-delete"
               size="small"
               variant="text"
               color="error"
+              data-testid="delete-court-btn"
               :disabled="court.status === 'in_use'"
-              @click="deleteCourt(court)"
+              @click="requestDeleteCourt(court)"
             />
           </v-card-actions>
         </v-card>
@@ -270,7 +269,7 @@ function getStatusColor(status: CourtStatus): string {
     <v-card v-else class="text-center py-8">
       <v-icon size="48" color="grey-lighten-1">mdi-badminton</v-icon>
       <p class="text-body-2 text-grey mt-2">No courts configured. Add courts to start scheduling matches.</p>
-      <v-btn color="primary" class="mt-4" @click="addMultipleCourts">
+      <v-btn color="primary" class="mt-4" @click="openAddMultipleDialog">
         Add Courts
       </v-btn>
     </v-card>
@@ -285,6 +284,7 @@ function getStatusColor(status: CourtStatus): string {
           <v-text-field
             v-model="form.name"
             label="Court Name"
+            data-testid="court-name-input"
             placeholder="e.g., Court 1, Main Court, etc."
           />
           <v-text-field
@@ -314,9 +314,47 @@ function getStatusColor(status: CourtStatus): string {
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="showDialog = false">Cancel</v-btn>
-          <v-btn color="primary" :loading="loading" @click="saveCourt">
+          <v-btn color="primary" data-testid="save-court-btn" :loading="loading" @click="saveCourt">
             {{ editingCourt ? 'Update' : 'Add' }}
           </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete Court Confirmation Dialog -->
+    <v-dialog v-model="showDeleteCourtDialog" max-width="400" persistent>
+      <v-card>
+        <v-card-title>Delete Court?</v-card-title>
+        <v-card-text>
+          Delete "{{ courtToDelete?.name }}"? This cannot be undone.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showDeleteCourtDialog = false">Cancel</v-btn>
+          <v-btn color="error" @click="confirmDeleteCourt">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Add Multiple Courts Dialog -->
+    <v-dialog v-model="showAddMultipleDialog" max-width="400" persistent>
+      <v-card>
+        <v-card-title>Add Multiple Courts</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model.number="multipleCourtCount"
+            label="Number of courts"
+            type="number"
+            min="1"
+            max="20"
+            hint="Between 1 and 20"
+            persistent-hint
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showAddMultipleDialog = false">Cancel</v-btn>
+          <v-btn color="primary" @click="confirmAddMultipleCourts">Add</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

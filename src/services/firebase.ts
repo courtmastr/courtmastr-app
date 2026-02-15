@@ -66,6 +66,8 @@ export {
   addDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
+  runTransaction,
   query,
   where,
   orderBy,
@@ -73,10 +75,12 @@ export {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  increment,
   type DocumentReference,
   type DocumentSnapshot,
   type QuerySnapshot,
   type QueryDocumentSnapshot,
+  type Transaction,
 } from 'firebase/firestore';
 
 export {

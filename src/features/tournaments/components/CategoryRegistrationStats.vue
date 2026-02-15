@@ -359,6 +359,7 @@ function hasCompletedMatches(categoryId: string): boolean {
               size="small"
               variant="text"
               prepend-icon="mdi-seed"
+              data-testid="manage-seeds-btn"
               @click="emit('manage-seeds', stats.category.id)"
             >
               Seeds

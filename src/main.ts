@@ -1,14 +1,27 @@
 // Main Entry Point
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+import { initializeFirebase } from './services/firebase';
+
+// CRITICAL: Initialize Firebase before importing stores to ensure db is defined
+initializeFirebase();
+
+// Import the rest after Firebase is initialized
 import App from './App.vue';
 import router from './router';
 import vuetify from './plugins/vuetify';
-import { initializeFirebase } from './services/firebase';
 import { useAuthStore } from './stores/auth';
+import './style.scss'; // Import global styles
 
-// Initialize Firebase
-initializeFirebase();
+// Unregister service workers in development
+if (import.meta.env.DEV && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister();
+      console.log('ServiceWorker unregistered in dev mode');
+    }
+  });
+}
 
 // Create app
 const app = createApp(App);

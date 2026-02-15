@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Match } from '@/types';
 
 const props = defineProps<{
@@ -11,8 +12,29 @@ const props = defineProps<{
 
 const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
+const { getParticipantName } = useParticipantResolver();
 
 const loading = ref(true);
+const windowWidth = ref(window.innerWidth);
+
+// Handle window resize to detect mobile view
+const handleResize = () => {
+  windowWidth.value = window.innerWidth;
+};
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+});
+
+// Whether to show vertical bracket layout (mobile view)
+const isVerticalLayout = computed(() => windowWidth.value < 768);
+
+// For mobile round navigation
+const selectedRound = ref<number | null>(null);
 
 // Group matches by round
 const matchesByRound = computed(() => {
@@ -58,8 +80,7 @@ const roundNames = computed(() => {
   return names;
 });
 
-const registrations = computed(() => registrationStore.registrations);
-const players = computed(() => registrationStore.players);
+
 
 onMounted(async () => {
   await matchStore.fetchMatches(props.tournamentId, props.categoryId);
@@ -89,22 +110,8 @@ function getParticipantName(registrationId: string | undefined, match?: Match): 
     return 'TBD';
   }
 
-  // Look up the registration first
-  const registration = registrations.value.find((r) => r.id === registrationId);
-  if (!registration) return 'Unknown';
-
-  // For teams (doubles), show team name
-  if (registration.teamName) {
-    return registration.teamName;
-  }
-
-  // For singles, show player name
-  const player = players.value.find((p) => p.id === registration.playerId);
-  if (player) {
-    return `${player.firstName} ${player.lastName}`;
-  }
-
-  return 'Unknown';
+  // Use centralized composable for name resolution
+  return getParticipantName(registrationId);
 }
 
 // Check if a slot is a bye
@@ -153,111 +160,176 @@ function getScoreDisplay(match: Match): string {
       <p class="text-body-1 text-grey mt-4">No bracket generated yet</p>
     </div>
 
-    <!-- Bracket -->
-    <div v-else class="bracket">
-      <div
-        v-for="round in rounds"
-        :key="round"
-        class="bracket-round"
-        :style="{ '--round': round }"
-      >
-        <div class="round-header">
-          <span class="text-overline">{{ roundNames[round] }}</span>
-        </div>
-
-        <div class="round-matches">
-          <div
-            v-for="match in matchesByRound[round]"
-            :key="match.id"
-            class="bracket-match"
+      <!-- Round Navigator for Mobile -->
+      <div v-if="isVerticalLayout" class="round-navigator mb-4">
+        <v-chip-group
+          v-model="selectedRound"
+          selected-class="bg-primary"
+          mandatory
+        >
+          <v-chip
+            v-for="round in rounds"
+            :key="`nav-${round}`"
+            :value="round"
+            filter
+            variant="outlined"
           >
-            <v-card
-              :color="getMatchColor(match)"
-              variant="outlined"
-              class="match-card"
+            {{ roundNames[round] }}
+          </v-chip>
+        </v-chip-group>
+      </div>
+
+      <!-- Bracket -->
+      <div v-else :class="['bracket', { 'vertical-layout': isVerticalLayout }]">
+        <div
+          v-for="round in rounds"
+          :key="round"
+          class="bracket-round"
+          :style="{ '--round': round }"
+          :id="`round-${round}`"
+          :class="{ 'selected-round': selectedRound === round }"
+        >
+          <div class="round-header">
+            <span class="text-overline">{{ roundNames[round] }}</span>
+          </div>
+
+          <div class="round-matches" :class="{ 'vertical-matches': isVerticalLayout }">
+            <div
+              v-for="match in matchesByRound[round]"
+              :key="match.id"
+              class="bracket-match"
+              :class="{ 'vertical-match': isVerticalLayout }"
             >
-              <!-- Match Number -->
-              <div class="match-number text-caption text-grey">
-                #{{ match.matchNumber }}
-              </div>
-
-              <!-- Participant 1 -->
-              <div
-                class="participant"
-                :class="{
-                  'winner': isWinner(match, match.participant1Id),
-                  'tbd': !match.participant1Id && !isBye(match, match.participant1Id),
-                  'bye': isBye(match, match.participant1Id)
-                }"
+              <v-card
+                :color="getMatchColor(match)"
+                variant="outlined"
+                class="match-card"
               >
-                <span class="participant-name">
-                  {{ getParticipantName(match.participant1Id, match) }}
-                </span>
-                <span v-if="match.scores.length > 0" class="participant-score">
-                  {{ match.scores.reduce((sum, s) => sum + s.score1, 0) }}
-                </span>
+                <!-- Match Number -->
+                <div class="match-number text-caption text-grey">
+                  #{{ match.matchNumber }}
+                </div>
+
+                <!-- Participant 1 -->
+                <div
+                  class="participant"
+                  :class="{
+                    'winner': isWinner(match, match.participant1Id),
+                    'tbd': !match.participant1Id && !isBye(match, match.participant1Id),
+                    'bye': isBye(match, match.participant1Id)
+                  }"
+                >
+                  <span class="participant-name">
+                    {{ getParticipantName(match.participant1Id, match) }}
+                  </span>
+                  <span v-if="match.scores.length > 0" class="participant-score">
+                    {{ match.scores.reduce((sum, s) => sum + s.score1, 0) }}
+                  </span>
+                </div>
+
+                <v-divider v-if="!isVerticalLayout" />
+
+                <!-- Participant 2 -->
+                <div
+                  class="participant"
+                  :class="{
+                    'winner': isWinner(match, match.participant2Id),
+                    'tbd': !match.participant2Id && !isBye(match, match.participant2Id),
+                    'bye': isBye(match, match.participant2Id)
+                  }"
+                >
+                  <span class="participant-name">
+                    {{ getParticipantName(match.participant2Id, match) }}
+                  </span>
+                  <span v-if="match.scores.length > 0" class="participant-score">
+                    {{ match.scores.reduce((sum, s) => sum + s.score2, 0) }}
+                  </span>
+                </div>
+
+                <!-- Score Details -->
+                <div v-if="getScoreDisplay(match)" class="match-score text-caption text-grey">
+                  {{ getScoreDisplay(match) }}
+                </div>
+              </v-card>
+
+              <!-- Connector Lines -->
+              <div v-if="round < maxRound" class="connector" :class="{ 'vertical-connector': isVerticalLayout }">
+                <div class="connector-line" :class="{ 'vertical-line': isVerticalLayout }" />
               </div>
-
-              <v-divider />
-
-              <!-- Participant 2 -->
-              <div
-                class="participant"
-                :class="{
-                  'winner': isWinner(match, match.participant2Id),
-                  'tbd': !match.participant2Id && !isBye(match, match.participant2Id),
-                  'bye': isBye(match, match.participant2Id)
-                }"
-              >
-                <span class="participant-name">
-                  {{ getParticipantName(match.participant2Id, match) }}
-                </span>
-                <span v-if="match.scores.length > 0" class="participant-score">
-                  {{ match.scores.reduce((sum, s) => sum + s.score2, 0) }}
-                </span>
-              </div>
-
-              <!-- Score Details -->
-              <div v-if="getScoreDisplay(match)" class="match-score text-caption text-grey">
-                {{ getScoreDisplay(match) }}
-              </div>
-            </v-card>
-
-            <!-- Connector Lines -->
-            <div v-if="round < maxRound" class="connector">
-              <div class="connector-line" />
             </div>
           </div>
         </div>
       </div>
-    </div>
   </div>
 </template>
 
 <style scoped>
+/* Modern Bracket Polish */
 .bracket-container {
   overflow-x: auto;
-  padding: 16px;
+  padding: 24px;
+  scrollbar-width: thin;
+}
+
+.round-navigator {
+  position: sticky;
+  top: 0;
+  background: rgba(var(--v-theme-surface), 0.95);
+  backdrop-filter: blur(10px);
+  z-index: 10;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(var(--v-theme-border), 0.5);
 }
 
 .bracket {
   display: flex;
-  gap: 40px;
+  gap: 48px;
   min-width: max-content;
+  padding-bottom: 24px;
+}
+
+.bracket.vertical-layout {
+  flex-direction: column;
+  gap: 32px;
+}
+
+.selected-round {
+  background-color: rgba(var(--v-theme-primary), 0.05);
+  border: 1px dashed rgba(var(--v-theme-primary), 0.3);
+  border-radius: 16px;
+  padding: 8px;
 }
 
 .bracket-round {
   display: flex;
   flex-direction: column;
-  min-width: 200px;
+  min-width: 240px;
+}
+
+.vertical-layout .bracket-round {
+  min-width: auto;
+  align-items: center;
 }
 
 .round-header {
   text-align: center;
-  padding: 8px;
+  padding: 12px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-primary), 0.05));
+  border-radius: 12px;
+  border: 1px solid rgba(var(--v-theme-primary), 0.1);
+}
+
+.round-header .text-overline {
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  letter-spacing: 1.5px !important;
+  color: rgb(var(--v-theme-primary));
+}
+
+.vertical-layout .round-header {
   margin-bottom: 16px;
-  background: rgba(var(--v-theme-primary), 0.1);
-  border-radius: 4px;
+  width: 100%;
 }
 
 .round-matches {
@@ -265,6 +337,13 @@ function getScoreDisplay(match: Match): string {
   flex-direction: column;
   justify-content: space-around;
   flex: 1;
+  gap: 24px;
+}
+
+.round-matches.vertical-matches {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 16px;
 }
 
@@ -274,39 +353,76 @@ function getScoreDisplay(match: Match): string {
   align-items: center;
 }
 
+.bracket-match.vertical-match {
+  align-self: stretch;
+  flex-direction: column;
+  min-height: 140px;
+}
+
 .match-card {
   width: 100%;
-  padding: 8px;
+  padding: 0;
+  border-radius: 12px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  background: rgb(var(--v-theme-surface));
+  overflow: hidden;
+}
+
+.match-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border-color: rgba(var(--v-theme-primary), 0.3);
 }
 
 .match-number {
   text-align: right;
-  margin-bottom: 4px;
+  padding: 4px 12px;
+  font-size: 0.7rem;
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  letter-spacing: 0.5px;
 }
 
 .participant {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px;
-  border-radius: 4px;
+  padding: 10px 12px;
+  margin: 4px;
+  border-radius: 8px;
   transition: background-color 0.2s ease;
+  min-height: 40px;
 }
 
 .participant.winner {
-  background-color: rgba(var(--v-theme-success), 0.15);
-  font-weight: bold;
+  background: linear-gradient(90deg, rgba(var(--v-theme-success), 0.1), rgba(var(--v-theme-success), 0.05));
+  border-left: 3px solid rgb(var(--v-theme-success));
+}
+
+.participant.winner .participant-name {
+  font-weight: 700;
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.participant.winner .participant-score {
+  color: rgb(var(--v-theme-success));
+  font-weight: 800;
+  font-size: 1.1em;
 }
 
 .participant.tbd {
-  color: rgba(var(--v-theme-on-surface), 0.5);
+  color: rgba(var(--v-theme-on-surface), 0.4);
   font-style: italic;
+  font-size: 0.9em;
 }
 
 .participant.bye {
   color: rgba(var(--v-theme-on-surface), 0.4);
   font-style: italic;
-  background-color: rgba(var(--v-theme-on-surface), 0.05);
+  background-color: transparent;
 }
 
 .participant-name {
@@ -314,54 +430,92 @@ function getScoreDisplay(match: Match): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-right: 8px;
+  margin-right: 12px;
+  font-size: 0.9rem;
 }
 
 .participant-score {
-  font-weight: bold;
+  font-weight: 600;
   min-width: 24px;
-  text-align: right;
+  text-align: center;
+  font-feature-settings: "tnum";
 }
 
 .match-score {
   text-align: center;
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px dashed rgba(var(--v-theme-on-surface), 0.2);
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: rgba(var(--v-theme-on-surface), 0.7);
 }
 
 .connector {
   position: absolute;
-  right: -40px;
-  width: 40px;
+  right: -48px;
+  width: 48px;
   height: 100%;
   display: flex;
   align-items: center;
+  pointer-events: none;
+}
+
+.connector.vertical-connector {
+  position: static;
+  width: 100%;
+  height: auto;
+  display: flex;
+  justify-content: center;
+  margin: 8px 0;
 }
 
 .connector-line {
-  width: 20px;
+  width: 24px;
   height: 2px;
-  background-color: rgba(var(--v-theme-on-surface), 0.3);
+  background-color: rgba(var(--v-theme-border), 1);
+  position: relative;
+}
+
+.connector-line::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: rgba(var(--v-theme-border), 1);
+}
+
+.connector-line.vertical-line {
+  width: 2px;
+  height: 24px;
+}
+
+.connector-line.vertical-line::after {
+  top: auto;
+  bottom: -2px;
+  right: -3px;
 }
 
 /* Responsive adjustments */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .bracket {
-    gap: 24px;
+    gap: 32px;
   }
 
   .bracket-round {
-    min-width: 160px;
+    min-width: 200px;
   }
 
   .connector {
-    right: -24px;
-    width: 24px;
+    right: -32px;
+    width: 32px;
   }
 
   .connector-line {
-    width: 12px;
+    width: 16px;
   }
 }
 </style>

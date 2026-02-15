@@ -6,7 +6,10 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
 import { useActivityStore } from '@/stores/activities';
+import { useAuthStore } from '@/stores/auth';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { BADMINTON_CONFIG } from '@/types';
+import ScoreCorrectionDialog from '../components/ScoreCorrectionDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -15,14 +18,17 @@ const registrationStore = useRegistrationStore();
 const tournamentStore = useTournamentStore();
 const notificationStore = useNotificationStore();
 const activityStore = useActivityStore();
+const authStore = useAuthStore();
+const { getParticipantName } = useParticipantResolver();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const matchId = computed(() => route.params.matchId as string);
 const match = computed(() => matchStore.currentMatch);
 const loading = ref(false);
+const pageError = ref<string | null>(null);
+const initialized = ref(false);
 
 // Manual scorecard mode
-const scoringMode = ref<'tap' | 'manual'>('tap');
 const manualScores = ref<{ game1: { p1: number; p2: number }; game2: { p1: number; p2: number }; game3: { p1: number; p2: number } }>({
   game1: { p1: 0, p2: 0 },
   game2: { p1: 0, p2: 0 },
@@ -30,7 +36,19 @@ const manualScores = ref<{ game1: { p1: number; p2: number }; game2: { p1: numbe
 });
 const showManualScoreDialog = ref(false);
 
-// Get participant names
+// Walkover dialog state
+const showWalkoverConfirm = ref(false);
+const walkoverWinnerId = ref<string | null>(null);
+
+// Score correction dialog state
+const showCorrectionDialog = ref(false);
+
+// Check if user can correct scores
+const canCorrectMatch = computed(() => {
+  return authStore.isAdmin || authStore.isScorekeeper;
+});
+
+// Get participant names using composable
 const participant1Name = computed(() => {
   if (!match.value?.participant1Id) return 'TBD';
   return getParticipantName(match.value.participant1Id);
@@ -40,20 +58,6 @@ const participant2Name = computed(() => {
   if (!match.value?.participant2Id) return 'TBD';
   return getParticipantName(match.value.participant2Id);
 });
-
-function getParticipantName(registrationId: string | undefined): string {
-  if (!registrationId) return 'TBD';
-
-  const registration = registrationStore.registrations.find((r) => r.id === registrationId);
-  if (!registration) return 'Unknown';
-
-  if (registration.teamName) return registration.teamName;
-
-  const player = registrationStore.players.find((p) => p.id === registration.playerId);
-  if (player) return `${player.firstName} ${player.lastName}`;
-
-  return 'Unknown';
-}
 
 // Current game
 const currentGame = computed(() => {
@@ -91,14 +95,27 @@ const canStartMatch = computed(() => {
   return match.value?.status === 'ready' && match.value.participant1Id && match.value.participant2Id;
 });
 
-// Track previous status to detect completion
-const previousStatus = ref<string | null>(null);
-
 onMounted(async () => {
-  await tournamentStore.fetchTournament(tournamentId.value);
-  matchStore.subscribeMatch(tournamentId.value, matchId.value);
-  registrationStore.subscribeRegistrations(tournamentId.value);
-  registrationStore.subscribePlayers(tournamentId.value);
+  const categoryId = route.query.category as string | undefined;
+
+  try {
+    await tournamentStore.fetchTournament(tournamentId.value);
+    await matchStore.fetchMatch(tournamentId.value, matchId.value, categoryId);
+    matchStore.subscribeMatch(tournamentId.value, matchId.value, categoryId);
+    registrationStore.subscribeRegistrations(tournamentId.value);
+    registrationStore.subscribePlayers(tournamentId.value);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '';
+    if (errorMessage.toLowerCase().includes('match not found')) {
+      pageError.value = 'Match not found';
+    } else if (errorMessage.toLowerCase().includes('tournament not found')) {
+      pageError.value = 'Tournament not found';
+    } else {
+      pageError.value = 'Failed to load scoring page';
+    }
+  } finally {
+    initialized.value = true;
+  }
 });
 
 onUnmounted(() => {
@@ -153,7 +170,7 @@ const categoryName = computed(() => {
 async function startMatch() {
   loading.value = true;
   try {
-    await matchStore.startMatch(tournamentId.value, matchId.value);
+    await matchStore.startMatch(tournamentId.value, matchId.value, match.value?.categoryId);
     notificationStore.showToast('success', 'Match started!');
 
     // Log activity (non-blocking - don't fail if logging fails)
@@ -176,7 +193,7 @@ async function addPoint(participant: 'participant1' | 'participant2') {
   if (isMatchComplete.value || !match.value) return;
 
   try {
-    await matchStore.updateScore(tournamentId.value, matchId.value, participant);
+    await matchStore.updateScore(tournamentId.value, matchId.value, participant, match.value.categoryId);
   } catch (error) {
     notificationStore.showToast('error', 'Failed to update score');
   }
@@ -186,18 +203,23 @@ async function removePoint(participant: 'participant1' | 'participant2') {
   if (isMatchComplete.value || !match.value) return;
 
   try {
-    await matchStore.decrementScore(tournamentId.value, matchId.value, participant);
+    await matchStore.decrementScore(tournamentId.value, matchId.value, participant, match.value.categoryId);
   } catch (error) {
     notificationStore.showToast('error', 'Failed to update score');
   }
 }
 
-async function recordWalkover(winnerId: string) {
-  if (!confirm('Record walkover? This will end the match.')) return;
+function requestWalkover(winnerId: string) {
+  walkoverWinnerId.value = winnerId;
+  showWalkoverConfirm.value = true;
+}
 
+async function confirmWalkover() {
+  if (!walkoverWinnerId.value) return;
+  showWalkoverConfirm.value = false;
   loading.value = true;
   try {
-    await matchStore.recordWalkover(tournamentId.value, matchId.value, winnerId);
+    await matchStore.recordWalkover(tournamentId.value, matchId.value, walkoverWinnerId.value);
     notificationStore.showToast('success', 'Walkover recorded');
     router.back();
   } catch (error) {
@@ -244,6 +266,16 @@ async function submitManualScores() {
       // Skip games where both scores are 0
       if (game.p1 === 0 && game.p2 === 0) continue;
 
+      // Validate: games cannot be tied
+      if (game.p1 === game.p2) {
+        notificationStore.showToast(
+          'error',
+          `Game ${validGames.length + 1} cannot be tied (${game.p1}-${game.p2}). One player must win.`
+        );
+        loading.value = false;
+        return;
+      }
+
       // Determine winner
       if (game.p1 > game.p2) {
         p1GamesWon++;
@@ -264,14 +296,16 @@ async function submitManualScores() {
         score2: g.p2,
         winnerId: g.winner,
         isComplete: true,
-      }))
+      })),
+      match.value.categoryId
     );
 
     showManualScoreDialog.value = false;
     notificationStore.showToast('success', 'Scores submitted successfully');
 
     // If match is complete, go back
-    if (p1GamesWon >= 2 || p2GamesWon >= 2) {
+    const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+    if (p1GamesWon >= gamesNeeded || p2GamesWon >= gamesNeeded) {
       router.back();
     }
   } catch (error) {
@@ -280,10 +314,33 @@ async function submitManualScores() {
     loading.value = false;
   }
 }
+
+function onScoreCorrected() {
+  showCorrectionDialog.value = false;
+}
 </script>
 
 <template>
-  <v-container class="fill-height" v-if="match">
+  <v-container v-if="pageError" class="fill-height">
+    <v-row justify="center" align="center">
+      <v-col cols="12" md="8" lg="6">
+        <v-card>
+          <v-card-text class="text-center py-8">
+            <v-icon size="64" color="grey-lighten-1">mdi-alert-circle-outline</v-icon>
+            <h2 class="text-h6 mt-4">{{ pageError }}</h2>
+            <p class="text-body-2 text-grey mt-2">
+              The scoring page could not be opened for this route.
+            </p>
+            <v-btn class="mt-4" color="primary" @click="router.back()">
+              Go Back
+            </v-btn>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
+
+  <v-container class="fill-height" v-else-if="match">
     <v-row justify="center" align="center">
       <v-col cols="12" md="10" lg="8">
         <!-- Header -->
@@ -437,10 +494,10 @@ async function submitManualScores() {
                 </v-btn>
               </template>
               <v-list>
-                <v-list-item @click="recordWalkover(match.participant1Id!)">
+                <v-list-item @click="requestWalkover(match.participant1Id!)">
                   {{ participant1Name }} wins (walkover)
                 </v-list-item>
-                <v-list-item @click="recordWalkover(match.participant2Id!)">
+                <v-list-item @click="requestWalkover(match.participant2Id!)">
                   {{ participant2Name }} wins (walkover)
                 </v-list-item>
               </v-list>
@@ -466,6 +523,17 @@ async function submitManualScores() {
             >
               Back to Matches
             </v-btn>
+
+            <v-btn
+              v-if="canCorrectMatch"
+              color="warning"
+              variant="outlined"
+              class="mt-4 ml-2"
+              prepend-icon="mdi-pencil"
+              @click="showCorrectionDialog = true"
+            >
+              Correct Score
+            </v-btn>
           </v-card-text>
         </v-card>
       </v-col>
@@ -475,9 +543,25 @@ async function submitManualScores() {
   <!-- Loading -->
   <v-container v-else class="fill-height">
     <v-row align="center" justify="center">
-      <v-progress-circular indeterminate size="64" color="primary" />
+      <v-progress-circular v-if="!initialized" indeterminate size="64" color="primary" />
+      <v-alert v-else type="error" variant="tonal">
+        Failed to load match details.
+      </v-alert>
     </v-row>
   </v-container>
+
+  <!-- Walkover Confirmation Dialog -->
+  <v-dialog v-model="showWalkoverConfirm" max-width="400" persistent>
+    <v-card>
+      <v-card-title>Record Walkover?</v-card-title>
+      <v-card-text>This will end the match immediately. Are you sure?</v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="showWalkoverConfirm = false">Cancel</v-btn>
+        <v-btn color="warning" @click="confirmWalkover">Confirm Walkover</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 
   <!-- Manual Score Entry Dialog -->
   <v-dialog v-model="showManualScoreDialog" max-width="500" persistent>
@@ -611,6 +695,15 @@ async function submitManualScores() {
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <!-- Score Correction Dialog -->
+  <score-correction-dialog
+    v-model="showCorrectionDialog"
+    :match="match"
+    :tournament-id="tournamentId"
+    :category-id="match?.categoryId"
+    @corrected="onScoreCorrected"
+  />
 </template>
 
 <style scoped>

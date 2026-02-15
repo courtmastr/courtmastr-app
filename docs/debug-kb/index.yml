@@ -1,0 +1,70 @@
+- id: 4bfd0fdb
+  title: Build fails with existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-15"
+  fingerprint: "4bfd0fdb"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-15-05-31-33.vue-tsc-b.log"
+- id: 804beb28
+  title: Build fails with existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-15"
+  fingerprint: "804beb28"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-15-04-59-51.vue-tsc-b.log"
+- id: 435e808f
+  title: Vitest fails on deprecated firebase/testing import
+  status: "❌ unresolved"
+  date: "2026-02-15"
+  fingerprint: "435e808f"
+  command: "npm run test:log -- --run"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-15-04-43-16.vitest-run.log"
+- id: 6f587dbe
+  title: Build fails with existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-15"
+  fingerprint: "6f587dbe"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-15-04-33-44.vue-tsc-b.log"
+- id: 427ce2a8
+  title: Build fails with existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-11"
+  fingerprint: "427ce2a8"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-11-21-28-18.vue-tsc-b.log"
+- id: c868b52b
+  title: Build fails with pre-existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-06"
+  fingerprint: "c868b52b"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-06-04-30-42.vue-tsc-b.log"
+- id: 0f6cb24c
+  title: Build fails with existing TypeScript unused and type errors
+  status: "❌ unresolved"
+  date: "2026-02-03"
+  fingerprint: "0f6cb24c"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-03-20-12-53.vue-tsc-b.log"
+- id: 6b531036
+  title: eslint not found when running lint:log
+  status: "❌ unresolved"
+  date: "2026-02-03"
+  fingerprint: "6b531036"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-03-20-14-20.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 17345f1f
+  title: Build fails with unused unsubscribe variables
+  status: "✅ fixed"
+  date: "2026-02-03"
+  fingerprint: "17345f1f"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-03-20-11-22.vue-tsc-b.log"
+- id: missing-build-log-script
+  title: npm run build:log reports missing script
+  status: "✅ fixed"
+  date: "2026-02-01"
+  fingerprint: "n/a"
+  command: "cd functions && npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-01-22-36-22.tsc.log"

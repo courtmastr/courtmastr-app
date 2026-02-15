@@ -73,9 +73,16 @@ export default createVuetify({
     },
   },
   defaults: {
+    global: {
+      ripple: false,
+    },
     VBtn: {
       variant: 'elevated',
       rounded: 'lg',
+      ripple: false,
+    },
+    VListItem: {
+      ripple: false,
     },
     VCard: {
       rounded: 'lg',

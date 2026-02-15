@@ -1,28 +1,33 @@
 // Cloud Functions Entry Point
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { BracketsManager } from 'brackets-manager';
 import { generateBracket as createBracket } from './bracket';
 import { generateSchedule as createSchedule } from './scheduling';
+import { updateMatch as updateMatchFn } from './updateMatch';
+import { FirestoreStorage } from './storage/firestore-adapter';
 
 // Initialize Firebase Admin
 admin.initializeApp();
 
 const db = admin.firestore();
 
+export const updateMatch = updateMatchFn;
+
 /**
  * Generate bracket for a tournament category
  */
 export const generateBracket = functions.https.onCall(
-  async (data, context) => {
+  async (request) => {
     // Verify authentication
-    if (!context.auth) {
+    if (!request.auth) {
       throw new functions.https.HttpsError(
         'unauthenticated',
         'User must be authenticated'
       );
     }
 
-    const { tournamentId, categoryId } = data;
+    const { tournamentId, categoryId } = request.data;
 
     if (!tournamentId || !categoryId) {
       throw new functions.https.HttpsError(
@@ -32,7 +37,7 @@ export const generateBracket = functions.https.onCall(
     }
 
     // Verify user is admin or organizer
-    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
     const userRole = userDoc.data()?.role;
 
     if (!['admin', 'organizer'].includes(userRole)) {
@@ -59,16 +64,16 @@ export const generateBracket = functions.https.onCall(
  * Generate schedule for a tournament
  */
 export const generateSchedule = functions.https.onCall(
-  async (data, context) => {
+  async (request) => {
     // Verify authentication
-    if (!context.auth) {
+    if (!request.auth) {
       throw new functions.https.HttpsError(
         'unauthenticated',
         'User must be authenticated'
       );
     }
 
-    const { tournamentId } = data;
+    const { tournamentId } = request.data;
 
     if (!tournamentId) {
       throw new functions.https.HttpsError(
@@ -78,7 +83,7 @@ export const generateSchedule = functions.https.onCall(
     }
 
     // Verify user is admin
-    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
     const userRole = userDoc.data()?.role;
 
     if (userRole !== 'admin') {
@@ -105,93 +110,57 @@ export const generateSchedule = functions.https.onCall(
  * Advance winner to next match after match completion
  */
 export const advanceWinner = functions.https.onCall(
-  async (data, context) => {
-    // Verify authentication
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        'unauthenticated',
-        'User must be authenticated'
-      );
-    }
+  async (request) => {
+    const { tournamentId, matchId, winnerId } = request.data;
 
-    const { tournamentId, matchId, winnerId } = data;
-
-    if (!tournamentId || !matchId || !winnerId) {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        'tournamentId, matchId, and winnerId are required'
-      );
-    }
+    console.log('advanceWinner called:', { tournamentId, matchId, winnerId });
 
     try {
-      // Get the completed match
-      const matchDoc = await db
-        .collection('tournaments')
-        .doc(tournamentId)
-        .collection('matches')
-        .doc(matchId)
-        .get();
+      // Initialize brackets-manager with tournament root path
+      const manager = new BracketsManager(
+        new FirestoreStorage(db, `tournaments/${tournamentId}`)
+      );
 
-      if (!matchDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'Match not found');
+      // Fetch current match to get opponent IDs
+      const match = await manager.storage.select('match', matchId);
+      if (!match) {
+        throw new Error(`Match ${matchId} not found`);
       }
 
-      const match = matchDoc.data();
+      const opponent1Id = String(match.opponent1?.id ?? '');
+      const opponent2Id = String(match.opponent2?.id ?? '');
 
-      // Advance winner to next match
-      if (match?.nextMatchId && match?.nextMatchSlot) {
-        await db
-          .collection('tournaments')
-          .doc(tournamentId)
-          .collection('matches')
-          .doc(match.nextMatchId)
-          .update({
-            [match.nextMatchSlot + 'Id']: winnerId,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
+      // Determine winner result
+      const isOpponent1Winner = winnerId === opponent1Id;
+      const isOpponent2Winner = winnerId === opponent2Id;
+
+      if (!isOpponent1Winner && !isOpponent2Winner) {
+        console.warn('Winner ID does not match any opponent', {
+          winnerId,
+          opponent1Id,
+          opponent2Id
+        });
       }
 
-      // For double elimination, also handle loser advancement
-      if (match?.loserNextMatchId && match?.loserNextMatchSlot) {
-        const loserId =
-          match.participant1Id === winnerId
-            ? match.participant2Id
-            : match.participant1Id;
+      // Update match with winner - brackets-manager handles advancement
+      await manager.update.match({
+        id: matchId,
+        opponent1: {
+          result: isOpponent1Winner ? 'win' : 'loss'
+        },
+        opponent2: {
+          result: isOpponent2Winner ? 'win' : 'loss'
+        }
+      });
 
-        await db
-          .collection('tournaments')
-          .doc(tournamentId)
-          .collection('matches')
-          .doc(match.loserNextMatchId)
-          .update({
-            [match.loserNextMatchSlot + 'Id']: loserId,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-      }
-
-      // Release court
-      if (match?.courtId) {
-        await db
-          .collection('tournaments')
-          .doc(tournamentId)
-          .collection('courts')
-          .doc(match.courtId)
-          .update({
-            status: 'available',
-            currentMatchId: null,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-      }
-
-      // Create notification for next match participants
-      // (simplified - in production would be more sophisticated)
-
+      console.log('Match updated successfully, winner advanced');
       return { success: true };
     } catch (error) {
       console.error('Error advancing winner:', error);
+      const message = error instanceof Error ? error.message : String(error);
       throw new functions.https.HttpsError(
         'internal',
-        error instanceof Error ? error.message : 'Failed to advance winner'
+        `Failed to advance winner: ${message}`
       );
     }
   }
@@ -199,7 +168,11 @@ export const advanceWinner = functions.https.onCall(
 
 /**
  * Firestore trigger: Auto-notify when match is ready
+ *
+ * NOTE: Commented out temporarily - uses v1 API syntax incompatible with firebase-functions v7
+ * To re-enable, migrate to v2 API: import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
  */
+/*
 export const onMatchUpdate = functions.firestore
   .document('tournaments/{tournamentId}/matches/{matchId}')
   .onUpdate(async (change, context) => {
@@ -221,6 +194,7 @@ export const onMatchUpdate = functions.firestore
       // TODO: Create notifications for participants
     }
   });
+*/
 
 /**
  * HTTP trigger: Health check

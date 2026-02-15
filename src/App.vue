@@ -75,4 +75,17 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+/* NUCLEAR FIX FOR CYAN CIRCLES (BUG-001) */
+.v-ripple__container,
+.v-ripple__animation {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Ensure no other 'cyan' backgrounds persist on active states unless intended */
+.v-list-item--active::before {
+  opacity: 0 !important;
+}
 </style>

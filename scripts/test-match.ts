@@ -18,13 +18,14 @@ import {
   doc,
   getDoc,
   getDocs,
-  updateDoc,
+  setDoc,
   collection,
   query,
   where,
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
 
 // Firebase config for emulator
 const firebaseConfig = {
@@ -35,65 +36,82 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const functions = getFunctions(app);
 connectFirestoreEmulator(db, 'localhost', 8080);
+connectFunctionsEmulator(functions, 'localhost', 5001);
+
+interface MatchData {
+  opponent1?: { id?: number | string };
+  opponent2?: { id?: number | string };
+  status?: number;
+  number?: number;
+  stage_id?: string;
+}
+
+interface ScoreData {
+  status?: string;
+  scores?: Array<{ game: number; player1: number; player2: number }>;
+}
 
 async function completeMatch(tournamentId: string, matchId: string, winnerId: string) {
-  const matchRef = doc(db, `tournaments/${tournamentId}/matches`, matchId);
+  const matchRef = doc(db, `tournaments/${tournamentId}/match`, matchId);
   const matchDoc = await getDoc(matchRef);
 
   if (!matchDoc.exists()) {
-    console.error('Match not found');
+    console.error('Match not found in /match collection');
     return;
   }
 
-  const match = matchDoc.data();
-  const loserId = match.participant1Id === winnerId ? match.participant2Id : match.participant1Id;
+  const match = matchDoc.data() as MatchData;
+  const opponent1Id = match.opponent1?.id;
+  const opponent2Id = match.opponent2?.id;
 
-  // Update match as completed
-  await updateDoc(matchRef, {
+  const isOpponent1Winner = String(opponent1Id) === winnerId;
+  const isOpponent2Winner = String(opponent2Id) === winnerId;
+
+  if (!isOpponent1Winner && !isOpponent2Winner) {
+    console.error('Winner ID does not match either opponent');
+    return;
+  }
+
+  const scoreRef = doc(db, `tournaments/${tournamentId}/match_scores`, matchId);
+  await setDoc(scoreRef, {
     status: 'completed',
     winnerId,
     scores: [
-      { gameNumber: 1, score1: 21, score2: 15, winnerId, isComplete: true },
-      { gameNumber: 2, score1: 21, score2: 18, winnerId, isComplete: true },
+      { game: 1, player1: 21, player2: 15 },
+      { game: 2, player1: 21, player2: 18 },
     ],
     completedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  }, { merge: true });
 
   console.log(`✅ Match ${matchId} completed. Winner: ${winnerId}`);
 
-  // Advance winner to next match
-  if (match.nextMatchId && match.nextMatchSlot) {
-    const nextMatchRef = doc(db, `tournaments/${tournamentId}/matches`, match.nextMatchId);
-    await updateDoc(nextMatchRef, {
-      [`${match.nextMatchSlot}Id`]: winnerId,
-      updatedAt: serverTimestamp(),
+  try {
+    const advanceWinner = httpsCallable(functions, 'advanceWinner');
+    await advanceWinner({
+      tournamentId,
+      matchId,
+      winnerId,
     });
-    console.log(`   → Winner advanced to ${match.nextMatchId} (${match.nextMatchSlot})`);
-  }
-
-  // Advance loser to losers bracket (double elim)
-  if (match.loserNextMatchId && match.loserNextMatchSlot && loserId) {
-    const loserMatchRef = doc(db, `tournaments/${tournamentId}/matches`, match.loserNextMatchId);
-    await updateDoc(loserMatchRef, {
-      [`${match.loserNextMatchSlot}Id`]: loserId,
-      updatedAt: serverTimestamp(),
-    });
-    console.log(`   → Loser advanced to ${match.loserNextMatchId} (${match.loserNextMatchSlot})`);
+    console.log(`   → Winner advanced via brackets-manager`);
+  } catch (error) {
+    console.error(`   ⚠️  Failed to advance winner:`, error);
   }
 }
 
 async function setScore(tournamentId: string, matchId: string, p1Score: number, p2Score: number) {
-  const matchRef = doc(db, `tournaments/${tournamentId}/matches`, matchId);
+  const scoreRef = doc(db, `tournaments/${tournamentId}/match_scores`, matchId);
 
-  await updateDoc(matchRef, {
+  await setDoc(scoreRef, {
     status: 'in_progress',
     scores: [
-      { gameNumber: 1, score1: p1Score, score2: p2Score, isComplete: false },
+      { game: 1, player1: p1Score, player2: p2Score },
     ],
+    startedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  }, { merge: true });
 
   console.log(`✅ Match ${matchId} score set to ${p1Score}-${p2Score}`);
 }
@@ -102,40 +120,53 @@ async function listMatches(tournamentId: string, categoryId?: string) {
   let q;
   if (categoryId) {
     q = query(
-      collection(db, `tournaments/${tournamentId}/matches`),
-      where('categoryId', '==', categoryId),
-      orderBy('round'),
-      orderBy('matchNumber')
+      collection(db, `tournaments/${tournamentId}/match`),
+      where('stage_id', '==', categoryId),
+      orderBy('number')
     );
   } else {
     q = query(
-      collection(db, `tournaments/${tournamentId}/matches`),
-      orderBy('round'),
-      orderBy('matchNumber')
+      collection(db, `tournaments/${tournamentId}/match`),
+      orderBy('number')
     );
   }
 
   const snapshot = await getDocs(q);
 
+  const scoresSnapshot = await getDocs(
+    collection(db, `tournaments/${tournamentId}/match_scores`)
+  );
+  const scoresMap = new Map<string, ScoreData>(scoresSnapshot.docs.map(d => [d.id, d.data() as ScoreData]));
+
   console.log('\n📋 Matches:');
   console.log('─'.repeat(100));
-  console.log(`${'ID'.padEnd(24)} ${'#'.padEnd(4)} ${'Round'.padEnd(6)} ${'Status'.padEnd(12)} ${'P1'.padEnd(24)} ${'P2'.padEnd(24)} ${'Winner'.padEnd(8)}`);
+  console.log(`${'ID'.padEnd(24)} ${'#'.padEnd(4)} ${'Status'.padEnd(12)} ${'Opponent 1'.padEnd(24)} ${'Opponent 2'.padEnd(24)}`);
   console.log('─'.repeat(100));
 
   for (const doc of snapshot.docs) {
-    const m = doc.data();
-    const p1 = m.participant1Id?.slice(0, 20) || 'TBD';
-    const p2 = m.participant2Id?.slice(0, 20) || 'TBD';
-    const winner = m.winnerId ? (m.winnerId === m.participant1Id ? 'P1' : 'P2') : '-';
+    const m = doc.data() as MatchData;
+    const scoreData = scoresMap.get(doc.id);
+
+    let status = 'unknown';
+    if (scoreData?.status) {
+      status = scoreData.status;
+    } else {
+      const bmStatus = m.status;
+      if (bmStatus === 0 || bmStatus === 1) status = 'scheduled';
+      else if (bmStatus === 2) status = 'ready';
+      else if (bmStatus === 3) status = 'in_progress';
+      else if (bmStatus === 4) status = 'completed';
+    }
+
+    const o1 = m.opponent1?.id ? String(m.opponent1.id).slice(0, 20) : 'TBD';
+    const o2 = m.opponent2?.id ? String(m.opponent2.id).slice(0, 20) : 'TBD';
 
     console.log(
       `${doc.id.padEnd(24)} ` +
-      `${String(m.matchNumber).padEnd(4)} ` +
-      `${String(m.round).padEnd(6)} ` +
-      `${m.status.padEnd(12)} ` +
-      `${p1.padEnd(24)} ` +
-      `${p2.padEnd(24)} ` +
-      `${winner}`
+      `${String(m.number).padEnd(4)} ` +
+      `${status.padEnd(12)} ` +
+      `${o1.padEnd(24)} ` +
+      `${o2.padEnd(24)}`
     );
   }
 
@@ -145,45 +176,41 @@ async function listMatches(tournamentId: string, categoryId?: string) {
 
 async function listReadyMatches(tournamentId: string) {
   const q = query(
-    collection(db, `tournaments/${tournamentId}/matches`),
-    where('status', 'in', ['scheduled', 'ready']),
-    orderBy('round'),
-    orderBy('matchNumber')
+    collection(db, `tournaments/${tournamentId}/match`),
+    where('status', '==', 2),
+    orderBy('number')
   );
 
   const snapshot = await getDocs(q);
 
-  // Filter to only show matches with both participants
   const readyMatches = snapshot.docs.filter(doc => {
-    const m = doc.data();
-    return m.participant1Id && m.participant2Id;
+    const m = doc.data() as MatchData;
+    return m.opponent1?.id != null && m.opponent2?.id != null;
   });
 
   console.log('\n🎯 Ready to Play:');
   console.log('─'.repeat(80));
 
   for (const doc of readyMatches) {
-    const m = doc.data();
-    console.log(`  Match #${m.matchNumber} (${doc.id})`);
-    console.log(`    P1: ${m.participant1Id}`);
-    console.log(`    P2: ${m.participant2Id}`);
-    console.log(`    Status: ${m.status} | Round: ${m.round}`);
+    const m = doc.data() as MatchData;
+    console.log(`  Match #${m.number} (${doc.id})`);
+    console.log(`    O1: ${m.opponent1?.id}`);
+    console.log(`    O2: ${m.opponent2?.id}`);
+    console.log(`    Status: ready | Stage: ${m.stage_id}`);
     console.log('');
   }
 
   console.log(`Total: ${readyMatches.length} ready matches\n`);
 
-  // Quick complete command helper
   if (readyMatches.length > 0) {
     const first = readyMatches[0];
-    const m = first.data();
+    const m = first.data() as MatchData;
     console.log('Quick complete (copy/paste):');
-    console.log(`  npx ts-node scripts/test-match.ts complete ${tournamentId} ${first.id} ${m.participant1Id}`);
-    console.log(`  npx ts-node scripts/test-match.ts complete ${tournamentId} ${first.id} ${m.participant2Id}`);
+    console.log(`  npx ts-node scripts/test-match.ts complete ${tournamentId} ${first.id} ${m.opponent1?.id}`);
+    console.log(`  npx ts-node scripts/test-match.ts complete ${tournamentId} ${first.id} ${m.opponent2?.id}`);
   }
 }
 
-// Parse command line args
 const [,, command, ...args] = process.argv;
 
 async function main() {

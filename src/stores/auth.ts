@@ -100,10 +100,32 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+
+      // Wait for COMPLETE auth state initialization (currentUser + Firestore profile)
+      // The onAuthStateChanged listener in initAuth() fetches the Firestore profile
+      // and populates currentUser. We need to wait for that to complete before
+      // resolving, otherwise router guards will see isAuthenticated=false.
+      await new Promise<void>((resolve) => {
+        const maxWaitTime = 10000; // 10 second timeout
+        const startTime = Date.now();
+
+        const checkAuth = () => {
+          if (currentUser.value) {
+            console.log('[signIn] ✅ currentUser populated, auth complete');
+            resolve();
+          } else if (Date.now() - startTime > maxWaitTime) {
+            // Timeout - resolve anyway to prevent infinite hang
+            console.warn('[signIn] ⚠️ Timeout waiting for currentUser, proceeding anyway');
+            resolve();
+          } else {
+            setTimeout(checkAuth, 50); // Poll every 50ms
+          }
+        };
+
+        checkAuth();
+      });
     } catch (err: unknown) {
-      const firebaseError = err as { code?: string; message?: string };
-      error.value = getAuthErrorMessage(firebaseError.code || 'unknown');
-      throw err;
+      handleAuthError(err);
     } finally {
       loading.value = false;
     }
@@ -119,9 +141,7 @@ export const useAuthStore = defineStore('auth', () => {
       await updateProfile(user, { displayName });
       await createUserProfile(user, role);
     } catch (err: unknown) {
-      const firebaseError = err as { code?: string; message?: string };
-      error.value = getAuthErrorMessage(firebaseError.code || 'unknown');
-      throw err;
+      handleAuthError(err);
     } finally {
       loading.value = false;
     }
@@ -181,6 +201,13 @@ export const useAuthStore = defineStore('auth', () => {
     };
 
     return errorMessages[code] || 'An authentication error occurred';
+  }
+
+  // Helper to handle auth errors consistently across signIn, register, and signOut
+  function handleAuthError(err: unknown): never {
+    const firebaseError = err as { code?: string; message?: string };
+    error.value = getAuthErrorMessage(firebaseError.code || 'unknown');
+    throw err;
   }
 
   return {

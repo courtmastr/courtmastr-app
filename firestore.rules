@@ -73,16 +73,6 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
 
-      // Matches subcollection
-      match /matches/{matchId} {
-        allow read: if true;
-        // Admins can create matches (bracket generation)
-        allow create: if isAuthenticated();
-        // Scorekeepers can update scores, admins can update anything
-        allow update: if isScorekeeper() || isAdmin();
-        allow delete: if isAdmin();
-      }
-
       // Activities subcollection (tournament activity feed)
       match /activities/{activityId} {
         // Anyone can read activities (public feed)
@@ -93,6 +83,106 @@ service cloud.firestore {
         allow update: if isAdmin();
         allow delete: if isAdmin();
       }
+      // Brackets Manager Collections
+      // stage subcollection
+      match /stage/{stageId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // match subcollection (singular 'match' used by brackets-manager)
+      match /match/{matchId} {
+        allow read: if true;
+        // Admins and scorekeepers can update matches
+        allow write: if isAuthenticated();
+      }
+
+      // participant subcollection
+      match /participant/{participantId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // group subcollection
+      match /group/{groupId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // round subcollection
+      match /round/{roundId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // match_game subcollection (for game scores)
+      match /match_game/{gameId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // match_scores subcollection (for legacy/custom scoring)
+      match /match_scores/{matchId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+
+        // Score correction history - readable by all, writable by scorekeepers only
+        match /corrections/{correctionId} {
+          allow read: if isAuthenticated();
+          allow create: if isScorekeeper();
+          allow update, delete: if false; // Immutable history
+        }
+      }
+
+      // Category-isolated bracket collections (new architecture)
+      match /categories/{categoryId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+
+        // Bracket subcollections under each category
+        match /stage/{stageId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /match/{matchId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /participant/{participantId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /group/{groupId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /round/{roundId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /match_game/{gameId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /match_scores/{matchId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+
+          // Score correction history - readable by all, writable by scorekeepers only
+          match /corrections/{correctionId} {
+            allow read: if isAuthenticated();
+            allow create: if isScorekeeper();
+            allow update, delete: if false; // Immutable history
+          }
+        }
+      }
+
     }
 
     // Notifications collection
