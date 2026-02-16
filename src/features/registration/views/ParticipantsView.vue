@@ -5,6 +5,8 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import FilterBar from '@/components/common/FilterBar.vue';
+import CompactDataTable from '@/components/common/CompactDataTable.vue';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { normalizeTournamentState } from '@/guards/tournamentState';
 
@@ -25,6 +27,8 @@ const lifecycleState = computed(() => normalizeTournamentState(tournament.value)
 
 // Filter state
 const filterCategory = ref<string | null>(null);
+const filterStatus = ref<string | null>(null);
+const filterSort = ref<string | null>('default');
 const searchQuery = ref('');
 
 // Dialog states
@@ -69,6 +73,32 @@ const activePlayerIds = computed(() => {
   return ids;
 });
 
+const categoryFilterOptions = computed(() => [
+  { title: 'All Categories', value: null },
+  ...categories.value.map((category) => ({ title: category.name, value: category.id })),
+]);
+
+const statusOptions = [
+  { title: 'All Statuses', value: null },
+  { title: 'Approved', value: 'approved' },
+  { title: 'Checked In', value: 'checked_in' },
+];
+
+const sortOptions = [
+  { title: 'Default', value: 'default' },
+  { title: 'Name (A-Z)', value: 'name_asc' },
+  { title: 'Name (Z-A)', value: 'name_desc' },
+  { title: 'Category (A-Z)', value: 'category_asc' },
+  { title: 'Status (A-Z)', value: 'status_asc' },
+];
+
+const hasActiveParticipantFilters = computed(() => (
+  Boolean(searchQuery.value.trim()) ||
+  Boolean(filterCategory.value) ||
+  Boolean(filterStatus.value) ||
+  (filterSort.value !== null && filterSort.value !== 'default')
+));
+
 // Filtered participants (players who are registered)
 const filteredParticipants = computed(() => {
   let result = players.value.filter(p => activePlayerIds.value.has(p.id));
@@ -83,7 +113,31 @@ const filteredParticipants = computed(() => {
     });
   }
 
-  return result;
+  if (filterCategory.value) {
+    result = result.filter((player) => getParticipantCategoryId(player.id) === filterCategory.value);
+  }
+
+  if (filterStatus.value) {
+    result = result.filter((player) => getParticipantStatus(player.id) === filterStatus.value);
+  }
+
+  const sorted = [...result];
+  switch (filterSort.value) {
+    case 'name_asc':
+      sorted.sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+      return sorted;
+    case 'name_desc':
+      sorted.sort((a, b) => `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`));
+      return sorted;
+    case 'category_asc':
+      sorted.sort((a, b) => getParticipantCategory(a.id).localeCompare(getParticipantCategory(b.id)));
+      return sorted;
+    case 'status_asc':
+      sorted.sort((a, b) => getParticipantStatus(a.id).localeCompare(getParticipantStatus(b.id)));
+      return sorted;
+    default:
+      return result;
+  }
 });
 
 // Stats
@@ -107,19 +161,25 @@ function getPlayerName(playerId: string): string {
   return player ? `${player.firstName} ${player.lastName}` : 'Unknown';
 }
 
-function getParticipantCategory(playerId: string): string {
-  const reg = activeRegistrations.value.find(r => 
-    r.playerId === playerId || r.partnerPlayerId === playerId
+function getParticipantRegistration(playerId: string) {
+  return activeRegistrations.value.find((registration) =>
+    registration.playerId === playerId || registration.partnerPlayerId === playerId
   );
+}
+
+function getParticipantCategoryId(playerId: string): string | null {
+  return getParticipantRegistration(playerId)?.categoryId || null;
+}
+
+function getParticipantCategory(playerId: string): string {
+  const reg = getParticipantRegistration(playerId);
   if (!reg) return '-';
   const category = categories.value.find(c => c.id === reg.categoryId);
   return category?.name || 'Unknown';
 }
 
 function getParticipantStatus(playerId: string): string {
-  const reg = activeRegistrations.value.find(r => 
-    r.playerId === playerId || r.partnerPlayerId === playerId
-  );
+  const reg = getParticipantRegistration(playerId);
   return reg?.status || 'unknown';
 }
 
@@ -200,6 +260,9 @@ function resetPlayerForm() {
 
 function clearFilters() {
   searchQuery.value = '';
+  filterCategory.value = null;
+  filterStatus.value = null;
+  filterSort.value = 'default';
 }
 </script>
 
@@ -210,9 +273,24 @@ function clearFilters() {
       <div class="d-flex align-center justify-space-between flex-wrap gap-4">
         <div>
           <div class="d-flex align-center text-grey-darken-1 text-caption mb-1">
-            <v-icon size="small" class="mr-1">mdi-home</v-icon>
-            Home <v-icon size="small" class="mx-1">mdi-chevron-right</v-icon>
-            Tournaments <v-icon size="small" class="mx-1">mdi-chevron-right</v-icon>
+            <v-icon
+              size="small"
+              class="mr-1"
+            >
+              mdi-home
+            </v-icon>
+            Home <v-icon
+              size="small"
+              class="mx-1"
+            >
+              mdi-chevron-right
+            </v-icon>
+            Tournaments <v-icon
+              size="small"
+              class="mx-1"
+            >
+              mdi-chevron-right
+            </v-icon>
             {{ tournament?.name }}
           </div>
           <div class="d-flex align-center">
@@ -254,7 +332,10 @@ function clearFilters() {
 
     <!-- Stats Grid -->
     <v-row class="mb-6">
-      <v-col cols="6" sm="3">
+      <v-col
+        cols="6"
+        sm="3"
+      >
         <div class="stat-card pa-4 rounded-lg bg-surface">
           <div class="stat-icon-wrapper bg-primary-lighten-4 text-primary">
             <v-icon>mdi-account-group</v-icon>
@@ -268,7 +349,10 @@ function clearFilters() {
         </div>
       </v-col>
       
-      <v-col cols="6" sm="3">
+      <v-col
+        cols="6"
+        sm="3"
+      >
         <div class="stat-card stat-success pa-4 rounded-lg bg-surface">
           <div class="stat-icon-wrapper">
             <v-icon>mdi-check-decagram</v-icon>
@@ -282,7 +366,10 @@ function clearFilters() {
         </div>
       </v-col>
 
-      <v-col cols="6" sm="3">
+      <v-col
+        cols="6"
+        sm="3"
+      >
         <div class="stat-card stat-info pa-4 rounded-lg bg-surface">
           <div class="stat-icon-wrapper">
             <v-icon>mdi-account</v-icon>
@@ -296,7 +383,10 @@ function clearFilters() {
         </div>
       </v-col>
 
-      <v-col cols="6" sm="3">
+      <v-col
+        cols="6"
+        sm="3"
+      >
         <div class="stat-card stat-secondary pa-4 rounded-lg bg-surface">
           <div class="stat-icon-wrapper">
             <v-icon>mdi-account-multiple</v-icon>
@@ -314,67 +404,68 @@ function clearFilters() {
     <!-- Participants Table -->
     <v-card>
       <v-card-text class="pb-0">
-        <v-row>
-          <v-col cols="12" sm="6" md="4">
-            <v-text-field
-              v-model="searchQuery"
-              prepend-inner-icon="mdi-magnify"
-              label="Search participants"
-              density="compact"
-              variant="outlined"
-              clearable
-              hide-details
-            />
-          </v-col>
-          <v-col
-            cols="12"
-            sm="6"
-            md="8"
-            class="d-flex align-center justify-end"
-          >
-            <v-btn
-              v-if="searchQuery"
-              variant="text"
-              size="small"
-              @click="clearFilters"
-            >
-              Clear Filters
-            </v-btn>
-          </v-col>
-        </v-row>
+        <filter-bar
+          :search="searchQuery"
+          :category="filterCategory"
+          :status="filterStatus"
+          :sort="filterSort"
+          :enable-category="true"
+          :enable-status="true"
+          :enable-court="false"
+          :category-options="categoryFilterOptions"
+          :status-options="statusOptions"
+          :sort-options="sortOptions"
+          search-label="Search"
+          search-placeholder="Search participants"
+          :has-active-filters="hasActiveParticipantFilters"
+          @update:search="searchQuery = $event"
+          @update:category="filterCategory = $event"
+          @update:status="filterStatus = $event"
+          @update:sort="filterSort = $event"
+          @clear="clearFilters"
+        />
       </v-card-text>
 
-      <v-data-table
-        :headers="[
-          { title: 'Participant', key: 'name' },
-          { title: 'Category', key: 'category' },
-          { title: 'Status', key: 'status' },
-          { title: 'Skill Level', key: 'skillLevel' },
-          { title: 'Actions', key: 'actions', sortable: false, align: 'end' },
-        ]"
+      <compact-data-table
         :items="filteredParticipants"
+        :columns="[
+          { key: 'name', title: 'Participant', width: '40%', essential: true },
+          { key: 'category', title: 'Category', width: '120px', essential: true },
+          { key: 'status', title: 'Status', width: '120px', essential: true },
+          { key: 'actions', title: 'Actions', width: '100px', essential: true },
+        ]"
         :loading="loading"
-        hover
       >
-        <template #item.name="{ item }">
+        <template #cell-name="{ item }"
           <div class="d-flex align-center py-2">
-            <v-avatar size="36" color="primary" class="mr-3">
+            <v-avatar
+              size="36"
+              color="primary"
+              class="mr-3"
+            >
               <span class="text-caption">{{ item.firstName.charAt(0) }}</span>
             </v-avatar>
             <div>
-              <div class="font-weight-medium">{{ item.firstName }} {{ item.lastName }}</div>
-              <div class="text-caption text-grey">{{ item.email || 'No email' }}</div>
+              <div class="font-weight-medium">
+                {{ item.firstName }} {{ item.lastName }}
+              </div>
+              <div class="text-caption text-grey">
+                {{ item.email || 'No email' }}
+              </div>
             </div>
           </div>
         </template>
 
-        <template #item.category="{ item }">
-          <v-chip size="small" variant="outlined">
+        <template #cell-category="{ item }"
+          <v-chip
+            size="small"
+            variant="outlined"
+          >
             {{ getParticipantCategory(item.id) }}
           </v-chip>
         </template>
 
-        <template #item.status="{ item }">
+        <template #cell-status="{ item }"
           <v-chip
             :color="getParticipantStatus(item.id) === 'checked_in' ? 'success' : 'info'"
             size="small"
@@ -384,22 +475,7 @@ function clearFilters() {
           </v-chip>
         </template>
 
-        <template #item.skillLevel="{ item }">
-          <div class="d-flex align-center">
-            <v-chip size="small" color="primary" variant="tonal" class="mr-2">
-              {{ item.skillLevel || 5 }} / 10
-            </v-chip>
-            <v-progress-linear
-              :model-value="((item.skillLevel || 5) / 10) * 100"
-              color="primary"
-              height="8"
-              rounded
-              style="width: 80px;"
-            />
-          </div>
-        </template>
-
-        <template #item.actions="{ item }">
+        <template #actions="{ item }"
           <div class="d-flex justify-end">
             <v-btn
               icon="mdi-pencil"
@@ -419,12 +495,24 @@ function clearFilters() {
             />
           </div>
         </template>
-      </v-data-table>
+
+        <template #details="{ item }"
+          <div class="d-flex flex-wrap gap-4 text-body-2"
+            <div><strong>Skill Level:</strong> {{ item.skillLevel || 5 }} / 10</div>
+            <div><strong>Email:</strong> {{ item.email || 'No email' }}</div>
+            <div><strong>Phone:</strong> {{ item.phone || 'No phone' }}</div>
+          </div>
+        </template>
+      </compact-data-table>
 
       <v-card-text v-if="filteredParticipants.length === 0 && !loading">
         <div class="text-center py-8 text-grey">
-          <v-icon size="64">mdi-account-off</v-icon>
-          <p class="mt-4 text-h6">No participants found</p>
+          <v-icon size="64">
+            mdi-account-off
+          </v-icon>
+          <p class="mt-4 text-h6">
+            No participants found
+          </p>
           <p class="text-body-2">
             {{ searchQuery ? 'Try adjusting your search' : 'Add players and approve registrations to see participants here' }}
           </p>
@@ -441,7 +529,10 @@ function clearFilters() {
     </v-card>
 
     <!-- Add Player Dialog -->
-    <v-dialog v-model="showAddPlayerDialog" max-width="500">
+    <v-dialog
+      v-model="showAddPlayerDialog"
+      max-width="500"
+    >
       <v-card>
         <v-card-title>Add Player</v-card-title>
         <v-card-text>
@@ -479,7 +570,10 @@ function clearFilters() {
           <div class="mt-4">
             <div class="d-flex align-center justify-space-between mb-2">
               <span class="text-body-1">Skill Level</span>
-              <v-chip color="primary" variant="tonal">
+              <v-chip
+                color="primary"
+                variant="tonal"
+              >
                 {{ newPlayer.skillLevel }} / 10
               </v-chip>
             </div>
@@ -503,17 +597,32 @@ function clearFilters() {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showAddPlayerDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="addPlayer">Add Player</v-btn>
+          <v-btn
+            variant="text"
+            @click="showAddPlayerDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="addPlayer"
+          >
+            Add Player
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Edit Player Dialog -->
-    <v-dialog v-model="showEditPlayerDialog" max-width="500">
+    <v-dialog
+      v-model="showEditPlayerDialog"
+      max-width="500"
+    >
       <v-card v-if="editingPlayer">
         <v-card-title>
-          <v-icon start>mdi-account-edit</v-icon>
+          <v-icon start>
+            mdi-account-edit
+          </v-icon>
           Edit Player
         </v-card-title>
         <v-card-text>
@@ -551,7 +660,10 @@ function clearFilters() {
           <div class="mt-4">
             <div class="d-flex align-center justify-space-between mb-2">
               <span class="text-body-1">Skill Level</span>
-              <v-chip color="primary" variant="tonal">
+              <v-chip
+                color="primary"
+                variant="tonal"
+              >
                 {{ editingPlayer.skillLevel }} / 10
               </v-chip>
             </div>
@@ -575,17 +687,35 @@ function clearFilters() {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showEditPlayerDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="savePlayer">Save Changes</v-btn>
+          <v-btn
+            variant="text"
+            @click="showEditPlayerDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="savePlayer"
+          >
+            Save Changes
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="showDeletePlayerDialog" max-width="400">
+    <v-dialog
+      v-model="showDeletePlayerDialog"
+      max-width="400"
+    >
       <v-card>
         <v-card-title class="text-h6">
-          <v-icon color="error" class="mr-2">mdi-alert</v-icon>
+          <v-icon
+            color="error"
+            class="mr-2"
+          >
+            mdi-alert
+          </v-icon>
           Delete Player?
         </v-card-title>
         <v-card-text>
@@ -593,8 +723,17 @@ function clearFilters() {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showDeletePlayerDialog = false">Cancel</v-btn>
-          <v-btn color="error" variant="elevated" @click="confirmDeletePlayer">
+          <v-btn
+            variant="text"
+            @click="showDeletePlayerDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="error"
+            variant="elevated"
+            @click="confirmDeletePlayer"
+          >
             Delete
           </v-btn>
         </v-card-actions>
@@ -635,18 +774,18 @@ function clearFilters() {
   align-items: center;
   justify-content: center;
   margin-bottom: $spacing-sm;
-  background: rgba($success-base, 0.1);
-  color: $success-base;
+  background: rgba($success, 0.1);
+  color: $success;
 }
 
 .stat-success .stat-icon-wrapper {
-  background: rgba($success-base, 0.1);
-  color: $success-base;
+  background: rgba($success, 0.1);
+  color: $success;
 }
 
 .stat-info .stat-icon-wrapper {
-  background: rgba($info-base, 0.1);
-  color: $info-base;
+  background: rgba($info, 0.1);
+  color: $info;
 }
 
 .stat-secondary .stat-icon-wrapper {
