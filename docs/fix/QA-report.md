@@ -1968,26 +1968,26 @@ TOURNEY-104 created reusable components (ExpandableRow, CompactDataTable) and de
 
 # Quick Reference
 
-| Ticket ID   | Priority | Title                                 |
-| ----------- | -------- | ------------------------------------- |
-| TOURNEY-001 | P0       | Fix incorrect court busy/total stats  |
-| TOURNEY-002 | P0       | Fix invalid match duration metrics    |
-| TOURNEY-003 | P0       | Add lifecycle state machine and locks |
-| TOURNEY-004 | P0       | Fix Participants canonical routing    |
-| TOURNEY-101 | P1       | Build Live Command Center             |
-| TOURNEY-102 | P1       | Redesign check-in for speed           |
-| TOURNEY-103 | P1       | Scoring presets + validation          |
-| TOURNEY-104 | P1       | Remove horizontal scroll tables       |
-| TOURNEY-104-B | P2     | Complete table compact refactor (remaining pages) |
-| TOURNEY-105 | P1       | Standardize filter bar                |
-| TOURNEY-106 | P1       | Organizer checklist on overview       |
-| TOURNEY-201 | P2       | Remove duplicate nav entries          |
-| TOURNEY-202 | P2       | Add audit trail                       |
-| TOURNEY-203 | P2       | Unambiguous match identifiers         |
-| TOURNEY-204 | P2       | Standardize breadcrumbs/titles        |
-| TOURNEY-205 | P2       | Clarify global vs local search        |
-| TOURNEY-206 | P3       | Standardize status badge system       |
-| TOURNEY-207 | P2       | Live ops alerts engine                |
+| Ticket ID   | Priority | Title                                 | Status |
+| ----------- | -------- | ------------------------------------- | ------ |
+| TOURNEY-001 | P0       | Fix incorrect court busy/total stats  | ⏸️ Skipped |
+| TOURNEY-002 | P0       | Fix invalid match duration metrics    | ⏸️ Skipped |
+| TOURNEY-003 | P0       | Add lifecycle state machine and locks | ⏸️ Skipped |
+| TOURNEY-004 | P0       | Fix Participants canonical routing    | ⏸️ Skipped |
+| TOURNEY-101 | P1       | Build Live Command Center             | ✅ Complete |
+| TOURNEY-102 | P1       | Redesign check-in for speed           | ✅ Complete |
+| TOURNEY-103 | P1       | Scoring presets + validation          | ⏸️ Pending |
+| TOURNEY-104 | P1       | Remove horizontal scroll tables       | ✅ Complete (foundation) |
+| TOURNEY-104-B | P2     | Complete table compact refactor (remaining pages) | ⏸️ Pending |
+| TOURNEY-105 | P1       | Standardize filter bar                | ✅ Complete |
+| TOURNEY-106 | P1       | Organizer checklist on overview       | ✅ Complete |
+| TOURNEY-201 | P2       | Remove duplicate nav entries          | ⏸️ Pending |
+| TOURNEY-202 | P2       | Add audit trail                       | ⏸️ Pending |
+| TOURNEY-203 | P2       | Unambiguous match identifiers         | ⏸️ Pending |
+| TOURNEY-204 | P2       | Standardize breadcrumbs/titles        | ⏸️ Pending |
+| TOURNEY-205 | P2       | Clarify global vs local search        | ⏸️ Pending |
+| TOURNEY-206 | P3       | Standardize status badge system       | ⏸️ Pending |
+| TOURNEY-207 | P2       | Live ops alerts engine                | ⏸️ Pending |
 | TOURNEY-208 | P2       | KPI definitions/tooltips              |
 
 PROMPT 
