@@ -12,6 +12,7 @@ import CategoryManagement from '../components/CategoryManagement.vue';
 import CourtManagement from '../components/CourtManagement.vue';
 import CategoryRegistrationStats from '../components/CategoryRegistrationStats.vue';
 import OrganizerChecklist from '../components/OrganizerChecklist.vue';
+import CompactDataTable from '@/components/common/CompactDataTable.vue';
 // ActiveMatchesSection removed - using compact summary on dashboard instead
 
 const route = useRoute();
@@ -1085,52 +1086,34 @@ async function handleDeleteTournament() {
               class="mb-4"
               style="max-width: 300px"
             />
-            <v-data-table
-              :headers="[
-                { title: 'Match', key: 'matchNumber' },
-                { title: 'Category', key: 'categoryId' },
-                { title: 'Round', key: 'round' },
-                { title: 'Participants', key: 'participants' },
-                { title: 'Score', key: 'score' },
-                { title: 'Court', key: 'court' },
-                { title: 'Status', key: 'status' },
-                { title: 'Actions', key: 'actions', sortable: false },
-              ]"
+            <compact-data-table
               :items="matches"
+              :columns="[
+                { key: 'match', title: 'Match', width: '40%', essential: true },
+                { key: 'status', title: 'Status', width: '120px', essential: true },
+                { key: 'actions', title: 'Actions', width: '100px', essential: true },
+              ]"
               :items-per-page="10"
             >
-              <template #item.categoryId="{ item }">
-                <v-chip
-                  size="x-small"
-                  variant="outlined"
-                >
-                  {{ getCategoryName(item.categoryId) }}
-                </v-chip>
-              </template>
-              <template #item.participants="{ item }">
-                <span>{{ getParticipantName(item.participant1Id) }} vs {{ getParticipantName(item.participant2Id) }}</span>
-              </template>
-              <template #item.score="{ item }">
-                <span v-if="item.scores.length > 0">
-                  {{ item.scores.map((s: any) => `${s.score1}-${s.score2}`).join(', ') }}
-                </span>
-                <span
-                  v-else
-                  class="text-grey"
-                >-</span>
-              </template>
-              <template #item.court="{ item }">
-                {{ courts.find((c) => c.id === item.courtId)?.name || '-' }}
-              </template>
-              <template #item.status="{ item }">
+              <template #cell-match="{ item }"
+                <div class="d-flex flex-column py-1"
+                  <div class="font-weight-medium"
+                    #{{ item.matchNumber }}: {{ getParticipantName(item.participant1Id) }} vs {{ getParticipantName(item.participant2Id) }}
+                  </div
+                  <div class="text-caption text-grey"
+                    {{ getCategoryName(item.categoryId) }} • Round {{ item.round }}
+                  </div
+                </div
+              </template
+              <template #cell-status="{ item }"
                 <v-chip
                   :color="getStatusColor(item.status)"
                   size="small"
                 >
                   {{ item.status }}
-                </v-chip>
-              </template>
-              <template #item.actions="{ item }">
+                </v-chip
+              </template
+              <template #actions="{ item }"
                 <v-btn
                   v-if="item.status === 'ready' || item.status === 'in_progress'"
                   size="small"
@@ -1138,9 +1121,20 @@ async function handleDeleteTournament() {
                   :to="{ path: `/tournaments/${tournamentId}/matches/${item.id}/score`, query: item.categoryId ? { category: item.categoryId } : undefined }"
                 >
                   Score
-                </v-btn>
-              </template>
-            </v-data-table>
+                </v-btn
+              </template
+              <template #details="{ item }"
+                <div class="d-flex flex-wrap gap-4 text-body-2"
+                  <div><strong>Score:</strong> 
+                    <span v-if="item.scores.length > 0"
+                      {{ item.scores.map((s: any) => `${s.score1}-${s.score2}`).join(', ') }}
+                    </span
+                    <span v-else class="text-grey"-</span
+                  </div
+                  <div><strong>Court:</strong> {{ courts.find((c) => c.id === item.courtId)?.name || '-' }}</div
+                </div
+              </template
+            </compact-data-table>
           </v-card-text>
         </v-tabs-window-item>
 
@@ -1159,23 +1153,21 @@ async function handleDeleteTournament() {
                 Manage Registrations
               </v-btn>
             </div>
-            <v-data-table
-              :headers="[
-                { title: 'Player', key: 'player' },
-                { title: 'Category', key: 'category' },
-                { title: 'Status', key: 'status' },
-                { title: 'Registered', key: 'registeredAt' },
-              ]"
+            <compact-data-table
               :items="registrations"
+              :columns="[
+                { key: 'player', title: 'Player', width: '50%', essential: true },
+                { key: 'status', title: 'Status', width: '120px', essential: true },
+              ]"
               :items-per-page="10"
             >
-              <template #item.player="{ item }">
-                {{ getParticipantDisplay(item) }}
+              <template #cell-player="{ item }">
+                <div class="d-flex flex-column">
+                  <span class="font-weight-medium">{{ getParticipantDisplay(item) }}</span>
+                  <span class="text-caption text-grey">{{ categories.find((c) => c.id === item.categoryId)?.name || 'Unknown' }}</span>
+                </div>
               </template>
-              <template #item.category="{ item }">
-                {{ categories.find((c) => c.id === item.categoryId)?.name || 'Unknown' }}
-              </template>
-              <template #item.status="{ item }">
+              <template #cell-status="{ item }">
                 <v-chip
                   :color="item.status === 'approved' ? 'success' : item.status === 'pending' ? 'warning' : 'grey'"
                   size="small"
@@ -1183,10 +1175,12 @@ async function handleDeleteTournament() {
                   {{ item.status }}
                 </v-chip>
               </template>
-              <template #item.registeredAt="{ item }">
-                {{ new Date(item.registeredAt).toLocaleDateString() }}
+              <template #details="{ item }">
+                <div class="text-body-2">
+                  <strong>Registered:</strong> {{ item.createdAt?.toLocaleDateString() || 'Unknown' }}
+                </div>
               </template>
-            </v-data-table>
+            </compact-data-table>
           </v-card-text>
         </v-tabs-window-item>
       </v-tabs-window>
