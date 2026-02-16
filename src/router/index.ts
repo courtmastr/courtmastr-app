@@ -16,6 +16,7 @@ const TournamentSettings = () => import('@/features/tournaments/views/Tournament
 // Registration views
 const RegistrationManagement = () => import('@/features/registration/views/RegistrationManagementView.vue');
 const SelfRegistration = () => import('@/features/registration/views/SelfRegistrationView.vue');
+const Participants = () => import('@/features/registration/views/ParticipantsView.vue');
 
 // Leaderboard view
 const Leaderboard = () => import('@/features/tournaments/views/LeaderboardView.vue');
@@ -113,10 +114,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true },
   },
 
-  // Participants alias
+  // Participants (canonical route - active roster view)
   {
     path: '/tournaments/:tournamentId/participants',
-    redirect: to => `/tournaments/${to.params.tournamentId}/registrations`
+    name: 'participants',
+    component: Participants,
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
 
   // Courts redirect
