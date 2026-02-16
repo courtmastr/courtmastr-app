@@ -623,6 +623,42 @@ grep -rn "tournaments/.*categories.*match_scores" src/ --include="*.ts" --includ
 
 ---
 
+## Category: Scoring / Data Integrity
+
+### CP-014: Resolve Scoring Rules from Tournament/Category, Never Hardcode Runtime Scoring
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-16 |
+| **Source Bug** | TOURNEY-103 — scoring UI/store stayed fixed at 21x3 despite configurable presets |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// ❌ Hardcoded runtime logic
+const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+const isComplete = (score1 >= 21 || score2 >= 21) &&
+  (Math.abs(score1 - score2) >= 2 || score1 === 30 || score2 === 30);
+```
+
+**Correct Pattern (✅):**
+```typescript
+// ✅ Resolve effective config first, then validate with shared engine
+const scoringConfig = resolveScoringConfig(tournament, category);
+const validation = validateCompletedGameScore(score1, score2, scoringConfig);
+const gamesNeeded = getGamesNeeded(scoringConfig);
+```
+
+**Rule:** Any score entry, winner calculation, manual correction, or walkover logic must use resolved scoring config (category override if enabled, else tournament settings), not hardcoded `21/30/best-of-3`.
+
+**Detection:**
+```bash
+rg -n ">= 21|=== 30|BADMINTON_CONFIG\\.gamesPerMatch|Math\\.ceil\\(BADMINTON_CONFIG\\.gamesPerMatch / 2\\)" src/features/scoring src/features/tournaments/views/MatchControlView.vue src/stores/matches.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
