@@ -1,35 +1,40 @@
 <template>
   <div class="global-search pa-4">
-    <v-autocomplete
-      v-model="selectedItem"
-      v-model:search="searchTerm"
-      :items="searchResults"
-      item-title="title"
-      item-value="path"
-      placeholder="Search CourtMaster (v2)..."
-      label="Search"
-      prepend-inner-icon="mdi-magnify"
-      variant="outlined"
-      density="compact"
-      hide-details
-      auto-select-first
-      :filter="() => true"
-      :menu-props="{ maxHeight: 400 }"
-      name="courtmaster-global-search"
-      autocomplete="off"
-      @update:model-value="navigateToItem"
-      @keyup.enter="performSearch"
-    >
-      <template #item="{ props, item }">
-        <v-list-item v-bind="props">
-          <template #prepend>
-            <v-icon :icon="item.raw.icon" />
+    <v-tooltip text="Global search: Find tournaments and navigate to pages" location="bottom">
+      <template #activator="{ props: tooltipProps }">
+        <v-autocomplete
+          v-bind="tooltipProps"
+          v-model="selectedItem"
+          v-model:search="searchTerm"
+          :items="searchResults"
+          item-title="title"
+          item-value="path"
+          placeholder="Search tournaments, pages..."
+          label="Global Search"
+          prepend-inner-icon="mdi-magnify"
+          variant="outlined"
+          density="compact"
+          hide-details
+          auto-select-first
+          :filter="() => true"
+          :menu-props="{ maxHeight: 400 }"
+          name="courtmaster-global-search"
+          autocomplete="off"
+          @update:model-value="navigateToItem"
+          @keyup.enter="performSearch"
+        >
+          <template #item="{ props, item }">
+            <v-list-item v-bind="props">
+              <template #prepend>
+                <v-icon :icon="item.raw.icon" />
+              </template>
+              <v-list-item-title>{{ item.raw.title }}</v-list-item-title>
+              <v-list-item-subtitle>{{ item.raw.subtitle }}</v-list-item-subtitle>
+            </v-list-item>
           </template>
-          <v-list-item-title>{{ item.raw.title }}</v-list-item-title>
-          <v-list-item-subtitle>{{ item.raw.subtitle }}</v-list-item-subtitle>
-        </v-list-item>
+        </v-autocomplete>
       </template>
-    </v-autocomplete>
+    </v-tooltip>
   </div>
 </template>
 
