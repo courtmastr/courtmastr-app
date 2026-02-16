@@ -9,9 +9,14 @@ import { useActivityStore } from '@/stores/activities';
 import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import ActivityFeed from '@/components/ActivityFeed.vue';
+import FilterBar from '@/components/common/FilterBar.vue';
 import MatchQueueList from '@/features/tournaments/components/MatchQueueList.vue';
 import QuickActionsBar from '@/features/tournaments/components/QuickActionsBar.vue';
 import ActiveMatchesSection from '@/features/tournaments/components/ActiveMatchesSection.vue';
+// TOURNEY-101: Command Center components
+import CourtGrid from '@/features/tournaments/components/CourtGrid.vue';
+import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
+import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
 import { useMatchDuration } from '@/composables/useMatchDuration';
 import type { Match, Court } from '@/types';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
@@ -65,7 +70,7 @@ onUnmounted(() => {
 
 // Filter state
 const selectedCategory = ref<string>('all');
-const viewMode = ref<'queue' | 'courts' | 'schedule'>('queue');
+const viewMode = ref<'queue' | 'courts' | 'schedule' | 'command'>('command');
 
 // Schedule view filter state
 const scheduleFilters = ref({
@@ -292,7 +297,7 @@ const filteredMatches = computed(() => {
 
   // Status filter
   if (scheduleFilters.value.status !== 'all') {
-    result = result.filter((m) => m.status === scheduleFilters.value.status as any);
+    result = result.filter((m) => m.status === scheduleFilters.value.status);
   }
 
   // Court filter
@@ -328,21 +333,24 @@ const filteredMatches = computed(() => {
       case 'category':
         comparison = getCategoryName(a.categoryId).localeCompare(getCategoryName(b.categoryId));
         break;
-      case 'participants':
+      case 'participants': {
         const aName = getParticipantName(a.participant1Id);
         const bName = getParticipantName(b.participant1Id);
         comparison = aName.localeCompare(bName);
         break;
-      case 'court':
+      }
+      case 'court': {
         const aCourt = getCourtName(a.courtId);
         const bCourt = getCourtName(b.courtId);
         comparison = aCourt.localeCompare(bCourt);
         break;
-      case 'time':
+      }
+      case 'time': {
         const aTime = a.scheduledTime?.getTime() || 0;
         const bTime = b.scheduledTime?.getTime() || 0;
         comparison = aTime - bTime;
         break;
+      }
       case 'status':
         comparison = a.status.localeCompare(b.status);
         break;
@@ -371,6 +379,114 @@ const statusOptions = [
   { name: 'Completed', value: 'completed' },
   { name: 'Cancelled', value: 'cancelled' },
 ] as const;
+
+const categoryFilterOptions = computed(() => [
+  { title: 'All Categories', value: 'all' },
+  ...categories.value.map((category) => ({ title: category.name, value: category.id })),
+]);
+
+const scheduleStatusFilterOptions = statusOptions.map((option) => ({
+  title: option.name,
+  value: option.value,
+}));
+
+const scheduleCourtFilterOptions = computed(() => [
+  { title: 'All Courts', value: 'all' },
+  ...courts.value.map((court) => ({ title: court.name, value: court.id })),
+]);
+
+const scheduleSortOptions = [
+  { title: 'Round (Asc)', value: 'round_asc' },
+  { title: 'Round (Desc)', value: 'round_desc' },
+  { title: 'Match Number (Asc)', value: 'match_number_asc' },
+  { title: 'Match Number (Desc)', value: 'match_number_desc' },
+  { title: 'Category (A-Z)', value: 'category_asc' },
+  { title: 'Participants (A-Z)', value: 'participants_asc' },
+  { title: 'Court (A-Z)', value: 'court_asc' },
+  { title: 'Scheduled Time (Earliest)', value: 'time_asc' },
+  { title: 'Scheduled Time (Latest)', value: 'time_desc' },
+  { title: 'Status (A-Z)', value: 'status_asc' },
+];
+
+const scheduleSortValue = computed<string>({
+  get: () => {
+    const { sortBy, sortDesc } = scheduleFilters.value;
+    if (sortBy === 'round') return sortDesc ? 'round_desc' : 'round_asc';
+    if (sortBy === 'matchNumber') return sortDesc ? 'match_number_desc' : 'match_number_asc';
+    if (sortBy === 'category') return 'category_asc';
+    if (sortBy === 'participants') return 'participants_asc';
+    if (sortBy === 'court') return 'court_asc';
+    if (sortBy === 'time') return sortDesc ? 'time_desc' : 'time_asc';
+    if (sortBy === 'status') return 'status_asc';
+    return 'round_asc';
+  },
+  set: (value) => {
+    switch (value) {
+      case 'round_desc':
+        scheduleFilters.value.sortBy = 'round';
+        scheduleFilters.value.sortDesc = true;
+        break;
+      case 'match_number_asc':
+        scheduleFilters.value.sortBy = 'matchNumber';
+        scheduleFilters.value.sortDesc = false;
+        break;
+      case 'match_number_desc':
+        scheduleFilters.value.sortBy = 'matchNumber';
+        scheduleFilters.value.sortDesc = true;
+        break;
+      case 'category_asc':
+        scheduleFilters.value.sortBy = 'category';
+        scheduleFilters.value.sortDesc = false;
+        break;
+      case 'participants_asc':
+        scheduleFilters.value.sortBy = 'participants';
+        scheduleFilters.value.sortDesc = false;
+        break;
+      case 'court_asc':
+        scheduleFilters.value.sortBy = 'court';
+        scheduleFilters.value.sortDesc = false;
+        break;
+      case 'time_asc':
+        scheduleFilters.value.sortBy = 'time';
+        scheduleFilters.value.sortDesc = false;
+        break;
+      case 'time_desc':
+        scheduleFilters.value.sortBy = 'time';
+        scheduleFilters.value.sortDesc = true;
+        break;
+      case 'status_asc':
+        scheduleFilters.value.sortBy = 'status';
+        scheduleFilters.value.sortDesc = false;
+        break;
+      case 'round_asc':
+      default:
+        scheduleFilters.value.sortBy = 'round';
+        scheduleFilters.value.sortDesc = false;
+    }
+  },
+});
+
+const hasActiveScheduleFilters = computed(() => (
+  selectedCategory.value !== 'all' ||
+  scheduleFilters.value.status !== 'all' ||
+  scheduleFilters.value.courtId !== 'all' ||
+  Boolean(scheduleFilters.value.searchQuery.trim()) ||
+  scheduleSortValue.value !== 'round_asc'
+));
+
+function updateScheduleStatus(value: string | null): void {
+  switch (value) {
+    case 'scheduled':
+    case 'ready':
+    case 'in_progress':
+    case 'completed':
+    case 'cancelled':
+      scheduleFilters.value.status = value;
+      break;
+    default:
+      scheduleFilters.value.status = 'all';
+  }
+}
 
 // Reset schedule filters
 function resetScheduleFilters() {
@@ -632,10 +748,10 @@ async function releaseCourt(courtId: string) {
 
 async function confirmReleaseCourt() {
   if (!courtToReleaseId.value) return;
-  
+
   const courtId = courtToReleaseId.value;
   const court = courts.value.find(c => c.id === courtId);
-  
+
   showReleaseDialog.value = false;
   courtToReleaseId.value = null;
 
@@ -661,6 +777,24 @@ async function confirmReleaseCourt() {
   } catch (error) {
     console.error('Failed to release court:', error);
     notificationStore.showToast('error', 'Failed to release court');
+  }
+}
+
+// TOURNEY-101: Command Center helper functions
+function openAssignCourtDialogForCourt(courtId: string) {
+  selectedCourtId.value = courtId;
+  // Find the first ready match to suggest, or leave null for manual selection
+  const firstReadyMatch = matches.value.find(m => m.status === 'ready' && !m.courtId);
+  selectedMatch.value = firstReadyMatch || null;
+  showAssignCourtDialog.value = true;
+}
+
+function selectMatchFromQueue(matchId: string) {
+  const match = matches.value.find(m => m.id === matchId);
+  if (match) {
+    selectedMatch.value = match;
+    // Scroll to or highlight the match in the queue
+    console.log('[CommandCenter] Selected match from queue:', matchId);
   }
 }
 
@@ -1347,6 +1481,902 @@ function toggleAutoStart(enabled: boolean) {
 
 </script>
 
+<template>
+  <div class="match-control-container h-100 d-flex flex-column bg-background">
+    <!-- Header Toolbar -->
+    <v-toolbar
+      color="surface"
+      elevation="1"
+      density="compact"
+      class="px-2 border-b"
+    >
+      <v-btn
+        icon="mdi-arrow-left"
+        variant="text"
+        size="small"
+        @click="router.push(`/tournaments/${tournamentId}`)"
+      />
+      <v-toolbar-title class="text-subtitle-1 font-weight-bold">
+        Match Control
+        <span class="text-caption text-medium-emphasis ml-2 hidden-sm-and-down">
+          {{ tournament?.name }}
+        </span>
+      </v-toolbar-title>
+      
+      <v-spacer />
+
+      <!-- Category Filter -->
+      <div
+        v-if="viewMode !== 'schedule'"
+        style="width: 200px"
+        class="mr-2"
+      >
+        <v-select
+          v-model="selectedCategory"
+          :items="categoryOptions"
+          item-title="name"
+          item-value="id"
+          density="compact"
+          variant="outlined"
+          hide-details
+          bg-color="surface"
+          prepend-inner-icon="mdi-filter-variant"
+          label="Category"
+          class="category-select"
+        />
+      </div>
+
+      <!-- View Mode Toggle -->
+      <v-btn-toggle
+        v-model="viewMode"
+        mandatory
+        density="compact"
+        color="primary"
+        variant="outlined"
+        class="mr-2"
+        divided
+      >
+        <v-btn
+          value="command"
+          prepend-icon="mdi-view-dashboard-variant"
+        >
+          <span class="hidden-sm-and-down">Command Center</span>
+        </v-btn>
+        <v-btn
+          value="queue"
+          prepend-icon="mdi-view-dashboard"
+        >
+          <span class="hidden-sm-and-down">Live Board</span>
+        </v-btn>
+        <v-btn
+          value="schedule"
+          prepend-icon="mdi-format-list-bulleted"
+        >
+          <span class="hidden-sm-and-down">All Matches</span>
+        </v-btn>
+      </v-btn-toggle>
+
+      <!-- Exit Button -->
+      <v-btn
+        color="primary"
+        variant="tonal"
+        size="small"
+        prepend-icon="mdi-exit-to-app"
+        @click="router.push(`/tournaments/${tournamentId}`)"
+      >
+        Exit
+      </v-btn>
+    </v-toolbar>
+
+    <!-- Main Content Grid -->
+    <div class="flex-grow-1 overflow-hidden">
+      <!-- VIEW MODE: QUEUE (Original Layout) -->
+      <v-row
+        v-if="viewMode === 'queue'"
+        class="fill-height ma-0"
+        no-gutters
+      >
+        <!-- LEFT PANEL: Active Matches & Courts (Flexible, Scrollable) -->
+        <v-col
+          cols="12"
+          md="8"
+          class="d-flex flex-column border-e fill-height"
+        >
+          <!-- Top Stats Bar -->
+          <div class="pa-3 bg-surface border-b d-flex gap-4 align-center flex-wrap">
+            <v-chip
+              size="small"
+              color="primary"
+              variant="flat"
+              class="font-weight-bold"
+            >
+              Total: {{ stats.total }}
+            </v-chip>
+            <div class="d-flex gap-2">
+              <v-chip
+                size="small"
+                variant="outlined"
+                color="info"
+              >
+                In Progress: {{ stats.inProgress }}
+              </v-chip>
+              <v-chip
+                size="small"
+                variant="outlined"
+                color="warning"
+              >
+                Ready: {{ stats.ready }}
+              </v-chip>
+              <v-chip
+                size="small"
+                variant="outlined"
+                color="success"
+              >
+                Completed: {{ stats.completed }}
+              </v-chip>
+            </div>
+            <v-spacer />
+            <div class="d-flex align-center text-caption text-medium-emphasis">
+              <v-icon
+                size="14"
+                class="mr-1"
+                :color="stats.courtsInUse === stats.courtsAvailable ? 'error' : 'success'"
+              >
+                mdi-circle
+              </v-icon>
+              Courts: {{ stats.courtsInUse }} / {{ stats.courtsAvailable }} Busy
+            </div>
+          </div>
+
+          <!-- Scrollable Content Area -->
+          <div class="flex-grow-1 overflow-y-auto pa-4 bg-background">
+            <!-- Active Matches Section -->
+            <div class="mb-4">
+              <active-matches-section
+                :matches="enrichedInProgressMatches"
+                @complete-match="openCompleteMatchDialog"
+                @enter-score="openScoreDialog"
+                @unschedule="handleUnschedule"
+              />
+            </div>
+
+            <!-- Courts Grid (Optional View) -->
+            <div class="d-flex align-center mb-2 mt-6">
+              <v-icon
+                start
+                size="20"
+                color="secondary"
+              >
+                mdi-stadium
+              </v-icon>
+              <h3 class="text-subtitle-1 font-weight-bold">
+                Court Status
+              </h3>
+              <v-spacer />
+              <v-btn
+                icon="mdi-database-refresh"
+                variant="text"
+                size="small"
+                color="warning"
+                @click="handleConsistencyCheck"
+              >
+                <v-icon>mdi-database-refresh</v-icon>
+                <v-tooltip
+                  activator="parent"
+                  location="top"
+                >
+                  Fix Court Data Integrity
+                </v-tooltip>
+              </v-btn>
+            </div>
+            
+            <v-slide-group show-arrows>
+              <v-slide-group-item
+                v-for="court in courts"
+                :key="court.id"
+              >
+                <v-card
+                  width="200"
+                  height="120"
+                  class="ma-2 d-flex flex-column"
+                  :color="court.status === 'available' ? 'surface' : 'grey-lighten-4'"
+                  :variant="court.status === 'available' ? 'elevated' : 'flat'"
+                  border
+                >
+                  <div class="pa-2 d-flex justify-space-between align-center border-b">
+                    <span class="text-caption font-weight-bold text-truncate">{{ court.name }}</span>
+                    <v-icon
+                      size="12"
+                      :color="court.status === 'available' ? 'success' : (getMatchForCourt(court.id) ? getDurationColor(getMatchForCourt(court.id)!) : 'error')"
+                    >
+                      mdi-circle
+                    </v-icon>
+                  </div>
+                  
+                  <div class="d-flex align-center justify-center flex-grow-1 text-center pa-1">
+                    <div
+                      v-if="court.status === 'available'"
+                      class="text-caption text-success font-weight-medium"
+                    >
+                      <v-icon
+                        icon="mdi-check"
+                        size="small"
+                        class="mb-1"
+                      />
+                      <div>Available</div>
+                    </div>
+                    
+                    <div
+                      v-else-if="getMatchForCourt(court.id)"
+                      class="active-match-info w-100"
+                    >
+                      <div class="text-caption font-weight-bold text-primary mb-1">
+                        {{ getCategoryName(getMatchForCourt(court.id)?.categoryId || '')?.slice(0, 15) }}...
+                      </div>
+                      <div class="player-names text-truncate px-1">
+                        {{ getParticipantName(getMatchForCourt(court.id)?.participant1Id).split(' ')[0] }} vs 
+                        {{ getParticipantName(getMatchForCourt(court.id)?.participant2Id).split(' ')[0] }}
+                      </div>
+                      <v-chip
+                        size="x-small"
+                        color="secondary"
+                        variant="flat"
+                        class="mt-1 font-weight-bold"
+                      >
+                        {{ getCurrentScore(getMatchForCourt(court.id)!) }}
+                      </v-chip>
+                    </div>
+                    
+                    <div
+                      v-else
+                      class="text-caption text-medium-emphasis d-flex flex-column align-center"
+                    >
+                      <span>In Use</span>
+                      <v-btn
+                        size="x-small"
+                        variant="text"
+                        color="error"
+                        class="mt-1"
+                        @click="releaseCourt(court.id)"
+                      >
+                        Clear
+                      </v-btn>
+                    </div>
+                  </div>
+                </v-card>
+              </v-slide-group-item>
+            </v-slide-group>
+          </div>
+        </v-col>
+
+        <!-- RIGHT PANEL: Queue & Schedule (Fixed Width on Desktop) -->
+        <v-col
+          cols="12"
+          md="4"
+          class="d-flex flex-column bg-surface fill-height border-s"
+        >
+          <div class="pa-3 border-b bg-surface-light">
+            <div class="d-flex align-center justify-space-between mb-2">
+              <span class="text-subtitle-2 font-weight-bold text-uppercase text-medium-emphasis">Next Up</span>
+              <v-chip
+                size="x-small"
+                color="primary"
+              >
+                {{ enrichedPendingMatches.length }}
+              </v-chip>
+            </div>
+            <!-- Quick Actions for Queue -->
+            <div class="d-flex gap-2">
+              <v-btn
+                block
+                variant="tonal"
+                size="small"
+                color="primary"
+                prepend-icon="mdi-calendar-clock"
+                @click="openAutoScheduleDialog"
+              >
+                Auto-Schedule
+              </v-btn>
+            </div>
+          </div>
+
+          <!-- Queue List -->
+          <div class="flex-grow-1 overflow-y-auto pa-0">
+            <match-queue-list
+              :matches="enrichedPendingMatches"
+              :available-courts="availableCourts"
+              :auto-assign-enabled="autoAssignEnabled"
+              :auto-start-enabled="autoStartEnabled"
+              @toggle-auto-assign="toggleAutoAssign"
+              @toggle-auto-start="toggleAutoStart"
+              @manual-assign="handleManualAssign"
+            />
+          </div>
+        </v-col>
+      </v-row>
+
+      <!-- VIEW MODE: SCHEDULE (Full List) -->
+      <div
+        v-else-if="viewMode === 'schedule'"
+        class="fill-height d-flex flex-column bg-background"
+      >
+        <!-- Schedule Filters Toolbar -->
+        <div class="px-4 py-3 bg-surface border-b">
+          <filter-bar
+            :search="scheduleFilters.searchQuery"
+            :category="selectedCategory"
+            :status="scheduleFilters.status"
+            :court="scheduleFilters.courtId"
+            :sort="scheduleSortValue"
+            :enable-category="true"
+            :enable-status="true"
+            :enable-court="true"
+            :category-options="categoryFilterOptions"
+            :status-options="scheduleStatusFilterOptions"
+            :court-options="scheduleCourtFilterOptions"
+            :sort-options="scheduleSortOptions"
+            search-label="Search"
+            search-placeholder="Search participants or match number"
+            :has-active-filters="hasActiveScheduleFilters"
+            @update:search="scheduleFilters.searchQuery = $event"
+            @update:category="selectedCategory = $event || 'all'"
+            @update:status="updateScheduleStatus($event)"
+            @update:court="scheduleFilters.courtId = $event || 'all'"
+            @update:sort="scheduleSortValue = $event || 'round_asc'"
+            @clear="resetScheduleFilters"
+          />
+        </div>
+
+        <!-- Schedule Table -->
+        <div class="flex-grow-1 overflow-auto">
+          <v-data-table
+            :items="filteredMatches"
+            :headers="[
+              { title: 'Match', key: 'matchNumber', align: 'start', sortable: true },
+              { title: 'Category', key: 'categoryId', sortable: true },
+              { title: 'Round', key: 'round', sortable: true },
+              { title: 'Participants', key: 'participants', sortable: false },
+              { title: 'Score', key: 'score', sortable: false },
+              { title: 'Court', key: 'courtId', sortable: true },
+              { title: 'Scheduled', key: 'scheduledTime', sortable: true },
+              { title: 'Status', key: 'status', sortable: true },
+              { title: 'Actions', key: 'actions', align: 'end', sortable: false },
+            ]"
+            item-value="id"
+            hover
+            sticky-header
+            class="fill-height"
+            fixed-header
+          >
+            <!-- Custom Slots -->
+            <template #item.matchNumber="{ item }">
+              <div class="d-flex flex-column py-1">
+                <span class="font-weight-bold text-grey">#{{ item.id }}</span>
+                <span class="text-caption text-medium-emphasis">{{ getBracketCode(item) }}-{{ item.matchNumber }}</span>
+              </div>
+            </template>
+
+            <template #item.categoryId="{ item }">
+              <v-chip
+                size="x-small"
+                variant="outlined"
+              >
+                {{ getCategoryName(item.categoryId) }}
+              </v-chip>
+            </template>
+            
+            <template #item.participants="{ item }">
+              <div class="d-flex flex-column py-1">
+                <span :class="{'font-weight-bold text-success': item.winnerId === item.participant1Id}">
+                  {{ getParticipantName(item.participant1Id) }}
+                </span>
+                <span :class="{'font-weight-bold text-success': item.winnerId === item.participant2Id}">
+                  {{ getParticipantName(item.participant2Id) }}
+                </span>
+              </div>
+            </template>
+
+            <template #item.score="{ item }">
+              <span
+                v-if="item.scores && item.scores.length > 0"
+                class="font-weight-medium font-mono text-body-2"
+              >
+                {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
+              </span>
+              <span
+                v-else
+                class="text-caption text-grey"
+              >-</span>
+            </template>
+
+            <template #item.courtId="{ item }">
+              <div v-if="item.courtId">
+                <v-icon
+                  size="small"
+                  :color="item.status === 'in_progress' ? 'success' : 'grey'"
+                  class="mr-1"
+                >
+                  mdi-court-sport
+                </v-icon>
+                {{ getCourtName(item.courtId) }}
+              </div>
+              <span
+                v-else
+                class="text-grey-lighten-1"
+              >-</span>
+            </template>
+
+            <template #item.scheduledTime="{ item }">
+              <div
+                v-if="item.scheduledTime"
+                class="d-flex align-center text-caption"
+              >
+                <v-icon
+                  size="small"
+                  class="mr-1"
+                >
+                  mdi-clock-outline
+                </v-icon>
+                {{ new Date(item.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+              </div>
+            </template>
+
+            <template #item.status="{ item }">
+              <v-chip
+                size="small"
+                :color="quickFilters.find(f => f.value === item.status)?.color || (item.status === 'completed' ? 'success' : 'grey')"
+                variant="flat"
+                class="text-uppercase font-weight-bold"
+                style="font-size: 10px; height: 20px;"
+              >
+                {{ item.status.replace('_', ' ') }}
+              </v-chip>
+            </template>
+
+            <template #item.actions="{ item }">
+              <div class="d-flex justify-end gap-1">
+                <!-- Actions available based on status -->
+                <v-btn
+                  v-if="item.status === 'ready' || item.status === 'in_progress'"
+                  size="small"
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-scoreboard"
+                  @click="openScoreDialog(item.id)"
+                >
+                  Score
+                </v-btn>
+                 
+                <v-btn
+                  v-if="!item.courtId && (item.status === 'scheduled' || item.status === 'ready')"
+                  size="small"
+                  color="secondary"
+                  variant="tonal"
+                  prepend-icon="mdi-court-sport"
+                  @click="openAssignCourtDialog(item)"
+                >
+                  Assign
+                </v-btn>
+                 
+                <v-menu>
+                  <template #activator="{ props }">
+                    <v-btn
+                      icon="mdi-dots-vertical"
+                      variant="text"
+                      size="small"
+                      v-bind="props"
+                    />
+                  </template>
+                  <v-list density="compact">
+                    <v-list-item
+                      prepend-icon="mdi-pencil"
+                      title="Edit Schedule"
+                      @click="openScheduleDialog(item)"
+                    />
+                    <v-list-item 
+                      v-if="item.status !== 'completed' && item.status !== 'walkover'"
+                      prepend-icon="mdi-flag-checkered" 
+                      title="Force Complete" 
+                      @click="openCompleteMatchDialog(item.id)"
+                    />
+                    <v-list-item 
+                      v-if="item.status === 'scheduled' || item.status === 'ready'"
+                      prepend-icon="mdi-calendar-remove" 
+                      title="Unschedule" 
+                      color="warning"
+                      @click="handleUnschedule(item.id)"
+                    />
+                  </v-list>
+                </v-menu>
+              </div>
+            </template>
+            
+            <template #no-data>
+              <div class="text-center py-8 text-grey">
+                <v-icon
+                  size="48"
+                  class="mb-2"
+                >
+                  mdi-filter-off
+                </v-icon>
+                <div>No matches found matching standard filters</div>
+                <v-btn
+                  color="primary"
+                  variant="text"
+                  size="small"
+                  class="mt-2"
+                  @click="resetScheduleFilters"
+                >
+                  Reset Filters
+                </v-btn>
+              </div>
+            </template>
+          </v-data-table>
+        </div>
+      </div>
+
+      <!-- TOURNEY-101: VIEW MODE: COMMAND CENTER (Court Grid + Queue + Alerts) -->
+      <div
+        v-else-if="viewMode === 'command'"
+        class="fill-height d-flex flex-column bg-background"
+      >
+        <v-row class="fill-height ma-0" no-gutters>
+          <!-- LEFT PANEL: Court Grid (Flexible) -->
+          <v-col
+            cols="12"
+            md="6"
+            lg="7"
+            class="d-flex flex-column border-e fill-height"
+          >
+            <div class="px-3 py-2 bg-surface border-b d-flex align-center">
+              <v-icon size="20" class="mr-2" color="primary">mdi-stadium</v-icon>
+              <span class="font-weight-medium">Courts</span>
+              <v-spacer></v-spacer>
+              <v-chip size="x-small" variant="tonal" color="success">
+                {{ courts.filter(c => c.status === 'available').length }} Available
+              </v-chip>
+              <v-chip size="x-small" variant="tonal" color="info" class="ml-1">
+                {{ courts.filter(c => c.status === 'in_use').length }} In Use
+              </v-chip>
+            </div>
+            <div class="flex-grow-1 overflow-y-auto">
+              <court-grid
+                :courts="courts"
+                :matches="matches"
+                :get-participant-name="getParticipantName"
+                :get-category-name="getCategoryName"
+                @assign="openAssignCourtDialogForCourt"
+                @score="openScoreDialog"
+                @release="releaseCourt"
+              />
+            </div>
+          </v-col>
+
+          <!-- MIDDLE PANEL: Ready Queue -->
+          <v-col
+            cols="12"
+            md="3"
+            lg="2"
+            class="d-flex flex-column border-e fill-height hidden-sm-and-down"
+          >
+            <ready-queue
+              :matches="matches.filter(m => m.status === 'ready' || m.status === 'scheduled')"
+              :get-participant-name="getParticipantName"
+              :get-category-name="getCategoryName"
+              @select="selectMatchFromQueue"
+              @assign="openAssignCourtDialog"
+            />
+          </v-col>
+
+          <!-- RIGHT PANEL: Alerts -->
+          <v-col
+            cols="12"
+            md="3"
+            lg="3"
+            class="d-flex flex-column fill-height hidden-sm-and-down"
+          >
+            <alerts-panel
+              :courts="courts"
+              :matches="matches"
+              :get-participant-name="getParticipantName"
+              :get-category-name="getCategoryName"
+              @assign-to-court="openAssignCourtDialogForCourt"
+              @view-match="openScoreDialog"
+              @release-court="releaseCourt"
+            />
+          </v-col>
+        </v-row>
+      </div>
+    </div>
+
+    <!-- Dialogs -->
+    <v-dialog
+      v-model="showAssignCourtDialog"
+      max-width="400"
+    >
+      <v-card>
+        <v-card-title>Assign Court</v-card-title>
+        <v-card-text>
+          <v-select
+            v-model="selectedCourtId"
+            :items="availableCourts"
+            item-title="name"
+            item-value="id"
+            label="Select Court"
+            variant="outlined"
+            :no-data-text="'No available courts'"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="showAssignCourtDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            :disabled="!selectedCourtId"
+            @click="assignCourt"
+          >
+            Assign
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    <!-- Add other dialogs like schedule dialog, etc. if needed, or rely on existing ones implied -->
+    <v-dialog
+      v-model="showAutoScheduleDialog"
+      max-width="500"
+    >
+      <v-card>
+        <v-card-title>Auto Schedule Matches</v-card-title>
+        <v-card-text>
+          <p class="text-body-2 mb-4">
+            Automatically assign queued matches to available courts.
+          </p>
+          <!-- Add configuration here if needed -->
+          <v-select
+            v-model="selectedCategoryIds"
+            :items="categoryOptions"
+            item-title="name"
+            item-value="id"
+            label="Categories"
+            multiple
+            chips
+            variant="outlined"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="showAutoScheduleDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="/* Implement auto schedule logic */ showAutoScheduleDialog = false"
+          >
+            Run Auto-Schedule
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    
+    <v-dialog
+      v-model="showScheduleDialog"
+      max-width="400"
+    >
+      <v-card>
+        <v-card-title>Edit Schedule</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="scheduledTime"
+            type="datetime-local"
+            label="Scheduled Time"
+            variant="outlined"
+          />
+          <v-select
+            v-model="selectedCourtId"
+            :items="courtOptions"
+            item-title="name"
+            item-value="id"
+            label="Court (Optional)"
+            variant="outlined"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="showScheduleDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="saveSchedule"
+          >
+            Save
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog
+      v-model="showManualScoreDialog"
+      max-width="500"
+    >
+      <v-card>
+        <v-card-title>Manual Score Entry</v-card-title>
+        <v-card-text>
+          <div
+            v-if="selectedMatch"
+            class="d-flex justify-space-between mb-4 px-2"
+          >
+            <div
+              class="font-weight-bold text-truncate"
+              style="max-width: 45%"
+            >
+              {{ getParticipantName(selectedMatch.participant1Id) }}
+            </div>
+            <div
+              class="font-weight-bold text-truncate"
+              style="max-width: 45%; text-align: right"
+            >
+              {{ getParticipantName(selectedMatch.participant2Id) }}
+            </div>
+          </div>
+          
+          <div
+            v-for="(game, index) in manualScores"
+            :key="index"
+            class="d-flex align-center mb-3"
+          >
+            <div
+              class="text-caption mr-2 font-weight-medium"
+              style="width: 60px"
+            >
+              Game {{ index + 1 }}
+            </div>
+            <v-text-field
+              v-model.number="game.score1"
+              type="number"
+              density="compact"
+              variant="outlined"
+              hide-details
+              class="mr-2 text-center"
+              min="0"
+            />
+            <span class="mx-2 font-weight-bold text-medium-emphasis">-</span>
+            <v-text-field
+              v-model.number="game.score2"
+              type="number"
+              density="compact"
+              variant="outlined"
+              hide-details
+              class="ml-2 text-center"
+              min="0"
+            />
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="showManualScoreDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            :loading="submittingScores"
+            @click="submitManualScores"
+          >
+            Save Scores
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Unschedule Confirmation Dialog -->
+    <v-dialog
+      v-model="showUnscheduleDialog"
+      max-width="400"
+    >
+      <v-card>
+        <v-card-title>Unschedule Match?</v-card-title>
+        <v-card-text>
+          Are you sure you want to unschedule this match? It will be moved back to the queue and the court will be released.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="showUnscheduleDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="warning"
+            @click="confirmUnschedule"
+          >
+            Unschedule
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Release Court Confirmation -->
+    <v-dialog
+      v-model="showReleaseDialog"
+      max-width="400"
+    >
+      <v-card>
+        <v-card-title class="text-h6">
+          Release Court?
+        </v-card-title>
+        <v-card-text>
+          Are you sure you want to release this court? If a match is currently assigned, it will be unscheduled.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="showReleaseDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="warning"
+            @click="confirmReleaseCourt"
+          >
+            Release
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Consistency Check Confirmation -->
+    <v-dialog
+      v-model="showConsistencyDialog"
+      max-width="400"
+    >
+      <v-card>
+        <v-card-title class="text-h6">
+          Run Diagnostics?
+        </v-card-title>
+        <v-card-text>
+          This will scan for and fix data inconsistencies, such as 'Zombie Courts' (courts marked busy but with no match) and double-booked matches.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="showConsistencyDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="warning"
+            @click="confirmConsistencyCheck"
+          >
+            Run Fix
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+  </div>
+</template>
+
 <style lang="scss" scoped>
 @use '@/styles/variables.scss' as *;
 
@@ -1496,578 +2526,3 @@ function toggleAutoStart(enabled: boolean) {
   font-size: 0.85rem;
 }
 </style>
-
-<template>
-  <div class="match-control-container h-100 d-flex flex-column bg-background">
-    <!-- Header Toolbar -->
-    <v-toolbar color="surface" elevation="1" density="compact" class="px-2 border-b">
-      <v-btn icon="mdi-arrow-left" variant="text" size="small" @click="router.push(`/tournaments/${tournamentId}`)"></v-btn>
-      <v-toolbar-title class="text-subtitle-1 font-weight-bold">
-        Match Control
-        <span class="text-caption text-medium-emphasis ml-2 hidden-sm-and-down">
-          {{ tournament?.name }}
-        </span>
-      </v-toolbar-title>
-      
-      <v-spacer></v-spacer>
-
-      <!-- Category Filter -->
-      <div style="width: 200px" class="mr-2">
-        <v-select
-          v-model="selectedCategory"
-          :items="categoryOptions"
-          item-title="name"
-          item-value="id"
-          density="compact"
-          variant="outlined"
-          hide-details
-          bg-color="surface"
-          prepend-inner-icon="mdi-filter-variant"
-          label="Category"
-          class="category-select"
-        ></v-select>
-      </div>
-
-      <!-- View Mode Toggle -->
-      <v-btn-toggle
-        v-model="viewMode"
-        mandatory
-        density="compact"
-        color="primary"
-        variant="outlined"
-        class="mr-2"
-        divided
-      >
-        <v-btn value="queue" prepend-icon="mdi-view-dashboard">
-          <span class="hidden-sm-and-down">Live Board</span>
-        </v-btn>
-        <v-btn value="schedule" prepend-icon="mdi-format-list-bulleted">
-          <span class="hidden-sm-and-down">All Matches</span>
-        </v-btn>
-      </v-btn-toggle>
-
-      <!-- Exit Button -->
-      <v-btn
-        color="primary"
-        variant="tonal"
-        size="small"
-        prepend-icon="mdi-exit-to-app"
-        @click="router.push(`/tournaments/${tournamentId}`)"
-      >
-        Exit
-      </v-btn>
-    </v-toolbar>
-
-    <!-- Main Content Grid -->
-    <div class="flex-grow-1 overflow-hidden">
-      <!-- VIEW MODE: QUEUE (Original Layout) -->
-      <v-row v-if="viewMode === 'queue'" class="fill-height ma-0" no-gutters>
-        <!-- LEFT PANEL: Active Matches & Courts (Flexible, Scrollable) -->
-        <v-col cols="12" md="8" class="d-flex flex-column border-e fill-height">
-          <!-- Top Stats Bar -->
-          <div class="pa-3 bg-surface border-b d-flex gap-4 align-center flex-wrap">
-            <v-chip size="small" color="primary" variant="flat" class="font-weight-bold">
-              Total: {{ stats.total }}
-            </v-chip>
-            <div class="d-flex gap-2">
-              <v-chip size="small" variant="outlined" color="info">
-                In Progress: {{ stats.inProgress }}
-              </v-chip>
-              <v-chip size="small" variant="outlined" color="warning">
-                Ready: {{ stats.ready }}
-              </v-chip>
-              <v-chip size="small" variant="outlined" color="success">
-                Completed: {{ stats.completed }}
-              </v-chip>
-            </div>
-            <v-spacer></v-spacer>
-            <div class="d-flex align-center text-caption text-medium-emphasis">
-              <v-icon size="14" class="mr-1" :color="stats.courtsInUse === stats.courtsAvailable ? 'error' : 'success'">
-                mdi-circle
-              </v-icon>
-              Courts: {{ stats.courtsInUse }} / {{ stats.courtsAvailable }} Busy
-            </div>
-          </div>
-
-          <!-- Scrollable Content Area -->
-          <div class="flex-grow-1 overflow-y-auto pa-4 bg-background">
-            <!-- Active Matches Section -->
-            <div class="mb-4">
-              <active-matches-section
-                :matches="enrichedInProgressMatches"
-                @completeMatch="openCompleteMatchDialog"
-                @enterScore="openScoreDialog"
-                @unschedule="handleUnschedule"
-              />
-            </div>
-
-            <!-- Courts Grid (Optional View) -->
-             <div class="d-flex align-center mb-2 mt-6">
-              <v-icon start size="20" color="secondary">mdi-stadium</v-icon>
-              <h3 class="text-subtitle-1 font-weight-bold">Court Status</h3>
-              <v-spacer></v-spacer>
-              <v-btn
-                icon="mdi-database-refresh"
-                variant="text"
-                size="small"
-                color="warning"
-                @click="handleConsistencyCheck"
-              >
-                <v-icon>mdi-database-refresh</v-icon>
-                <v-tooltip activator="parent" location="top">Fix Court Data Integrity</v-tooltip>
-              </v-btn>
-            </div>
-            
-            <v-slide-group show-arrows>
-              <v-slide-group-item v-for="court in courts" :key="court.id">
-                <v-card
-                  width="200"
-                  height="120"
-                  class="ma-2 d-flex flex-column"
-                  :color="court.status === 'available' ? 'surface' : 'grey-lighten-4'"
-                  :variant="court.status === 'available' ? 'elevated' : 'flat'"
-                  border
-                >
-                  <div class="pa-2 d-flex justify-space-between align-center border-b">
-                    <span class="text-caption font-weight-bold text-truncate">{{ court.name }}</span>
-                    <v-icon size="12" :color="court.status === 'available' ? 'success' : (getMatchForCourt(court.id) ? getDurationColor(getMatchForCourt(court.id)!) : 'error')">
-                      mdi-circle
-                    </v-icon>
-                  </div>
-                  
-                  <div class="d-flex align-center justify-center flex-grow-1 text-center pa-1">
-                    <div v-if="court.status === 'available'" class="text-caption text-success font-weight-medium">
-                      <v-icon icon="mdi-check" size="small" class="mb-1"></v-icon>
-                      <div>Available</div>
-                    </div>
-                    
-                    <div v-else-if="getMatchForCourt(court.id)" class="active-match-info w-100">
-                       <div class="text-caption font-weight-bold text-primary mb-1">
-                         {{ getCategoryName(getMatchForCourt(court.id)?.categoryId || '')?.slice(0, 15) }}...
-                       </div>
-                       <div class="player-names text-truncate px-1">
-                          {{ getParticipantName(getMatchForCourt(court.id)?.participant1Id).split(' ')[0] }} vs 
-                          {{ getParticipantName(getMatchForCourt(court.id)?.participant2Id).split(' ')[0] }}
-                       </div>
-                       <v-chip size="x-small" color="secondary" variant="flat" class="mt-1 font-weight-bold">
-                         {{ getCurrentScore(getMatchForCourt(court.id)!) }}
-                       </v-chip>
-                    </div>
-                    
-                    <div v-else class="text-caption text-medium-emphasis d-flex flex-column align-center">
-                      <span>In Use</span>
-                      <v-btn
-                        size="x-small"
-                        variant="text"
-                        color="error"
-                        class="mt-1"
-                        @click="releaseCourt(court.id)"
-                      >
-                        Clear
-                      </v-btn>
-                    </div>
-                  </div>
-                </v-card>
-              </v-slide-group-item>
-            </v-slide-group>
-          </div>
-        </v-col>
-
-        <!-- RIGHT PANEL: Queue & Schedule (Fixed Width on Desktop) -->
-        <v-col cols="12" md="4" class="d-flex flex-column bg-surface fill-height border-s">
-          <div class="pa-3 border-b bg-surface-light">
-             <div class="d-flex align-center justify-space-between mb-2">
-               <span class="text-subtitle-2 font-weight-bold text-uppercase text-medium-emphasis">Next Up</span>
-               <v-chip size="x-small" color="primary">{{ enrichedPendingMatches.length }}</v-chip>
-             </div>
-             <!-- Quick Actions for Queue -->
-             <div class="d-flex gap-2">
-               <v-btn
-                 block
-                 variant="tonal"
-                 size="small"
-                 color="primary"
-                 prepend-icon="mdi-calendar-clock"
-                 @click="openAutoScheduleDialog"
-               >
-                 Auto-Schedule
-               </v-btn>
-             </div>
-          </div>
-
-          <!-- Queue List -->
-          <div class="flex-grow-1 overflow-y-auto pa-0">
-            <match-queue-list
-              :matches="enrichedPendingMatches"
-              :available-courts="availableCourts"
-              :auto-assign-enabled="autoAssignEnabled"
-              :auto-start-enabled="autoStartEnabled"
-              @toggleAutoAssign="toggleAutoAssign"
-              @toggleAutoStart="toggleAutoStart"
-              @manualAssign="handleManualAssign"
-            />
-          </div>
-        </v-col>
-      </v-row>
-
-      <!-- VIEW MODE: SCHEDULE (Full List) -->
-      <div v-else-if="viewMode === 'schedule'" class="fill-height d-flex flex-column bg-background">
-        <!-- Schedule Filters Toolbar -->
-        <div class="px-4 py-3 bg-surface border-b d-flex align-center gap-4 flex-wrap">
-          <div style="width: 250px">
-            <v-text-field
-              v-model="scheduleFilters.searchQuery"
-              prepend-inner-icon="mdi-magnify"
-              label="Search participants"
-              density="compact"
-              variant="outlined"
-              hide-details
-              clearable
-            ></v-text-field>
-          </div>
-          
-          <div style="width: 180px">
-            <v-select
-              v-model="scheduleFilters.status"
-              :items="statusOptions"
-              item-title="name"
-              item-value="value"
-              label="Status"
-              density="compact"
-              variant="outlined"
-              hide-details
-            ></v-select>
-          </div>
-
-          <div style="width: 180px">
-            <v-select
-              v-model="scheduleFilters.courtId"
-              :items="courtOptions"
-              item-title="name"
-              item-value="id"
-              label="Filter by Court"
-              density="compact"
-              variant="outlined"
-              hide-details
-            ></v-select>
-          </div>
-
-          <v-spacer></v-spacer>
-
-          <v-btn
-             variant="text"
-             color="grey"
-             prepend-icon="mdi-filter-off"
-             size="small"
-             @click="resetScheduleFilters"
-          >
-            Clear Filters
-          </v-btn>
-        </div>
-
-        <!-- Schedule Table -->
-        <div class="flex-grow-1 overflow-auto">
-          <v-data-table
-            :items="filteredMatches"
-            :headers="[
-              { title: 'Match', key: 'matchNumber', align: 'start', sortable: true },
-              { title: 'Category', key: 'categoryId', sortable: true },
-              { title: 'Round', key: 'round', sortable: true },
-              { title: 'Participants', key: 'participants', sortable: false },
-              { title: 'Score', key: 'score', sortable: false },
-              { title: 'Court', key: 'courtId', sortable: true },
-              { title: 'Scheduled', key: 'scheduledTime', sortable: true },
-              { title: 'Status', key: 'status', sortable: true },
-              { title: 'Actions', key: 'actions', align: 'end', sortable: false },
-            ]"
-            item-value="id"
-            hover
-            sticky-header
-            class="fill-height"
-            fixed-header
-          >
-            <!-- Custom Slots -->
-            <template #item.matchNumber="{ item }">
-              <div class="d-flex flex-column py-1">
-                <span class="font-weight-bold text-grey">#{{ item.id }}</span>
-                <span class="text-caption text-medium-emphasis">{{ getBracketCode(item) }}-{{ item.matchNumber }}</span>
-              </div>
-            </template>
-
-            <template #item.categoryId="{ item }">
-              <v-chip size="x-small" variant="outlined">{{ getCategoryName(item.categoryId) }}</v-chip>
-            </template>
-            
-            <template #item.participants="{ item }">
-              <div class="d-flex flex-column py-1">
-                <span :class="{'font-weight-bold text-success': item.winnerId === item.participant1Id}">
-                  {{ getParticipantName(item.participant1Id) }}
-                </span>
-                <span :class="{'font-weight-bold text-success': item.winnerId === item.participant2Id}">
-                  {{ getParticipantName(item.participant2Id) }}
-                </span>
-              </div>
-            </template>
-
-            <template #item.score="{ item }">
-               <span v-if="item.scores && item.scores.length > 0" class="font-weight-medium font-mono text-body-2">
-                 {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
-               </span>
-               <span v-else class="text-caption text-grey">-</span>
-            </template>
-
-            <template #item.courtId="{ item }">
-              <div v-if="item.courtId">
-                <v-icon size="small" :color="item.status === 'in_progress' ? 'success' : 'grey'" class="mr-1">mdi-court-sport</v-icon>
-                {{ getCourtName(item.courtId) }}
-              </div>
-              <span v-else class="text-grey-lighten-1">-</span>
-            </template>
-
-            <template #item.scheduledTime="{ item }">
-              <div v-if="item.scheduledTime" class="d-flex align-center text-caption">
-                <v-icon size="small" class="mr-1">mdi-clock-outline</v-icon>
-                {{ new Date(item.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
-              </div>
-            </template>
-
-            <template #item.status="{ item }">
-              <v-chip
-                size="small"
-                :color="quickFilters.find(f => f.value === item.status)?.color || (item.status === 'completed' ? 'success' : 'grey')"
-                variant="flat"
-                class="text-uppercase font-weight-bold"
-                style="font-size: 10px; height: 20px;"
-              >
-                {{ item.status.replace('_', ' ') }}
-              </v-chip>
-            </template>
-
-            <template #item.actions="{ item }">
-              <div class="d-flex justify-end gap-1">
-                 <!-- Actions available based on status -->
-                 <v-btn
-                   v-if="item.status === 'ready' || item.status === 'in_progress'"
-                   size="small"
-                   color="primary"
-                   variant="tonal"
-                   prepend-icon="mdi-scoreboard"
-                   @click="openScoreDialog(item.id)"
-                 >
-                   Score
-                 </v-btn>
-                 
-                 <v-btn
-                   v-if="!item.courtId && (item.status === 'scheduled' || item.status === 'ready')"
-                   size="small"
-                   color="secondary"
-                   variant="tonal"
-                   prepend-icon="mdi-court-sport"
-                   @click="openAssignCourtDialog(item)"
-                 >
-                   Assign
-                 </v-btn>
-                 
-                <v-menu>
-                  <template #activator="{ props }">
-                    <v-btn icon="mdi-dots-vertical" variant="text" size="small" v-bind="props"></v-btn>
-                  </template>
-                  <v-list density="compact">
-                    <v-list-item prepend-icon="mdi-pencil" title="Edit Schedule" @click="openScheduleDialog(item)"></v-list-item>
-                    <v-list-item 
-                      v-if="item.status !== 'completed' && item.status !== 'walkover'"
-                      prepend-icon="mdi-flag-checkered" 
-                      title="Force Complete" 
-                      @click="openCompleteMatchDialog(item.id)"
-                    ></v-list-item>
-                    <v-list-item 
-                       v-if="item.status === 'scheduled' || item.status === 'ready'"
-                       prepend-icon="mdi-calendar-remove" 
-                       title="Unschedule" 
-                       color="warning"
-                       @click="handleUnschedule(item.id)"
-                    ></v-list-item>
-                  </v-list>
-                </v-menu>
-              </div>
-            </template>
-            
-            <template #no-data>
-              <div class="text-center py-8 text-grey">
-                <v-icon size="48" class="mb-2">mdi-filter-off</v-icon>
-                <div>No matches found matching standard filters</div>
-                <v-btn color="primary" variant="text" size="small" class="mt-2" @click="resetScheduleFilters">
-                  Reset Filters
-                </v-btn>
-              </div>
-            </template>
-          </v-data-table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Dialogs -->
-    <v-dialog v-model="showAssignCourtDialog" max-width="400">
-      <v-card>
-        <v-card-title>Assign Court</v-card-title>
-        <v-card-text>
-          <v-select
-            v-model="selectedCourtId"
-            :items="availableCourts"
-            item-title="name"
-            item-value="id"
-            label="Select Court"
-            variant="outlined"
-            :no-data-text="'No available courts'"
-          ></v-select>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="grey" variant="text" @click="showAssignCourtDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="assignCourt" :disabled="!selectedCourtId">Assign</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-    <!-- Add other dialogs like schedule dialog, etc. if needed, or rely on existing ones implied -->
-    <v-dialog v-model="showAutoScheduleDialog" max-width="500">
-      <v-card>
-        <v-card-title>Auto Schedule Matches</v-card-title>
-        <v-card-text>
-           <p class="text-body-2 mb-4">Automatically assign queued matches to available courts.</p>
-           <!-- Add configuration here if needed -->
-           <v-select
-             v-model="selectedCategoryIds"
-             :items="categoryOptions"
-             item-title="name"
-             item-value="id"
-             label="Categories"
-             multiple
-             chips
-             variant="outlined"
-           ></v-select>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="grey" variant="text" @click="showAutoScheduleDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="/* Implement auto schedule logic */ showAutoScheduleDialog = false">Run Auto-Schedule</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-    
-    <v-dialog v-model="showScheduleDialog" max-width="400">
-      <v-card>
-        <v-card-title>Edit Schedule</v-card-title>
-        <v-card-text>
-          <v-text-field
-             v-model="scheduledTime"
-             type="datetime-local"
-             label="Scheduled Time"
-             variant="outlined"
-          ></v-text-field>
-          <v-select
-             v-model="selectedCourtId"
-             :items="courtOptions"
-             item-title="name"
-             item-value="id"
-             label="Court (Optional)"
-             variant="outlined"
-          ></v-select>
-        </v-card-text>
-        <v-card-actions>
-           <v-spacer></v-spacer>
-           <v-btn color="grey" variant="text" @click="showScheduleDialog = false">Cancel</v-btn>
-           <v-btn color="primary" @click="saveSchedule">Save</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-dialog v-model="showManualScoreDialog" max-width="500">
-      <v-card>
-        <v-card-title>Manual Score Entry</v-card-title>
-        <v-card-text>
-          <div v-if="selectedMatch" class="d-flex justify-space-between mb-4 px-2">
-             <div class="font-weight-bold text-truncate" style="max-width: 45%">
-               {{ getParticipantName(selectedMatch.participant1Id) }}
-             </div>
-             <div class="font-weight-bold text-truncate" style="max-width: 45%; text-align: right">
-               {{ getParticipantName(selectedMatch.participant2Id) }}
-             </div>
-          </div>
-          
-          <div v-for="(game, index) in manualScores" :key="index" class="d-flex align-center mb-3">
-            <div class="text-caption mr-2 font-weight-medium" style="width: 60px">Game {{ index + 1 }}</div>
-            <v-text-field
-              v-model.number="game.score1"
-              type="number"
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="mr-2 text-center"
-              min="0"
-            ></v-text-field>
-            <span class="mx-2 font-weight-bold text-medium-emphasis">-</span>
-            <v-text-field
-              v-model.number="game.score2"
-              type="number"
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="ml-2 text-center"
-              min="0"
-            ></v-text-field>
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="grey" variant="text" @click="showManualScoreDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="submitManualScores" :loading="submittingScores">Save Scores</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Unschedule Confirmation Dialog -->
-    <v-dialog v-model="showUnscheduleDialog" max-width="400">
-      <v-card>
-        <v-card-title>Unschedule Match?</v-card-title>
-        <v-card-text>
-          Are you sure you want to unschedule this match? It will be moved back to the queue and the court will be released.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="grey" variant="text" @click="showUnscheduleDialog = false">Cancel</v-btn>
-          <v-btn color="warning" @click="confirmUnschedule">Unschedule</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Release Court Confirmation -->
-    <v-dialog v-model="showReleaseDialog" max-width="400">
-      <v-card>
-        <v-card-title class="text-h6">Release Court?</v-card-title>
-        <v-card-text>
-          Are you sure you want to release this court? If a match is currently assigned, it will be unscheduled.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="text" @click="showReleaseDialog = false">Cancel</v-btn>
-          <v-btn color="warning" @click="confirmReleaseCourt">Release</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Consistency Check Confirmation -->
-    <v-dialog v-model="showConsistencyDialog" max-width="400">
-      <v-card>
-        <v-card-title class="text-h6">Run Diagnostics?</v-card-title>
-        <v-card-text>
-          This will scan for and fix data inconsistencies, such as 'Zombie Courts' (courts marked busy but with no match) and double-booked matches.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="text" @click="showConsistencyDialog = false">Cancel</v-btn>
-          <v-btn color="warning" @click="confirmConsistencyCheck">Run Fix</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </div>
-</template>
