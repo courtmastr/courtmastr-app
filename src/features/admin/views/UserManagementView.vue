@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useUserStore } from '@/stores/users';
 import { useNotificationStore } from '@/stores/notifications';
 import FilterBar from '@/components/common/FilterBar.vue';
+import CompactDataTable from '@/components/common/CompactDataTable.vue';
 import type { User, UserRole } from '@/types';
 
 const router = useRouter();
@@ -204,24 +205,36 @@ async function confirmStatusChange(): Promise<void> {
     />
 
     <v-card>
-      <v-data-table
-        :headers="tableHeaders"
+      <compact-data-table
         :items="filteredUsers"
+        :columns="[
+          { key: 'user', title: 'User', width: '40%', essential: true },
+          { key: 'role', title: 'Role', width: '25%', essential: true },
+          { key: 'status', title: 'Status', width: '15%', essential: true },
+          { key: 'actions', title: 'Actions', width: '20%', essential: true },
+        ]"
         :loading="userStore.loading"
-        item-key="id"
       >
-        <template #item.role="{ item }">
+        <template #cell-user="{ item }">
+          <div class="d-flex flex-column py-1">
+            <span class="font-weight-medium">{{ item.displayName }}</span>
+            <span class="text-caption text-grey">{{ item.email }}</span>
+          </div>
+        </template>
+
+        <template #cell-role="{ item }">
           <v-select
             :model-value="item.role"
             :items="roleOptions"
             density="compact"
             hide-details
             variant="outlined"
+            style="max-width: 140px;"
             @update:model-value="(value) => handleRoleChange(item, value as UserRole)"
           />
         </template>
 
-        <template #item.status="{ item }">
+        <template #cell-status="{ item }">
           <v-chip
             :color="item.isActive === false ? 'error' : 'success'"
             size="small"
@@ -231,35 +244,35 @@ async function confirmStatusChange(): Promise<void> {
           </v-chip>
         </template>
 
-        <template #item.createdAt="{ item }">
-          {{ formatDate(item.createdAt) }}
-        </template>
-
-        <template #item.lastLoginAt="{ item }">
-          {{ formatDate(item.lastLoginAt) }}
-        </template>
-
-        <template #item.actions="{ item }">
-          <div class="d-flex ga-2 justify-end">
+        <template #actions="{ item }">
+          <div class="d-flex ga-1 justify-end">
             <v-btn
+              icon="mdi-pencil"
               size="small"
               variant="text"
-              prepend-icon="mdi-pencil"
+              color="primary"
+              title="Edit"
               @click="openEditDialog(item)"
-            >
-              Edit
-            </v-btn>
+            />
             <v-btn
+              :icon="item.isActive === false ? 'mdi-account-check' : 'mdi-account-off'"
               size="small"
               :color="item.isActive === false ? 'success' : 'error'"
-              variant="outlined"
+              variant="text"
+              :title="item.isActive === false ? 'Reactivate' : 'Deactivate'"
               @click="requestStatusChange(item)"
-            >
-              {{ item.isActive === false ? 'Reactivate' : 'Deactivate' }}
-            </v-btn>
+            />
           </div>
         </template>
-      </v-data-table>
+
+        <template #details="{ item }">
+          <div class="d-flex flex-wrap gap-4 text-body-2">
+            <div><strong>Email:</strong> {{ item.email }}</div>
+            <div><strong>Created:</strong> {{ formatDate(item.createdAt) }}</div>
+            <div><strong>Last Active:</strong> {{ formatDate(item.lastLoginAt) }}</div>
+          </div>
+        </template>
+      </compact-data-table>
     </v-card>
 
     <v-dialog
