@@ -5,6 +5,8 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import FilterBar from '@/components/common/FilterBar.vue';
+import CompactDataTable from '@/components/common/CompactDataTable.vue';
 import { FORMAT_LABELS } from '@/types';
 
 const route = useRoute();
@@ -28,6 +30,7 @@ const tab = ref('registrations');
 const filterCategory = ref<string | null>(null);
 const filterStatus = ref<string | null>(null);
 const searchQuery = ref('');
+const filterSort = ref<string | null>('default');
 
 // Dialog states
 const showAddPlayerDialog = ref(false);
@@ -92,6 +95,18 @@ const isDoublesCategory = computed(() => {
   return selectedCategory.value?.type === 'doubles' || selectedCategory.value?.type === 'mixed_doubles';
 });
 
+const categoryFilterOptions = computed(() => [
+  { title: 'All Categories', value: null },
+  ...categories.value.map((category) => ({ title: category.name, value: category.id })),
+]);
+
+const hasActiveRegistrationFilters = computed(() => (
+  Boolean(filterCategory.value) ||
+  Boolean(filterStatus.value) ||
+  Boolean(searchQuery.value.trim()) ||
+  (filterSort.value !== null && filterSort.value !== 'default')
+));
+
 // Filtered registrations
 const filteredRegistrations = computed(() => {
   let result = registrations.value;
@@ -122,7 +137,23 @@ const filteredRegistrations = computed(() => {
     });
   }
 
-  return result;
+  const sorted = [...result];
+  switch (filterSort.value) {
+    case 'name_asc':
+      sorted.sort((a, b) => getParticipantDisplay(a).localeCompare(getParticipantDisplay(b)));
+      return sorted;
+    case 'name_desc':
+      sorted.sort((a, b) => getParticipantDisplay(b).localeCompare(getParticipantDisplay(a)));
+      return sorted;
+    case 'category_asc':
+      sorted.sort((a, b) => getCategoryName(a.categoryId).localeCompare(getCategoryName(b.categoryId)));
+      return sorted;
+    case 'status_asc':
+      sorted.sort((a, b) => a.status.localeCompare(b.status));
+      return sorted;
+    default:
+      return result;
+  }
 });
 
 // Stats - now category-aware when filtered
@@ -334,6 +365,15 @@ async function reinstateRegistration(registrationId: string) {
   } catch (error) {
     notificationStore.showToast('error', 'Failed to reinstate registration');
   }
+}
+
+function formatDate(value?: Date): string {
+  if (!value) return 'N/A';
+  return value.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 async function bulkCheckIn() {
@@ -663,6 +703,7 @@ function getStatusColor(status: string): string {
     rejected: 'error',
     withdrawn: 'grey',
     checked_in: 'info',
+    no_show: 'error',
   };
   return colors[status] || 'grey';
 }
@@ -674,6 +715,7 @@ function getStatusIcon(status: string): string {
     rejected: 'mdi-close',
     withdrawn: 'mdi-account-remove',
     checked_in: 'mdi-check-decagram',
+    no_show: 'mdi-account-cancel',
   };
   return icons[status] || 'mdi-help';
 }
@@ -682,6 +724,7 @@ function clearFilters() {
   filterCategory.value = null;
   filterStatus.value = null;
   searchQuery.value = '';
+  filterSort.value = 'default';
 }
 
 const statusOptions = [
@@ -690,8 +733,17 @@ const statusOptions = [
   { title: 'Pending', value: 'pending' },
   { title: 'Approved', value: 'approved' },
   { title: 'Checked In', value: 'checked_in' },
+  { title: 'No Show', value: 'no_show' },
   { title: 'Withdrawn', value: 'withdrawn' },
   { title: 'Rejected', value: 'rejected' },
+];
+
+const sortOptions = [
+  { title: 'Default', value: 'default' },
+  { title: 'Name (A-Z)', value: 'name_asc' },
+  { title: 'Name (Z-A)', value: 'name_desc' },
+  { title: 'Category (A-Z)', value: 'category_asc' },
+  { title: 'Status (A-Z)', value: 'status_asc' },
 ];
 
 const canCheckIn = computed(() => {
@@ -717,9 +769,24 @@ const canApprove = computed(() => {
       <div class="d-flex align-center justify-space-between flex-wrap gap-4">
         <div>
           <div class="d-flex align-center text-grey-darken-1 text-caption mb-1">
-            <v-icon size="small" class="mr-1">mdi-home</v-icon>
-            Home <v-icon size="small" class="mx-1">mdi-chevron-right</v-icon>
-            Tournaments <v-icon size="small" class="mx-1">mdi-chevron-right</v-icon>
+            <v-icon
+              size="small"
+              class="mr-1"
+            >
+              mdi-home
+            </v-icon>
+            Home <v-icon
+              size="small"
+              class="mx-1"
+            >
+              mdi-chevron-right
+            </v-icon>
+            Tournaments <v-icon
+              size="small"
+              class="mx-1"
+            >
+              mdi-chevron-right
+            </v-icon>
             {{ tournament?.name }}
           </div>
           <div class="d-flex align-center">
@@ -730,7 +797,9 @@ const canApprove = computed(() => {
               class="mr-2"
               @click="router.back()"
             />
-            <h1 class="text-h4 font-weight-bold text-gradient mb-0">Registration</h1>
+            <h1 class="text-h4 font-weight-bold text-gradient mb-0">
+              Registration
+            </h1>
           </div>
         </div>
         <div class="d-flex flex-column flex-sm-row gap-2">
@@ -751,8 +820,8 @@ const canApprove = computed(() => {
           <v-btn
             color="primary"
             prepend-icon="mdi-plus"
-            @click="showAddRegistrationDialog = true"
             elevation="2"
+            @click="showAddRegistrationDialog = true"
           >
             Add Registration
           </v-btn>
@@ -761,12 +830,24 @@ const canApprove = computed(() => {
     </div>
 
     <!-- Category Header when filtered -->
-    <v-card v-if="selectedCategoryDetails" class="mb-4" variant="outlined" color="primary">
+    <v-card
+      v-if="selectedCategoryDetails"
+      class="mb-4"
+      variant="outlined"
+      color="primary"
+    >
       <v-card-text>
         <div class="d-flex align-center mb-3">
-          <v-icon size="24" class="mr-2">mdi-tournament</v-icon>
+          <v-icon
+            size="24"
+            class="mr-2"
+          >
+            mdi-tournament
+          </v-icon>
           <div>
-            <h2 class="text-h6 font-weight-bold">{{ selectedCategoryDetails.name }}</h2>
+            <h2 class="text-h6 font-weight-bold">
+              {{ selectedCategoryDetails.name }}
+            </h2>
             <div class="text-caption text-grey">
               {{ FORMAT_LABELS[selectedCategoryDetails.format] || selectedCategoryDetails.format }}
               <span v-if="selectedCategoryDetails.seedingEnabled"> | Seeding enabled</span>
@@ -795,22 +876,61 @@ const canApprove = computed(() => {
               <strong class="text-h5">{{ registrationStats.bracketReady }}</strong>
               <span class="text-body-2 ml-1">players in bracket</span>
             </div>
-            <v-divider vertical class="mx-2" />
-            <div v-if="registrationStats.pending > 0" class="text-warning">
-              <v-icon size="16" class="mr-1">mdi-clock-outline</v-icon>
+            <v-divider
+              vertical
+              class="mx-2"
+            />
+            <div
+              v-if="registrationStats.pending > 0"
+              class="text-warning"
+            >
+              <v-icon
+                size="16"
+                class="mr-1"
+              >
+                mdi-clock-outline
+              </v-icon>
               <strong>{{ registrationStats.pending }}</strong> pending (won't be in bracket)
             </div>
-            <div v-if="registrationStats.withdrawn > 0" class="text-grey">
-              <v-icon size="16" class="mr-1">mdi-account-remove</v-icon>
+            <div
+              v-if="registrationStats.withdrawn > 0"
+              class="text-grey"
+            >
+              <v-icon
+                size="16"
+                class="mr-1"
+              >
+                mdi-account-remove
+              </v-icon>
               <strong>{{ registrationStats.withdrawn }}</strong> withdrawn
             </div>
-            <v-divider vertical class="mx-2" v-if="bracketInfo.byes > 0" />
-            <div v-if="bracketInfo.byes > 0" class="text-info">
-              <v-icon size="16" class="mr-1">mdi-arrow-right-bold</v-icon>
+            <v-divider
+              v-if="bracketInfo.byes > 0"
+              vertical
+              class="mx-2"
+            />
+            <div
+              v-if="bracketInfo.byes > 0"
+              class="text-info"
+            >
+              <v-icon
+                size="16"
+                class="mr-1"
+              >
+                mdi-arrow-right-bold
+              </v-icon>
               Bracket of {{ bracketInfo.size }} with <strong>{{ bracketInfo.byes }}</strong> bye{{ bracketInfo.byes > 1 ? 's' : '' }}
             </div>
-            <div v-if="selectedCategoryDetails.seedingEnabled" class="text-primary">
-              <v-icon size="16" class="mr-1">mdi-seed</v-icon>
+            <div
+              v-if="selectedCategoryDetails.seedingEnabled"
+              class="text-primary"
+            >
+              <v-icon
+                size="16"
+                class="mr-1"
+              >
+                mdi-seed
+              </v-icon>
               <strong>{{ registrationStats.seeded }}</strong> seeded
             </div>
           </div>
@@ -820,76 +940,151 @@ const canApprove = computed(() => {
 
     <!-- Stats Grid -->
     <v-row class="mb-6">
-      <v-col cols="6" sm="4" md="2">
-        <div class="stat-card pa-4 rounded-lg bg-surface cursor-pointer" @click="filterStatus = null">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <div
+          class="stat-card pa-4 rounded-lg bg-surface cursor-pointer"
+          @click="filterStatus = null"
+        >
           <div class="stat-icon-wrapper bg-grey-lighten-4 text-grey-darken-1">
             <v-icon>mdi-account-group</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.total }}</div>
-          <div class="text-caption font-weight-medium text-grey text-uppercase">Total</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.total }}
+          </div>
+          <div class="text-caption font-weight-medium text-grey text-uppercase">
+            Total
+          </div>
         </div>
       </v-col>
       
-      <v-col cols="6" sm="4" md="2">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
         <div class="stat-card stat-success pa-4 rounded-lg bg-surface">
           <div class="stat-icon-wrapper">
-             <v-icon>mdi-check-decagram</v-icon>
+            <v-icon>mdi-check-decagram</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.bracketReady }}</div>
-          <div class="text-caption font-weight-medium text-success text-uppercase">Bracket Ready</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.bracketReady }}
+          </div>
+          <div class="text-caption font-weight-medium text-success text-uppercase">
+            Bracket Ready
+          </div>
         </div>
       </v-col>
 
-      <v-col cols="6" sm="4" md="2">
-        <div class="stat-card stat-warning pa-4 rounded-lg bg-surface cursor-pointer" @click="filterStatus = filterStatus === 'pending' ? null : 'pending'">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <div
+          class="stat-card stat-warning pa-4 rounded-lg bg-surface cursor-pointer"
+          @click="filterStatus = filterStatus === 'pending' ? null : 'pending'"
+        >
           <div class="stat-icon-wrapper">
             <v-icon>mdi-clock-outline</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.pending }}</div>
-          <div class="text-caption font-weight-medium text-warning text-uppercase">Pending</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.pending }}
+          </div>
+          <div class="text-caption font-weight-medium text-warning text-uppercase">
+            Pending
+          </div>
         </div>
       </v-col>
 
-      <v-col cols="6" sm="4" md="2">
-        <div class="stat-card stat-info pa-4 rounded-lg bg-surface cursor-pointer" @click="filterStatus = filterStatus === 'approved' ? null : 'approved'">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <div
+          class="stat-card stat-info pa-4 rounded-lg bg-surface cursor-pointer"
+          @click="filterStatus = filterStatus === 'approved' ? null : 'approved'"
+        >
           <div class="stat-icon-wrapper">
             <v-icon>mdi-check</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.approved }}</div>
-          <div class="text-caption font-weight-medium text-info text-uppercase">Approved</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.approved }}
+          </div>
+          <div class="text-caption font-weight-medium text-info text-uppercase">
+            Approved
+          </div>
         </div>
       </v-col>
 
-      <v-col cols="6" sm="4" md="2">
-        <div class="stat-card stat-primary pa-4 rounded-lg bg-surface cursor-pointer" @click="filterStatus = filterStatus === 'checked_in' ? null : 'checked_in'">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <div
+          class="stat-card stat-primary pa-4 rounded-lg bg-surface cursor-pointer"
+          @click="filterStatus = filterStatus === 'checked_in' ? null : 'checked_in'"
+        >
           <div class="stat-icon-wrapper">
             <v-icon>mdi-ticket-account</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.checkedIn }}</div>
-          <div class="text-caption font-weight-medium text-primary text-uppercase">Checked In</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.checkedIn }}
+          </div>
+          <div class="text-caption font-weight-medium text-primary text-uppercase">
+            Checked In
+          </div>
         </div>
       </v-col>
 
-      <v-col cols="6" sm="4" md="2">
-        <div class="stat-card stat-secondary pa-4 rounded-lg bg-surface cursor-pointer" @click="filterStatus = filterStatus === 'withdrawn' ? null : 'withdrawn'">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <div
+          class="stat-card stat-secondary pa-4 rounded-lg bg-surface cursor-pointer"
+          @click="filterStatus = filterStatus === 'withdrawn' ? null : 'withdrawn'"
+        >
           <div class="stat-icon-wrapper">
             <v-icon>mdi-account-off</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.withdrawn }}</div>
-          <div class="text-caption font-weight-medium text-secondary text-uppercase">Withdrawn</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.withdrawn }}
+          </div>
+          <div class="text-caption font-weight-medium text-secondary text-uppercase">
+            Withdrawn
+          </div>
         </div>
       </v-col>
     </v-row>
 
     <!-- Tabs -->
-    <v-tabs v-model="tab" color="primary">
+    <v-tabs
+      v-model="tab"
+      color="primary"
+    >
       <v-tab value="registrations">
-        <v-icon start>mdi-account-multiple</v-icon>
+        <v-icon start>
+          mdi-account-multiple
+        </v-icon>
         Registrations
-        <v-chip size="x-small" class="ml-2">{{ filteredRegistrations.length }}</v-chip>
+        <v-chip
+          size="x-small"
+          class="ml-2"
+        >
+          {{ filteredRegistrations.length }}
+        </v-chip>
       </v-tab>
       <v-tab value="check-in">
-        <v-icon start>mdi-check-decagram</v-icon>
+        <v-icon start>
+          mdi-check-decagram
+        </v-icon>
         Check-In
       </v-tab>
     </v-tabs>
@@ -911,7 +1106,9 @@ const canApprove = computed(() => {
           :to="`/tournaments/${tournamentId}/participants`"
         >
           Go to Participants
-          <v-icon end>mdi-arrow-right</v-icon>
+          <v-icon end>
+            mdi-arrow-right
+          </v-icon>
         </v-btn>
       </div>
     </v-alert>
@@ -922,59 +1119,33 @@ const canApprove = computed(() => {
         <v-card class="mt-4">
           <!-- Filters -->
           <v-card-text class="pb-0">
-            <v-row>
-               <v-col cols="12" sm="4">
-                 <v-text-field
-                   v-model="searchQuery"
-                   data-testid="search-participant-input"
-                   prepend-inner-icon="mdi-magnify"
-                   label="Search by name"
-                   density="compact"
-                   variant="outlined"
-                   clearable
-                   hide-details
-                 />
-               </v-col>
-               <v-col cols="6" sm="3">
-                 <v-select
-                   v-model="filterCategory"
-                   data-testid="filter-category-select"
-                   :items="[{ name: 'All Categories', id: null }, ...categories]"
-                   item-title="name"
-                   item-value="id"
-                   label="Category"
-                   density="compact"
-                   variant="outlined"
-                   hide-details
-                 />
-               </v-col>
-              <v-col cols="6" sm="3">
-                <v-select
-                  v-model="filterStatus"
-                  :items="statusOptions"
-                  item-title="title"
-                  item-value="value"
-                  label="Status"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                />
-              </v-col>
-              <v-col cols="12" sm="2" class="d-flex align-center">
-                <v-btn
-                  v-if="filterCategory || filterStatus || searchQuery"
-                  variant="text"
-                  size="small"
-                  @click="clearFilters"
-                >
-                  Clear Filters
-                </v-btn>
-              </v-col>
-            </v-row>
+            <filter-bar
+              :search="searchQuery"
+              :category="filterCategory"
+              :status="filterStatus"
+              :sort="filterSort"
+              :enable-category="true"
+              :enable-status="true"
+              :enable-court="false"
+              :category-options="categoryFilterOptions"
+              :status-options="statusOptions"
+              :sort-options="sortOptions"
+              search-label="Search"
+              search-placeholder="Search participant name"
+              :has-active-filters="hasActiveRegistrationFilters"
+              @update:search="searchQuery = $event"
+              @update:category="filterCategory = $event"
+              @update:status="filterStatus = $event"
+              @update:sort="filterSort = $event"
+              @clear="clearFilters"
+            />
 
             <!-- Bulk Actions -->
             <v-slide-y-transition>
-              <div v-if="selectedRegistrations.length > 0" class="mt-3 pa-3 bg-surface-variant rounded">
+              <div
+                v-if="selectedRegistrations.length > 0"
+                class="mt-3 pa-3 bg-surface-variant rounded"
+              >
                 <div class="d-flex align-center">
                   <span class="text-body-2 mr-4">
                     {{ selectedRegistrations.length }} selected
@@ -1014,45 +1185,49 @@ const canApprove = computed(() => {
             </v-slide-y-transition>
           </v-card-text>
 
-          <v-data-table
-            v-model="selectedRegistrations"
-            :headers="[
-              { title: '', key: 'data-table-select', width: '48px' },
-              { title: 'Participant', key: 'participant' },
-              { title: 'Category', key: 'category' },
-              { title: 'Status', key: 'status' },
-              { title: 'Payment', key: 'payment', align: 'center' },
-              { title: 'Seed', key: 'seed', align: 'center' },
-              { title: 'Actions', key: 'actions', sortable: false, align: 'end' },
-            ]"
+          <compact-data-table
+            v-model:selected="selectedRegistrations"
             :items="filteredRegistrations"
+            :columns="[
+              { key: 'participant', title: 'Participant', width: '35%', essential: true },
+              { key: 'category', title: 'Category', width: '20%', essential: true },
+              { key: 'status', title: 'Status', width: '15%', essential: true },
+              { key: 'actions', title: 'Actions', width: '30%', essential: true },
+            ]"
             :loading="loading"
-            item-value="id"
             show-select
-            hover
           >
-            <template #item.participant="{ item }">
+            <template #cell-participant="{ item }">
               <div class="d-flex align-center py-2">
-                <v-avatar size="36" color="primary" class="mr-3">
+                <v-avatar
+                  size="36"
+                  color="primary"
+                  class="mr-3"
+                >
                   <span class="text-caption">{{ getPlayerName(item.playerId).charAt(0) }}</span>
                 </v-avatar>
                 <div>
-                  <div class="font-weight-medium">{{ getParticipantDisplay(item) }}</div>
+                  <div class="font-weight-medium">
+                    {{ getParticipantDisplay(item) }}
+                  </div>
                   <div class="text-caption text-grey">
                     {{ item.partnerPlayerId ? 'Doubles' : 'Singles' }}
                   </div>
                 </div>
               </div>
             </template>
-            <template #item.category="{ item }">
-              <v-chip size="small" variant="outlined">
+            <template #cell-category="{ item }">
+              <v-chip
+                size="small"
+                variant="outlined"
+              >
                 {{ getCategoryName(item.categoryId) }}
               </v-chip>
               <div class="text-caption text-grey">
                 {{ getCategory(item.categoryId)?.format ? FORMAT_LABELS[getCategory(item.categoryId)!.format] : '' }}
               </div>
             </template>
-            <template #item.status="{ item }">
+            <template #cell-status="{ item }">
               <v-chip
                 :color="getStatusColor(item.status)"
                 :prepend-icon="getStatusIcon(item.status)"
@@ -1061,30 +1236,7 @@ const canApprove = computed(() => {
                 {{ item.status }}
               </v-chip>
             </template>
-            <template #item.payment="{ item }">
-              <v-tooltip :text="item.paymentNote || 'Click to toggle payment'">
-                <template #activator="{ props }">
-                  <v-chip
-                    v-bind="props"
-                    :color="getPaymentColor(item.paymentStatus)"
-                    :prepend-icon="getPaymentIcon(item.paymentStatus)"
-                    size="small"
-                    class="cursor-pointer"
-                    @click="togglePaymentStatus(item)"
-                    @click.right.prevent="openPaymentDialog(item)"
-                  >
-                    {{ item.paymentStatus || 'unpaid' }}
-                  </v-chip>
-                </template>
-              </v-tooltip>
-            </template>
-            <template #item.seed="{ item }">
-              <v-chip v-if="item.seed" size="small" color="primary" variant="tonal">
-                #{{ item.seed }}
-              </v-chip>
-              <span v-else class="text-grey">-</span>
-            </template>
-            <template #item.actions="{ item }">
+            <template #actions="{ item }">
               <div class="d-flex justify-end">
                 <!-- Pending actions -->
                 <template v-if="item.status === 'pending'">
@@ -1128,8 +1280,18 @@ const canApprove = computed(() => {
 
                 <!-- Checked in - can only withdraw -->
                 <template v-if="item.status === 'checked_in'">
-                  <v-chip size="x-small" color="success" variant="tonal" class="mr-2">
-                    <v-icon start size="12">mdi-check</v-icon>
+                  <v-chip
+                    size="x-small"
+                    color="success"
+                    variant="tonal"
+                    class="mr-2"
+                  >
+                    <v-icon
+                      start
+                      size="12"
+                    >
+                      mdi-check
+                    </v-icon>
                     Ready
                   </v-chip>
                   <v-btn
@@ -1163,7 +1325,23 @@ const canApprove = computed(() => {
                 </template>
               </div>
             </template>
-          </v-data-table>
+            <template #details="{ item }">
+              <div class="d-flex flex-wrap gap-4 text-body-2">
+                <div><strong>Payment:</strong> 
+                  <v-chip
+                    :color="getPaymentColor(item.paymentStatus)"
+                    size="small"
+                    class="cursor-pointer"
+                    @click="togglePaymentStatus(item)"
+                  >
+                    {{ item.paymentStatus || 'unpaid' }}
+                  </v-chip>
+                </div>
+                <div v-if="item.seed"><strong>Seed:</strong> #{{ item.seed }}</div>
+                <div><strong>Registered:</strong> {{ formatDate(item.createdAt) }}</div>
+              </div>
+            </template>
+          </compact-data-table>
         </v-card>
       </v-tabs-window-item>
 
@@ -1171,10 +1349,15 @@ const canApprove = computed(() => {
       <v-tabs-window-item value="check-in">
         <v-card class="mt-4">
           <v-card-title class="d-flex align-center">
-            <v-icon start>mdi-check-decagram</v-icon>
+            <v-icon start>
+              mdi-check-decagram
+            </v-icon>
             Quick Check-In
             <v-spacer />
-            <v-chip color="success" variant="tonal">
+            <v-chip
+              color="success"
+              variant="tonal"
+            >
               {{ registrationStats.checkedIn }} / {{ registrationStats.approved + registrationStats.checkedIn }} checked in
             </v-chip>
           </v-card-title>
@@ -1191,14 +1374,28 @@ const canApprove = computed(() => {
           </v-card-text>
 
           <v-list>
-            <template v-for="reg in filteredRegistrations.filter(r => r.status === 'approved' || r.status === 'checked_in')" :key="reg.id">
+            <template
+              v-for="reg in filteredRegistrations.filter(r => r.status === 'approved' || r.status === 'checked_in')"
+              :key="reg.id"
+            >
               <v-list-item
                 :class="{ 'bg-success-lighten-5': reg.status === 'checked_in' }"
               >
                 <template #prepend>
-                  <v-avatar :color="reg.status === 'checked_in' ? 'success' : 'grey'" size="40">
-                    <v-icon v-if="reg.status === 'checked_in'" color="white">mdi-check</v-icon>
-                    <span v-else class="text-caption">{{ getPlayerName(reg.playerId).charAt(0) }}</span>
+                  <v-avatar
+                    :color="reg.status === 'checked_in' ? 'success' : 'grey'"
+                    size="40"
+                  >
+                    <v-icon
+                      v-if="reg.status === 'checked_in'"
+                      color="white"
+                    >
+                      mdi-check
+                    </v-icon>
+                    <span
+                      v-else
+                      class="text-caption"
+                    >{{ getPlayerName(reg.playerId).charAt(0) }}</span>
                   </v-avatar>
                 </template>
 
@@ -1219,8 +1416,14 @@ const canApprove = computed(() => {
                   >
                     Check In
                   </v-btn>
-                  <v-chip v-else color="success" variant="tonal">
-                    <v-icon start>mdi-check</v-icon>
+                  <v-chip
+                    v-else
+                    color="success"
+                    variant="tonal"
+                  >
+                    <v-icon start>
+                      mdi-check
+                    </v-icon>
                     Checked In
                   </v-chip>
                   <v-btn
@@ -1240,8 +1443,12 @@ const canApprove = computed(() => {
 
           <v-card-text v-if="filteredRegistrations.filter(r => r.status === 'approved' || r.status === 'checked_in').length === 0">
             <div class="text-center py-8 text-grey">
-              <v-icon size="64">mdi-account-search</v-icon>
-              <p class="mt-4">No approved registrations found</p>
+              <v-icon size="64">
+                mdi-account-search
+              </v-icon>
+              <p class="mt-4">
+                No approved registrations found
+              </p>
             </div>
           </v-card-text>
         </v-card>
@@ -1249,7 +1456,10 @@ const canApprove = computed(() => {
     </v-tabs-window>
 
     <!-- Add Player Dialog -->
-    <v-dialog v-model="showAddPlayerDialog" max-width="500">
+    <v-dialog
+      v-model="showAddPlayerDialog"
+      max-width="500"
+    >
       <v-card>
         <v-card-title>Add Player</v-card-title>
         <v-card-text>
@@ -1289,14 +1499,27 @@ const canApprove = computed(() => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showAddPlayerDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="addPlayer">Add Player</v-btn>
+          <v-btn
+            variant="text"
+            @click="showAddPlayerDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="addPlayer"
+          >
+            Add Player
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Add Registration Dialog -->
-    <v-dialog v-model="showAddRegistrationDialog" max-width="500">
+    <v-dialog
+      v-model="showAddRegistrationDialog"
+      max-width="500"
+    >
       <v-card>
         <v-card-title>Add Registration</v-card-title>
         <v-card-text>
@@ -1328,14 +1551,27 @@ const canApprove = computed(() => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showAddRegistrationDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="addRegistration">Add Registration</v-btn>
+          <v-btn
+            variant="text"
+            @click="showAddRegistrationDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="addRegistration"
+          >
+            Add Registration
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Bulk Check-In Confirmation Dialog -->
-    <v-dialog v-model="showBulkCheckInDialog" max-width="400">
+    <v-dialog
+      v-model="showBulkCheckInDialog"
+      max-width="400"
+    >
       <v-card>
         <v-card-title>Confirm Bulk Check-In</v-card-title>
         <v-card-text>
@@ -1343,17 +1579,32 @@ const canApprove = computed(() => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showBulkCheckInDialog = false">Cancel</v-btn>
-          <v-btn color="info" @click="bulkCheckIn">Check In All</v-btn>
+          <v-btn
+            variant="text"
+            @click="showBulkCheckInDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="info"
+            @click="bulkCheckIn"
+          >
+            Check In All
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Edit Player Dialog -->
-    <v-dialog v-model="showEditPlayerDialog" max-width="500">
+    <v-dialog
+      v-model="showEditPlayerDialog"
+      max-width="500"
+    >
       <v-card v-if="editingPlayer">
         <v-card-title>
-          <v-icon start>mdi-account-edit</v-icon>
+          <v-icon start>
+            mdi-account-edit
+          </v-icon>
           Edit Player
         </v-card-title>
         <v-card-text>
@@ -1391,7 +1642,10 @@ const canApprove = computed(() => {
           <div class="mt-4">
             <div class="d-flex align-center justify-space-between mb-2">
               <span class="text-body-1">Skill Level</span>
-              <v-chip color="primary" variant="tonal">
+              <v-chip
+                color="primary"
+                variant="tonal"
+              >
                 {{ editingPlayer.skillLevel }} / 10
               </v-chip>
             </div>
@@ -1415,27 +1669,53 @@ const canApprove = computed(() => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showEditPlayerDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="savePlayer">Save Changes</v-btn>
+          <v-btn
+            variant="text"
+            @click="showEditPlayerDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="savePlayer"
+          >
+            Save Changes
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Import CSV Dialog -->
-    <v-dialog v-model="showImportDialog" max-width="800" persistent>
+    <v-dialog
+      v-model="showImportDialog"
+      max-width="800"
+      persistent
+    >
       <v-card>
         <v-card-title class="d-flex align-center">
-          <v-icon start>mdi-upload</v-icon>
+          <v-icon start>
+            mdi-upload
+          </v-icon>
           Import Players from CSV
           <v-spacer />
-          <v-btn icon="mdi-close" variant="text" @click="showImportDialog = false; resetImport();" />
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            @click="showImportDialog = false; resetImport();"
+          />
         </v-card-title>
 
         <v-card-text>
           <!-- Step 1: Download Template & Upload -->
           <div v-if="!importFile">
-            <v-alert type="info" variant="tonal" class="mb-4">
-              <div class="font-weight-medium mb-2">CSV Format Instructions:</div>
+            <v-alert
+              type="info"
+              variant="tonal"
+              class="mb-4"
+            >
+              <div class="font-weight-medium mb-2">
+                CSV Format Instructions:
+              </div>
               <ul class="text-body-2">
                 <li>Columns: First Name, Last Name, Email, Phone, Skill Level (1-10), Category</li>
                 <li>First Name and Last Name are required</li>
@@ -1455,7 +1735,9 @@ const canApprove = computed(() => {
                 Download CSV Template
               </v-btn>
 
-              <div class="text-body-2 text-grey mb-4">Your tournament categories:</div>
+              <div class="text-body-2 text-grey mb-4">
+                Your tournament categories:
+              </div>
               <div class="d-flex flex-wrap justify-center gap-2 mb-6">
                 <v-chip
                   v-for="cat in categories"
@@ -1483,20 +1765,43 @@ const canApprove = computed(() => {
           <!-- Step 2: Preview -->
           <div v-else>
             <div class="d-flex align-center mb-4">
-              <v-icon color="success" class="mr-2">mdi-file-check</v-icon>
+              <v-icon
+                color="success"
+                class="mr-2"
+              >
+                mdi-file-check
+              </v-icon>
               <span class="font-weight-medium">{{ importFile.name }}</span>
               <v-spacer />
-              <v-btn size="small" variant="text" @click="resetImport">
+              <v-btn
+                size="small"
+                variant="text"
+                @click="resetImport"
+              >
                 Choose Different File
               </v-btn>
             </div>
 
             <!-- Errors -->
-            <v-alert v-if="importErrors.length > 0" type="warning" variant="tonal" class="mb-4">
-              <div class="font-weight-medium mb-2">Issues found ({{ importErrors.length }}):</div>
+            <v-alert
+              v-if="importErrors.length > 0"
+              type="warning"
+              variant="tonal"
+              class="mb-4"
+            >
+              <div class="font-weight-medium mb-2">
+                Issues found ({{ importErrors.length }}):
+              </div>
               <ul class="text-body-2">
-                <li v-for="(error, idx) in importErrors.slice(0, 5)" :key="idx">{{ error }}</li>
-                <li v-if="importErrors.length > 5">... and {{ importErrors.length - 5 }} more</li>
+                <li
+                  v-for="(error, idx) in importErrors.slice(0, 5)"
+                  :key="idx"
+                >
+                  {{ error }}
+                </li>
+                <li v-if="importErrors.length > 5">
+                  ... and {{ importErrors.length - 5 }} more
+                </li>
               </ul>
             </v-alert>
 
@@ -1504,7 +1809,10 @@ const canApprove = computed(() => {
             <div class="text-subtitle-2 mb-2">
               Preview ({{ importPreview.length }} players to import)
             </div>
-            <v-table density="compact" class="border rounded">
+            <v-table
+              density="compact"
+              class="border rounded"
+            >
               <thead>
                 <tr>
                   <th>Name</th>
@@ -1516,30 +1824,57 @@ const canApprove = computed(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(row, idx) in importPreview.slice(0, 10)" :key="idx">
+                <tr
+                  v-for="(row, idx) in importPreview.slice(0, 10)"
+                  :key="idx"
+                >
                   <td>{{ row.firstName }} {{ row.lastName }}</td>
                   <td>{{ row.email || '-' }}</td>
                   <td>{{ row.phone || '-' }}</td>
                   <td>
-                    <v-chip size="x-small" color="primary" variant="tonal">
+                    <v-chip
+                      size="x-small"
+                      color="primary"
+                      variant="tonal"
+                    >
                       {{ row.skillLevel }}
                     </v-chip>
                   </td>
                   <td>{{ row.categoryName || '-' }}</td>
                   <td>
-                    <v-icon v-if="row.valid" color="success" size="small">mdi-check-circle</v-icon>
-                    <v-icon v-else color="warning" size="small">mdi-alert-circle</v-icon>
+                    <v-icon
+                      v-if="row.valid"
+                      color="success"
+                      size="small"
+                    >
+                      mdi-check-circle
+                    </v-icon>
+                    <v-icon
+                      v-else
+                      color="warning"
+                      size="small"
+                    >
+                      mdi-alert-circle
+                    </v-icon>
                   </td>
                 </tr>
                 <tr v-if="importPreview.length > 10">
-                  <td colspan="6" class="text-center text-grey">
+                  <td
+                    colspan="6"
+                    class="text-center text-grey"
+                  >
                     ... and {{ importPreview.length - 10 }} more rows
                   </td>
                 </tr>
               </tbody>
             </v-table>
 
-            <v-alert v-if="importPreview.length === 0" type="error" variant="tonal" class="mt-4">
+            <v-alert
+              v-if="importPreview.length === 0"
+              type="error"
+              variant="tonal"
+              class="mt-4"
+            >
               No valid rows found in the CSV file. Please check the format.
             </v-alert>
           </div>
@@ -1547,7 +1882,10 @@ const canApprove = computed(() => {
 
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showImportDialog = false; resetImport();">
+          <v-btn
+            variant="text"
+            @click="showImportDialog = false; resetImport();"
+          >
             Cancel
           </v-btn>
           <v-btn
@@ -1563,7 +1901,11 @@ const canApprove = computed(() => {
     </v-dialog>
 
     <!-- Delete Player Confirmation Dialog -->
-    <v-dialog v-model="showDeletePlayerDialog" max-width="400" persistent>
+    <v-dialog
+      v-model="showDeletePlayerDialog"
+      max-width="400"
+      persistent
+    >
       <v-card>
         <v-card-title>Delete Player?</v-card-title>
         <v-card-text>
@@ -1571,17 +1913,32 @@ const canApprove = computed(() => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showDeletePlayerDialog = false">Cancel</v-btn>
-          <v-btn color="error" @click="confirmDeletePlayer">Delete</v-btn>
+          <v-btn
+            variant="text"
+            @click="showDeletePlayerDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="error"
+            @click="confirmDeletePlayer"
+          >
+            Delete
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Payment Status Dialog -->
-    <v-dialog v-model="showPaymentDialog" max-width="400">
+    <v-dialog
+      v-model="showPaymentDialog"
+      max-width="400"
+    >
       <v-card v-if="editingPayment">
         <v-card-title>
-          <v-icon start>mdi-cash</v-icon>
+          <v-icon start>
+            mdi-cash
+          </v-icon>
           Payment Status
         </v-card-title>
         <v-card-text>
@@ -1614,8 +1971,18 @@ const canApprove = computed(() => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showPaymentDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="savePaymentStatus">Save</v-btn>
+          <v-btn
+            variant="text"
+            @click="showPaymentDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="savePaymentStatus"
+          >
+            Save
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
