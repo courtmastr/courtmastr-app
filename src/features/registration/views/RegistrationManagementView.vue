@@ -888,16 +888,33 @@ const canApprove = computed(() => {
         Registrations
         <v-chip size="x-small" class="ml-2">{{ filteredRegistrations.length }}</v-chip>
       </v-tab>
-      <v-tab value="players">
-        <v-icon start>mdi-account</v-icon>
-        Players
-        <v-chip size="x-small" class="ml-2">{{ players.length }}</v-chip>
-      </v-tab>
       <v-tab value="check-in">
         <v-icon start>mdi-check-decagram</v-icon>
         Check-In
       </v-tab>
     </v-tabs>
+
+    <!-- Link to Participants Page -->
+    <v-alert
+      v-if="tab === 'registrations'"
+      type="info"
+      variant="tonal"
+      density="compact"
+      class="mt-4"
+    >
+      <div class="d-flex align-center justify-space-between">
+        <span>View and manage your tournament participants</span>
+        <v-btn
+          variant="text"
+          color="primary"
+          size="small"
+          :to="`/tournaments/${tournamentId}/participants`"
+        >
+          Go to Participants
+          <v-icon end>mdi-arrow-right</v-icon>
+        </v-btn>
+      </div>
+    </v-alert>
 
     <v-tabs-window v-model="tab">
       <!-- Registrations Tab -->
@@ -1145,65 +1162,6 @@ const canApprove = computed(() => {
                   />
                 </template>
               </div>
-            </template>
-          </v-data-table>
-        </v-card>
-      </v-tabs-window-item>
-
-      <!-- Players Tab -->
-      <v-tabs-window-item value="players">
-        <v-card class="mt-4">
-          <v-data-table
-            :headers="[
-              { title: 'Name', key: 'name' },
-              { title: 'Email', key: 'email' },
-              { title: 'Phone', key: 'phone' },
-              { title: 'Skill Level', key: 'skillLevel' },
-              { title: 'Actions', key: 'actions', sortable: false, align: 'end' },
-            ]"
-            :items="players"
-            :loading="loading"
-            hover
-          >
-            <template #item.name="{ item }">
-              <div class="d-flex align-center py-2">
-                <v-avatar size="36" color="primary" class="mr-3">
-                  <span class="text-caption">{{ item.firstName.charAt(0) }}</span>
-                </v-avatar>
-                <span class="font-weight-medium">{{ item.firstName }} {{ item.lastName }}</span>
-              </div>
-            </template>
-            <template #item.skillLevel="{ item }">
-              <div class="d-flex align-center">
-                <v-chip size="small" color="primary" variant="tonal" class="mr-2">
-                  {{ item.skillLevel || 5 }} / 10
-                </v-chip>
-                <v-progress-linear
-                  :model-value="((item.skillLevel || 5) / 10) * 100"
-                  color="primary"
-                  height="8"
-                  rounded
-                  style="width: 80px;"
-                />
-              </div>
-            </template>
-            <template #item.actions="{ item }">
-              <v-btn
-                icon="mdi-pencil"
-                size="small"
-                variant="text"
-                color="primary"
-                title="Edit Player"
-                @click="openEditPlayerDialog(item)"
-              />
-              <v-btn
-                icon="mdi-delete"
-                size="small"
-                variant="text"
-                color="error"
-                title="Delete Player"
-                @click="requestDeletePlayer(item.id)"
-              />
             </template>
           </v-data-table>
         </v-card>
