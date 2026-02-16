@@ -41,6 +41,15 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
       to: '/tournaments'
     });
 
+    // Handle /tournaments/create
+    if (pathArray[1] === 'create') {
+      breadcrumbs.push({
+        title: 'Create Tournament',
+        to: '/tournaments/create'
+      });
+      return breadcrumbs;
+    }
+
     if (pathArray[1]) {
       breadcrumbs.push({
         title: 'Tournament',
