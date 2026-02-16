@@ -17,6 +17,7 @@ import ActiveMatchesSection from '@/features/tournaments/components/ActiveMatche
 import CourtGrid from '@/features/tournaments/components/CourtGrid.vue';
 import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
 import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
+import CompactDataTable from '@/components/common/CompactDataTable.vue';
 import { useMatchDuration } from '@/composables/useMatchDuration';
 import type { Match, Court } from '@/types';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
@@ -80,6 +81,9 @@ const scheduleFilters = ref({
   sortBy: 'round' as string,
   sortDesc: false,
 });
+
+// TOURNEY-104: Compact table view mode
+const scheduleViewMode = ref<'compact' | 'full'>('compact');
 
 // Quick filter presets
 const quickFilters = [
@@ -1827,8 +1831,138 @@ function toggleAutoStart(enabled: boolean) {
           />
         </div>
 
-        <!-- Schedule Table -->
-        <div class="flex-grow-1 overflow-auto">
+        <!-- TOURNEY-104: Compact Schedule Toggle -->
+        <div class="px-4 py-2 bg-surface border-b d-flex align-center justify-space-between">
+          <span class="text-body-2 text-grey">{{ filteredMatches.length }} matches</span>
+          <v-btn-toggle v-model="scheduleViewMode" density="compact" variant="outlined" mandatory>
+            <v-btn value="compact" prepend-icon="mdi-view-compact" size="small">Compact</v-btn>
+            <v-btn value="full" prepend-icon="mdi-table" size="small">Full</v-btn>
+          </v-btn-toggle>
+        </div>
+
+        <!-- Schedule Table - Compact View (TOURNEY-104) -->
+        <div v-if="scheduleViewMode === 'compact'" class="flex-grow-1 overflow-auto">
+          <compact-data-table
+            :items="filteredMatches"
+            :columns="[
+              { key: 'match', title: 'Match', width: '40%', essential: true },
+              { key: 'status', title: 'Status', width: '100px', essential: true },
+              { key: 'court', title: 'Court', width: '120px', essential: true },
+            ]"
+            :items-per-page="50"
+          >
+            <template #cell-match="{ item }"
+              <div class="d-flex flex-column py-1">
+                <div class="d-flex align-center gap-2 mb-1">
+                  <span class="text-caption text-grey">#{{ item.id }}</span>
+                  <v-chip size="x-small" variant="outlined" density="compact">
+                    {{ getCategoryName(item.categoryId) }}
+                  </v-chip>
+                </div>
+                <div class="d-flex flex-column">
+                  <span :class="{'font-weight-bold text-success': item.winnerId === item.participant1Id}" class="text-body-2">
+                    {{ getParticipantName(item.participant1Id) }}
+                  </span>
+                  <span :class="{'font-weight-bold text-success': item.winnerId === item.participant2Id}" class="text-body-2">
+                    {{ getParticipantName(item.participant2Id) }}
+                  </span>
+                </div>
+                <div v-if="item.scores && item.scores.length > 0" class="mt-1">
+                  <span class="font-mono text-caption text-grey">
+                    {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
+                  </span>
+                </div>
+              </div>
+            </template>
+
+            <template #cell-status="{ item }"
+              <v-chip
+                size="small"
+                :color="quickFilters.find(f => f.value === item.status)?.color || (item.status === 'completed' ? 'success' : 'grey')"
+                variant="flat"
+                class="text-uppercase font-weight-bold"
+                style="font-size: 10px; height: 20px;"
+              >
+                {{ item.status.replace('_', ' ') }}
+              </v-chip>
+            </template>
+
+            <template #cell-court="{ item }"
+              <div v-if="item.courtId" class="d-flex align-center">
+                <v-icon size="small" :color="item.status === 'in_progress' ? 'success' : 'grey'" class="mr-1">
+                  mdi-court-sport
+                </v-icon>
+                <span class="text-body-2">{{ getCourtName(item.courtId) }}</span>
+              </div>
+              <span v-else class="text-grey-lighten-1 text-caption">-</span>
+            </template>
+
+            <template #actions="{ item }"
+              <div class="d-flex justify-end gap-1">
+                <v-btn
+                  v-if="item.status === 'ready' || item.status === 'in_progress'"
+                  size="small"
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-scoreboard"
+                  @click="openScoreDialog(item.id)"
+                >
+                  Score
+                </v-btn>
+                <v-btn
+                  v-else-if="!item.courtId && (item.status === 'scheduled' || item.status === 'ready')"
+                  size="small"
+                  color="secondary"
+                  variant="tonal"
+                  prepend-icon="mdi-court-sport"
+                  @click="openAssignCourtDialog(item)"
+                >
+                  Assign
+                </v-btn>
+                <v-menu>
+                  <template #activator="{ props }"
+                    <v-btn icon="mdi-dots-vertical" variant="text" size="small" v-bind="props" />
+                  </template>
+                  <v-list density="compact">
+                    <v-list-item prepend-icon="mdi-pencil" title="Edit Schedule" @click="openScheduleDialog(item)" />
+                    <v-list-item 
+                      v-if="item.status !== 'completed' && item.status !== 'walkover'"
+                      prepend-icon="mdi-flag-checkered" 
+                      title="Force Complete" 
+                      @click="openCompleteMatchDialog(item.id)"
+                    />
+                    <v-list-item 
+                      v-if="item.status === 'scheduled' || item.status === 'ready'"
+                      prepend-icon="mdi-calendar-remove" 
+                      title="Unschedule" 
+                      color="warning"
+                      @click="handleUnschedule(item.id)"
+                    />
+                  </v-list>
+                </v-menu>
+              </div>
+            </template>
+
+            <template #details="{ item, handleAction }"
+              <div class="d-flex flex-wrap gap-4 text-body-2">
+                <div><strong>Match:</strong> {{ getBracketCode(item) }}-{{ item.matchNumber }}</div>
+                <div><strong>Round:</strong> {{ item.round }}</div>
+                <div><strong>Category:</strong> {{ getCategoryName(item.categoryId) }}</div>
+                <div v-if="item.scheduledTime"
+                  <strong>Scheduled:</strong>
+                  {{ new Date(item.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+                </div>
+                <div v-if="item.scores && item.scores.length > 0"
+                  <strong>Score:</strong>
+                  {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
+                </div>
+              </div>
+            </template>
+          </compact-data-table>
+        </div>
+
+        <!-- Schedule Table - Full View (Legacy) -->
+        <div v-else class="flex-grow-1 overflow-auto">
           <v-data-table
             :items="filteredMatches"
             :headers="[
