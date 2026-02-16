@@ -1978,7 +1978,7 @@ TOURNEY-104 created reusable components (ExpandableRow, CompactDataTable) and de
 | TOURNEY-102 | P1       | Redesign check-in for speed           | ✅ Complete |
 | TOURNEY-103 | P1       | Scoring presets + validation          | ⏸️ Pending |
 | TOURNEY-104 | P1       | Remove horizontal scroll tables       | ✅ Complete (foundation) |
-| TOURNEY-104-B | P2     | Complete table compact refactor (remaining pages) | ⏸️ Pending |
+| TOURNEY-104-B | P2     | Complete table compact refactor (remaining pages) | ✅ Complete |
 | TOURNEY-105 | P1       | Standardize filter bar                | ✅ Complete |
 | TOURNEY-106 | P1       | Organizer checklist on overview       | ✅ Complete |
 | TOURNEY-201 | P2       | Remove duplicate nav entries          | ⏸️ Pending |
