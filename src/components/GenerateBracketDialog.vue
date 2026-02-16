@@ -108,27 +108,35 @@ function close() {
 <template>
   <v-dialog
     :model-value="modelValue"
-    @update:model-value="$emit('update:modelValue', $event)"
     max-width="600"
     persistent
+    @update:model-value="$emit('update:modelValue', $event)"
   >
     <v-card>
       <v-card-title class="d-flex align-center">
-        <v-icon icon="mdi-trophy" class="mr-2" color="primary" />
+        <v-icon
+          icon="mdi-trophy"
+          class="mr-2"
+          color="primary"
+        />
         Generate Bracket
         <v-spacer />
         <v-btn
           icon="mdi-close"
           variant="text"
           size="small"
-          @click="close"
           :disabled="setup.loading.value"
+          @click="close"
         />
       </v-card-title>
 
       <v-card-subtitle>
         {{ categoryName }}
-        <v-chip size="x-small" class="ml-2" variant="tonal">
+        <v-chip
+          size="x-small"
+          class="ml-2"
+          variant="tonal"
+        >
           {{ categoryFormat.replace('_', ' ') }}
         </v-chip>
       </v-card-subtitle>
@@ -142,7 +150,10 @@ function close() {
           class="align-center justify-center"
           contained
         >
-          <v-card class="pa-4 text-center" width="300">
+          <v-card
+            class="pa-4 text-center"
+            width="300"
+          >
             <v-progress-circular
               :model-value="setup.progress.value"
               size="64"
@@ -152,7 +163,9 @@ function close() {
             >
               {{ setup.progress.value }}%
             </v-progress-circular>
-            <div class="text-h6">{{ setup.step.value === 'generating' ? 'Generating Bracket...' : 'Scheduling Matches...' }}</div>
+            <div class="text-h6">
+              {{ setup.step.value === 'generating' ? 'Generating Bracket...' : 'Scheduling Matches...' }}
+            </div>
             <div class="text-caption text-grey mt-2">
               {{ setup.step.value === 'generating' ? 'Creating matches and pairings' : 'Assigning courts and times' }}
             </div>
@@ -173,7 +186,9 @@ function close() {
 
         <!-- Bracket Options -->
         <div class="mb-4">
-          <div class="text-subtitle-2 font-weight-medium mb-2">Bracket Options</div>
+          <div class="text-subtitle-2 font-weight-medium mb-2">
+            Bracket Options
+          </div>
           
           <v-switch
             v-if="categoryFormat === 'double_elimination'"
@@ -232,12 +247,19 @@ function close() {
                   variant="outlined"
                   color="primary"
                 >
-                  <v-icon start icon="mdi-badminton" size="small" />
+                  <v-icon
+                    start
+                    icon="mdi-badminton"
+                    size="small"
+                  />
                   {{ court.name }}
                 </v-chip>
               </v-chip-group>
               
-              <div v-if="options.selectedCourts.length === 0" class="text-caption text-error mt-1">
+              <div
+                v-if="options.selectedCourts.length === 0"
+                class="text-caption text-error mt-1"
+              >
                 Select at least one court
               </div>
             </div>
@@ -261,8 +283,8 @@ function close() {
       <v-card-actions class="pa-4">
         <v-btn
           variant="text"
-          @click="close"
           :disabled="setup.loading.value"
+          @click="close"
         >
           Cancel
         </v-btn>
@@ -272,8 +294,8 @@ function close() {
           variant="elevated"
           :loading="setup.loading.value"
           :disabled="!canSubmit"
-          @click="onSubmit"
           prepend-icon="mdi-trophy"
+          @click="onSubmit"
         >
           Generate & Schedule
         </v-btn>

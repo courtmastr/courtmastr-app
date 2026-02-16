@@ -182,23 +182,38 @@ function onGameComplete(game: GameScore) {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="700" persistent>
+  <v-dialog
+    v-model="showDialog"
+    max-width="700"
+    persistent
+  >
     <v-card>
       <v-card-title class="text-h5">
         Correct Match Score
         <v-spacer />
-        <v-btn icon variant="text" @click="cancelCorrection">
+        <v-btn
+          icon
+          variant="text"
+          @click="cancelCorrection"
+        >
           <v-icon>mdi-close</v-icon>
         </v-btn>
       </v-card-title>
 
       <v-card-text v-if="match">
-        <v-alert v-if="match.corrected" type="info" density="compact" class="mb-4">
+        <v-alert
+          v-if="match.corrected"
+          type="info"
+          density="compact"
+          class="mb-4"
+        >
           This match has been corrected {{ match.correctionCount }} time(s) previously
         </v-alert>
 
         <div class="mb-4">
-          <div class="text-subtitle-1 font-weight-bold">{{ participant1Name }} vs {{ participant2Name }}</div>
+          <div class="text-subtitle-1 font-weight-bold">
+            {{ participant1Name }} vs {{ participant2Name }}
+          </div>
           <div class="text-caption text-grey">
             Category: {{ categoryId || 'Main' }} · Match #{{ match.matchNumber }}
           </div>
@@ -206,7 +221,9 @@ function onGameComplete(game: GameScore) {
 
         <v-divider class="mb-4" />
 
-        <div class="text-subtitle-2 mb-2">Edit Scores</div>
+        <div class="text-subtitle-2 mb-2">
+          Edit Scores
+        </div>
 
         <game-score-editor
           v-model="editedScores"
@@ -245,7 +262,12 @@ function onGameComplete(game: GameScore) {
           density="compact"
           class="mt-4"
         >
-          <div v-for="error in validationErrors" :key="error">{{ error }}</div>
+          <div
+            v-for="error in validationErrors"
+            :key="error"
+          >
+            {{ error }}
+          </div>
         </v-alert>
 
         <v-alert
@@ -254,10 +276,19 @@ function onGameComplete(game: GameScore) {
           density="compact"
           class="mt-4"
         >
-          <div v-for="warning in validationWarnings" :key="warning">{{ warning }}</div>
+          <div
+            v-for="warning in validationWarnings"
+            :key="warning"
+          >
+            {{ warning }}
+          </div>
         </v-alert>
 
-        <v-alert type="info" density="compact" class="mt-4">
+        <v-alert
+          type="info"
+          density="compact"
+          class="mt-4"
+        >
           <div class="text-caption">
             This will update the match score and may change the bracket progression.
             {{ match.winnerId !== selectedWinnerId ? 'Winner will be changed!' : '' }}
@@ -267,7 +298,12 @@ function onGameComplete(game: GameScore) {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="cancelCorrection">Cancel</v-btn>
+        <v-btn
+          variant="text"
+          @click="cancelCorrection"
+        >
+          Cancel
+        </v-btn>
         <v-btn
           color="warning"
           :disabled="!canSubmit"

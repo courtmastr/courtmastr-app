@@ -1,3 +1,24 @@
+- id: 77e0bc7c
+  title: lint:log with file args still lints whole workspace and fails
+  status: "❌ unresolved"
+  date: "2026-02-16"
+  fingerprint: "77e0bc7c"
+  command: "npm run lint:log -- <file paths>"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-16-02-15-38.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 84b85c5f
+  title: test:log fails on firebase/testing import in diagnose_data suite
+  status: "❌ unresolved"
+  date: "2026-02-16"
+  fingerprint: "84b85c5f"
+  command: "npm run test:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-16-02-16-02.vitest.log"
+- id: 9d03826c
+  title: lint:log fails due unrelated archived workspace files and existing lint errors
+  status: "❌ unresolved"
+  date: "2026-02-16"
+  fingerprint: "9d03826c"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-16-02-14-46.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 4bfd0fdb
   title: Build fails with existing TypeScript unused and type errors
   status: "❌ unresolved"

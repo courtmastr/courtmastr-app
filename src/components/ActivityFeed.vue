@@ -85,16 +85,32 @@ function formatTime(date: Date): string {
 <template>
   <v-card>
     <v-card-title v-if="showTitle !== false">
-      <v-icon start>mdi-timeline-clock</v-icon>
+      <v-icon start>
+        mdi-timeline-clock
+      </v-icon>
       {{ title || 'Activity Feed' }}
     </v-card-title>
 
-    <v-card-text v-if="displayActivities.length === 0" class="text-center py-6">
-      <v-icon size="48" color="grey-lighten-1">mdi-timeline-clock-outline</v-icon>
-      <p class="text-body-2 text-grey mt-2">No activity yet</p>
+    <v-card-text
+      v-if="displayActivities.length === 0"
+      class="text-center py-6"
+    >
+      <v-icon
+        size="48"
+        color="grey-lighten-1"
+      >
+        mdi-timeline-clock-outline
+      </v-icon>
+      <p class="text-body-2 text-grey mt-2">
+        No activity yet
+      </p>
     </v-card-text>
 
-    <v-list v-else density="compact" class="activity-list">
+    <v-list
+      v-else
+      density="compact"
+      class="activity-list"
+    >
       <v-list-item
         v-for="activity in displayActivities"
         :key="activity.id"
@@ -106,7 +122,12 @@ function formatTime(date: Date): string {
             size="32"
             class="mr-3"
           >
-            <v-icon size="18" color="white">{{ getActivityIcon(activity.type) }}</v-icon>
+            <v-icon
+              size="18"
+              color="white"
+            >
+              {{ getActivityIcon(activity.type) }}
+            </v-icon>
           </v-avatar>
         </template>
 
@@ -116,8 +137,14 @@ function formatTime(date: Date): string {
 
         <v-list-item-subtitle class="text-caption">
           {{ formatTime(activity.createdAt) }}
-          <span v-if="activity.details?.categoryName" class="ml-2">
-            <v-chip size="x-small" variant="outlined">
+          <span
+            v-if="activity.details?.categoryName"
+            class="ml-2"
+          >
+            <v-chip
+              size="x-small"
+              variant="outlined"
+            >
               {{ activity.details.categoryName }}
             </v-chip>
           </span>

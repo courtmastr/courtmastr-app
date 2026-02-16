@@ -20,8 +20,18 @@
         :subtitle="`${getCourtName(match.courtId)} • Round ${match.round}`"
       >
         <template #prepend>
-          <v-icon v-if="match.calledAt" color="success">mdi-check-circle</v-icon>
-          <v-icon v-else color="primary">mdi-bullhorn</v-icon>
+          <v-icon
+            v-if="match.calledAt"
+            color="success"
+          >
+            mdi-check-circle
+          </v-icon>
+          <v-icon
+            v-else
+            color="primary"
+          >
+            mdi-bullhorn
+          </v-icon>
         </template>
 
         <v-list-item-title>
@@ -38,15 +48,26 @@
           >
             Announce
           </v-btn>
-          <span v-else class="text-caption text-grey">
+          <span
+            v-else
+            class="text-caption text-grey"
+          >
             Called {{ formatTime(match.calledAt) }}
           </span>
         </template>
       </v-list-item>
     </v-list>
 
-    <v-card-text v-else class="text-center text-grey py-4">
-      <v-icon size="48" class="mb-2">mdi-bullhorn-outline</v-icon>
+    <v-card-text
+      v-else
+      class="text-center text-grey py-4"
+    >
+      <v-icon
+        size="48"
+        class="mb-2"
+      >
+        mdi-bullhorn-outline
+      </v-icon>
       <div>No matches ready to announce</div>
     </v-card-text>
   </v-card>

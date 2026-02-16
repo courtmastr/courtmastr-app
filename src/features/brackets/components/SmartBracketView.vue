@@ -23,11 +23,23 @@ const format = computed(() => category.value?.format || 'single_elimination');
 <template>
   <div class="smart-bracket-view">
     <!-- Category Info Header -->
-    <v-card v-if="category" class="mb-4" variant="flat" color="surface-variant">
+    <v-card
+      v-if="category"
+      class="mb-4"
+      variant="flat"
+      color="surface-variant"
+    >
       <v-card-text class="d-flex align-center py-2">
-        <v-icon class="mr-2">mdi-tournament</v-icon>
+        <v-icon class="mr-2">
+          mdi-tournament
+        </v-icon>
         <span class="text-h6">{{ category.name }}</span>
-        <v-chip size="small" variant="tonal" color="primary" class="ml-3">
+        <v-chip
+          size="small"
+          variant="tonal"
+          color="primary"
+          class="ml-3"
+        >
           {{ FORMAT_LABELS[category.format] || category.format }}
         </v-chip>
         <v-chip

@@ -49,11 +49,20 @@ watch([statusFilter, selectedCategories, minimumMatches], emitFilters, { deep: t
 </script>
 
 <template>
-  <v-card variant="outlined" class="mb-4">
+  <v-card
+    variant="outlined"
+    class="mb-4"
+  >
     <v-card-text class="pa-3">
-      <v-row align="center" dense>
+      <v-row
+        align="center"
+        dense
+      >
         <!-- Search -->
-        <v-col cols="12" sm="4">
+        <v-col
+          cols="12"
+          sm="4"
+        >
           <v-text-field
             v-model="search"
             density="compact"
@@ -68,9 +77,17 @@ watch([statusFilter, selectedCategories, minimumMatches], emitFilters, { deep: t
         </v-col>
 
         <!-- Status chip group -->
-        <v-col cols="12" sm="4" class="d-flex align-center gap-1">
+        <v-col
+          cols="12"
+          sm="4"
+          class="d-flex align-center gap-1"
+        >
           <span class="text-caption text-medium-emphasis mr-2">Status:</span>
-          <v-chip-group v-model="statusFilter" mandatory selected-class="text-primary">
+          <v-chip-group
+            v-model="statusFilter"
+            mandatory
+            selected-class="text-primary"
+          >
             <v-chip
               v-for="opt in STATUS_OPTIONS"
               :key="opt.value"
@@ -84,7 +101,11 @@ watch([statusFilter, selectedCategories, minimumMatches], emitFilters, { deep: t
         </v-col>
 
         <!-- Category filter (tournament-wide only) -->
-        <v-col v-if="tournamentWide && categories?.length" cols="12" sm="4">
+        <v-col
+          v-if="tournamentWide && categories?.length"
+          cols="12"
+          sm="4"
+        >
           <v-select
             v-model="selectedCategories"
             :items="categories"
@@ -101,7 +122,12 @@ watch([statusFilter, selectedCategories, minimumMatches], emitFilters, { deep: t
         </v-col>
 
         <!-- Minimum matches slider (shown only when meaningful) -->
-        <v-col v-if="!tournamentWide" cols="12" sm="4" class="d-flex align-center">
+        <v-col
+          v-if="!tournamentWide"
+          cols="12"
+          sm="4"
+          class="d-flex align-center"
+        >
           <span class="text-caption text-medium-emphasis mr-2 text-no-wrap">Min matches:</span>
           <v-slider
             v-model="minimumMatches"

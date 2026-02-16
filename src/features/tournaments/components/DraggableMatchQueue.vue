@@ -4,15 +4,30 @@
       <span>Match Queue ({{ matches.length }})</span>
       <v-menu>
         <template #activator="{ props }">
-          <v-btn v-bind="props" icon="mdi-dots-vertical" size="small" variant="text" />
+          <v-btn
+            v-bind="props"
+            icon="mdi-dots-vertical"
+            size="small"
+            variant="text"
+          />
         </template>
         <v-list density="compact">
           <v-list-item @click="$emit('resetOrder')">
-            <v-icon start size="small">mdi-refresh</v-icon>
+            <v-icon
+              start
+              size="small"
+            >
+              mdi-refresh
+            </v-icon>
             Reset to FIFO
           </v-list-item>
           <v-list-item @click="$emit('sortByRound')">
-            <v-icon start size="small">mdi-sort</v-icon>
+            <v-icon
+              start
+              size="small"
+            >
+              mdi-sort
+            </v-icon>
             Sort by Round
           </v-list-item>
         </v-list>
@@ -33,7 +48,11 @@
             <div class="drag-handle mr-2">
               <v-icon>mdi-drag-vertical</v-icon>
             </div>
-            <v-badge :content="index + 1" color="primary" class="mr-2" />
+            <v-badge
+              :content="index + 1"
+              color="primary"
+              class="mr-2"
+            />
           </template>
 
           <v-list-item-title>
@@ -60,7 +79,10 @@
       </template>
     </draggable>
 
-    <v-card-text v-if="matches.length === 0" class="text-center text-grey">
+    <v-card-text
+      v-if="matches.length === 0"
+      class="text-center text-grey"
+    >
       No matches in queue
     </v-card-text>
   </v-card>

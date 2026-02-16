@@ -1,5 +1,9 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="500">
+  <v-dialog
+    :model-value="modelValue"
+    max-width="500"
+    @update:model-value="$emit('update:modelValue', $event)"
+  >
     <v-card>
       <v-card-title>Export Schedule</v-card-title>
 
@@ -14,17 +18,42 @@
           class="mb-4"
         />
 
-        <div class="text-subtitle-2 mb-2">Include:</div>
-        <v-checkbox v-model="includeCompleted" label="Completed matches" density="compact" />
-        <v-checkbox v-model="includeScheduled" label="Scheduled matches" density="compact" />
-        <v-checkbox v-model="includeQueue" label="Queue (unassigned)" density="compact" />
+        <div class="text-subtitle-2 mb-2">
+          Include:
+        </div>
+        <v-checkbox
+          v-model="includeCompleted"
+          label="Completed matches"
+          density="compact"
+        />
+        <v-checkbox
+          v-model="includeScheduled"
+          label="Scheduled matches"
+          density="compact"
+        />
+        <v-checkbox
+          v-model="includeQueue"
+          label="Queue (unassigned)"
+          density="compact"
+        />
       </v-card-text>
 
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="$emit('update:modelValue', false)">Cancel</v-btn>
-        <v-btn color="primary" variant="elevated" @click="exportData">
-          <v-icon start>mdi-download</v-icon>
+        <v-btn
+          variant="text"
+          @click="$emit('update:modelValue', false)"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="elevated"
+          @click="exportData"
+        >
+          <v-icon start>
+            mdi-download
+          </v-icon>
           Export
         </v-btn>
       </v-card-actions>

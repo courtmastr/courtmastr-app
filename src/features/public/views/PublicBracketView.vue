@@ -36,10 +36,17 @@ onMounted(async () => {
     <v-row class="mb-4">
       <v-col cols="12">
         <div v-if="tournament">
-          <h1 class="text-h4 font-weight-bold">{{ tournament.name }}</h1>
-          <p class="text-body-2 text-grey">Live Tournament Bracket</p>
+          <h1 class="text-h4 font-weight-bold">
+            {{ tournament.name }}
+          </h1>
+          <p class="text-body-2 text-grey">
+            Live Tournament Bracket
+          </p>
         </div>
-        <v-skeleton-loader v-else-if="!notFound" type="heading" />
+        <v-skeleton-loader
+          v-else-if="!notFound"
+          type="heading"
+        />
       </v-col>
     </v-row>
 
@@ -48,8 +55,15 @@ onMounted(async () => {
       <v-col cols="12">
         <v-card>
           <v-card-text class="text-center py-8">
-            <v-icon size="64" color="grey-lighten-1">mdi-alert-circle-outline</v-icon>
-            <h2 class="text-h6 mt-4">Tournament not found</h2>
+            <v-icon
+              size="64"
+              color="grey-lighten-1"
+            >
+              mdi-alert-circle-outline
+            </v-icon>
+            <h2 class="text-h6 mt-4">
+              Tournament not found
+            </h2>
             <p class="text-body-2 text-grey mt-2">
               This tournament does not exist or has been removed.
             </p>
@@ -61,7 +75,10 @@ onMounted(async () => {
     <template v-else>
       <!-- Category Selection -->
       <v-row class="mb-4">
-        <v-col cols="12" md="4">
+        <v-col
+          cols="12"
+          md="4"
+        >
           <v-select
             v-model="selectedCategory"
             :items="categories"
@@ -83,8 +100,13 @@ onMounted(async () => {
                 :tournament-id="tournamentId"
                 :category-id="selectedCategory"
               />
-              <div v-else class="text-center py-8">
-                <p class="text-grey">Select a category to view the bracket</p>
+              <div
+                v-else
+                class="text-center py-8"
+              >
+                <p class="text-grey">
+                  Select a category to view the bracket
+                </p>
               </div>
             </v-card-text>
           </v-card>

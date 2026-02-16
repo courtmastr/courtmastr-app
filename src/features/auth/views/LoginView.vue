@@ -39,15 +39,36 @@ async function handleLogin() {
 </script>
 
 <template>
-  <v-container class="fill-height" fluid>
-    <v-row align="center" justify="center">
-      <v-col cols="12" sm="8" md="5" lg="4">
+  <v-container
+    class="fill-height"
+    fluid
+  >
+    <v-row
+      align="center"
+      justify="center"
+    >
+      <v-col
+        cols="12"
+        sm="8"
+        md="5"
+        lg="4"
+      >
         <v-card elevation="8">
           <v-card-title class="text-center py-6">
             <div>
-              <v-icon size="48" color="primary" class="mb-2">mdi-trophy</v-icon>
-              <h1 class="text-h5 font-weight-bold">CourtMaster</h1>
-              <p class="text-body-2 text-grey mt-1">Sign in to continue</p>
+              <v-icon
+                size="48"
+                color="primary"
+                class="mb-2"
+              >
+                mdi-trophy
+              </v-icon>
+              <h1 class="text-h5 font-weight-bold">
+                CourtMaster
+              </h1>
+              <p class="text-body-2 text-grey mt-1">
+                Sign in to continue
+              </p>
             </div>
           </v-card-title>
 
@@ -63,7 +84,10 @@ async function handleLogin() {
               {{ error }}
             </v-alert>
 
-            <v-form @submit.prevent="handleLogin" data-testid="login-form">
+            <v-form
+              data-testid="login-form"
+              @submit.prevent="handleLogin"
+            >
               <v-text-field
                 v-model="email"
                 data-testid="login-email"
@@ -120,7 +144,11 @@ async function handleLogin() {
         </v-card>
 
         <!-- Demo credentials hint -->
-        <v-card class="mt-4" variant="tonal" color="info">
+        <v-card
+          class="mt-4"
+          variant="tonal"
+          color="info"
+        >
           <v-card-text class="text-center">
             <p class="text-body-2 mb-2">
               <strong>Demo Credentials:</strong>

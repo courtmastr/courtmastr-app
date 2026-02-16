@@ -1,51 +1,114 @@
 <template>
   <v-row>
     <!-- Completion Percentage -->
-    <v-col cols="6" md="3">
-      <v-card variant="tonal" color="primary">
+    <v-col
+      cols="6"
+      md="3"
+    >
+      <v-card
+        variant="tonal"
+        color="primary"
+      >
         <v-card-text class="text-center">
-          <v-icon size="36" class="mb-2">mdi-chart-pie</v-icon>
-          <div class="text-h4">{{ stats.completionPercentage }}%</div>
-          <div class="text-caption">Completion</div>
+          <v-icon
+            size="36"
+            class="mb-2"
+          >
+            mdi-chart-pie
+          </v-icon>
+          <div class="text-h4">
+            {{ stats.completionPercentage }}%
+          </div>
+          <div class="text-caption">
+            Completion
+          </div>
         </v-card-text>
       </v-card>
     </v-col>
 
     <!-- Average Duration -->
-    <v-col cols="6" md="3">
-      <v-card variant="tonal" color="info">
+    <v-col
+      cols="6"
+      md="3"
+    >
+      <v-card
+        variant="tonal"
+        color="info"
+      >
         <v-card-text class="text-center">
-          <v-icon size="36" class="mb-2">mdi-clock-outline</v-icon>
-          <div class="text-h4">{{ stats.avgDuration }}m</div>
-          <div class="text-caption">Avg Duration</div>
+          <v-icon
+            size="36"
+            class="mb-2"
+          >
+            mdi-clock-outline
+          </v-icon>
+          <div class="text-h4">
+            {{ stats.avgDuration }}m
+          </div>
+          <div class="text-caption">
+            Avg Duration
+          </div>
         </v-card-text>
       </v-card>
     </v-col>
 
     <!-- Court Utilization -->
-    <v-col cols="6" md="3">
-      <v-card variant="tonal" color="success">
+    <v-col
+      cols="6"
+      md="3"
+    >
+      <v-card
+        variant="tonal"
+        color="success"
+      >
         <v-card-text class="text-center">
-          <v-icon size="36" class="mb-2">mdi-stadium</v-icon>
-          <div class="text-h4">{{ stats.courtUtilization }}%</div>
-          <div class="text-caption">Court Utilization</div>
+          <v-icon
+            size="36"
+            class="mb-2"
+          >
+            mdi-stadium
+          </v-icon>
+          <div class="text-h4">
+            {{ stats.courtUtilization }}%
+          </div>
+          <div class="text-caption">
+            Court Utilization
+          </div>
         </v-card-text>
       </v-card>
     </v-col>
 
     <!-- Time Remaining -->
-    <v-col cols="6" md="3">
-      <v-card variant="tonal" color="warning">
+    <v-col
+      cols="6"
+      md="3"
+    >
+      <v-card
+        variant="tonal"
+        color="warning"
+      >
         <v-card-text class="text-center">
-          <v-icon size="36" class="mb-2">mdi-timer-sand</v-icon>
-          <div class="text-h4">{{ stats.estimatedTimeRemaining }}</div>
-          <div class="text-caption">Est. Time Remaining</div>
+          <v-icon
+            size="36"
+            class="mb-2"
+          >
+            mdi-timer-sand
+          </v-icon>
+          <div class="text-h4">
+            {{ stats.estimatedTimeRemaining }}
+          </div>
+          <div class="text-caption">
+            Est. Time Remaining
+          </div>
         </v-card-text>
       </v-card>
     </v-col>
 
     <!-- Recent Completions -->
-    <v-col cols="12" md="6">
+    <v-col
+      cols="12"
+      md="6"
+    >
       <v-card>
         <v-card-title>Recent Completions</v-card-title>
         <v-list v-if="stats.recentCompletions.length > 0">
@@ -59,25 +122,45 @@
             </v-list-item-title>
           </v-list-item>
         </v-list>
-        <v-card-text v-else class="text-center text-grey">
+        <v-card-text
+          v-else
+          class="text-center text-grey"
+        >
           No completed matches yet
         </v-card-text>
       </v-card>
     </v-col>
 
     <!-- Queue Stats -->
-    <v-col cols="12" md="6">
+    <v-col
+      cols="12"
+      md="6"
+    >
       <v-card>
         <v-card-title>Queue Status</v-card-title>
         <v-card-text>
           <v-row>
-            <v-col cols="6" class="text-center">
-              <div class="text-h3">{{ stats.queueLength }}</div>
-              <div class="text-caption">In Queue</div>
+            <v-col
+              cols="6"
+              class="text-center"
+            >
+              <div class="text-h3">
+                {{ stats.queueLength }}
+              </div>
+              <div class="text-caption">
+                In Queue
+              </div>
             </v-col>
-            <v-col cols="6" class="text-center">
-              <div class="text-h3">{{ stats.inProgress }}</div>
-              <div class="text-caption">In Progress</div>
+            <v-col
+              cols="6"
+              class="text-center"
+            >
+              <div class="text-h3">
+                {{ stats.inProgress }}
+              </div>
+              <div class="text-caption">
+                In Progress
+              </div>
             </v-col>
           </v-row>
         </v-card-text>

@@ -312,34 +312,68 @@ onUnmounted(() => {
 });
 </script>
 
- <template>
-   <div class="brackets-manager-viewer">
-     <div v-if="loading" class="loading">
-       <v-progress-circular indeterminate color="primary" />
-       <span>Loading bracket...</span>
-     </div>
+<template>
+  <div class="brackets-manager-viewer">
+    <div
+      v-if="loading"
+      class="loading"
+    >
+      <v-progress-circular
+        indeterminate
+        color="primary"
+      />
+      <span>Loading bracket...</span>
+    </div>
      
-     <div v-else-if="error" class="error">
-       <v-alert type="error" :text="error" />
-     </div>
+    <div
+      v-else-if="error"
+      class="error"
+    >
+      <v-alert
+        type="error"
+        :text="error"
+      />
+    </div>
      
-     <div v-else-if="stages.length === 0" class="no-bracket">
-       <v-alert type="info" text="No bracket generated yet for this category" />
-     </div>
+    <div
+      v-else-if="stages.length === 0"
+      class="no-bracket"
+    >
+      <v-alert
+        type="info"
+        text="No bracket generated yet for this category"
+      />
+    </div>
      
-     <div v-else>
-       <!-- Add live indicator as per feedback -->
-       <div class="bracket-header d-flex align-center mb-2">
-         <h3 class="text-h6 font-weight-bold">Bracket</h3>
-         <v-chip size="small" color="success" variant="elevated" class="ml-2">
-           <v-icon start size="x-small">mdi-sync</v-icon>
-           Live
-         </v-chip>
-       </div>
-       <div :id="containerId" ref="bracketContainer" class="bracket-container brackets-viewer" />
-     </div>
-   </div>
- </template>
+    <div v-else>
+      <!-- Add live indicator as per feedback -->
+      <div class="bracket-header d-flex align-center mb-2">
+        <h3 class="text-h6 font-weight-bold">
+          Bracket
+        </h3>
+        <v-chip
+          size="small"
+          color="success"
+          variant="elevated"
+          class="ml-2"
+        >
+          <v-icon
+            start
+            size="x-small"
+          >
+            mdi-sync
+          </v-icon>
+          Live
+        </v-chip>
+      </div>
+      <div
+        :id="containerId"
+        ref="bracketContainer"
+        class="bracket-container brackets-viewer"
+      />
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .brackets-manager-viewer {

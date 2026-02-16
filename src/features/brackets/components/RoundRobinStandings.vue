@@ -189,26 +189,52 @@ function getRankBadgeColor(rank: number): string {
 <template>
   <div class="round-robin-standings">
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-8">
-      <v-progress-circular indeterminate color="primary" />
+    <div
+      v-if="loading"
+      class="text-center py-8"
+    >
+      <v-progress-circular
+        indeterminate
+        color="primary"
+      />
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="allMatches.length === 0" class="text-center py-8">
-      <v-icon size="64" color="grey-lighten-1">mdi-tournament</v-icon>
-      <p class="text-body-1 text-grey mt-4">No matches generated yet</p>
+    <div
+      v-else-if="allMatches.length === 0"
+      class="text-center py-8"
+    >
+      <v-icon
+        size="64"
+        color="grey-lighten-1"
+      >
+        mdi-tournament
+      </v-icon>
+      <p class="text-body-1 text-grey mt-4">
+        No matches generated yet
+      </p>
     </div>
 
     <template v-else>
       <!-- Tournament Stats -->
-      <v-card class="mb-4" variant="outlined">
+      <v-card
+        class="mb-4"
+        variant="outlined"
+      >
         <v-card-text>
           <v-row align="center">
-            <v-col cols="12" md="4">
+            <v-col
+              cols="12"
+              md="4"
+            >
               <div class="d-flex align-center">
                 <div class="mr-4">
-                  <div class="text-h4 font-weight-bold text-primary">{{ tournamentStats.progress }}%</div>
-                  <div class="text-caption">Complete</div>
+                  <div class="text-h4 font-weight-bold text-primary">
+                    {{ tournamentStats.progress }}%
+                  </div>
+                  <div class="text-caption">
+                    Complete
+                  </div>
                 </div>
                 <v-progress-linear
                   :model-value="tournamentStats.progress"
@@ -219,27 +245,56 @@ function getRankBadgeColor(rank: number): string {
                 />
               </div>
             </v-col>
-            <v-col cols="12" md="8">
+            <v-col
+              cols="12"
+              md="8"
+            >
               <div class="d-flex justify-space-around text-center">
                 <div>
-                  <div class="text-h5 font-weight-bold">{{ tournamentStats.participants }}</div>
-                  <div class="text-caption">Participants</div>
+                  <div class="text-h5 font-weight-bold">
+                    {{ tournamentStats.participants }}
+                  </div>
+                  <div class="text-caption">
+                    Participants
+                  </div>
                 </div>
                 <div>
-                  <div class="text-h5 font-weight-bold">{{ tournamentStats.rounds }}</div>
-                  <div class="text-caption">Rounds</div>
+                  <div class="text-h5 font-weight-bold">
+                    {{ tournamentStats.rounds }}
+                  </div>
+                  <div class="text-caption">
+                    Rounds
+                  </div>
                 </div>
                 <div>
-                  <div class="text-h5 font-weight-bold">{{ tournamentStats.total }}</div>
-                  <div class="text-caption">Total Matches</div>
+                  <div class="text-h5 font-weight-bold">
+                    {{ tournamentStats.total }}
+                  </div>
+                  <div class="text-caption">
+                    Total Matches
+                  </div>
                 </div>
                 <div>
-                  <v-chip color="success" variant="tonal">{{ tournamentStats.completed }}</v-chip>
-                  <div class="text-caption mt-1">Completed</div>
+                  <v-chip
+                    color="success"
+                    variant="tonal"
+                  >
+                    {{ tournamentStats.completed }}
+                  </v-chip>
+                  <div class="text-caption mt-1">
+                    Completed
+                  </div>
                 </div>
                 <div>
-                  <v-chip color="warning" variant="tonal">{{ tournamentStats.ready }}</v-chip>
-                  <div class="text-caption mt-1">Ready</div>
+                  <v-chip
+                    color="warning"
+                    variant="tonal"
+                  >
+                    {{ tournamentStats.ready }}
+                  </v-chip>
+                  <div class="text-caption mt-1">
+                    Ready
+                  </div>
                 </div>
               </div>
             </v-col>
@@ -248,13 +303,21 @@ function getRankBadgeColor(rank: number): string {
       </v-card>
 
       <!-- Tabs -->
-      <v-tabs v-model="activeTab" color="primary" class="mb-4">
+      <v-tabs
+        v-model="activeTab"
+        color="primary"
+        class="mb-4"
+      >
         <v-tab value="standings">
-          <v-icon start>mdi-podium</v-icon>
+          <v-icon start>
+            mdi-podium
+          </v-icon>
           Standings
         </v-tab>
         <v-tab value="matches">
-          <v-icon start>mdi-view-list</v-icon>
+          <v-icon start>
+            mdi-view-list
+          </v-icon>
           Matches by Round
         </v-tab>
       </v-tabs>
@@ -304,15 +367,23 @@ function getRankBadgeColor(rank: number): string {
                 </span>
               </template>
               <template #item.matchPoints="{ item }">
-                <v-chip color="primary" size="small" variant="tonal">
+                <v-chip
+                  color="primary"
+                  size="small"
+                  variant="tonal"
+                >
                   {{ item.matchPoints }}
                 </v-chip>
               </template>
-              <template #bottom></template>
+              <template #bottom />
             </v-data-table>
           </v-card>
 
-          <v-alert type="info" variant="tonal" class="mt-4">
+          <v-alert
+            type="info"
+            variant="tonal"
+            class="mt-4"
+          >
             <strong>Scoring:</strong> Win = 2 points, Loss = 1 point.
             Tiebreakers: Match Points > Wins > Point Difference > Points For
           </v-alert>

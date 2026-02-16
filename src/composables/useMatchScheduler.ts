@@ -348,7 +348,7 @@ export function useMatchScheduler() {
     categoryId: string
   ): Promise<{ cleared: number }> {
     const matchScoresPath = `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
-    let matchesQuery = query(
+    const matchesQuery = query(
       collection(db, matchScoresPath),
       where('courtId', '!=', null)
     );

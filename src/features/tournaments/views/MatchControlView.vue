@@ -1868,7 +1868,7 @@ function toggleAutoStart(enabled: boolean) {
             ]"
             :items-per-page="50"
           >
-            <template #cell-match="{ item }"
+            <template #cell-match="{ item }">
               <div class="d-flex flex-column py-1">
                 <div class="d-flex align-center gap-2 mb-1">
                   <span class="text-caption text-grey">#{{ item.id }}</span>
@@ -1892,7 +1892,7 @@ function toggleAutoStart(enabled: boolean) {
               </div>
             </template>
 
-            <template #cell-status="{ item }"
+            <template #cell-status="{ item }">
               <v-chip
                 size="small"
                 :color="quickFilters.find(f => f.value === item.status)?.color || (item.status === 'completed' ? 'success' : 'grey')"
@@ -1904,7 +1904,7 @@ function toggleAutoStart(enabled: boolean) {
               </v-chip>
             </template>
 
-            <template #cell-court="{ item }"
+            <template #cell-court="{ item }">
               <div v-if="item.courtId" class="d-flex align-center">
                 <v-icon size="small" :color="item.status === 'in_progress' ? 'success' : 'grey'" class="mr-1">
                   mdi-court-sport
@@ -1914,7 +1914,7 @@ function toggleAutoStart(enabled: boolean) {
               <span v-else class="text-grey-lighten-1 text-caption">-</span>
             </template>
 
-            <template #actions="{ item }"
+            <template #actions="{ item }">
               <div class="d-flex justify-end gap-1">
                 <v-btn
                   v-if="item.status === 'ready' || item.status === 'in_progress'"
@@ -1937,7 +1937,7 @@ function toggleAutoStart(enabled: boolean) {
                   Assign
                 </v-btn>
                 <v-menu>
-                  <template #activator="{ props }"
+                  <template #activator="{ props }">
                     <v-btn icon="mdi-dots-vertical" variant="text" size="small" v-bind="props" />
                   </template>
                   <v-list density="compact">
@@ -1960,16 +1960,16 @@ function toggleAutoStart(enabled: boolean) {
               </div>
             </template>
 
-            <template #details="{ item, handleAction }"
+            <template #details="{ item, handleAction }">
               <div class="d-flex flex-wrap gap-4 text-body-2">
                 <div><strong>Match:</strong> {{ getBracketCode(item) }}-{{ item.matchNumber }}</div>
                 <div><strong>Round:</strong> {{ item.round }}</div>
                 <div><strong>Category:</strong> {{ getCategoryName(item.categoryId) }}</div>
-                <div v-if="item.scheduledTime"
+                <div v-if="item.scheduledTime">
                   <strong>Scheduled:</strong>
                   {{ new Date(item.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
                 </div>
-                <div v-if="item.scores && item.scores.length > 0"
+                <div v-if="item.scores && item.scores.length > 0">
                   <strong>Score:</strong>
                   {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
                 </div>

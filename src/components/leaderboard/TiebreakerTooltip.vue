@@ -15,7 +15,10 @@ defineProps<{
 </script>
 
 <template>
-  <v-tooltip max-width="320" location="top">
+  <v-tooltip
+    max-width="320"
+    location="top"
+  >
     <template #activator="{ props: tooltipProps }">
       <v-chip
         v-bind="tooltipProps"
@@ -30,12 +33,20 @@ defineProps<{
     </template>
 
     <div class="pa-1">
-      <div class="font-weight-bold text-body-2 mb-1">Tiebreaker Applied</div>
+      <div class="font-weight-bold text-body-2 mb-1">
+        Tiebreaker Applied
+      </div>
       <div class="text-body-2 mb-1">
-        <v-icon icon="mdi-gavel" size="14" class="mr-1" />
+        <v-icon
+          icon="mdi-gavel"
+          size="14"
+          class="mr-1"
+        />
         {{ STEP_LABELS[resolution.step] ?? resolution.step }}
       </div>
-      <div class="text-caption text-medium-emphasis">{{ resolution.description }}</div>
+      <div class="text-caption text-medium-emphasis">
+        {{ resolution.description }}
+      </div>
     </div>
   </v-tooltip>
 </template>

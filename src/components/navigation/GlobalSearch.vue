@@ -17,7 +17,7 @@
       :menu-props="{ maxHeight: 400 }"
       name="courtmaster-global-search"
       autocomplete="off"
-      @update:modelValue="navigateToItem"
+      @update:model-value="navigateToItem"
       @keyup.enter="performSearch"
     >
       <template #item="{ props, item }">

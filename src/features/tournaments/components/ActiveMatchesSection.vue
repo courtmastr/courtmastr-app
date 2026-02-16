@@ -56,24 +56,62 @@ function getCurrentScore(match: Match): string {
 </script>
 
 <template>
-  <v-card class="active-matches-section" variant="flat">
+  <v-card
+    class="active-matches-section"
+    variant="flat"
+  >
     <div class="d-flex align-center px-4 py-2 border-b">
-      <v-icon color="primary" size="20" start>mdi-tennis</v-icon>
+      <v-icon
+        color="primary"
+        size="20"
+        start
+      >
+        mdi-tennis
+      </v-icon>
       <span class="text-subtitle-1 font-weight-bold">Active Matches ({{ matches.length }})</span>
     </div>
 
-    <v-table density="compact" class="active-matches-table">
+    <v-table
+      density="compact"
+      class="active-matches-table"
+    >
       <thead>
         <tr>
-          <th class="text-left" style="width: 120px">Court</th>
-          <th class="text-left">Match</th>
-          <th class="text-center" style="width: 100px">Score</th>
-          <th class="text-left" style="width: 100px">Duration</th>
-          <th class="text-right" style="width: 120px">Actions</th>
+          <th
+            class="text-left"
+            style="width: 120px"
+          >
+            Court
+          </th>
+          <th class="text-left">
+            Match
+          </th>
+          <th
+            class="text-center"
+            style="width: 100px"
+          >
+            Score
+          </th>
+          <th
+            class="text-left"
+            style="width: 100px"
+          >
+            Duration
+          </th>
+          <th
+            class="text-right"
+            style="width: 120px"
+          >
+            Actions
+          </th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="match in matches" :key="match.id" class="match-row">
+        <tr
+          v-for="match in matches"
+          :key="match.id"
+          class="match-row"
+        >
           <!-- Court -->
           <td>
             <div class="d-flex align-center">
@@ -81,7 +119,9 @@ function getCurrentScore(match: Match): string {
                 :color="getDurationColor(match)" 
                 size="10" 
                 class="mr-2 pulse-badge"
-              >mdi-circle</v-icon>
+              >
+                mdi-circle
+              </v-icon>
               <span class="font-weight-medium text-body-2">{{ match.courtName || 'Unassigned' }}</span>
             </div>
           </td>
@@ -89,14 +129,23 @@ function getCurrentScore(match: Match): string {
           <!-- Match Info -->
           <td>
             <div class="py-1">
-              <div class="font-weight-medium text-body-2">{{ getParticipantNames(match) }}</div>
-              <div class="text-caption text-medium-emphasis">{{ match.categoryName }}</div>
+              <div class="font-weight-medium text-body-2">
+                {{ getParticipantNames(match) }}
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                {{ match.categoryName }}
+              </div>
             </div>
           </td>
 
           <!-- Score -->
           <td class="text-center">
-            <v-chip size="x-small" variant="flat" color="surface-variant" class="font-weight-bold px-2">
+            <v-chip
+              size="x-small"
+              variant="flat"
+              color="surface-variant"
+              class="font-weight-bold px-2"
+            >
               {{ getCurrentScore(match) }}
             </v-chip>
           </td>
@@ -117,32 +166,35 @@ function getCurrentScore(match: Match): string {
                 variant="text"
                 color="primary"
                 density="comfortable"
-                @click="emit('enterScore', match.id)"
                 title="Enter Score"
-              ></v-btn>
+                @click="emit('enterScore', match.id)"
+              />
               <v-btn
                 icon="mdi-undo-variant"
                 size="small"
                 variant="text"
                 color="warning"
                 density="comfortable"
-                @click="emit('unschedule', match.id)"
                 title="Unschedule / Release"
-              ></v-btn>
+                @click="emit('unschedule', match.id)"
+              />
               <v-btn
                 icon="mdi-check"
                 size="small"
                 variant="text"
                 color="success"
                 density="comfortable"
-                @click="emit('completeMatch', match.id)"
                 title="Complete Match"
-              ></v-btn>
+                @click="emit('completeMatch', match.id)"
+              />
             </div>
           </td>
         </tr>
         <tr v-if="matches.length === 0">
-          <td colspan="5" class="text-center text-medium-emphasis py-4">
+          <td
+            colspan="5"
+            class="text-center text-medium-emphasis py-4"
+          >
             No matches currently in progress
           </td>
         </tr>

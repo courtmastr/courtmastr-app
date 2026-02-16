@@ -92,8 +92,14 @@ function canAddGame(): boolean {
       :key="index"
       class="game-row mb-3"
     >
-      <v-row align="center" no-gutters>
-        <v-col cols="2" class="text-center">
+      <v-row
+        align="center"
+        no-gutters
+      >
+        <v-col
+          cols="2"
+          class="text-center"
+        >
           <span class="text-subtitle-2">Game {{ game.gameNumber }}</span>
         </v-col>
 
@@ -109,7 +115,10 @@ function canAddGame(): boolean {
           />
         </v-col>
 
-        <v-col cols="1" class="text-center">
+        <v-col
+          cols="1"
+          class="text-center"
+        >
           <span class="text-h6">-</span>
         </v-col>
 
@@ -125,7 +134,10 @@ function canAddGame(): boolean {
           />
         </v-col>
 
-        <v-col cols="2" class="text-center">
+        <v-col
+          cols="2"
+          class="text-center"
+        >
           <v-chip
             v-if="game.isComplete"
             color="success"
@@ -145,7 +157,10 @@ function canAddGame(): boolean {
           </v-chip>
         </v-col>
 
-        <v-col cols="1" class="text-right">
+        <v-col
+          cols="1"
+          class="text-right"
+        >
           <v-btn
             v-if="canRemoveGame(index)"
             icon="mdi-delete"

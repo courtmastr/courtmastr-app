@@ -1,5 +1,9 @@
 <template>
-  <v-navigation-drawer v-model="drawer" :rail="rail" @click="rail = false">
+  <v-navigation-drawer
+    v-model="drawer"
+    :rail="rail"
+    @click="rail = false"
+  >
     <!-- User Profile Section -->
     <v-list-item
       :title="currentUser?.displayName || 'User'"
@@ -25,7 +29,10 @@
     <v-divider />
 
     <!-- Collapsible Tournament Management Section -->
-    <v-list nav density="compact">
+    <v-list
+      nav
+      density="compact"
+    >
       <v-list-group value="tournament-management">
         <template #activator="{ props }">
           <v-list-item
@@ -58,7 +65,10 @@
       </v-list-group>
 
       <!-- Collapsible Live Operations Section -->
-      <v-list-group value="live-operations" v-if="currentTournamentId">
+      <v-list-group
+        v-if="currentTournamentId"
+        value="live-operations"
+      >
         <template #activator="{ props }">
           <v-list-item
             v-bind="props"
@@ -101,7 +111,10 @@
       </v-list-group>
 
       <!-- Collapsible Registration Section -->
-      <v-list-group value="registration" v-if="currentTournamentId && isOrganizer">
+      <v-list-group
+        v-if="currentTournamentId && isOrganizer"
+        value="registration"
+      >
         <template #activator="{ props }">
           <v-list-item
             v-bind="props"
@@ -134,7 +147,10 @@
 
     <!-- User Menu at Bottom -->
     <template #append>
-      <v-list nav density="compact">
+      <v-list
+        nav
+        density="compact"
+      >
         <v-list-group value="user-menu">
           <template #activator="{ props }">
             <v-list-item
@@ -178,12 +194,12 @@
           <v-divider class="my-2 ml-4" />
           
           <v-list-item
-            @click="handleLogout"
             prepend-icon="mdi-logout"
             title="Logout"
             rounded="lg"
             class="ml-4"
             :ripple="false"
+            @click="handleLogout"
           />
         </v-list-group>
       </v-list>

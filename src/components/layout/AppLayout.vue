@@ -128,26 +128,38 @@ async function submitBugReport() {
     />
 
     <!-- App Bar -->
-    <v-app-bar elevation="0" class="app-bar">
+    <v-app-bar
+      elevation="0"
+      class="app-bar"
+    >
       <v-app-bar-nav-icon
         v-if="isAuthenticated"
-        @click="drawer = !drawer"
         :ripple="false"
+        @click="drawer = !drawer"
       />
 
       <v-toolbar-title>
-        <router-link to="/" class="text-decoration-none text-inherit">
+        <router-link
+          to="/"
+          class="text-decoration-none text-inherit"
+        >
           <span class="app-title">CourtMaster</span>
         </router-link>
       </v-toolbar-title>
 
       <!-- Global Search -->
-      <GlobalSearch v-if="showSearch" class="mx-4 flex-grow-1" />
+      <GlobalSearch
+        v-if="showSearch"
+        class="mx-4 flex-grow-1"
+      />
 
       <v-spacer v-else />
 
       <!-- Bug Report Button -->
-      <v-tooltip text="Report a Bug" location="bottom">
+      <v-tooltip
+        text="Report a Bug"
+        location="bottom"
+      >
         <template #activator="{ props }">
           <v-btn
             icon="mdi-bug"
@@ -155,8 +167,8 @@ async function submitBugReport() {
             color="grey-darken-1"
             class="mr-2"
             v-bind="props"
-            @click="showBugDialog = true"
             :ripple="false"
+            @click="showBugDialog = true"
           />
         </template>
       </v-tooltip>
@@ -177,7 +189,12 @@ async function submitBugReport() {
           <v-icon>mdi-bell-outline</v-icon>
         </v-badge>
         <v-menu activator="parent">
-          <v-card min-width="320" max-width="400" class="notification-menu" elevation="8">
+          <v-card
+            min-width="320"
+            max-width="400"
+            class="notification-menu"
+            elevation="8"
+          >
             <v-card-title class="d-flex align-center pa-4">
               <span class="text-h6">Notifications</span>
               <v-spacer />
@@ -192,20 +209,36 @@ async function submitBugReport() {
               </v-btn>
             </v-card-title>
             <v-divider />
-            <v-list v-if="notificationStore.recentNotifications.length > 0" class="py-0">
+            <v-list
+              v-if="notificationStore.recentNotifications.length > 0"
+              class="py-0"
+            >
               <v-list-item
                 v-for="notification in notificationStore.recentNotifications"
                 :key="notification.id"
                 :class="{ 'notification-unread': !notification.read }"
-                @click="notificationStore.markAsRead(notification.id)"
                 class="notification-item"
+                @click="notificationStore.markAsRead(notification.id)"
               >
-                <v-list-item-title class="text-subtitle-2">{{ notification.title }}</v-list-item-title>
-                <v-list-item-subtitle class="text-caption">{{ notification.message }}</v-list-item-subtitle>
+                <v-list-item-title class="text-subtitle-2">
+                  {{ notification.title }}
+                </v-list-item-title>
+                <v-list-item-subtitle class="text-caption">
+                  {{ notification.message }}
+                </v-list-item-subtitle>
               </v-list-item>
             </v-list>
-            <v-card-text v-else class="text-center text-grey py-8">
-              <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-bell-outline</v-icon>
+            <v-card-text
+              v-else
+              class="text-center text-grey py-8"
+            >
+              <v-icon
+                size="48"
+                color="grey-lighten-1"
+                class="mb-2"
+              >
+                mdi-bell-outline
+              </v-icon>
               <div>No notifications</div>
             </v-card-text>
           </v-card>
@@ -221,11 +254,17 @@ async function submitBugReport() {
             icon
             variant="text"
           >
-            <v-avatar color="primary" size="36">
+            <v-avatar
+              color="primary"
+              size="36"
+            >
               <span class="text-subtitle-2">{{ currentUser?.displayName?.charAt(0) || 'U' }}</span>
             </v-avatar>
           </v-btn>
-          <div v-else class="auth-buttons d-flex flex-column flex-sm-row">
+          <div
+            v-else
+            class="auth-buttons d-flex flex-column flex-sm-row"
+          >
             <v-btn
               variant="text"
               to="/login"
@@ -244,11 +283,19 @@ async function submitBugReport() {
           </div>
         </template>
 
-        <v-card v-if="isAuthenticated" min-width="240" elevation="8" class="user-menu">
+        <v-card
+          v-if="isAuthenticated"
+          min-width="240"
+          elevation="8"
+          class="user-menu"
+        >
           <v-list class="py-2">
             <v-list-item class="user-info-item">
               <template #prepend>
-                <v-avatar color="primary" size="40">
+                <v-avatar
+                  color="primary"
+                  size="40"
+                >
                   <span>{{ currentUser?.displayName?.charAt(0) || 'U' }}</span>
                 </v-avatar>
               </template>
@@ -266,14 +313,20 @@ async function submitBugReport() {
               </v-list-item-subtitle>
             </v-list-item>
             <v-divider class="my-2" />
-            <template v-for="(item, index) in userMenuItems" :key="index">
-              <v-divider v-if="item.divider" class="my-2" />
+            <template
+              v-for="(item, index) in userMenuItems"
+              :key="index"
+            >
+              <v-divider
+                v-if="item.divider"
+                class="my-2"
+              />
               <v-list-item
                 v-else
                 :prepend-icon="item.icon"
                 :title="item.title"
-                @click="item.action"
                 class="menu-item"
+                @click="item.action"
               />
             </template>
           </v-list>
@@ -296,10 +349,19 @@ async function submitBugReport() {
     </v-main>
 
     <!-- Bug Report Dialog -->
-    <v-dialog v-model="showBugDialog" max-width="500">
+    <v-dialog
+      v-model="showBugDialog"
+      max-width="500"
+    >
       <v-card>
         <v-card-title class="d-flex align-center">
-          <v-icon start color="warning" class="mr-2">mdi-bug</v-icon>
+          <v-icon
+            start
+            color="warning"
+            class="mr-2"
+          >
+            mdi-bug
+          </v-icon>
           Report a Bug
         </v-card-title>
         <v-card-text>
@@ -317,13 +379,18 @@ async function submitBugReport() {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showBugDialog = false">Cancel</v-btn>
+          <v-btn
+            variant="text"
+            @click="showBugDialog = false"
+          >
+            Cancel
+          </v-btn>
           <v-btn
             color="primary"
             variant="elevated"
-            @click="submitBugReport"
             :loading="bugSubmitting"
             :disabled="!bugDescription.trim()"
+            @click="submitBugReport"
           >
             Submit Report
           </v-btn>

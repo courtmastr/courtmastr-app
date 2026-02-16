@@ -158,13 +158,23 @@ watch(currentMatch, (newMatch) => {
 </script>
 
 <template>
-  <v-container fluid class="pa-2">
+  <v-container
+    fluid
+    class="pa-2"
+  >
     <v-row v-if="notFound">
       <v-col cols="12">
         <v-card>
           <v-card-text class="text-center py-8">
-            <v-icon size="64" color="grey-lighten-1">mdi-alert-circle-outline</v-icon>
-            <h2 class="text-h6 mt-4">Tournament not found</h2>
+            <v-icon
+              size="64"
+              color="grey-lighten-1"
+            >
+              mdi-alert-circle-outline
+            </v-icon>
+            <h2 class="text-h6 mt-4">
+              Tournament not found
+            </h2>
             <p class="text-body-2 text-grey mt-2">
               This tournament does not exist or has been removed.
             </p>
@@ -183,7 +193,9 @@ watch(currentMatch, (newMatch) => {
           @click="backToList"
         />
         <div class="ml-2">
-          <h1 class="text-h6 font-weight-bold">{{ tournament?.name }}</h1>
+          <h1 class="text-h6 font-weight-bold">
+            {{ tournament?.name }}
+          </h1>
           <p class="text-caption text-grey">
             {{ scoringMode ? 'Scoring' : 'Select a match to score' }}
           </p>
@@ -192,13 +204,28 @@ watch(currentMatch, (newMatch) => {
 
       <!-- Match Selection List -->
       <template v-if="!scoringMode">
-        <v-card v-if="scorableMatches.length === 0" class="text-center py-8">
-          <v-icon size="64" color="grey-lighten-1">mdi-badminton</v-icon>
-          <p class="text-body-1 text-grey mt-4">No matches ready to score</p>
-          <p class="text-caption text-grey">Matches will appear here when assigned to a court</p>
+        <v-card
+          v-if="scorableMatches.length === 0"
+          class="text-center py-8"
+        >
+          <v-icon
+            size="64"
+            color="grey-lighten-1"
+          >
+            mdi-badminton
+          </v-icon>
+          <p class="text-body-1 text-grey mt-4">
+            No matches ready to score
+          </p>
+          <p class="text-caption text-grey">
+            Matches will appear here when assigned to a court
+          </p>
         </v-card>
 
-        <v-list v-else class="pa-0">
+        <v-list
+          v-else
+          class="pa-0"
+        >
           <v-card
             v-for="match in scorableMatches"
             :key="match.id"
@@ -212,8 +239,13 @@ watch(currentMatch, (newMatch) => {
                   :color="match.status === 'in_progress' ? 'success' : 'primary'"
                   size="48"
                 >
-                  <v-icon v-if="match.status === 'in_progress'">mdi-play</v-icon>
-                  <span v-else class="text-caption">#{{ match.matchNumber }}</span>
+                  <v-icon v-if="match.status === 'in_progress'">
+                    mdi-play
+                  </v-icon>
+                  <span
+                    v-else
+                    class="text-caption"
+                  >#{{ match.matchNumber }}</span>
                 </v-avatar>
               </template>
 
@@ -244,183 +276,268 @@ watch(currentMatch, (newMatch) => {
 
       <!-- Scoring Interface -->
       <template v-else-if="selectedMatch">
-      <!-- Match Info Header -->
-      <v-card class="mb-3 match-header" elevation="0" color="primary">
-        <v-card-text class="pa-3 text-center">
-          <div class="d-flex justify-center align-center gap-3">
-            <v-chip size="small" variant="flat" color="white" class="text-primary font-weight-bold">
-              {{ getCategoryName(selectedMatch.categoryId) }}
-            </v-chip>
-            <v-chip size="small" variant="flat" color="white" class="text-primary font-weight-bold">
-              <v-icon start size="small">mdi-court-tennis</v-icon>
-              {{ getCourtName(selectedMatch.courtId) }}
-            </v-chip>
-          </div>
-        </v-card-text>
-      </v-card>
-
-      <!-- Games Scoreboard -->
-      <v-card v-if="selectedMatch.scores && selectedMatch.scores.length > 0" class="mb-4 games-scoreboard" elevation="2">
-        <v-card-text class="pa-4">
-          <div class="text-center">
-            <p class="text-caption text-grey-darken-1 mb-2 text-uppercase font-weight-bold">Match Score</p>
-            <div class="games-score">
-              <span class="game-score-number" :class="{ 'leading': gamesWon.p1 > gamesWon.p2 }">{{ gamesWon.p1 }}</span>
-              <span class="game-score-separator">-</span>
-              <span class="game-score-number" :class="{ 'leading': gamesWon.p2 > gamesWon.p1 }">{{ gamesWon.p2 }}</span>
-            </div>
-            <p class="text-caption text-grey mt-1">GAMES</p>
-          </div>
-        </v-card-text>
-      </v-card>
-
-      <!-- Scoring Buttons -->
-      <template v-if="selectedMatch.status === 'ready' || (selectedMatch.status === 'in_progress' && currentGame)">
-        <!-- Current Game Indicator -->
-        <div class="text-center mb-3">
-          <v-chip color="success" variant="flat" size="large" class="px-6">
-            <v-icon start>mdi-circle</v-icon>
-            <span class="text-h6 font-weight-bold">GAME {{ currentGame?.gameNumber || 1 }}</span>
-          </v-chip>
-        </div>
-
-        <!-- Scoreboard -->
-        <v-card class="scoreboard-container mb-4" elevation="4">
-          <v-row class="ma-0">
-            <!-- Player 1 Score -->
-            <v-col cols="6" class="pa-0">
-              <div
-                class="score-panel"
-                :class="{
-                  'score-panel-leading': (currentGame?.score1 || 0) > (currentGame?.score2 || 0),
-                  'score-panel-updating': isUpdatingScore
-                }"
-                :style="{ opacity: (isUpdatingScore || isStartingMatch) ? 0.7 : 1 }"
-                @click="!isUpdatingScore && !isStartingMatch && addPoint('participant1')"
-              >
-                <div class="score-panel-content">
-                  <div class="player-name">
-                    {{ getParticipantName(selectedMatch.participant1Id) }}
-                  </div>
-                  <div class="score-display">
-                    {{ currentGame?.score1 || 0 }}
-                  </div>
-                  <v-btn
-                    icon
-                    size="large"
-                    variant="text"
-                    class="score-decrement"
-                    @click.stop="removePoint('participant1')"
-                    :disabled="(currentGame?.score1 || 0) === 0 || isUpdatingScore"
-                  >
-                    <v-icon size="x-large">mdi-minus-circle-outline</v-icon>
-                  </v-btn>
-                </div>
-              </div>
-            </v-col>
-
-            <!-- Player 2 Score -->
-            <v-col cols="6" class="pa-0">
-              <div
-                class="score-panel score-panel-right"
-                :class="{
-                  'score-panel-leading': (currentGame?.score2 || 0) > (currentGame?.score1 || 0),
-                  'score-panel-updating': isUpdatingScore
-                }"
-                :style="{ opacity: (isUpdatingScore || isStartingMatch) ? 0.7 : 1 }"
-                @click="!isUpdatingScore && !isStartingMatch && addPoint('participant2')"
-              >
-                <div class="score-panel-content">
-                  <div class="player-name">
-                    {{ getParticipantName(selectedMatch.participant2Id) }}
-                  </div>
-                  <div class="score-display">
-                    {{ currentGame?.score2 || 0 }}
-                  </div>
-                  <v-btn
-                    icon
-                    size="large"
-                    variant="text"
-                    class="score-decrement"
-                    @click.stop="removePoint('participant2')"
-                    :disabled="(currentGame?.score2 || 0) === 0 || isUpdatingScore"
-                  >
-                    <v-icon size="x-large">mdi-minus-circle-outline</v-icon>
-                  </v-btn>
-                </div>
-              </div>
-            </v-col>
-          </v-row>
-        </v-card>
-
-        <!-- Instructions -->
-        <div class="text-center mb-3">
-          <v-chip
-            v-if="isUpdatingScore"
-            color="info"
-            variant="flat"
-            size="small"
-          >
-            <v-icon start size="small">mdi-loading mdi-spin</v-icon>
-            Updating score...
-          </v-chip>
-          <v-chip
-            v-else-if="isStartingMatch"
-            color="warning"
-            variant="flat"
-            size="small"
-          >
-            <v-icon start size="small">mdi-loading mdi-spin</v-icon>
-            Starting match...
-          </v-chip>
-          <p v-else class="text-body-2 text-grey-darken-1 mb-0">
-            <v-icon size="small">mdi-gesture-tap</v-icon>
-            Tap the score to add a point
-          </p>
-        </div>
-
-        <!-- Previous Games -->
-        <v-card v-if="selectedMatch.scores.filter((s: any) => s.isComplete).length > 0" class="mt-4 previous-games" elevation="0">
-          <v-card-text class="py-3">
-            <p class="text-caption text-grey-darken-1 text-center mb-2 text-uppercase font-weight-bold">Previous Games</p>
-            <div class="d-flex justify-center flex-wrap gap-2">
+        <!-- Match Info Header -->
+        <v-card
+          class="mb-3 match-header"
+          elevation="0"
+          color="primary"
+        >
+          <v-card-text class="pa-3 text-center">
+            <div class="d-flex justify-center align-center gap-3">
               <v-chip
-                v-for="(game, index) in selectedMatch.scores.filter((s: any) => s.isComplete)"
-                :key="index"
-                :color="game.winnerId === selectedMatch.participant1Id ? 'success' : 'primary'"
+                size="small"
                 variant="flat"
-                size="default"
-                class="font-weight-bold"
+                color="white"
+                class="text-primary font-weight-bold"
               >
-                Game {{ game.gameNumber }}: {{ game.score1 }}-{{ game.score2 }}
+                {{ getCategoryName(selectedMatch.categoryId) }}
+              </v-chip>
+              <v-chip
+                size="small"
+                variant="flat"
+                color="white"
+                class="text-primary font-weight-bold"
+              >
+                <v-icon
+                  start
+                  size="small"
+                >
+                  mdi-court-tennis
+                </v-icon>
+                {{ getCourtName(selectedMatch.courtId) }}
               </v-chip>
             </div>
           </v-card-text>
         </v-card>
-      </template>
 
-      <!-- Match Complete -->
-      <v-card v-else-if="isMatchComplete" class="text-center">
-        <v-card-text class="py-8">
-          <v-icon size="64" color="success" class="mb-4">mdi-trophy</v-icon>
-          <h2 class="text-h5 font-weight-bold">Match Complete!</h2>
-          <p class="text-body-1 mt-2">
-            Winner: {{ selectedMatch.winnerId === selectedMatch.participant1Id
-              ? getParticipantName(selectedMatch.participant1Id)
-              : getParticipantName(selectedMatch.participant2Id) }}
-          </p>
-          <p class="text-body-2 text-grey">
-            Final: {{ gamesWon.p1 }} - {{ gamesWon.p2 }}
-          </p>
-          <v-btn
-            color="primary"
-            class="mt-4"
-            @click="backToList"
+        <!-- Games Scoreboard -->
+        <v-card
+          v-if="selectedMatch.scores && selectedMatch.scores.length > 0"
+          class="mb-4 games-scoreboard"
+          elevation="2"
+        >
+          <v-card-text class="pa-4">
+            <div class="text-center">
+              <p class="text-caption text-grey-darken-1 mb-2 text-uppercase font-weight-bold">
+                Match Score
+              </p>
+              <div class="games-score">
+                <span
+                  class="game-score-number"
+                  :class="{ 'leading': gamesWon.p1 > gamesWon.p2 }"
+                >{{ gamesWon.p1 }}</span>
+                <span class="game-score-separator">-</span>
+                <span
+                  class="game-score-number"
+                  :class="{ 'leading': gamesWon.p2 > gamesWon.p1 }"
+                >{{ gamesWon.p2 }}</span>
+              </div>
+              <p class="text-caption text-grey mt-1">
+                GAMES
+              </p>
+            </div>
+          </v-card-text>
+        </v-card>
+
+        <!-- Scoring Buttons -->
+        <template v-if="selectedMatch.status === 'ready' || (selectedMatch.status === 'in_progress' && currentGame)">
+          <!-- Current Game Indicator -->
+          <div class="text-center mb-3">
+            <v-chip
+              color="success"
+              variant="flat"
+              size="large"
+              class="px-6"
+            >
+              <v-icon start>
+                mdi-circle
+              </v-icon>
+              <span class="text-h6 font-weight-bold">GAME {{ currentGame?.gameNumber || 1 }}</span>
+            </v-chip>
+          </div>
+
+          <!-- Scoreboard -->
+          <v-card
+            class="scoreboard-container mb-4"
+            elevation="4"
           >
-            Score Another Match
-          </v-btn>
-        </v-card-text>
-      </v-card>
+            <v-row class="ma-0">
+              <!-- Player 1 Score -->
+              <v-col
+                cols="6"
+                class="pa-0"
+              >
+                <div
+                  class="score-panel"
+                  :class="{
+                    'score-panel-leading': (currentGame?.score1 || 0) > (currentGame?.score2 || 0),
+                    'score-panel-updating': isUpdatingScore
+                  }"
+                  :style="{ opacity: (isUpdatingScore || isStartingMatch) ? 0.7 : 1 }"
+                  @click="!isUpdatingScore && !isStartingMatch && addPoint('participant1')"
+                >
+                  <div class="score-panel-content">
+                    <div class="player-name">
+                      {{ getParticipantName(selectedMatch.participant1Id) }}
+                    </div>
+                    <div class="score-display">
+                      {{ currentGame?.score1 || 0 }}
+                    </div>
+                    <v-btn
+                      icon
+                      size="large"
+                      variant="text"
+                      class="score-decrement"
+                      :disabled="(currentGame?.score1 || 0) === 0 || isUpdatingScore"
+                      @click.stop="removePoint('participant1')"
+                    >
+                      <v-icon size="x-large">
+                        mdi-minus-circle-outline
+                      </v-icon>
+                    </v-btn>
+                  </div>
+                </div>
+              </v-col>
+
+              <!-- Player 2 Score -->
+              <v-col
+                cols="6"
+                class="pa-0"
+              >
+                <div
+                  class="score-panel score-panel-right"
+                  :class="{
+                    'score-panel-leading': (currentGame?.score2 || 0) > (currentGame?.score1 || 0),
+                    'score-panel-updating': isUpdatingScore
+                  }"
+                  :style="{ opacity: (isUpdatingScore || isStartingMatch) ? 0.7 : 1 }"
+                  @click="!isUpdatingScore && !isStartingMatch && addPoint('participant2')"
+                >
+                  <div class="score-panel-content">
+                    <div class="player-name">
+                      {{ getParticipantName(selectedMatch.participant2Id) }}
+                    </div>
+                    <div class="score-display">
+                      {{ currentGame?.score2 || 0 }}
+                    </div>
+                    <v-btn
+                      icon
+                      size="large"
+                      variant="text"
+                      class="score-decrement"
+                      :disabled="(currentGame?.score2 || 0) === 0 || isUpdatingScore"
+                      @click.stop="removePoint('participant2')"
+                    >
+                      <v-icon size="x-large">
+                        mdi-minus-circle-outline
+                      </v-icon>
+                    </v-btn>
+                  </div>
+                </div>
+              </v-col>
+            </v-row>
+          </v-card>
+
+          <!-- Instructions -->
+          <div class="text-center mb-3">
+            <v-chip
+              v-if="isUpdatingScore"
+              color="info"
+              variant="flat"
+              size="small"
+            >
+              <v-icon
+                start
+                size="small"
+              >
+                mdi-loading mdi-spin
+              </v-icon>
+              Updating score...
+            </v-chip>
+            <v-chip
+              v-else-if="isStartingMatch"
+              color="warning"
+              variant="flat"
+              size="small"
+            >
+              <v-icon
+                start
+                size="small"
+              >
+                mdi-loading mdi-spin
+              </v-icon>
+              Starting match...
+            </v-chip>
+            <p
+              v-else
+              class="text-body-2 text-grey-darken-1 mb-0"
+            >
+              <v-icon size="small">
+                mdi-gesture-tap
+              </v-icon>
+              Tap the score to add a point
+            </p>
+          </div>
+
+          <!-- Previous Games -->
+          <v-card
+            v-if="selectedMatch.scores.filter((s: any) => s.isComplete).length > 0"
+            class="mt-4 previous-games"
+            elevation="0"
+          >
+            <v-card-text class="py-3">
+              <p class="text-caption text-grey-darken-1 text-center mb-2 text-uppercase font-weight-bold">
+                Previous Games
+              </p>
+              <div class="d-flex justify-center flex-wrap gap-2">
+                <v-chip
+                  v-for="(game, index) in selectedMatch.scores.filter((s: any) => s.isComplete)"
+                  :key="index"
+                  :color="game.winnerId === selectedMatch.participant1Id ? 'success' : 'primary'"
+                  variant="flat"
+                  size="default"
+                  class="font-weight-bold"
+                >
+                  Game {{ game.gameNumber }}: {{ game.score1 }}-{{ game.score2 }}
+                </v-chip>
+              </div>
+            </v-card-text>
+          </v-card>
+        </template>
+
+        <!-- Match Complete -->
+        <v-card
+          v-else-if="isMatchComplete"
+          class="text-center"
+        >
+          <v-card-text class="py-8">
+            <v-icon
+              size="64"
+              color="success"
+              class="mb-4"
+            >
+              mdi-trophy
+            </v-icon>
+            <h2 class="text-h5 font-weight-bold">
+              Match Complete!
+            </h2>
+            <p class="text-body-1 mt-2">
+              Winner: {{ selectedMatch.winnerId === selectedMatch.participant1Id
+                ? getParticipantName(selectedMatch.participant1Id)
+                : getParticipantName(selectedMatch.participant2Id) }}
+            </p>
+            <p class="text-body-2 text-grey">
+              Final: {{ gamesWon.p1 }} - {{ gamesWon.p2 }}
+            </p>
+            <v-btn
+              color="primary"
+              class="mt-4"
+              @click="backToList"
+            >
+              Score Another Match
+            </v-btn>
+          </v-card-text>
+        </v-card>
       </template>
     </template>
   </v-container>

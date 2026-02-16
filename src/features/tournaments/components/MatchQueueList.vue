@@ -129,10 +129,16 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
 <template>
   <v-card>
     <v-card-title class="d-flex align-center">
-      <v-icon start>mdi-format-list-numbered</v-icon>
+      <v-icon start>
+        mdi-format-list-numbered
+      </v-icon>
       Match Queue
       <v-spacer />
-      <v-chip size="small" color="primary" variant="tonal">
+      <v-chip
+        size="small"
+        color="primary"
+        variant="tonal"
+      >
         {{ matches.length }} Waiting
       </v-chip>
     </v-card-title>
@@ -176,26 +182,32 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
       <v-divider class="mb-4" />
 
       <!-- Queue List with Urgency Indicators -->
-      <v-list v-if="sortedMatches.length > 0" class="pa-0">
+      <v-list
+        v-if="sortedMatches.length > 0"
+        class="pa-0"
+      >
         <v-list-item
           v-for="(match, index) in sortedMatches"
           :key="match.id"
           class="match-queue-item px-0 py-2"
           :class="`urgency-${match.urgency}`"
         >
-           <template #prepend>
-             <div class="d-flex flex-column align-center mr-4">
-               <v-avatar
-                 size="44"
-                 :color="getUrgencyColor(match.urgency)"
-                 class="mb-1"
-                 :class="match.urgency === 'urgent' ? 'pulse-animation' : ''"
-               >
-                 <v-icon :icon="getUrgencyIcon(match.urgency)" size="24" />
-               </v-avatar>
-               <span class="text-caption font-weight-bold">#{{ index + 1 }}</span>
-             </div>
-           </template>
+          <template #prepend>
+            <div class="d-flex flex-column align-center mr-4">
+              <v-avatar
+                size="44"
+                :color="getUrgencyColor(match.urgency)"
+                class="mb-1"
+                :class="match.urgency === 'urgent' ? 'pulse-animation' : ''"
+              >
+                <v-icon
+                  :icon="getUrgencyIcon(match.urgency)"
+                  size="24"
+                />
+              </v-avatar>
+              <span class="text-caption font-weight-bold">#{{ index + 1 }}</span>
+            </div>
+          </template>
 
           <div class="match-content">
             <!-- Urgency Badge -->
@@ -206,7 +218,12 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
               class="mb-2"
               density="comfortable"
             >
-              <v-icon start size="16">{{ getUrgencyIcon(match.urgency) }}</v-icon>
+              <v-icon
+                start
+                size="16"
+              >
+                {{ getUrgencyIcon(match.urgency) }}
+              </v-icon>
               {{ getUrgencyLabel(match.urgency) }}
             </v-chip>
 
@@ -215,37 +232,52 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
               {{ getParticipantNames(match) }}
             </v-list-item-title>
 
-             <!-- Category and Wait Time -->
-             <v-list-item-subtitle class="text-body-2">
-               <template v-if="match.categoryName">
-                 <v-icon size="16" class="mr-1">mdi-tennis</v-icon>
-                 {{ match.categoryName }}
-                 <template v-if="match.round">
-                   • Round {{ match.round }}
-                 </template>
-               </template>
-               <template v-if="match.queuedAt">
-                 <v-chip
-                   size="small"
-                   :color="getUrgencyColor(match.urgency)"
-                   variant="tonal"
-                   class="ml-2"
-                 >
-                   <v-icon start size="16">mdi-clock-outline</v-icon>
-                   Waiting {{ getWaitTime(match) }}
-                 </v-chip>
-               </template>
-             </v-list-item-subtitle>
-             <!-- More prominent wait time display -->
-             <div class="d-flex align-center mt-1">
-               <v-icon :color="getUrgencyColor(match.urgency)" size="16">mdi-clock-time-four</v-icon>
-               <span 
-                 class="text-caption font-weight-medium ml-1" 
-                 :class="`text-${getUrgencyColor(match.urgency)}`"
-               >
-                 Waited {{ getWaitTime(match) }}
-               </span>
-             </div>
+            <!-- Category and Wait Time -->
+            <v-list-item-subtitle class="text-body-2">
+              <template v-if="match.categoryName">
+                <v-icon
+                  size="16"
+                  class="mr-1"
+                >
+                  mdi-tennis
+                </v-icon>
+                {{ match.categoryName }}
+                <template v-if="match.round">
+                  • Round {{ match.round }}
+                </template>
+              </template>
+              <template v-if="match.queuedAt">
+                <v-chip
+                  size="small"
+                  :color="getUrgencyColor(match.urgency)"
+                  variant="tonal"
+                  class="ml-2"
+                >
+                  <v-icon
+                    start
+                    size="16"
+                  >
+                    mdi-clock-outline
+                  </v-icon>
+                  Waiting {{ getWaitTime(match) }}
+                </v-chip>
+              </template>
+            </v-list-item-subtitle>
+            <!-- More prominent wait time display -->
+            <div class="d-flex align-center mt-1">
+              <v-icon
+                :color="getUrgencyColor(match.urgency)"
+                size="16"
+              >
+                mdi-clock-time-four
+              </v-icon>
+              <span 
+                class="text-caption font-weight-medium ml-1" 
+                :class="`text-${getUrgencyColor(match.urgency)}`"
+              >
+                Waited {{ getWaitTime(match) }}
+              </span>
+            </div>
           </div>
 
           <template #append>
@@ -259,7 +291,9 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
                   min-width="120"
                   class="assign-btn"
                 >
-                  <v-icon start>mdi-court-sport</v-icon>
+                  <v-icon start>
+                    mdi-court-sport
+                  </v-icon>
                   Assign Court
                 </v-btn>
               </template>

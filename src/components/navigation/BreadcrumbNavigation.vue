@@ -1,6 +1,9 @@
 <template>
   <div class="breadcrumb-container pa-4">
-    <v-breadcrumbs :items="breadcrumbItems" divider="/">
+    <v-breadcrumbs
+      :items="breadcrumbItems"
+      divider="/"
+    >
       <template #item="{ item }">
         <v-breadcrumbs-item
           :to="item.to"
@@ -59,6 +62,11 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
           breadcrumbs.push({
             title: 'Registrations',
             to: `/tournaments/${pathArray[1]}/registrations`
+          });
+        } else if (pathArray[2] === 'participants') {
+          breadcrumbs.push({
+            title: 'Participants',
+            to: `/tournaments/${pathArray[1]}/participants`
           });
         } else if (pathArray[2] === 'courts') {
           breadcrumbs.push({

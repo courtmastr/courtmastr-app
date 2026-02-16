@@ -170,8 +170,15 @@ function getFormatColor(format: TournamentFormat): string {
   <div>
     <!-- Header -->
     <div class="d-flex justify-space-between align-center mb-4">
-      <h3 class="text-h6">Categories ({{ categories.length }})</h3>
-      <v-btn color="primary" prepend-icon="mdi-plus" data-testid="add-category-btn" @click="openAddDialog">
+      <h3 class="text-h6">
+        Categories ({{ categories.length }})
+      </h3>
+      <v-btn
+        color="primary"
+        prepend-icon="mdi-plus"
+        data-testid="add-category-btn"
+        @click="openAddDialog"
+      >
         Add Category
       </v-btn>
     </div>
@@ -185,7 +192,10 @@ function getFormatColor(format: TournamentFormat): string {
           class="py-3"
         >
           <template #prepend>
-            <v-avatar :color="getFormatColor(category.format)" class="mr-3">
+            <v-avatar
+              :color="getFormatColor(category.format)"
+              class="mr-3"
+            >
               <v-icon color="white">
                 {{ category.type === 'singles' ? 'mdi-account' : 'mdi-account-multiple' }}
               </v-icon>
@@ -196,16 +206,31 @@ function getFormatColor(format: TournamentFormat): string {
             {{ category.name }}
           </v-list-item-title>
           <v-list-item-subtitle>
-            <v-chip size="x-small" class="mr-1" variant="outlined">
+            <v-chip
+              size="x-small"
+              class="mr-1"
+              variant="outlined"
+            >
               {{ FORMAT_LABELS[category.format] }}
             </v-chip>
-            <v-chip size="x-small" class="mr-1" variant="outlined">
+            <v-chip
+              size="x-small"
+              class="mr-1"
+              variant="outlined"
+            >
               {{ category.type }}
             </v-chip>
-            <v-chip v-if="category.ageGroup && category.ageGroup !== 'open'" size="x-small" variant="outlined">
+            <v-chip
+              v-if="category.ageGroup && category.ageGroup !== 'open'"
+              size="x-small"
+              variant="outlined"
+            >
               {{ AGE_GROUP_LABELS[category.ageGroup] }}
             </v-chip>
-            <span v-if="category.minGamesGuaranteed" class="text-caption ml-2">
+            <span
+              v-if="category.minGamesGuaranteed"
+              class="text-caption ml-2"
+            >
               (Min {{ category.minGamesGuaranteed }} games)
             </span>
           </v-list-item-subtitle>
@@ -218,7 +243,13 @@ function getFormatColor(format: TournamentFormat): string {
             >
               {{ category.status }}
             </v-chip>
-            <v-btn icon="mdi-pencil" variant="text" size="small" data-testid="edit-category-btn" @click="openEditDialog(category)" />
+            <v-btn
+              icon="mdi-pencil"
+              variant="text"
+              size="small"
+              data-testid="edit-category-btn"
+              @click="openEditDialog(category)"
+            />
             <v-btn
               icon="mdi-delete"
               variant="text"
@@ -234,20 +265,37 @@ function getFormatColor(format: TournamentFormat): string {
     </v-card>
 
     <!-- Empty State -->
-    <v-card v-else class="text-center py-8">
-      <v-icon size="48" color="grey-lighten-1">mdi-folder-open-outline</v-icon>
-      <p class="text-body-2 text-grey mt-2">No categories yet. Add your first category to get started.</p>
+    <v-card
+      v-else
+      class="text-center py-8"
+    >
+      <v-icon
+        size="48"
+        color="grey-lighten-1"
+      >
+        mdi-folder-open-outline
+      </v-icon>
+      <p class="text-body-2 text-grey mt-2">
+        No categories yet. Add your first category to get started.
+      </p>
     </v-card>
 
     <!-- Add/Edit Dialog -->
-    <v-dialog v-model="showDialog" max-width="600" persistent>
+    <v-dialog
+      v-model="showDialog"
+      max-width="600"
+      persistent
+    >
       <v-card>
         <v-card-title>
           {{ editingCategory ? 'Edit Category' : 'Add Category' }}
         </v-card-title>
         <v-card-text>
           <v-row>
-            <v-col cols="12" md="6">
+            <v-col
+              cols="12"
+              md="6"
+            >
               <v-select
                 v-model="form.type"
                 :items="categoryTypes"
@@ -258,7 +306,10 @@ function getFormatColor(format: TournamentFormat): string {
                 @update:model-value="generateCategoryName"
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col
+              cols="12"
+              md="6"
+            >
               <v-select
                 v-model="form.gender"
                 :items="genderOptions"
@@ -269,7 +320,10 @@ function getFormatColor(format: TournamentFormat): string {
                 @update:model-value="generateCategoryName"
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col
+              cols="12"
+              md="6"
+            >
               <v-select
                 v-model="form.ageGroup"
                 :items="ageGroupOptions"
@@ -279,7 +333,10 @@ function getFormatColor(format: TournamentFormat): string {
                 @update:model-value="generateCategoryName"
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col
+              cols="12"
+              md="6"
+            >
               <v-select
                 v-model="form.format"
                 :items="formatOptions"
@@ -297,7 +354,10 @@ function getFormatColor(format: TournamentFormat): string {
                 persistent-hint
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col
+              cols="12"
+              md="6"
+            >
               <v-text-field
                 v-model.number="form.maxParticipants"
                 label="Max Participants"
@@ -306,7 +366,11 @@ function getFormatColor(format: TournamentFormat): string {
                 max="128"
               />
             </v-col>
-            <v-col v-if="isRoundRobin" cols="12" md="6">
+            <v-col
+              v-if="isRoundRobin"
+              cols="12"
+              md="6"
+            >
               <v-text-field
                 v-model.number="form.minGamesGuaranteed"
                 label="Minimum Games Guaranteed"
@@ -330,8 +394,18 @@ function getFormatColor(format: TournamentFormat): string {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showDialog = false">Cancel</v-btn>
-          <v-btn color="primary" data-testid="save-category-btn" :loading="loading" @click="saveCategory">
+          <v-btn
+            variant="text"
+            @click="showDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            data-testid="save-category-btn"
+            :loading="loading"
+            @click="saveCategory"
+          >
             {{ editingCategory ? 'Update' : 'Add' }}
           </v-btn>
         </v-card-actions>
@@ -339,7 +413,11 @@ function getFormatColor(format: TournamentFormat): string {
     </v-dialog>
 
     <!-- Delete Category Confirmation Dialog -->
-    <v-dialog v-model="showDeleteCategoryDialog" max-width="400" persistent>
+    <v-dialog
+      v-model="showDeleteCategoryDialog"
+      max-width="400"
+      persistent
+    >
       <v-card>
         <v-card-title>Delete Category?</v-card-title>
         <v-card-text>
@@ -347,8 +425,18 @@ function getFormatColor(format: TournamentFormat): string {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showDeleteCategoryDialog = false">Cancel</v-btn>
-          <v-btn color="error" @click="confirmDeleteCategory">Delete</v-btn>
+          <v-btn
+            variant="text"
+            @click="showDeleteCategoryDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="error"
+            @click="confirmDeleteCategory"
+          >
+            Delete
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

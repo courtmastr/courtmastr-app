@@ -298,13 +298,24 @@ async function confirmDelete() {
 <template>
   <v-container v-if="tournament">
     <v-row justify="center">
-      <v-col cols="12" lg="8">
+      <v-col
+        cols="12"
+        lg="8"
+      >
         <!-- Header -->
         <div class="d-flex align-center mb-6">
-          <v-btn icon="mdi-arrow-left" variant="text" @click="router.back()" />
+          <v-btn
+            icon="mdi-arrow-left"
+            variant="text"
+            @click="router.back()"
+          />
           <div class="ml-2">
-            <h1 class="text-h5 font-weight-bold">Tournament Settings</h1>
-            <p class="text-body-2 text-grey">{{ tournament.name }}</p>
+            <h1 class="text-h5 font-weight-bold">
+              Tournament Settings
+            </h1>
+            <p class="text-body-2 text-grey">
+              {{ tournament.name }}
+            </p>
           </div>
         </div>
 
@@ -331,7 +342,10 @@ async function confirmDelete() {
               prepend-inner-icon="mdi-map-marker"
             />
             <v-row>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-text-field
                   v-model="startDate"
                   label="Start Date"
@@ -340,7 +354,10 @@ async function confirmDelete() {
                   required
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-text-field
                   v-model="endDate"
                   label="End Date"
@@ -349,7 +366,10 @@ async function confirmDelete() {
                   required
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-text-field
                   v-model="registrationDeadline"
                   label="Registration Deadline"
@@ -365,7 +385,10 @@ async function confirmDelete() {
           <v-card-title>Scheduling Settings</v-card-title>
           <v-card-text>
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model.number="settings.minRestTimeMinutes"
                   label="Minimum Rest Time (minutes)"
@@ -376,7 +399,10 @@ async function confirmDelete() {
                   persistent-hint
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model.number="settings.matchDurationMinutes"
                   label="Estimated Match Duration (minutes)"
@@ -394,11 +420,18 @@ async function confirmDelete() {
         <!-- Scoring Settings -->
         <v-card class="mb-4">
           <v-card-title>
-            <v-icon start>mdi-scoreboard</v-icon>
+            <v-icon start>
+              mdi-scoreboard
+            </v-icon>
             Scoring Settings
           </v-card-title>
           <v-card-text>
-            <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            <v-alert
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="mb-4"
+            >
               These settings apply to all matches in this tournament.
             </v-alert>
             <v-alert
@@ -425,7 +458,10 @@ async function confirmDelete() {
             <v-divider class="my-4" />
 
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-select
                   v-model="settings.gamesPerMatch"
                   :items="gamesOptions"
@@ -437,7 +473,10 @@ async function confirmDelete() {
                   @update:model-value="selectedPreset = 'custom'"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model.number="settings.pointsToWin"
                   label="Points to Win Game"
@@ -454,7 +493,10 @@ async function confirmDelete() {
             </v-row>
 
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model.number="settings.mustWinBy"
                   label="Win By Margin"
@@ -468,7 +510,10 @@ async function confirmDelete() {
                   @update:model-value="selectedPreset = 'custom'"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model="maxPointsInput"
                   label="Max Points Cap"
@@ -484,10 +529,20 @@ async function confirmDelete() {
             </v-row>
 
             <!-- Preview -->
-            <v-card variant="outlined" class="mt-4 pa-3 bg-grey-lighten-5">
-              <div class="text-subtitle-2 mb-2">Match Format Preview</div>
+            <v-card
+              variant="outlined"
+              class="mt-4 pa-3 bg-grey-lighten-5"
+            >
+              <div class="text-subtitle-2 mb-2">
+                Match Format Preview
+              </div>
               <div class="text-body-2">
-                <v-icon size="small" class="mr-1">mdi-information</v-icon>
+                <v-icon
+                  size="small"
+                  class="mr-1"
+                >
+                  mdi-information
+                </v-icon>
                 {{ settings.gamesPerMatch === 1 ? 'Single game' : `Best of ${settings.gamesPerMatch} games` }},
                 first to <strong>{{ settings.pointsToWin }}</strong> points,
                 win by <strong>{{ settings.mustWinBy }}</strong>,
@@ -685,10 +740,18 @@ async function confirmDelete() {
     </v-row>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="showDeleteDialog" data-testid="delete-tournament-dialog" max-width="500">
+    <v-dialog
+      v-model="showDeleteDialog"
+      data-testid="delete-tournament-dialog"
+      max-width="500"
+    >
       <v-card>
         <v-card-title class="text-h5 text-error">
-          <v-icon start icon="mdi-alert" color="error" />
+          <v-icon
+            start
+            icon="mdi-alert"
+            color="error"
+          />
           Delete Tournament?
         </v-card-title>
         
@@ -710,16 +773,16 @@ async function confirmDelete() {
           <v-spacer />
           <v-btn
             variant="text"
-            @click="showDeleteDialog = false"
             :disabled="loading"
+            @click="showDeleteDialog = false"
           >
             Cancel
           </v-btn>
           <v-btn
             color="error"
             variant="elevated"
-            @click="confirmDelete"
             :loading="loading"
+            @click="confirmDelete"
           >
             Delete Permanently
           </v-btn>

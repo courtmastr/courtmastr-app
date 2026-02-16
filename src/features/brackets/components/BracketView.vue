@@ -150,116 +150,157 @@ function getScoreDisplay(match: Match): string {
 <template>
   <div class="bracket-container">
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-8">
-      <v-progress-circular indeterminate color="primary" />
+    <div
+      v-if="loading"
+      class="text-center py-8"
+    >
+      <v-progress-circular
+        indeterminate
+        color="primary"
+      />
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="rounds.length === 0" class="text-center py-8">
-      <v-icon size="64" color="grey-lighten-1">mdi-tournament</v-icon>
-      <p class="text-body-1 text-grey mt-4">No bracket generated yet</p>
+    <div
+      v-else-if="rounds.length === 0"
+      class="text-center py-8"
+    >
+      <v-icon
+        size="64"
+        color="grey-lighten-1"
+      >
+        mdi-tournament
+      </v-icon>
+      <p class="text-body-1 text-grey mt-4">
+        No bracket generated yet
+      </p>
     </div>
 
-      <!-- Round Navigator for Mobile -->
-      <div v-if="isVerticalLayout" class="round-navigator mb-4">
-        <v-chip-group
-          v-model="selectedRound"
-          selected-class="bg-primary"
-          mandatory
-        >
-          <v-chip
-            v-for="round in rounds"
-            :key="`nav-${round}`"
-            :value="round"
-            filter
-            variant="outlined"
-          >
-            {{ roundNames[round] }}
-          </v-chip>
-        </v-chip-group>
-      </div>
-
-      <!-- Bracket -->
-      <div v-else :class="['bracket', { 'vertical-layout': isVerticalLayout }]">
-        <div
+    <!-- Round Navigator for Mobile -->
+    <div
+      v-if="isVerticalLayout"
+      class="round-navigator mb-4"
+    >
+      <v-chip-group
+        v-model="selectedRound"
+        selected-class="bg-primary"
+        mandatory
+      >
+        <v-chip
           v-for="round in rounds"
-          :key="round"
-          class="bracket-round"
-          :style="{ '--round': round }"
-          :id="`round-${round}`"
-          :class="{ 'selected-round': selectedRound === round }"
+          :key="`nav-${round}`"
+          :value="round"
+          filter
+          variant="outlined"
         >
-          <div class="round-header">
-            <span class="text-overline">{{ roundNames[round] }}</span>
-          </div>
+          {{ roundNames[round] }}
+        </v-chip>
+      </v-chip-group>
+    </div>
 
-          <div class="round-matches" :class="{ 'vertical-matches': isVerticalLayout }">
-            <div
-              v-for="match in matchesByRound[round]"
-              :key="match.id"
-              class="bracket-match"
-              :class="{ 'vertical-match': isVerticalLayout }"
+    <!-- Bracket -->
+    <div
+      v-else
+      :class="['bracket', { 'vertical-layout': isVerticalLayout }]"
+    >
+      <div
+        v-for="round in rounds"
+        :id="`round-${round}`"
+        :key="round"
+        class="bracket-round"
+        :style="{ '--round': round }"
+        :class="{ 'selected-round': selectedRound === round }"
+      >
+        <div class="round-header">
+          <span class="text-overline">{{ roundNames[round] }}</span>
+        </div>
+
+        <div
+          class="round-matches"
+          :class="{ 'vertical-matches': isVerticalLayout }"
+        >
+          <div
+            v-for="match in matchesByRound[round]"
+            :key="match.id"
+            class="bracket-match"
+            :class="{ 'vertical-match': isVerticalLayout }"
+          >
+            <v-card
+              :color="getMatchColor(match)"
+              variant="outlined"
+              class="match-card"
             >
-              <v-card
-                :color="getMatchColor(match)"
-                variant="outlined"
-                class="match-card"
-              >
-                <!-- Match Number -->
-                <div class="match-number text-caption text-grey">
-                  #{{ match.matchNumber }}
-                </div>
-
-                <!-- Participant 1 -->
-                <div
-                  class="participant"
-                  :class="{
-                    'winner': isWinner(match, match.participant1Id),
-                    'tbd': !match.participant1Id && !isBye(match, match.participant1Id),
-                    'bye': isBye(match, match.participant1Id)
-                  }"
-                >
-                  <span class="participant-name">
-                    {{ getParticipantName(match.participant1Id, match) }}
-                  </span>
-                  <span v-if="match.scores.length > 0" class="participant-score">
-                    {{ match.scores.reduce((sum, s) => sum + s.score1, 0) }}
-                  </span>
-                </div>
-
-                <v-divider v-if="!isVerticalLayout" />
-
-                <!-- Participant 2 -->
-                <div
-                  class="participant"
-                  :class="{
-                    'winner': isWinner(match, match.participant2Id),
-                    'tbd': !match.participant2Id && !isBye(match, match.participant2Id),
-                    'bye': isBye(match, match.participant2Id)
-                  }"
-                >
-                  <span class="participant-name">
-                    {{ getParticipantName(match.participant2Id, match) }}
-                  </span>
-                  <span v-if="match.scores.length > 0" class="participant-score">
-                    {{ match.scores.reduce((sum, s) => sum + s.score2, 0) }}
-                  </span>
-                </div>
-
-                <!-- Score Details -->
-                <div v-if="getScoreDisplay(match)" class="match-score text-caption text-grey">
-                  {{ getScoreDisplay(match) }}
-                </div>
-              </v-card>
-
-              <!-- Connector Lines -->
-              <div v-if="round < maxRound" class="connector" :class="{ 'vertical-connector': isVerticalLayout }">
-                <div class="connector-line" :class="{ 'vertical-line': isVerticalLayout }" />
+              <!-- Match Number -->
+              <div class="match-number text-caption text-grey">
+                #{{ match.matchNumber }}
               </div>
+
+              <!-- Participant 1 -->
+              <div
+                class="participant"
+                :class="{
+                  'winner': isWinner(match, match.participant1Id),
+                  'tbd': !match.participant1Id && !isBye(match, match.participant1Id),
+                  'bye': isBye(match, match.participant1Id)
+                }"
+              >
+                <span class="participant-name">
+                  {{ getParticipantName(match.participant1Id, match) }}
+                </span>
+                <span
+                  v-if="match.scores.length > 0"
+                  class="participant-score"
+                >
+                  {{ match.scores.reduce((sum, s) => sum + s.score1, 0) }}
+                </span>
+              </div>
+
+              <v-divider v-if="!isVerticalLayout" />
+
+              <!-- Participant 2 -->
+              <div
+                class="participant"
+                :class="{
+                  'winner': isWinner(match, match.participant2Id),
+                  'tbd': !match.participant2Id && !isBye(match, match.participant2Id),
+                  'bye': isBye(match, match.participant2Id)
+                }"
+              >
+                <span class="participant-name">
+                  {{ getParticipantName(match.participant2Id, match) }}
+                </span>
+                <span
+                  v-if="match.scores.length > 0"
+                  class="participant-score"
+                >
+                  {{ match.scores.reduce((sum, s) => sum + s.score2, 0) }}
+                </span>
+              </div>
+
+              <!-- Score Details -->
+              <div
+                v-if="getScoreDisplay(match)"
+                class="match-score text-caption text-grey"
+              >
+                {{ getScoreDisplay(match) }}
+              </div>
+            </v-card>
+
+            <!-- Connector Lines -->
+            <div
+              v-if="round < maxRound"
+              class="connector"
+              :class="{ 'vertical-connector': isVerticalLayout }"
+            >
+              <div
+                class="connector-line"
+                :class="{ 'vertical-line': isVerticalLayout }"
+              />
             </div>
           </div>
         </div>
       </div>
+    </div>
   </div>
 </template>
 

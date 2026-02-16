@@ -72,15 +72,36 @@ async function handleRegister() {
 </script>
 
 <template>
-  <v-container class="fill-height" fluid>
-    <v-row align="center" justify="center">
-      <v-col cols="12" sm="8" md="6" lg="5">
+  <v-container
+    class="fill-height"
+    fluid
+  >
+    <v-row
+      align="center"
+      justify="center"
+    >
+      <v-col
+        cols="12"
+        sm="8"
+        md="6"
+        lg="5"
+      >
         <v-card elevation="8">
           <v-card-title class="text-center py-6">
             <div>
-              <v-icon size="48" color="primary" class="mb-2">mdi-trophy</v-icon>
-              <h1 class="text-h5 font-weight-bold">Create Account</h1>
-              <p class="text-body-2 text-grey mt-1">Join CourtMaster today</p>
+              <v-icon
+                size="48"
+                color="primary"
+                class="mb-2"
+              >
+                mdi-trophy
+              </v-icon>
+              <h1 class="text-h5 font-weight-bold">
+                Create Account
+              </h1>
+              <p class="text-body-2 text-grey mt-1">
+                Join CourtMaster today
+              </p>
             </div>
           </v-card-title>
 
@@ -136,7 +157,11 @@ async function handleRegister() {
                 height="4"
                 class="mb-1"
               />
-              <p v-if="password.length > 0" class="text-caption mb-3" :class="`text-${passwordStrength.color}`">
+              <p
+                v-if="password.length > 0"
+                class="text-caption mb-3"
+                :class="`text-${passwordStrength.color}`"
+              >
                 Password strength: {{ passwordStrength.text }}
               </p>
 
@@ -179,9 +204,15 @@ async function handleRegister() {
                 <template #label>
                   <span class="text-body-2">
                     I agree to the
-                    <a href="#" class="text-primary">Terms of Service</a>
+                    <a
+                      href="#"
+                      class="text-primary"
+                    >Terms of Service</a>
                     and
-                    <a href="#" class="text-primary">Privacy Policy</a>
+                    <a
+                      href="#"
+                      class="text-primary"
+                    >Privacy Policy</a>
                   </span>
                 </template>
               </v-checkbox>

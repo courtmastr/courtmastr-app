@@ -623,38 +623,57 @@ grep -rn "tournaments/.*categories.*match_scores" src/ --include="*.ts" --includ
 
 ---
 
-## Category: Scoring / Data Integrity
-
-### CP-014: Resolve Scoring Rules from Tournament/Category, Never Hardcode Runtime Scoring
+### CP-014: Standardize List Filters With Shared `FilterBar`
 
 | Field | Value |
 |-------|-------|
 | **Added** | 2026-02-16 |
-| **Source Bug** | TOURNEY-103 — scoring UI/store stayed fixed at 21x3 despite configurable presets |
+| **Source Bug** | TOURNEY-105 — inconsistent filter controls and ordering across list pages |
 | **Severity** | High |
 | **Status** | ✅ Active |
 
 **Anti-Pattern (❌):**
-```typescript
-// ❌ Hardcoded runtime logic
-const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
-const isComplete = (score1 >= 21 || score2 >= 21) &&
-  (Math.abs(score1 - score2) >= 2 || score1 === 30 || score2 === 30);
+```vue
+<!-- Inline page-specific controls with inconsistent order/labels -->
+<v-text-field v-model="searchQuery" label="Search participants" />
+<v-select v-model="selectedCategory" label="Category" />
+<v-select v-model="selectedStatus" label="Status" />
+<v-btn @click="clearFilters">Clear Filters</v-btn>
+```
+
+```vue
+<!-- Another page duplicates the same concept differently -->
+<v-text-field v-model="scheduleFilters.searchQuery" label="Search participants" />
+<v-select v-model="scheduleFilters.courtId" label="Filter by Court" />
 ```
 
 **Correct Pattern (✅):**
-```typescript
-// ✅ Resolve effective config first, then validate with shared engine
-const scoringConfig = resolveScoringConfig(tournament, category);
-const validation = validateCompletedGameScore(score1, score2, scoringConfig);
-const gamesNeeded = getGamesNeeded(scoringConfig);
+```vue
+<filter-bar
+  :search="searchQuery"
+  :category="selectedCategory"
+  :status="selectedStatus"
+  :court="selectedCourt"
+  :sort="selectedSort"
+  :enable-category="true"
+  :enable-status="true"
+  :enable-court="isMatchPage"
+  :category-options="categoryOptions"
+  :status-options="statusOptions"
+  :court-options="courtOptions"
+  :sort-options="sortOptions"
+  :has-active-filters="hasActiveFilters"
+  @update:search="searchQuery = $event"
+  @clear="clearFilters"
+/>
 ```
 
-**Rule:** Any score entry, winner calculation, manual correction, or walkover logic must use resolved scoring config (category override if enabled, else tournament settings), not hardcoded `21/30/best-of-3`.
+**Rule:** List pages must use the shared `FilterBar` component so Search/Category/Status/Court/Sort/Clear stay consistently labeled, ordered, and reset behavior remains uniform.
 
 **Detection:**
 ```bash
-rg -n ">= 21|=== 30|BADMINTON_CONFIG\\.gamesPerMatch|Math\\.ceil\\(BADMINTON_CONFIG\\.gamesPerMatch / 2\\)" src/features/scoring src/features/tournaments/views/MatchControlView.vue src/stores/matches.ts
+rg -n "<filter-bar" src/features/registration/views/RegistrationManagementView.vue src/features/registration/views/ParticipantsView.vue src/features/checkin/views/CheckInDashboardView.vue src/features/scoring/views/MatchListView.vue src/features/tournaments/views/MatchControlView.vue
+rg -n "Search participants|Filter by Category|Filter by Court|Clear Filters" src/features/registration/views/RegistrationManagementView.vue src/features/registration/views/ParticipantsView.vue src/features/checkin/views/CheckInDashboardView.vue src/features/scoring/views/MatchListView.vue src/features/tournaments/views/MatchControlView.vue
 ```
 
 ---
