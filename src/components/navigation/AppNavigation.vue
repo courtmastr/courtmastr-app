@@ -163,15 +163,6 @@
           </template>
           
           <v-list-item
-            to="/tournaments"
-            prepend-icon="mdi-view-dashboard"
-            title="All Tournaments"
-            rounded="lg"
-            class="ml-4"
-            :ripple="false"
-          />
-
-          <v-list-item
             v-if="currentTournamentId && isOrganizer"
             :to="`/tournaments/${currentTournamentId}/settings`"
             prepend-icon="mdi-cog"
