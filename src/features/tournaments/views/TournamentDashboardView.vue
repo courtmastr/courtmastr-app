@@ -11,6 +11,7 @@ import BracketsManagerViewer from '@/features/brackets/components/BracketsManage
 import CategoryManagement from '../components/CategoryManagement.vue';
 import CourtManagement from '../components/CourtManagement.vue';
 import CategoryRegistrationStats from '../components/CategoryRegistrationStats.vue';
+import OrganizerChecklist from '../components/OrganizerChecklist.vue';
 // ActiveMatchesSection removed - using compact summary on dashboard instead
 
 const route = useRoute();
@@ -408,9 +409,15 @@ async function handleDeleteTournament() {
 </script>
 
 <template>
-  <v-container fluid v-if="tournament">
+  <v-container
+    v-if="tournament"
+    fluid
+  >
     <!-- Compact Header with Breadcrumbs Integrated -->
-    <v-card flat class="mb-6 bg-transparent">
+    <v-card
+      flat
+      class="mb-6 bg-transparent"
+    >
       <div class="d-flex flex-column flex-md-row align-md-center justify-space-between gap-4">
         <div>
           <div class="d-flex align-center mb-1">
@@ -421,7 +428,9 @@ async function handleDeleteTournament() {
               class="mr-2"
               @click="router.push('/tournaments')"
             />
-            <h1 class="text-h4 font-weight-bold text-gradient">{{ tournament.name }}</h1>
+            <h1 class="text-h4 font-weight-bold text-gradient">
+              {{ tournament.name }}
+            </h1>
             <v-chip
               :color="getStatusColor(tournament.status)"
               class="ml-3 font-weight-medium"
@@ -432,30 +441,54 @@ async function handleDeleteTournament() {
             </v-chip>
           </div>
           <div class="d-flex align-center text-body-2 text-grey-darken-1 ml-10">
-            <v-icon size="small" start>mdi-calendar</v-icon>
+            <v-icon
+              size="small"
+              start
+            >
+              mdi-calendar
+            </v-icon>
             {{ formatDate(tournament.startDate) }}
-            <span v-if="tournament.location" class="mx-2">•</span>
-            <v-icon v-if="tournament.location" size="small" start>mdi-map-marker</v-icon>
+            <span
+              v-if="tournament.location"
+              class="mx-2"
+            >•</span>
+            <v-icon
+              v-if="tournament.location"
+              size="small"
+              start
+            >
+              mdi-map-marker
+            </v-icon>
             <span v-if="tournament.location">{{ tournament.location }}</span>
           </div>
         </div>
 
-        <div v-if="isAdmin" class="d-flex gap-2">
-           <v-btn
-             variant="outlined"
-             color="primary"
-             prepend-icon="mdi-cog"
-             :to="`/tournaments/${tournamentId}/settings`"
-           >
-             Settings
-           </v-btn>
-           <v-menu>
+        <div
+          v-if="isAdmin"
+          class="d-flex gap-2"
+        >
+          <v-btn
+            variant="outlined"
+            color="primary"
+            prepend-icon="mdi-cog"
+            :to="`/tournaments/${tournamentId}/settings`"
+          >
+            Settings
+          </v-btn>
+          <v-menu>
             <template #activator="{ props }">
-              <v-btn v-bind="props" color="primary" append-icon="mdi-chevron-down">
+              <v-btn
+                v-bind="props"
+                color="primary"
+                append-icon="mdi-chevron-down"
+              >
                 Manage
               </v-btn>
             </template>
-            <v-list density="compact" nav>
+            <v-list
+              density="compact"
+              nav
+            >
               <v-list-item
                 v-if="tournament.status === 'draft'"
                 prepend-icon="mdi-account-plus"
@@ -506,11 +539,13 @@ async function handleDeleteTournament() {
             variant="tonal"
             class="mr-4"
           >
-            <v-icon>{{
-              tournament.status === 'active' ? 'mdi-lightning-bolt' :
-              tournament.status === 'registration' ? 'mdi-account-group' :
-              tournament.status === 'completed' ? 'mdi-trophy' : 'mdi-clipboard-edit'
-            }}</v-icon>
+            <v-icon>
+              {{
+                tournament.status === 'active' ? 'mdi-lightning-bolt' :
+                tournament.status === 'registration' ? 'mdi-account-group' :
+                tournament.status === 'completed' ? 'mdi-trophy' : 'mdi-clipboard-edit'
+              }}
+            </v-icon>
           </v-avatar>
           <div>
             <div class="text-subtitle-1 font-weight-bold">
@@ -565,10 +600,22 @@ async function handleDeleteTournament() {
 
     <!-- Stats Grid -->
     <v-row class="mb-6">
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="stat-card" elevation="0">
+      <v-col
+        cols="12"
+        sm="6"
+        md="3"
+      >
+        <v-card
+          class="stat-card"
+          elevation="0"
+        >
           <div class="stat-icon-wrapper bg-primary-subtle">
-            <v-icon color="primary" size="24">mdi-account-group</v-icon>
+            <v-icon
+              color="primary"
+              size="24"
+            >
+              mdi-account-group
+            </v-icon>
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.approvedRegistrations }}</span>
@@ -577,10 +624,22 @@ async function handleDeleteTournament() {
         </v-card>
       </v-col>
       
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="stat-card" elevation="0">
+      <v-col
+        cols="12"
+        sm="6"
+        md="3"
+      >
+        <v-card
+          class="stat-card"
+          elevation="0"
+        >
           <div class="stat-icon-wrapper bg-info-subtle">
-            <v-icon color="info" size="24">mdi-tournament</v-icon>
+            <v-icon
+              color="info"
+              size="24"
+            >
+              mdi-tournament
+            </v-icon>
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.totalMatches }}</span>
@@ -589,10 +648,22 @@ async function handleDeleteTournament() {
         </v-card>
       </v-col>
       
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="stat-card" elevation="0">
+      <v-col
+        cols="12"
+        sm="6"
+        md="3"
+      >
+        <v-card
+          class="stat-card"
+          elevation="0"
+        >
           <div class="stat-icon-wrapper bg-warning-subtle">
-            <v-icon color="warning" size="24">mdi-whistle</v-icon>
+            <v-icon
+              color="warning"
+              size="24"
+            >
+              mdi-whistle
+            </v-icon>
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.inProgressMatches }}</span>
@@ -601,10 +672,22 @@ async function handleDeleteTournament() {
         </v-card>
       </v-col>
       
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="stat-card" elevation="0">
+      <v-col
+        cols="12"
+        sm="6"
+        md="3"
+      >
+        <v-card
+          class="stat-card"
+          elevation="0"
+        >
           <div class="stat-icon-wrapper bg-success-subtle">
-            <v-icon color="success" size="24">mdi-check-all</v-icon>
+            <v-icon
+              color="success"
+              size="24"
+            >
+              mdi-check-all
+            </v-icon>
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.progress }}%</span>
@@ -622,10 +705,18 @@ async function handleDeleteTournament() {
     </v-row>
 
     <!-- Active Matches Section (Overview Tab Only) -->
-    <div v-if="activeTab === 'overview' && stats.inProgressMatches > 0" class="mb-6">
+    <div
+      v-if="activeTab === 'overview' && stats.inProgressMatches > 0"
+      class="mb-6"
+    >
       <div class="d-flex align-center justify-space-between mb-4">
         <h2 class="text-h5 font-weight-bold text-gradient-primary">
-          <v-icon start class="mr-2">mdi-whistle</v-icon>
+          <v-icon
+            start
+            class="mr-2"
+          >
+            mdi-whistle
+          </v-icon>
           Active Matches
         </h2>
         <v-btn
@@ -639,40 +730,95 @@ async function handleDeleteTournament() {
       </div>
 
       <!-- Compact Active Matches Summary -->
-      <v-card variant="outlined" class="mb-4">
+      <v-card
+        variant="outlined"
+        class="mb-4"
+      >
         <v-card-title class="d-flex align-center justify-space-between">
           <div class="d-flex align-center">
-            <v-icon start color="info">mdi-timer-sand</v-icon>
+            <v-icon
+              start
+              color="info"
+            >
+              mdi-timer-sand
+            </v-icon>
             Active Matches
           </div>
-          <v-chip color="info" size="small" variant="tonal">{{ enrichedActiveMatches.length }}</v-chip>
+          <v-chip
+            color="info"
+            size="small"
+            variant="tonal"
+          >
+            {{ enrichedActiveMatches.length }}
+          </v-chip>
         </v-card-title>
         <v-divider />
-        <v-card-text v-if="enrichedActiveMatches.length > 0" class="pa-0">
-          <v-list density="compact" class="pa-0">
-            <v-list-item v-for="match in enrichedActiveMatches.slice(0, 3)" :key="match.id" class="px-4">
-              <v-list-item-title class="text-body-2">{{ match.participant1Name }} vs {{ match.participant2Name }}</v-list-item-title>
-              <v-list-item-subtitle class="text-caption">{{ match.categoryName }} • {{ match.courtName }}</v-list-item-subtitle>
+        <v-card-text
+          v-if="enrichedActiveMatches.length > 0"
+          class="pa-0"
+        >
+          <v-list
+            density="compact"
+            class="pa-0"
+          >
+            <v-list-item
+              v-for="match in enrichedActiveMatches.slice(0, 3)"
+              :key="match.id"
+              class="px-4"
+            >
+              <v-list-item-title class="text-body-2">
+                {{ match.participant1Name }} vs {{ match.participant2Name }}
+              </v-list-item-title>
+              <v-list-item-subtitle class="text-caption">
+                {{ match.categoryName }} • {{ match.courtName }}
+              </v-list-item-subtitle>
               <template #append>
-                <v-chip size="x-small" variant="flat" color="secondary">{{ getCurrentScore(match) }}</v-chip>
+                <v-chip
+                  size="x-small"
+                  variant="flat"
+                  color="secondary"
+                >
+                  {{ getCurrentScore(match) }}
+                </v-chip>
               </template>
             </v-list-item>
             <v-divider v-if="enrichedActiveMatches.length > 3" />
-            <v-list-item v-if="enrichedActiveMatches.length > 3" class="px-4">
+            <v-list-item
+              v-if="enrichedActiveMatches.length > 3"
+              class="px-4"
+            >
               <v-list-item-title class="text-center text-medium-emphasis text-caption">
                 +{{ enrichedActiveMatches.length - 3 }} more matches in progress
               </v-list-item-title>
             </v-list-item>
           </v-list>
         </v-card-text>
-        <v-card-text v-else class="text-center text-medium-emphasis py-6">
-          <v-icon size="48" color="grey-lighten-2" class="mb-2">mdi-trophy-outline</v-icon>
-          <div class="text-body-2">No matches currently in progress</div>
+        <v-card-text
+          v-else
+          class="text-center text-medium-emphasis py-6"
+        >
+          <v-icon
+            size="48"
+            color="grey-lighten-2"
+            class="mb-2"
+          >
+            mdi-trophy-outline
+          </v-icon>
+          <div class="text-body-2">
+            No matches currently in progress
+          </div>
         </v-card-text>
         <v-divider />
         <v-card-actions>
-          <v-btn variant="text" color="primary" block @click="navigateToMatchControl">
-            <v-icon start>mdi-arrow-right</v-icon>
+          <v-btn
+            variant="text"
+            color="primary"
+            block
+            @click="navigateToMatchControl"
+          >
+            <v-icon start>
+              mdi-arrow-right
+            </v-icon>
             View Match Control
           </v-btn>
         </v-card-actions>
@@ -681,14 +827,40 @@ async function handleDeleteTournament() {
 
     <!-- Tabs -->
     <v-card>
-      <v-tabs v-model="activeTab" color="primary">
-        <v-tab value="overview">Overview</v-tab>
-        <v-tab v-if="isAdmin" value="categories">Categories</v-tab>
-        <v-tab v-if="isAdmin" value="courts-manage">Courts</v-tab>
-        <v-tab value="brackets">Brackets</v-tab>
-        <v-tab value="matches">Matches</v-tab>
-        <v-tab v-if="isAdmin" value="registrations">Registrations</v-tab>
-        <v-tab :to="`/tournaments/${tournamentId}/leaderboard`">Leaderboard</v-tab>
+      <v-tabs
+        v-model="activeTab"
+        color="primary"
+      >
+        <v-tab value="overview">
+          Overview
+        </v-tab>
+        <v-tab
+          v-if="isAdmin"
+          value="categories"
+        >
+          Categories
+        </v-tab>
+        <v-tab
+          v-if="isAdmin"
+          value="courts-manage"
+        >
+          Courts
+        </v-tab>
+        <v-tab value="brackets">
+          Brackets
+        </v-tab>
+        <v-tab value="matches">
+          Matches
+        </v-tab>
+        <v-tab
+          v-if="isAdmin"
+          value="registrations"
+        >
+          Registrations
+        </v-tab>
+        <v-tab :to="`/tournaments/${tournamentId}/leaderboard`">
+          Leaderboard
+        </v-tab>
       </v-tabs>
 
       <v-divider />
@@ -697,14 +869,22 @@ async function handleDeleteTournament() {
         <!-- Overview Tab -->
         <v-tabs-window-item value="overview">
           <v-card-text>
-            <!-- Category Registration Stats -->
-            <CategoryRegistrationStats
-              :tournament-id="tournamentId"
-              @generate-bracket="generateBracket"
-              @regenerate-bracket="confirmRegenerateBracket"
-              @manage-registrations="(categoryId) => router.push(`/tournaments/${tournamentId}/registrations?category=${categoryId}`)"
-              @manage-seeds="openSeedingDialog"
-            />
+            <!-- Organizer Checklist (TOURNEY-106) -->
+            <v-row class="mb-4">
+              <v-col cols="12" md="4">
+                <organizer-checklist :tournament-id="tournamentId" />
+              </v-col>
+              <v-col cols="12" md="8">
+                <!-- Category Registration Stats -->
+                <CategoryRegistrationStats
+                  :tournament-id="tournamentId"
+                  @generate-bracket="generateBracket"
+                  @regenerate-bracket="confirmRegenerateBracket"
+                  @manage-registrations="(categoryId) => router.push(`/tournaments/${tournamentId}/registrations?category=${categoryId}`)"
+                  @manage-seeds="openSeedingDialog"
+                />
+              </v-col>
+            </v-row>
 
             <!-- Schedule Result Alert -->
             <v-alert
@@ -716,7 +896,10 @@ async function handleDeleteTournament() {
               @click:close="scheduleResult = null"
             >
               <div class="d-flex align-center">
-                <v-icon icon="mdi-alert" class="mr-2" />
+                <v-icon
+                  icon="mdi-alert"
+                  class="mr-2"
+                />
                 <div class="font-weight-bold">
                   {{ scheduleResult.unscheduled }} match(es) could not be scheduled
                 </div>
@@ -724,14 +907,21 @@ async function handleDeleteTournament() {
 
               <v-divider class="my-2" />
 
-              <v-list density="compact" class="bg-transparent">
+              <v-list
+                density="compact"
+                class="bg-transparent"
+              >
                 <v-list-item
                   v-for="item in scheduleResult.unscheduledDetails"
                   :key="item.matchId"
                   class="px-0"
                 >
                   <template #prepend>
-                    <v-icon icon="mdi-information" size="small" color="warning" />
+                    <v-icon
+                      icon="mdi-information"
+                      size="small"
+                      color="warning"
+                    />
                   </template>
                   <v-list-item-title>Match ID: {{ item.matchId }}</v-list-item-title>
                   <v-list-item-subtitle class="text-warning">
@@ -742,36 +932,89 @@ async function handleDeleteTournament() {
             </v-alert>
 
             <!-- Tournament Info -->
-            <v-card class="mt-4" variant="outlined">
+            <v-card
+              class="mt-4"
+              variant="outlined"
+            >
               <v-card-title>
-                <v-icon start>mdi-information</v-icon>
+                <v-icon start>
+                  mdi-information
+                </v-icon>
                 Tournament Info
               </v-card-title>
               <v-card-text>
                 <v-row>
-                  <v-col cols="6" sm="4" md="2">
-                    <div class="text-caption text-grey">Sport</div>
-                    <div class="font-weight-medium">{{ tournament.sport }}</div>
+                  <v-col
+                    cols="6"
+                    sm="4"
+                    md="2"
+                  >
+                    <div class="text-caption text-grey">
+                      Sport
+                    </div>
+                    <div class="font-weight-medium">
+                      {{ tournament.sport }}
+                    </div>
                   </v-col>
-                  <v-col cols="6" sm="4" md="2">
-                    <div class="text-caption text-grey">Categories</div>
-                    <div class="font-weight-medium">{{ categories.length }}</div>
+                  <v-col
+                    cols="6"
+                    sm="4"
+                    md="2"
+                  >
+                    <div class="text-caption text-grey">
+                      Categories
+                    </div>
+                    <div class="font-weight-medium">
+                      {{ categories.length }}
+                    </div>
                   </v-col>
-                  <v-col cols="6" sm="4" md="2">
-                    <div class="text-caption text-grey">Courts</div>
-                    <div class="font-weight-medium">{{ courts.length }}</div>
+                  <v-col
+                    cols="6"
+                    sm="4"
+                    md="2"
+                  >
+                    <div class="text-caption text-grey">
+                      Courts
+                    </div>
+                    <div class="font-weight-medium">
+                      {{ courts.length }}
+                    </div>
                   </v-col>
-                  <v-col cols="6" sm="4" md="2">
-                    <div class="text-caption text-grey">Rest Time</div>
-                    <div class="font-weight-medium">{{ tournament.settings?.minRestTimeMinutes || 15 }} min</div>
+                  <v-col
+                    cols="6"
+                    sm="4"
+                    md="2"
+                  >
+                    <div class="text-caption text-grey">
+                      Rest Time
+                    </div>
+                    <div class="font-weight-medium">
+                      {{ tournament.settings?.minRestTimeMinutes || 15 }} min
+                    </div>
                   </v-col>
-                  <v-col cols="6" sm="4" md="2">
-                    <div class="text-caption text-grey">Match Duration</div>
-                    <div class="font-weight-medium">{{ tournament.settings?.matchDurationMinutes || 30 }} min</div>
+                  <v-col
+                    cols="6"
+                    sm="4"
+                    md="2"
+                  >
+                    <div class="text-caption text-grey">
+                      Match Duration
+                    </div>
+                    <div class="font-weight-medium">
+                      {{ tournament.settings?.matchDurationMinutes || 30 }} min
+                    </div>
                   </v-col>
-                  <v-col cols="6" sm="4" md="2">
-                    <div class="text-caption text-grey">Location</div>
-                    <div class="font-weight-medium">{{ tournament.location || '-' }}</div>
+                  <v-col
+                    cols="6"
+                    sm="4"
+                    md="2"
+                  >
+                    <div class="text-caption text-grey">
+                      Location
+                    </div>
+                    <div class="font-weight-medium">
+                      {{ tournament.location || '-' }}
+                    </div>
                   </v-col>
                 </v-row>
               </v-card-text>
@@ -780,14 +1023,20 @@ async function handleDeleteTournament() {
         </v-tabs-window-item>
 
         <!-- Categories Tab (Admin only) -->
-        <v-tabs-window-item v-if="isAdmin" value="categories">
+        <v-tabs-window-item
+          v-if="isAdmin"
+          value="categories"
+        >
           <v-card-text>
             <CategoryManagement :tournament-id="tournamentId" />
           </v-card-text>
         </v-tabs-window-item>
 
         <!-- Courts Management Tab (Admin only) -->
-        <v-tabs-window-item v-if="isAdmin" value="courts-manage">
+        <v-tabs-window-item
+          v-if="isAdmin"
+          value="courts-manage"
+        >
           <v-card-text>
             <CourtManagement :tournament-id="tournamentId" />
           </v-card-text>
@@ -851,7 +1100,10 @@ async function handleDeleteTournament() {
               :items-per-page="10"
             >
               <template #item.categoryId="{ item }">
-                <v-chip size="x-small" variant="outlined">
+                <v-chip
+                  size="x-small"
+                  variant="outlined"
+                >
                   {{ getCategoryName(item.categoryId) }}
                 </v-chip>
               </template>
@@ -862,13 +1114,19 @@ async function handleDeleteTournament() {
                 <span v-if="item.scores.length > 0">
                   {{ item.scores.map((s: any) => `${s.score1}-${s.score2}`).join(', ') }}
                 </span>
-                <span v-else class="text-grey">-</span>
+                <span
+                  v-else
+                  class="text-grey"
+                >-</span>
               </template>
               <template #item.court="{ item }">
                 {{ courts.find((c) => c.id === item.courtId)?.name || '-' }}
               </template>
               <template #item.status="{ item }">
-                <v-chip :color="getStatusColor(item.status)" size="small">
+                <v-chip
+                  :color="getStatusColor(item.status)"
+                  size="small"
+                >
                   {{ item.status }}
                 </v-chip>
               </template>
@@ -887,7 +1145,10 @@ async function handleDeleteTournament() {
         </v-tabs-window-item>
 
         <!-- Registrations Tab (Admin only) -->
-        <v-tabs-window-item v-if="isAdmin" value="registrations">
+        <v-tabs-window-item
+          v-if="isAdmin"
+          value="registrations"
+        >
           <v-card-text>
             <div class="d-flex justify-end mb-4">
               <v-btn
@@ -933,41 +1194,67 @@ async function handleDeleteTournament() {
   </v-container>
 
   <!-- Loading State -->
-  <v-container v-else-if="loading" class="fill-height">
-    <v-row align="center" justify="center">
-      <v-progress-circular indeterminate size="64" color="primary" />
+  <v-container
+    v-else-if="loading"
+    class="fill-height"
+  >
+    <v-row
+      align="center"
+      justify="center"
+    >
+      <v-progress-circular
+        indeterminate
+        size="64"
+        color="primary"
+      />
     </v-row>
   </v-container>
 
   <!-- Regenerate Bracket Confirmation Dialog -->
-  <v-dialog v-model="showRegenerateBracketDialog" max-width="500">
+  <v-dialog
+    v-model="showRegenerateBracketDialog"
+    max-width="500"
+  >
     <v-card>
       <v-card-title class="d-flex align-center">
-        <v-icon color="warning" class="mr-2">mdi-alert</v-icon>
+        <v-icon
+          color="warning"
+          class="mr-2"
+        >
+          mdi-alert
+        </v-icon>
         Regenerate Bracket?
       </v-card-title>
       <v-card-text>
-        <p class="mb-3">This will regenerate the bracket for this category with proper progression links.</p>
-        <v-alert type="warning" variant="tonal" class="mb-3">
+        <p class="mb-3">
+          This will regenerate the bracket for this category with proper progression links.
+        </p>
+        <v-alert
+          type="warning"
+          variant="tonal"
+          class="mb-3"
+        >
           <strong>Warning:</strong> This will reset all matches and clear any existing scores.
           Only do this if bracket progression is broken.
         </v-alert>
-        <p class="text-body-2 text-grey">Seeding and participant assignments will be preserved.</p>
+        <p class="text-body-2 text-grey">
+          Seeding and participant assignments will be preserved.
+        </p>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
         <v-btn
           variant="text"
-          @click="showRegenerateBracketDialog = false"
           :disabled="regenerateInProgress"
+          @click="showRegenerateBracketDialog = false"
         >
           Cancel
         </v-btn>
         <v-btn
           color="warning"
           variant="flat"
-          @click="regenerateBracket"
           :loading="regenerateInProgress"
+          @click="regenerateBracket"
         >
           Regenerate Bracket
         </v-btn>
@@ -976,19 +1263,33 @@ async function handleDeleteTournament() {
   </v-dialog>
 
   <!-- Seeding Dialog -->
-  <v-dialog v-model="showSeedingDialog" max-width="600">
+  <v-dialog
+    v-model="showSeedingDialog"
+    max-width="600"
+  >
     <v-card>
       <v-card-title class="d-flex align-center">
-        <v-icon class="mr-2">mdi-seed</v-icon>
+        <v-icon class="mr-2">
+          mdi-seed
+        </v-icon>
         Manage Seeds
         <v-spacer />
-        <v-chip size="small" color="primary" variant="tonal">
+        <v-chip
+          size="small"
+          color="primary"
+          variant="tonal"
+        >
           {{ seedingRegistrations.length }} players
         </v-chip>
       </v-card-title>
 
       <v-card-text>
-        <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+        <v-alert
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+        >
           <strong>Seeding tips:</strong>
           <ul class="text-body-2 mt-1 mb-0">
             <li>Seed your top 4 players to ensure they don't meet early</li>
@@ -1032,10 +1333,16 @@ async function handleDeleteTournament() {
                 size="32"
                 class="mr-3"
               >
-                <span v-if="reg.seed !== null" class="text-white font-weight-bold">
+                <span
+                  v-if="reg.seed !== null"
+                  class="text-white font-weight-bold"
+                >
                   {{ reg.seed }}
                 </span>
-                <span v-else class="text-grey">{{ index + 1 }}</span>
+                <span
+                  v-else
+                  class="text-grey"
+                >{{ index + 1 }}</span>
               </v-avatar>
             </template>
 
@@ -1073,7 +1380,11 @@ async function handleDeleteTournament() {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" data-testid="close-seeding-dialog-btn" @click="showSeedingDialog = false">
+        <v-btn
+          variant="text"
+          data-testid="close-seeding-dialog-btn"
+          @click="showSeedingDialog = false"
+        >
           Done
         </v-btn>
       </v-card-actions>
@@ -1081,10 +1392,17 @@ async function handleDeleteTournament() {
   </v-dialog>
 
   <!-- Delete Confirmation Dialog -->
-  <v-dialog v-model="showDeleteDialog" max-width="500">
+  <v-dialog
+    v-model="showDeleteDialog"
+    max-width="500"
+  >
     <v-card>
       <v-card-title class="text-h5 text-error">
-        <v-icon start icon="mdi-alert" color="error" />
+        <v-icon
+          start
+          icon="mdi-alert"
+          color="error"
+        />
         Delete Tournament?
       </v-card-title>
       <v-card-text>
@@ -1094,16 +1412,16 @@ async function handleDeleteTournament() {
         <v-spacer />
         <v-btn
           variant="text"
-          @click="showDeleteDialog = false"
           :disabled="deleteLoading"
+          @click="showDeleteDialog = false"
         >
           Cancel
         </v-btn>
         <v-btn
           color="error"
           variant="elevated"
-          @click="handleDeleteTournament"
           :loading="deleteLoading"
+          @click="handleDeleteTournament"
         >
           Delete Forever
         </v-btn>
@@ -1112,11 +1430,17 @@ async function handleDeleteTournament() {
   </v-dialog>
 
   <!-- Complete Match Winner Dialog -->
-  <v-dialog v-model="showCompleteMatchDialog" max-width="400" persistent>
+  <v-dialog
+    v-model="showCompleteMatchDialog"
+    max-width="400"
+    persistent
+  >
     <v-card v-if="matchToComplete">
       <v-card-title>Select Winner</v-card-title>
       <v-card-text>
-        <p class="mb-4">Who won this match?</p>
+        <p class="mb-4">
+          Who won this match?
+        </p>
         <v-btn
           block
           color="primary"
@@ -1136,7 +1460,12 @@ async function handleDeleteTournament() {
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="showCompleteMatchDialog = false">Cancel</v-btn>
+        <v-btn
+          variant="text"
+          @click="showCompleteMatchDialog = false"
+        >
+          Cancel
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
