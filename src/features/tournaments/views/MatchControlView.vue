@@ -19,8 +19,14 @@ import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
 import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
 import CompactDataTable from '@/components/common/CompactDataTable.vue';
 import { useMatchDuration } from '@/composables/useMatchDuration';
-import type { Match, Court } from '@/types';
+import type { Match, Court, ScoringConfig } from '@/types';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
+import {
+  getGamesNeeded,
+  getScoreInputMax,
+  resolveScoringConfig,
+  validateCompletedGameScore,
+} from '@/features/scoring/utils/validation';
 
 // Configuration for auto-ready
 const AUTO_READY_MINUTES_BEFORE = 5; // Mark matches as ready X minutes before scheduled time
@@ -109,11 +115,20 @@ const selectedCourtId = ref<string | null>(null);
 const scheduledTime = ref<string>('');
 
 // Manual score entry state
-const manualScores = ref([
-  { score1: 0, score2: 0 },
-  { score1: 0, score2: 0 },
-  { score1: 0, score2: 0 },
-]);
+const createManualScoreRows = (gamesPerMatch: number): Array<{ score1: number; score2: number }> =>
+  Array.from({ length: gamesPerMatch }, () => ({ score1: 0, score2: 0 }));
+
+const resolveCategoryScoringConfig = (categoryId?: string): ScoringConfig => {
+  const category = categories.value.find((entry) => entry.id === categoryId);
+  return resolveScoringConfig(tournament.value, category);
+};
+
+const manualScoringConfig = computed<ScoringConfig>(() =>
+  resolveCategoryScoringConfig(selectedMatch.value?.categoryId)
+);
+
+const manualScoreInputMax = computed(() => getScoreInputMax(manualScoringConfig.value));
+const manualScores = ref(createManualScoreRows(manualScoringConfig.value.gamesPerMatch));
 const submittingScores = ref(false);
 
 // Auto-schedule state
@@ -971,22 +986,17 @@ function openManualScoreDialog(match: Match) {
   }
 
   selectedMatch.value = match;
+  const scoringConfig = resolveCategoryScoringConfig(match.categoryId);
+  manualScores.value = createManualScoreRows(scoringConfig.gamesPerMatch);
+
   // Pre-fill with existing scores if any
   if (match.scores && match.scores.length > 0) {
-    manualScores.value = match.scores.map(g => ({
-      score1: g.score1 || 0,
-      score2: g.score2 || 0,
-    }));
-    // Ensure we have 3 games
-    while (manualScores.value.length < 3) {
-      manualScores.value.push({ score1: 0, score2: 0 });
-    }
-  } else {
-    manualScores.value = [
-      { score1: 0, score2: 0 },
-      { score1: 0, score2: 0 },
-      { score1: 0, score2: 0 },
-    ];
+    match.scores.slice(0, scoringConfig.gamesPerMatch).forEach((game, index) => {
+      manualScores.value[index] = {
+        score1: game.score1 || 0,
+        score2: game.score2 || 0,
+      };
+    });
   }
   showManualScoreDialog.value = true;
 }
@@ -998,13 +1008,18 @@ async function submitManualScores() {
   submittingScores.value = true;
   try {
     const match = selectedMatch.value;
+    const scoringConfig = resolveCategoryScoringConfig(match.categoryId);
 
     // Build game scores with winner calculation
     const games = manualScores.value
       .filter(g => g.score1 > 0 || g.score2 > 0) // Only include games with scores
       .map((g, index) => {
-        const isComplete = (g.score1 >= 21 || g.score2 >= 21) &&
-          (Math.abs(g.score1 - g.score2) >= 2 || g.score1 === 30 || g.score2 === 30);
+        const validation = validateCompletedGameScore(g.score1, g.score2, scoringConfig);
+        if (!validation.isValid) {
+          throw new Error(`Game ${index + 1}: ${validation.message}`);
+        }
+
+        const isComplete = validation.isValid;
         let winnerId: string | undefined = undefined;
         if (isComplete) {
           winnerId = g.score1 > g.score2 ? match.participant1Id : match.participant2Id;
@@ -1039,8 +1054,9 @@ async function submitManualScores() {
     // Log activity if match completed (non-blocking)
     const p1Wins = games.filter(g => g.winnerId === match.participant1Id).length;
     const p2Wins = games.filter(g => g.winnerId === match.participant2Id).length;
-    if (p1Wins >= 2 || p2Wins >= 2) {
-      const winnerName = p1Wins >= 2
+    const gamesNeeded = getGamesNeeded(scoringConfig);
+    if (p1Wins >= gamesNeeded || p2Wins >= gamesNeeded) {
+      const winnerName = p1Wins >= gamesNeeded
         ? getParticipantName(match.participant1Id)
         : getParticipantName(match.participant2Id);
       const scoreString = games.map(g => `${g.score1}-${g.score2}`).join(', ');
@@ -1060,7 +1076,8 @@ async function submitManualScores() {
     showManualScoreDialog.value = false;
   } catch (error) {
     console.error('Error submitting scores:', error);
-    notificationStore.showToast('error', 'Failed to save scores');
+    const message = error instanceof Error ? error.message : 'Failed to save scores';
+    notificationStore.showToast('error', message);
   } finally {
     submittingScores.value = false;
   }
@@ -2387,6 +2404,7 @@ function toggleAutoStart(enabled: boolean) {
               hide-details
               class="mr-2 text-center"
               min="0"
+              :max="manualScoreInputMax"
             />
             <span class="mx-2 font-weight-bold text-medium-emphasis">-</span>
             <v-text-field
@@ -2397,8 +2415,23 @@ function toggleAutoStart(enabled: boolean) {
               hide-details
               class="ml-2 text-center"
               min="0"
+              :max="manualScoreInputMax"
             />
           </div>
+
+          <v-alert
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mt-2"
+          >
+            Best of {{ manualScoringConfig.gamesPerMatch }},
+            first to {{ manualScoringConfig.pointsToWin }},
+            win by {{ manualScoringConfig.mustWinBy }}
+            <template v-if="manualScoringConfig.maxPoints != null">
+              (cap {{ manualScoringConfig.maxPoints }})
+            </template>
+          </v-alert>
         </v-card-text>
         <v-card-actions>
           <v-spacer />

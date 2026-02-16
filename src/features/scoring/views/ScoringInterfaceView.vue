@@ -8,8 +8,14 @@ import { useNotificationStore } from '@/stores/notifications';
 import { useActivityStore } from '@/stores/activities';
 import { useAuthStore } from '@/stores/auth';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
-import { BADMINTON_CONFIG } from '@/types';
+import type { ScoringConfig } from '@/types';
 import ScoreCorrectionDialog from '../components/ScoreCorrectionDialog.vue';
+import {
+  getGamesNeeded,
+  getScoreInputMax,
+  resolveScoringConfig,
+  validateCompletedGameScore,
+} from '../utils/validation';
 
 const route = useRoute();
 const router = useRouter();
@@ -23,17 +29,28 @@ const { getParticipantName } = useParticipantResolver();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const matchId = computed(() => route.params.matchId as string);
+const tournament = computed(() => tournamentStore.currentTournament);
 const match = computed(() => matchStore.currentMatch);
 const loading = ref(false);
 const pageError = ref<string | null>(null);
 const initialized = ref(false);
 
 // Manual scorecard mode
-const manualScores = ref<{ game1: { p1: number; p2: number }; game2: { p1: number; p2: number }; game3: { p1: number; p2: number } }>({
-  game1: { p1: 0, p2: 0 },
-  game2: { p1: 0, p2: 0 },
-  game3: { p1: 0, p2: 0 },
+interface ManualGameScore {
+  p1: number;
+  p2: number;
+}
+
+const createManualScoreRows = (gamesPerMatch: number): ManualGameScore[] =>
+  Array.from({ length: gamesPerMatch }, () => ({ p1: 0, p2: 0 }));
+
+const scoringConfig = computed<ScoringConfig>(() => {
+  const categoryId = match.value?.categoryId || route.query.category as string | undefined;
+  const category = tournamentStore.categories.find((entry) => entry.id === categoryId);
+  return resolveScoringConfig(tournament.value, category);
 });
+const manualScoreInputMax = computed(() => getScoreInputMax(scoringConfig.value));
+const manualScores = ref<ManualGameScore[]>(createManualScoreRows(scoringConfig.value.gamesPerMatch));
 const showManualScoreDialog = ref(false);
 
 // Walkover dialog state
@@ -121,6 +138,16 @@ onMounted(async () => {
 onUnmounted(() => {
   matchStore.clearCurrentMatch();
 });
+
+watch(
+  () => scoringConfig.value.gamesPerMatch,
+  (gamesPerMatch) => {
+    if (!showManualScoreDialog.value) {
+      manualScores.value = createManualScoreRows(gamesPerMatch);
+    }
+  },
+  { immediate: true }
+);
 
 // Watch for match completion to log activity
 watch(
@@ -219,7 +246,12 @@ async function confirmWalkover() {
   showWalkoverConfirm.value = false;
   loading.value = true;
   try {
-    await matchStore.recordWalkover(tournamentId.value, matchId.value, walkoverWinnerId.value);
+    await matchStore.recordWalkover(
+      tournamentId.value,
+      matchId.value,
+      walkoverWinnerId.value,
+      match.value?.categoryId
+    );
     notificationStore.showToast('success', 'Walkover recorded');
     router.back();
   } catch (error) {
@@ -238,12 +270,13 @@ function getScoreColor(score1: number, score2: number, forPlayer1: boolean): str
 }
 
 function openManualScoreDialog() {
+  manualScores.value = createManualScoreRows(scoringConfig.value.gamesPerMatch);
+
   // Initialize with existing scores if any
   if (match.value?.scores) {
     match.value.scores.forEach((game, index) => {
-      const gameKey = `game${index + 1}` as keyof typeof manualScores.value;
-      if (manualScores.value[gameKey]) {
-        manualScores.value[gameKey] = { p1: game.score1, p2: game.score2 };
+      if (manualScores.value[index]) {
+        manualScores.value[index] = { p1: game.score1, p2: game.score2 };
       }
     });
   }
@@ -256,21 +289,21 @@ async function submitManualScores() {
   loading.value = true;
   try {
     // Submit each game score that has been played
-    const games = [manualScores.value.game1, manualScores.value.game2, manualScores.value.game3];
+    const games = [...manualScores.value];
 
     let p1GamesWon = 0;
     let p2GamesWon = 0;
     const validGames: Array<{ p1: number; p2: number; winner: string }> = [];
 
-    for (const game of games) {
+    for (const [index, game] of games.entries()) {
       // Skip games where both scores are 0
       if (game.p1 === 0 && game.p2 === 0) continue;
 
-      // Validate: games cannot be tied
-      if (game.p1 === game.p2) {
+      const validation = validateCompletedGameScore(game.p1, game.p2, scoringConfig.value);
+      if (!validation.isValid) {
         notificationStore.showToast(
           'error',
-          `Game ${validGames.length + 1} cannot be tied (${game.p1}-${game.p2}). One player must win.`
+          `Game ${index + 1}: ${validation.message ?? 'Invalid game score.'}`
         );
         loading.value = false;
         return;
@@ -304,7 +337,7 @@ async function submitManualScores() {
     notificationStore.showToast('success', 'Scores submitted successfully');
 
     // If match is complete, go back
-    const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+    const gamesNeeded = getGamesNeeded(scoringConfig.value);
     if (p1GamesWon >= gamesNeeded || p2GamesWon >= gamesNeeded) {
       router.back();
     }
@@ -586,17 +619,25 @@ function onScoreCorrected() {
           </v-col>
         </v-row>
 
-        <!-- Game 1 -->
-        <v-row align="center" class="mb-2">
+        <v-row
+          v-for="(game, index) in manualScores"
+          :key="`manual-game-${index + 1}`"
+          align="center"
+          :class="index === manualScores.length - 1 ? '' : 'mb-2'"
+        >
           <v-col cols="4">
-            <span class="font-weight-medium">Game 1</span>
+            <span class="font-weight-medium">Game {{ index + 1 }}</span>
+            <span
+              v-if="index >= getGamesNeeded(scoringConfig)"
+              class="text-caption text-grey d-block"
+            >(if needed)</span>
           </v-col>
           <v-col cols="4">
             <v-text-field
-              v-model.number="manualScores.game1.p1"
+              v-model.number="game.p1"
               type="number"
               min="0"
-              max="30"
+              :max="manualScoreInputMax"
               variant="outlined"
               density="compact"
               hide-details
@@ -605,73 +646,10 @@ function onScoreCorrected() {
           </v-col>
           <v-col cols="4">
             <v-text-field
-              v-model.number="manualScores.game1.p2"
+              v-model.number="game.p2"
               type="number"
               min="0"
-              max="30"
-              variant="outlined"
-              density="compact"
-              hide-details
-              class="centered-input"
-            />
-          </v-col>
-        </v-row>
-
-        <!-- Game 2 -->
-        <v-row align="center" class="mb-2">
-          <v-col cols="4">
-            <span class="font-weight-medium">Game 2</span>
-          </v-col>
-          <v-col cols="4">
-            <v-text-field
-              v-model.number="manualScores.game2.p1"
-              type="number"
-              min="0"
-              max="30"
-              variant="outlined"
-              density="compact"
-              hide-details
-              class="centered-input"
-            />
-          </v-col>
-          <v-col cols="4">
-            <v-text-field
-              v-model.number="manualScores.game2.p2"
-              type="number"
-              min="0"
-              max="30"
-              variant="outlined"
-              density="compact"
-              hide-details
-              class="centered-input"
-            />
-          </v-col>
-        </v-row>
-
-        <!-- Game 3 -->
-        <v-row align="center">
-          <v-col cols="4">
-            <span class="font-weight-medium">Game 3</span>
-            <span class="text-caption text-grey d-block">(if needed)</span>
-          </v-col>
-          <v-col cols="4">
-            <v-text-field
-              v-model.number="manualScores.game3.p1"
-              type="number"
-              min="0"
-              max="30"
-              variant="outlined"
-              density="compact"
-              hide-details
-              class="centered-input"
-            />
-          </v-col>
-          <v-col cols="4">
-            <v-text-field
-              v-model.number="manualScores.game3.p2"
-              type="number"
-              min="0"
-              max="30"
+              :max="manualScoreInputMax"
               variant="outlined"
               density="compact"
               hide-details
@@ -682,7 +660,7 @@ function onScoreCorrected() {
 
         <v-alert type="info" variant="tonal" class="mt-4" density="compact">
           <div class="text-caption">
-            Enter complete game scores. The match winner will be determined automatically (best of 3).
+            Enter complete game scores. Winner is determined automatically (best of {{ scoringConfig.gamesPerMatch }}).
           </div>
         </v-alert>
       </v-card-text>
@@ -702,6 +680,7 @@ function onScoreCorrected() {
     :match="match"
     :tournament-id="tournamentId"
     :category-id="match?.categoryId"
+    :scoring-config="scoringConfig"
     @corrected="onScoreCorrected"
   />
 </template>

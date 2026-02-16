@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import type { Match, GameScore } from '@/types';
+import type { Match, GameScore, ScoringConfig } from '@/types';
 import { useMatchStore } from '@/stores/matches';
 import { useNotificationStore } from '@/stores/notifications';
-import { BADMINTON_CONFIG } from '@/types';
 import GameScoreEditor from './GameScoreEditor.vue';
+import { getGamesNeeded, validateCompletedGameScore } from '../utils/validation';
 
 interface Props {
   modelValue: boolean;
   match: Match | null;
   tournamentId: string;
   categoryId?: string;
+  scoringConfig: ScoringConfig;
 }
 
 const props = defineProps<Props>();
@@ -75,7 +76,7 @@ watch(editedScores, () => {
 function determineWinnerFromScores() {
   if (!props.match) return;
 
-  const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+  const gamesNeeded = getGamesNeeded(props.scoringConfig);
   let p1Wins = 0;
   let p2Wins = 0;
 
@@ -107,27 +108,15 @@ function validateScores() {
       continue;
     }
 
-    const maxScore = Math.max(game.score1, game.score2);
-    const minScore = Math.min(game.score1, game.score2);
-
     if (game.isComplete) {
-      if (maxScore < BADMINTON_CONFIG.pointsToWin) {
-        errors.push(`Game ${game.gameNumber}: Winner must reach ${BADMINTON_CONFIG.pointsToWin} points`);
-      }
-
-      if (maxScore > BADMINTON_CONFIG.maxPoints) {
-        errors.push(`Game ${game.gameNumber}: Cannot exceed ${BADMINTON_CONFIG.maxPoints} points`);
-      }
-
-      if (maxScore >= BADMINTON_CONFIG.pointsToWin && 
-          maxScore < BADMINTON_CONFIG.maxPoints &&
-          maxScore - minScore < BADMINTON_CONFIG.mustWinBy) {
-        errors.push(`Game ${game.gameNumber}: Must win by ${BADMINTON_CONFIG.mustWinBy} points`);
+      const validation = validateCompletedGameScore(game.score1, game.score2, props.scoringConfig);
+      if (!validation.isValid) {
+        errors.push(`Game ${game.gameNumber}: ${validation.message}`);
       }
     }
   }
 
-  const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+  const gamesNeeded = getGamesNeeded(props.scoringConfig);
   const completedGames = editedScores.value.filter(g => g.isComplete).length;
   
   if (completedGames > 0 && completedGames < gamesNeeded) {
@@ -139,15 +128,8 @@ function validateScores() {
 }
 
 function handleGameComplete(game: GameScore) {
-  const maxScore = Math.max(game.score1, game.score2);
-  const minScore = Math.min(game.score1, game.score2);
-  const scoreDiff = maxScore - minScore;
-
-  const hasWinningScore = maxScore >= BADMINTON_CONFIG.pointsToWin;
-  const hasWinningMargin = scoreDiff >= BADMINTON_CONFIG.mustWinBy;
-  const hasMaxPoints = maxScore >= BADMINTON_CONFIG.maxPoints;
-
-  if (hasWinningScore && (hasWinningMargin || hasMaxPoints)) {
+  const validation = validateCompletedGameScore(game.score1, game.score2, props.scoringConfig);
+  if (validation.isValid) {
     game.isComplete = true;
     game.winnerId = game.score1 > game.score2 
       ? props.match?.participant1Id 
@@ -232,6 +214,7 @@ function onGameComplete(game: GameScore) {
           :participant2-id="match.participant2Id"
           :participant1-name="participant1Name"
           :participant2-name="participant2Name"
+          :scoring-config="scoringConfig"
           @change="onScoreChange"
           @game-complete="onGameComplete"
         />

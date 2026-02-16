@@ -17,6 +17,15 @@ export interface User {
 // Tournament Types
 export type TournamentStatus = 'draft' | 'registration' | 'active' | 'completed' | 'cancelled';
 export type TournamentFormat = 'single_elimination' | 'double_elimination' | 'round_robin' | 'pool_to_elimination';
+export type TournamentLifecycleState =
+  | 'DRAFT'
+  | 'REG_OPEN'
+  | 'REG_CLOSED'
+  | 'SEEDING'
+  | 'BRACKET_GENERATED'
+  | 'BRACKET_LOCKED'
+  | 'LIVE'
+  | 'COMPLETED';
 
 export interface Tournament {
   id: string;
@@ -25,6 +34,7 @@ export interface Tournament {
   sport: 'badminton'; // Starting with badminton only
   format: TournamentFormat;
   status: TournamentStatus;
+  state?: TournamentLifecycleState;
   startDate: Date;
   endDate: Date;
   registrationDeadline?: Date;
@@ -45,7 +55,7 @@ export interface TournamentSettings {
   gamesPerMatch: number; // Best of 1, 3, or 5
   pointsToWin: number; // Points needed to win a game
   mustWinBy: number; // Win by margin
-  maxPoints: number; // Max points cap
+  maxPoints: number | null; // Max points cap (null = no cap)
 }
 
 // Category Types
@@ -65,6 +75,17 @@ export interface Category {
   minParticipants?: number;
   minGamesGuaranteed?: number; // For round robin - minimum games each participant plays
   seedingEnabled: boolean;
+  scoringOverrideEnabled?: boolean;
+  scoringConfig?: {
+    gamesPerMatch?: number;
+    pointsToWin?: number;
+    mustWinBy?: number;
+    maxPoints?: number | null;
+  } | null;
+  gamesPerMatch?: number;
+  pointsToWin?: number;
+  mustWinBy?: number;
+  maxPoints?: number | null;
   status: 'setup' | 'registration' | 'active' | 'completed';
   createdAt: Date;
   updatedAt: Date;
@@ -178,6 +199,7 @@ export interface Match {
   startedAt?: Date;
   completedAt?: Date;
   scores: GameScore[];
+  scoringConfig?: ScoringConfig;
   nextMatchId?: string; // Where winner advances to
   nextMatchSlot?: 'participant1' | 'participant2'; // Which slot in next match
   // For double elimination
@@ -208,7 +230,7 @@ export interface ScoringConfig {
   gamesPerMatch: number; // Best of 1, 3, or 5
   pointsToWin: number; // Points needed to win a game (e.g., 21, 15, 11)
   mustWinBy: number; // Win by margin (e.g., 2)
-  maxPoints: number; // Cap on points (e.g., 30 - at 29-29, first to 30 wins)
+  maxPoints: number | null; // Cap on points (null = no cap)
 }
 
 // Default badminton config
