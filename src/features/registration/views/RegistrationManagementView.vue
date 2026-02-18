@@ -5,8 +5,9 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import BaseDialog from '@/components/common/BaseDialog.vue';
 import FilterBar from '@/components/common/FilterBar.vue';
-import CompactDataTable from '@/components/common/CompactDataTable.vue';
+
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { FORMAT_LABELS } from '@/types';
 import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
@@ -1218,166 +1219,173 @@ async function advanceState(): Promise<void> {
             </v-slide-y-transition>
           </v-card-text>
 
-          <compact-data-table
-            v-model:selected="selectedRegistrations"
-            :items="filteredRegistrations"
-            :columns="[
-              { key: 'participant', title: 'Participant', width: '35%', essential: true },
-              { key: 'category', title: 'Category', width: '20%', essential: true },
-              { key: 'status', title: 'Status', width: '15%', essential: true },
-              { key: 'actions', title: 'Actions', width: '30%', essential: true },
-            ]"
-            :loading="loading"
-            show-select
-          >
-            <template #cell-participant="{ item }">
-              <div class="d-flex align-center py-2">
-                <v-avatar
-                  size="36"
-                  color="primary"
-                  class="mr-3"
-                >
-                  <span class="text-caption">{{ getPlayerName(item.playerId).charAt(0) }}</span>
-                </v-avatar>
-                <div>
-                  <div class="font-weight-medium">
-                    {{ getParticipantDisplay(item) }}
-                  </div>
-                  <div class="text-caption text-grey">
-                    {{ item.partnerPlayerId ? 'Doubles' : 'Singles' }}
-                  </div>
-                </div>
-              </div>
-            </template>
-            <template #cell-category="{ item }">
-              <v-chip
-                size="small"
-                variant="outlined"
-              >
-                {{ getCategoryName(item.categoryId) }}
-              </v-chip>
-              <div class="text-caption text-grey">
-                {{ getCategory(item.categoryId)?.format ? FORMAT_LABELS[getCategory(item.categoryId)!.format] : '' }}
-              </div>
-            </template>
-            <template #cell-status="{ item }">
-              <v-chip
-                :color="getStatusColor(item.status)"
-                :prepend-icon="getStatusIcon(item.status)"
-                size="small"
-              >
-                {{ item.status }}
-              </v-chip>
-            </template>
-            <template #actions="{ item }">
-              <div class="d-flex justify-end">
-                <!-- Pending actions -->
-                <template v-if="item.status === 'pending'">
-                  <v-btn
-                    icon="mdi-check"
-                    size="small"
-                    color="success"
-                    variant="text"
-                    title="Approve"
-                    @click="approveRegistration(item.id)"
-                  />
-                  <v-btn
-                    icon="mdi-close"
-                    size="small"
-                    color="error"
-                    variant="text"
-                    title="Reject"
-                    @click="rejectRegistration(item.id)"
-                  />
-                </template>
+           <v-data-table
+             v-model:selected="selectedRegistrations"
+             :items="filteredRegistrations"
+             :headers="[
+               { title: 'Participant', key: 'participant', sortable: true },
+               { title: 'Category', key: 'category', sortable: true },
+               { title: 'Status', key: 'status', sortable: true },
+               { title: 'Actions', key: 'actions', sortable: false },
+             ]"
+             :loading="loading"
+             class="elevation-1"
+             show-expand
+             item-value="id"
+             show-select
+           >
+             <template #item.participant="{ item }">
+               <div class="d-flex align-center py-2">
+                 <v-avatar
+                   size="36"
+                   color="primary"
+                   class="mr-3"
+                 >
+                   <span class="text-caption">{{ getPlayerName(item.playerId).charAt(0) }}</span>
+                 </v-avatar>
+                 <div>
+                   <div class="font-weight-medium">
+                     {{ getParticipantDisplay(item) }}
+                   </div>
+                   <div class="text-caption text-grey">
+                     {{ item.partnerPlayerId ? 'Doubles' : 'Singles' }}
+                   </div>
+                 </div>
+               </div>
+             </template>
+             <template #item.category="{ item }">
+               <v-chip
+                 size="small"
+                 variant="outlined"
+               >
+                 {{ getCategoryName(item.categoryId) }}
+               </v-chip>
+               <div class="text-caption text-grey">
+                 {{ getCategory(item.categoryId)?.format ? FORMAT_LABELS[getCategory(item.categoryId)!.format] : '' }}
+               </div>
+             </template>
+             <template #item.status="{ item }">
+               <v-chip
+                 :color="getStatusColor(item.status)"
+                 :prepend-icon="getStatusIcon(item.status)"
+                 size="small"
+               >
+                 {{ item.status }}
+               </v-chip>
+             </template>
+             <template #item.actions="{ item }">
+               <div class="d-flex justify-end">
+                 <!-- Pending actions -->
+                 <template v-if="item.status === 'pending'">
+                   <v-btn
+                     icon="mdi-check"
+                     size="small"
+                     color="success"
+                     variant="text"
+                     title="Approve"
+                     @click="approveRegistration(item.id)"
+                   />
+                   <v-btn
+                     icon="mdi-close"
+                     size="small"
+                     color="error"
+                     variant="text"
+                     title="Reject"
+                     @click="rejectRegistration(item.id)"
+                   />
+                 </template>
 
-                <!-- Approved actions -->
-                <template v-if="item.status === 'approved'">
-                  <v-btn
-                    icon="mdi-check-decagram"
-                    size="small"
-                    color="info"
-                    variant="text"
-                    title="Check In"
-                    @click="checkInRegistration(item.id)"
-                  />
-                  <v-btn
-                    icon="mdi-account-remove"
-                    size="small"
-                    color="grey"
-                    variant="text"
-                    title="Withdraw"
-                    @click="withdrawRegistration(item.id)"
-                  />
-                </template>
+                 <!-- Approved actions -->
+                 <template v-if="item.status === 'approved'">
+                   <v-btn
+                     icon="mdi-check-decagram"
+                     size="small"
+                     color="info"
+                     variant="text"
+                     title="Check In"
+                     @click="checkInRegistration(item.id)"
+                   />
+                   <v-btn
+                     icon="mdi-account-remove"
+                     size="small"
+                     color="grey"
+                     variant="text"
+                     title="Withdraw"
+                     @click="withdrawRegistration(item.id)"
+                   />
+                 </template>
 
-                <!-- Checked in - can only withdraw -->
-                <template v-if="item.status === 'checked_in'">
-                  <v-chip
-                    size="x-small"
-                    color="success"
-                    variant="tonal"
-                    class="mr-2"
-                  >
-                    <v-icon
-                      start
-                      size="12"
-                    >
-                      mdi-check
-                    </v-icon>
-                    Ready
-                  </v-chip>
-                  <v-btn
-                    icon="mdi-undo-variant"
-                    size="small"
-                    color="warning"
-                    variant="text"
-                    title="Undo Check-In"
-                    @click="undoCheckInRegistration(item.id)"
-                  />
-                  <v-btn
-                    icon="mdi-account-remove"
-                    size="small"
-                    color="grey"
-                    variant="text"
-                    title="Withdraw"
-                    @click="withdrawRegistration(item.id)"
-                  />
-                </template>
+                 <!-- Checked in - can only withdraw -->
+                 <template v-if="item.status === 'checked_in'">
+                   <v-chip
+                     size="x-small"
+                     color="success"
+                     variant="tonal"
+                     class="mr-2"
+                   >
+                     <v-icon
+                       start
+                       size="12"
+                     >
+                       mdi-check
+                     </v-icon>
+                     Ready
+                   </v-chip>
+                   <v-btn
+                     icon="mdi-undo-variant"
+                     size="small"
+                     color="warning"
+                     variant="text"
+                     title="Undo Check-In"
+                     @click="undoCheckInRegistration(item.id)"
+                   />
+                   <v-btn
+                     icon="mdi-account-remove"
+                     size="small"
+                     color="grey"
+                     variant="text"
+                     title="Withdraw"
+                     @click="withdrawRegistration(item.id)"
+                   />
+                 </template>
 
-                <!-- Withdrawn actions -->
-                <template v-if="item.status === 'withdrawn'">
-                  <v-btn
-                    icon="mdi-account-plus"
-                    size="small"
-                    color="success"
-                    variant="text"
-                    title="Reinstate"
-                    @click="reinstateRegistration(item.id)"
-                  />
-                </template>
-              </div>
-            </template>
-            <template #details="{ item }">
-              <div class="d-flex flex-wrap gap-4 text-body-2">
-                <div>
-                  <strong>Payment:</strong> 
-                  <v-chip
-                    :color="getPaymentColor(item.paymentStatus)"
-                    size="small"
-                    class="cursor-pointer"
-                    @click="togglePaymentStatus(item)"
-                  >
-                    {{ item.paymentStatus || 'unpaid' }}
-                  </v-chip>
-                </div>
-                <div v-if="item.seed">
-                  <strong>Seed:</strong> #{{ item.seed }}
-                </div>
-                <div><strong>Registered:</strong> {{ formatDate(item.createdAt) }}</div>
-              </div>
-            </template>
-          </compact-data-table>
+                 <!-- Withdrawn actions -->
+                 <template v-if="item.status === 'withdrawn'">
+                   <v-btn
+                     icon="mdi-account-plus"
+                     size="small"
+                     color="success"
+                     variant="text"
+                     title="Reinstate"
+                     @click="reinstateRegistration(item.id)"
+                   />
+                 </template>
+               </div>
+             </template>
+             <template #expanded-row="{ columns, item }">
+               <tr>
+                 <td :colspan="columns.length" class="bg-grey-lighten-5 pa-4">
+                   <div class="d-flex flex-wrap gap-4 text-body-2">
+                     <div>
+                       <strong>Payment:</strong> 
+                       <v-chip
+                         :color="getPaymentColor(item.paymentStatus)"
+                         size="small"
+                         class="cursor-pointer"
+                         @click="togglePaymentStatus(item)"
+                       >
+                         {{ item.paymentStatus || 'unpaid' }}
+                       </v-chip>
+                     </div>
+                     <div v-if="item.seed">
+                       <strong>Seed:</strong> #{{ item.seed }}
+                     </div>
+                     <div><strong>Registered:</strong> {{ formatDate(item.createdAt) }}</div>
+                   </div>
+                 </td>
+               </tr>
+             </template>
+           </v-data-table>
         </v-card>
       </v-tabs-window-item>
 
@@ -1492,234 +1500,166 @@ async function advanceState(): Promise<void> {
     </v-tabs-window>
 
     <!-- Add Player Dialog -->
-    <v-dialog
+    <BaseDialog
       v-model="showAddPlayerDialog"
+      title="Add Player"
       max-width="500"
+      @confirm="addPlayer"
+      @cancel="showAddPlayerDialog = false"
     >
-      <v-card>
-        <v-card-title>Add Player</v-card-title>
-        <v-card-text>
-          <v-row>
-            <v-col cols="6">
-              <v-text-field
-                v-model="newPlayer.firstName"
-                label="First Name"
-                required
-              />
-            </v-col>
-            <v-col cols="6">
-              <v-text-field
-                v-model="newPlayer.lastName"
-                label="Last Name"
-                required
-              />
-            </v-col>
-          </v-row>
+      <v-row>
+        <v-col cols="6">
           <v-text-field
-            v-model="newPlayer.email"
-            label="Email"
-            type="email"
+            v-model="newPlayer.firstName"
+            label="First Name"
+            required
           />
+        </v-col>
+        <v-col cols="6">
           <v-text-field
-            v-model="newPlayer.phone"
-            label="Phone"
+            v-model="newPlayer.lastName"
+            label="Last Name"
+            required
           />
-          <v-slider
-            v-model="newPlayer.skillLevel"
-            label="Skill Level"
-            min="1"
-            max="10"
-            step="1"
-            thumb-label
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showAddPlayerDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            @click="addPlayer"
-          >
-            Add Player
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+        </v-col>
+      </v-row>
+      <v-text-field
+        v-model="newPlayer.email"
+        label="Email"
+        type="email"
+      />
+      <v-text-field
+        v-model="newPlayer.phone"
+        label="Phone"
+      />
+      <v-slider
+        v-model="newPlayer.skillLevel"
+        label="Skill Level"
+        min="1"
+        max="10"
+        step="1"
+        thumb-label
+      />
+    </BaseDialog>
 
     <!-- Add Registration Dialog -->
-    <v-dialog
+    <BaseDialog
       v-model="showAddRegistrationDialog"
+      title="Add Registration"
       max-width="500"
+      @confirm="addRegistration"
+      @cancel="showAddRegistrationDialog = false"
     >
-      <v-card>
-        <v-card-title>Add Registration</v-card-title>
-        <v-card-text>
-          <v-select
-            v-model="newRegistration.categoryId"
-            :items="categories"
-            item-title="name"
-            item-value="id"
-            label="Category"
-            required
-          />
-          <v-select
-            v-model="newRegistration.playerId"
-            :items="players"
-            :item-title="(p: any) => `${p.firstName} ${p.lastName}`"
-            item-value="id"
-            label="Player"
-            required
-          />
-          <v-select
-            v-if="isDoublesCategory"
-            v-model="newRegistration.partnerPlayerId"
-            :items="players.filter((p) => p.id !== newRegistration.playerId)"
-            :item-title="(p: any) => `${p.firstName} ${p.lastName}`"
-            item-value="id"
-            label="Partner"
-            required
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showAddRegistrationDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            @click="addRegistration"
-          >
-            Add Registration
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <v-select
+        v-model="newRegistration.categoryId"
+        :items="categories"
+        item-title="name"
+        item-value="id"
+        label="Category"
+        required
+      />
+      <v-select
+        v-model="newRegistration.playerId"
+        :items="players"
+        :item-title="(p: any) => `${p.firstName} ${p.lastName}`"
+        item-value="id"
+        label="Player"
+        required
+      />
+      <v-select
+        v-if="isDoublesCategory"
+        v-model="newRegistration.partnerPlayerId"
+        :items="players.filter((p) => p.id !== newRegistration.playerId)"
+        :item-title="(p: any) => `${p.firstName} ${p.lastName}`"
+        item-value="id"
+        label="Partner"
+        required
+      />
+    </BaseDialog>
 
     <!-- Bulk Check-In Confirmation Dialog -->
-    <v-dialog
+    <BaseDialog
       v-model="showBulkCheckInDialog"
+      title="Confirm Bulk Check-In"
       max-width="400"
+      @confirm="bulkCheckIn"
+      @cancel="showBulkCheckInDialog = false"
     >
-      <v-card>
-        <v-card-title>Confirm Bulk Check-In</v-card-title>
-        <v-card-text>
-          Are you sure you want to check in {{ selectedRegistrations.length }} participants?
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showBulkCheckInDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="info"
-            @click="bulkCheckIn"
-          >
-            Check In All
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <p>Are you sure you want to check in {{ selectedRegistrations.length }} participants?</p>
+    </BaseDialog>
 
     <!-- Edit Player Dialog -->
-    <v-dialog
+    <BaseDialog
       v-model="showEditPlayerDialog"
+      title="Edit Player"
       max-width="500"
+      @confirm="savePlayer"
+      @cancel="showEditPlayerDialog = false"
     >
-      <v-card v-if="editingPlayer">
-        <v-card-title>
-          <v-icon start>
-            mdi-account-edit
-          </v-icon>
-          Edit Player
-        </v-card-title>
-        <v-card-text>
-          <v-row>
-            <v-col cols="6">
-              <v-text-field
-                v-model="editingPlayer.firstName"
-                label="First Name"
-                required
-                variant="outlined"
-              />
-            </v-col>
-            <v-col cols="6">
-              <v-text-field
-                v-model="editingPlayer.lastName"
-                label="Last Name"
-                required
-                variant="outlined"
-              />
-            </v-col>
-          </v-row>
+      <v-row v-if="editingPlayer">
+        <v-col cols="6">
           <v-text-field
-            v-model="editingPlayer.email"
-            label="Email"
-            type="email"
+            v-model="editingPlayer.firstName"
+            label="First Name"
+            required
             variant="outlined"
-            prepend-inner-icon="mdi-email"
           />
+        </v-col>
+        <v-col cols="6">
           <v-text-field
-            v-model="editingPlayer.phone"
-            label="Phone"
+            v-model="editingPlayer.lastName"
+            label="Last Name"
+            required
             variant="outlined"
-            prepend-inner-icon="mdi-phone"
           />
-          <div class="mt-4">
-            <div class="d-flex align-center justify-space-between mb-2">
-              <span class="text-body-1">Skill Level</span>
-              <v-chip
-                color="primary"
-                variant="tonal"
-              >
-                {{ editingPlayer.skillLevel }} / 10
-              </v-chip>
-            </div>
-            <v-slider
-              v-model="editingPlayer.skillLevel"
-              min="1"
-              max="10"
-              step="1"
-              thumb-label="always"
-              color="primary"
-              track-color="grey-lighten-2"
-            >
-              <template #prepend>
-                <span class="text-caption text-grey">Beginner</span>
-              </template>
-              <template #append>
-                <span class="text-caption text-grey">Expert</span>
-              </template>
-            </v-slider>
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showEditPlayerDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
+        </v-col>
+      </v-row>
+      <v-text-field
+        v-if="editingPlayer"
+        v-model="editingPlayer.email"
+        label="Email"
+        type="email"
+        variant="outlined"
+        prepend-inner-icon="mdi-email"
+      />
+      <v-text-field
+        v-if="editingPlayer"
+        v-model="editingPlayer.phone"
+        label="Phone"
+        variant="outlined"
+        prepend-inner-icon="mdi-phone"
+      />
+      <div
+        v-if="editingPlayer"
+        class="mt-4"
+      >
+        <div class="d-flex align-center justify-space-between mb-2">
+          <span class="text-body-1">Skill Level</span>
+          <v-chip
             color="primary"
-            @click="savePlayer"
+            variant="tonal"
           >
-            Save Changes
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+            {{ editingPlayer.skillLevel }} / 10
+          </v-chip>
+        </div>
+        <v-slider
+          v-model="editingPlayer.skillLevel"
+          min="1"
+          max="10"
+          step="1"
+          thumb-label="always"
+          color="primary"
+          track-color="grey-lighten-2"
+        >
+          <template #prepend>
+            <span class="text-caption text-grey">Beginner</span>
+          </template>
+          <template #append>
+            <span class="text-caption text-grey">Expert</span>
+          </template>
+        </v-slider>
+      </div>
+    </BaseDialog>
 
     <!-- Import CSV Dialog -->
     <v-dialog
@@ -1937,33 +1877,31 @@ async function advanceState(): Promise<void> {
     </v-dialog>
 
     <!-- Delete Player Confirmation Dialog -->
-    <v-dialog
+    <BaseDialog
       v-model="showDeletePlayerDialog"
+      title="Delete Player?"
       max-width="400"
-      persistent
+      :persistent="true"
+      @confirm="confirmDeletePlayer"
+      @cancel="showDeletePlayerDialog = false"
     >
-      <v-card>
-        <v-card-title>Delete Player?</v-card-title>
-        <v-card-text>
-          Are you sure? This will also affect any registrations for this player.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showDeletePlayerDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="error"
-            @click="confirmDeletePlayer"
-          >
-            Delete
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <p>Are you sure? This will also affect any registrations for this player.</p>
+      <template #actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="showDeletePlayerDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="error"
+          @click="confirmDeletePlayer"
+        >
+          Delete
+        </v-btn>
+      </template>
+    </BaseDialog>
 
     <!-- Payment Status Dialog -->
     <v-dialog

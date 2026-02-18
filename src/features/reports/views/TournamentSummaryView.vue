@@ -6,7 +6,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useNotificationStore } from '@/stores/notifications';
 import DurationMetrics from '@/features/reports/components/DurationMetrics.vue';
-import CompactDataTable from '@/components/common/CompactDataTable.vue';
+
 
 const route = useRoute();
 const router = useRouter();
@@ -480,39 +480,46 @@ function exportSummaryCsv(): void {
       <v-card-title class="text-subtitle-1">
         Category Breakdown
       </v-card-title>
-      <compact-data-table
+      <v-data-table
         :items="categoryBreakdown"
-        :columns="[
-          { key: 'category', title: 'Category', width: '40%', essential: true },
-          { key: 'registrations', title: 'Registrations', width: '30%', essential: true },
-          { key: 'matches', title: 'Matches', width: '30%', essential: true },
+        :headers="[
+          { title: 'Category', key: 'category', sortable: true },
+          { title: 'Registrations', key: 'registrations', sortable: true },
+          { title: 'Matches', key: 'matches', sortable: true },
         ]"
+        class="elevation-1"
+        show-expand
+        item-value="categoryName"
       >
-        <template #cell-category="{ item }">
+        <template #item.category="{ item }">
           <span class="font-weight-medium">{{ item.categoryName }}</span>
         </template>
-        <template #cell-registrations="{ item }">
+        <template #item.registrations="{ item }">
           <div class="d-flex flex-column">
             <span>{{ item.registrationCount }} total</span>
             <span class="text-caption text-success">{{ item.checkedInCount }} checked in</span>
           </div>
         </template>
-        <template #cell-matches="{ item }">
+        <template #item.matches="{ item }">
           <div class="d-flex flex-column">
             <span>{{ item.matchCount }} total</span>
             <span class="text-caption text-success">{{ item.completedMatches }} completed</span>
           </div>
         </template>
-        <template #details="{ item }">
-          <div class="d-flex flex-wrap gap-4 text-body-2">
-            <div><strong>Category:</strong> {{ item.categoryName }}</div>
-            <div><strong>Registrations:</strong> {{ item.registrationCount }}</div>
-            <div><strong>Checked In:</strong> {{ item.checkedInCount }}</div>
-            <div><strong>Matches:</strong> {{ item.matchCount }}</div>
-            <div><strong>Completed:</strong> {{ item.completedMatches }}</div>
-          </div>
+        <template #expanded-row="{ columns, item }">
+          <tr>
+            <td :colspan="columns.length" class="bg-grey-lighten-5 pa-4">
+              <div class="d-flex flex-wrap gap-4 text-body-2">
+                <div><strong>Category:</strong> {{ item.categoryName }}</div>
+                <div><strong>Registrations:</strong> {{ item.registrationCount }}</div>
+                <div><strong>Checked In:</strong> {{ item.checkedInCount }}</div>
+                <div><strong>Matches:</strong> {{ item.matchCount }}</div>
+                <div><strong>Completed:</strong> {{ item.completedMatches }}</div>
+              </div>
+            </td>
+          </tr>
         </template>
-      </compact-data-table>
+      </v-data-table>
     </v-card>
   </v-container>
 </template>

@@ -6,7 +6,7 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import FilterBar from '@/components/common/FilterBar.vue';
-import CompactDataTable from '@/components/common/CompactDataTable.vue';
+
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { normalizeTournamentState } from '@/guards/tournamentState';
 
@@ -426,39 +426,40 @@ function clearFilters() {
         />
       </v-card-text>
 
-      <compact-data-table
+      <v-data-table
         :items="filteredParticipants"
-        :columns="[
-          { key: 'name', title: 'Participant', width: '40%', essential: true },
-          { key: 'category', title: 'Category', width: '120px', essential: true },
-          { key: 'status', title: 'Status', width: '120px', essential: true },
-          { key: 'actions', title: 'Actions', width: '100px', essential: true },
+        :headers="[
+          { title: 'Participant', key: 'name', sortable: true },
+          { title: 'Category', key: 'category', sortable: true },
+          { title: 'Status', key: 'status', sortable: true },
+          { title: 'Actions', key: 'actions', sortable: false },
         ]"
         :loading="loading"
+        class="elevation-1"
+        show-expand
+        item-value="id"
       >
-        <template #cell-name="{ item }">
+        <template #item.name="{ item }">
           <div class="d-flex align-center py-2">
-          <v-avatar
-            size="36"
-            color="primary"
-            class="mr-3"
-          >
-            <span class="text-caption">{{ item.firstName.charAt(0) }}</span>
-          </v-avatar>
-          <div>
-            <div class="font-weight-medium">
-              {{ item.firstName }} {{ item.lastName }}
+            <v-avatar
+              size="36"
+              color="primary"
+              class="mr-3"
+            >
+              <span class="text-caption">{{ item.firstName.charAt(0) }}</span>
+            </v-avatar>
+            <div>
+              <div class="font-weight-medium">
+                {{ item.firstName }} {{ item.lastName }}
+              </div>
+              <div class="text-caption text-grey">
+                {{ item.email || 'No email' }}
+              </div>
             </div>
-            <div class="text-caption text-grey">
-              {{ item.email || 'No email' }}
-            </div>
-          </div>
           </div>
         </template>
 
-        <template
-          #cell-category="{ item }"
-        >
+        <template #item.category="{ item }">
           <v-chip
             size="small"
             variant="outlined"
@@ -467,9 +468,7 @@ function clearFilters() {
           </v-chip>
         </template>
 
-        <template
-          #cell-status="{ item }"
-        >
+        <template #item.status="{ item }">
           <v-chip
             :color="getParticipantStatus(item.id) === 'checked_in' ? 'success' : 'info'"
             size="small"
@@ -479,39 +478,41 @@ function clearFilters() {
           </v-chip>
         </template>
 
-        <template
-          #actions="{ item }"
-        >
+        <template #item.actions="{ item }">
           <div
             class="d-flex justify-end"
           >
-          <v-btn
-            icon="mdi-pencil"
-            size="small"
-            variant="text"
-            color="primary"
-            title="Edit Player"
-            @click="openEditPlayerDialog(item)"
-          />
-          <v-btn
-            icon="mdi-delete"
-            size="small"
-            variant="text"
-            color="error"
-            title="Delete Player"
-            @click="requestDeletePlayer(item.id)"
-          />
+            <v-btn
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              color="primary"
+              title="Edit Player"
+              @click="openEditPlayerDialog(item)"
+            />
+            <v-btn
+              icon="mdi-delete"
+              size="small"
+              variant="text"
+              color="error"
+              title="Delete Player"
+              @click="requestDeletePlayer(item.id)"
+            />
           </div>
         </template>
 
-        <template #details="{ item }">
-          <div class="d-flex flex-wrap gap-4 text-body-2">
-            <div><strong>Skill Level:</strong> {{ item.skillLevel || 5 }} / 10</div>
-          <div><strong>Email:</strong> {{ item.email || 'No email' }}</div>
-          <div><strong>Phone:</strong> {{ item.phone || 'No phone' }}</div>
-          </div>
+        <template #expanded-row="{ columns, item }">
+          <tr>
+            <td :colspan="columns.length" class="bg-grey-lighten-5 pa-4">
+              <div class="d-flex flex-wrap gap-4 text-body-2">
+                <div><strong>Skill Level:</strong> {{ item.skillLevel || 5 }} / 10</div>
+                <div><strong>Email:</strong> {{ item.email || 'No email' }}</div>
+                <div><strong>Phone:</strong> {{ item.phone || 'No phone' }}</div>
+              </div>
+            </td>
+          </tr>
         </template>
-      </compact-data-table>
+      </v-data-table>
 
       <v-card-text v-if="filteredParticipants.length === 0 && !loading">
         <div class="text-center py-8 text-grey">

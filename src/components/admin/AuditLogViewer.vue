@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuditStore, type AuditRecord, type AuditActionType } from '@/stores/audit';
-import CompactDataTable from '@/components/common/CompactDataTable.vue';
+
 import FilterBar from '@/components/common/FilterBar.vue';
 import StatusBadge from '@/components/common/StatusBadge.vue';
 
@@ -165,7 +165,10 @@ onUnmounted(() => {
   <div class="audit-log-viewer">
     <v-card>
       <v-card-title class="d-flex align-center py-4">
-        <v-icon start class="mr-2">
+        <v-icon
+          start
+          class="mr-2"
+        >
           mdi-shield-account
         </v-icon>
         Audit Trail

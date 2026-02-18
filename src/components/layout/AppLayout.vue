@@ -7,6 +7,7 @@ import AppNavigation from '@/components/navigation/AppNavigation.vue';
 import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation.vue';
 import ContextualNavigation from '@/components/navigation/ContextualNavigation.vue';
 import GlobalSearch from '@/components/navigation/GlobalSearch.vue';
+import BaseDialog from '@/components/common/BaseDialog.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -345,54 +346,43 @@ async function submitBugReport() {
     </v-main>
 
     <!-- Bug Report Dialog -->
-    <v-dialog
+    <BaseDialog
       v-model="showBugDialog"
+      title="Report a Bug"
       max-width="500"
+      :loading="bugSubmitting"
+      @cancel="showBugDialog = false"
     >
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon
-            start
-            color="warning"
-            class="mr-2"
-          >
-            mdi-bug
-          </v-icon>
-          Report a Bug
-        </v-card-title>
-        <v-card-text>
-          <p class="text-body-2 text-grey-darken-1 mb-4">
-            Found an issue? Let us know so we can fix it.
-          </p>
-          <v-textarea
-            v-model="bugDescription"
-            label="Describe the issue"
-            placeholder="What happened? What did you expect to happen?"
-            variant="outlined"
-            rows="4"
-            auto-grow
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showBugDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            variant="elevated"
-            :loading="bugSubmitting"
-            :disabled="!bugDescription.trim()"
-            @click="submitBugReport"
-          >
-            Submit Report
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <p class="text-body-2 text-grey-darken-1 mb-4">
+        Found an issue? Let us know so we can fix it.
+      </p>
+      <v-textarea
+        v-model="bugDescription"
+        label="Describe the issue"
+        placeholder="What happened? What did you expect to happen?"
+        variant="outlined"
+        rows="4"
+        auto-grow
+      />
+      <template #actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="showBugDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="elevated"
+          :loading="bugSubmitting"
+          :disabled="!bugDescription.trim()"
+          @click="submitBugReport"
+        >
+          Submit Report
+        </v-btn>
+      </template>
+    </BaseDialog>
   </v-layout>
 </template>
 

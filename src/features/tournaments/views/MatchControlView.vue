@@ -9,6 +9,13 @@ import { useActivityStore } from '@/stores/activities';
 import { useAuthStore } from '@/stores/auth';
 import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useMatchDisplay } from '@/composables/useMatchDisplay';
+import { useDialogManager } from '@/composables/useDialogManager';
+import AssignCourtDialog from '@/features/tournaments/dialogs/AssignCourtDialog.vue';
+import ScheduleMatchDialog from '@/features/tournaments/dialogs/ScheduleMatchDialog.vue';
+import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.vue';
+import AutoScheduleDialog from '@/features/tournaments/dialogs/AutoScheduleDialog.vue';
+import BaseDialog from '@/components/common/BaseDialog.vue';
 import ActivityFeed from '@/components/ActivityFeed.vue';
 import FilterBar from '@/components/common/FilterBar.vue';
 import MatchQueueList from '@/features/tournaments/components/MatchQueueList.vue';
@@ -18,18 +25,11 @@ import ActiveMatchesSection from '@/features/tournaments/components/ActiveMatche
 import CourtGrid from '@/features/tournaments/components/CourtGrid.vue';
 import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
 import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
-import CompactDataTable from '@/components/common/CompactDataTable.vue';
 import { useMatchDuration } from '@/composables/useMatchDuration';
 import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
-import type { Match, Court, ScoringConfig } from '@/types';
+import type { Match, Court } from '@/types';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
-import {
-  getGamesNeeded,
-  getScoreInputMax,
-  resolveScoringConfig,
-  validateCompletedGameScore,
-} from '@/features/scoring/utils/validation';
 
 // Configuration for auto-ready
 const AUTO_READY_MINUTES_BEFORE = 5; // Mark matches as ready X minutes before scheduled time
@@ -45,6 +45,10 @@ const authStore = useAuthStore();
 const scheduler = useMatchScheduler();
 const { getDurationColor, getMatchDuration } = useMatchDuration();
 const { getParticipantName } = useParticipantResolver();
+const { getMatchDisplayName } = useMatchDisplay();
+const { open: openDialog, close: closeDialog, isOpen: isDialogOpen } = useDialogManager([
+  'assignCourt', 'schedule', 'score', 'autoSchedule', 'release', 'reset', 'share'
+]);
 
 const isAdmin = computed(() => authStore.isAdmin);
 const showUnlockDialog = ref(false);
@@ -148,32 +152,52 @@ const categoryOptions = computed(() => [
 ]);
 
 // Dialog state
-const showAssignCourtDialog = ref(false);
-const showScheduleDialog = ref(false);
-const showManualScoreDialog = ref(false);
 const selectedMatch = ref<Match | null>(null);
 const selectedCourtId = ref<string | null>(null);
-const scheduledTime = ref<string>('');
-
-// Manual score entry state
-const createManualScoreRows = (gamesPerMatch: number): Array<{ score1: number; score2: number }> =>
-  Array.from({ length: gamesPerMatch }, () => ({ score1: 0, score2: 0 }));
-
-const resolveCategoryScoringConfig = (categoryId?: string): ScoringConfig => {
-  const category = categories.value.find((entry) => entry.id === categoryId);
-  return resolveScoringConfig(tournament.value, category);
-};
-
-const manualScoringConfig = computed<ScoringConfig>(() =>
-  resolveCategoryScoringConfig(selectedMatch.value?.categoryId)
-);
-
-const manualScoreInputMax = computed(() => getScoreInputMax(manualScoringConfig.value));
-const manualScores = ref(createManualScoreRows(manualScoringConfig.value.gamesPerMatch));
-const submittingScores = ref(false);
+const showAssignCourtDialog = computed<boolean>({
+  get: () => isDialogOpen('assignCourt'),
+  set: (value) => {
+    if (value) openDialog('assignCourt');
+    else closeDialog('assignCourt');
+  },
+});
+const showScheduleDialog = computed<boolean>({
+  get: () => isDialogOpen('schedule'),
+  set: (value) => {
+    if (value) openDialog('schedule');
+    else closeDialog('schedule');
+  },
+});
+const showManualScoreDialog = computed<boolean>({
+  get: () => isDialogOpen('score'),
+  set: (value) => {
+    if (value) openDialog('score');
+    else closeDialog('score');
+  },
+});
+const showAutoScheduleDialog = computed<boolean>({
+  get: () => isDialogOpen('autoSchedule'),
+  set: (value) => {
+    if (value) openDialog('autoSchedule');
+    else closeDialog('autoSchedule');
+  },
+});
+const showReleaseDialog = computed<boolean>({
+  get: () => isDialogOpen('release'),
+  set: (value) => {
+    if (value) openDialog('release');
+    else closeDialog('release');
+  },
+});
+const showResetDialog = computed<boolean>({
+  get: () => isDialogOpen('reset'),
+  set: (value) => {
+    if (value) openDialog('reset');
+    else closeDialog('reset');
+  },
+});
 
 // Auto-schedule state
-const showAutoScheduleDialog = ref(false);
 const autoScheduleConfig = ref({
   startTime: '',
   matchDurationMinutes: 20,
@@ -196,11 +220,11 @@ function openAutoScheduleDialog() {
   if (categories.value.length > 0) {
     selectedCategoryIds.value = categories.value.map(c => c.id);
   }
-  showAutoScheduleDialog.value = true;
+  openDialog('autoSchedule');
 }
 
 // Reset selected categories when dialog closes
-watch(showAutoScheduleDialog, (newValue) => {
+watch(() => isDialogOpen('autoSchedule'), (newValue) => {
   if (!newValue) {
     // Dialog closed - reset selection and results for next time
     selectedCategoryIds.value = [];
@@ -280,7 +304,6 @@ function stopCommandResize() {
 }
 
 // Share links dialog
-const showShareDialog = ref(false);
 const scoringUrl = computed(() => `${window.location.origin}/tournaments/${tournamentId.value}/score`);
 
 // Current time for auto-ready calculations (updates every minute)
@@ -726,7 +749,7 @@ async function checkAndMarkDueMatches() {
         categoryName
       ).catch((err) => console.warn('Activity logging failed:', err));
 
-      notificationStore.showToast('info', `${p1Name} vs ${p2Name} is ready on ${courtName}`);
+      notificationStore.showToast('info', `${getMatchDisplayName(match)} is ready on ${courtName}`);
     } catch (error) {
       console.error('Failed to auto-ready match:', error);
     }
@@ -848,34 +871,17 @@ function getGamesScore(match: Match): string {
 function openAssignCourtDialog(match: Match) {
   selectedMatch.value = match;
   selectedCourtId.value = null;
-  showAssignCourtDialog.value = true;
-}
-
-async function assignCourt() {
-  if (!selectedMatch.value || !selectedCourtId.value) return;
-
-  try {
-    await matchStore.assignCourt(
-      tournamentId.value,
-      selectedMatch.value.id,
-      selectedCourtId.value
-    );
-    notificationStore.showToast('success', 'Court assigned - match ready!');
-    showAssignCourtDialog.value = false;
-  } catch (error) {
-    notificationStore.showToast('error', 'Failed to assign court');
-  }
+  openDialog('assignCourt');
 }
 
 // Release Court Dialog State
-const showReleaseDialog = ref(false);
 const courtToReleaseId = ref<string | null>(null);
 
 async function releaseCourt(courtId: string) {
   const court = courts.value.find(c => c.id === courtId);
   if (!court) return;
   courtToReleaseId.value = courtId;
-  showReleaseDialog.value = true;
+  openDialog('release');
 }
 
 async function confirmReleaseCourt() {
@@ -884,7 +890,7 @@ async function confirmReleaseCourt() {
   const courtId = courtToReleaseId.value;
   const court = courts.value.find(c => c.id === courtId);
 
-  showReleaseDialog.value = false;
+  closeDialog('release');
   courtToReleaseId.value = null;
 
   if (!court) return;
@@ -905,7 +911,6 @@ async function confirmReleaseCourt() {
     // Fallback: Just release the court manually
     await tournamentStore.releaseCourtManual(tournamentId.value, courtId);
     notificationStore.showToast('success', 'Court released manually');
-      notificationStore.showToast('success', 'Court released manually');
   } catch (error) {
     console.error('Failed to release court:', error);
     notificationStore.showToast('error', 'Failed to release court');
@@ -918,7 +923,7 @@ function openAssignCourtDialogForCourt(courtId: string) {
   // Find the first ready match to suggest, or leave null for manual selection
   const firstReadyMatch = matches.value.find(m => m.status === 'ready' && !m.courtId);
   selectedMatch.value = firstReadyMatch || null;
-  showAssignCourtDialog.value = true;
+  openDialog('assignCourt');
 }
 
 function selectMatchFromQueue(matchId: string) {
@@ -961,37 +966,7 @@ async function quickAssignCourt(match: Match, court: Court) {
 
 function openScheduleDialog(match: Match) {
   selectedMatch.value = match;
-  scheduledTime.value = match.scheduledTime
-    ? new Date(match.scheduledTime).toISOString().slice(0, 16)
-    : '';
-  selectedCourtId.value = match.courtId || null;
-  showScheduleDialog.value = true;
-}
-
-async function saveSchedule() {
-  if (!selectedMatch.value) return;
-
-  try {
-    // Update match with scheduled time and court
-    const updates: Record<string, unknown> = {};
-
-    if (scheduledTime.value) {
-      updates.scheduledTime = new Date(scheduledTime.value);
-    }
-
-    if (selectedCourtId.value && selectedCourtId.value !== selectedMatch.value.courtId) {
-      await matchStore.assignCourt(
-        tournamentId.value,
-        selectedMatch.value.id,
-        selectedCourtId.value
-      );
-    }
-
-    notificationStore.showToast('success', 'Schedule updated');
-    showScheduleDialog.value = false;
-  } catch (error) {
-    notificationStore.showToast('error', 'Failed to update schedule');
-  }
+  openDialog('schedule');
 }
 
 
@@ -1101,102 +1076,12 @@ function openManualScoreDialog(match: Match) {
       courtId: match.courtId,
       categoryId: match.categoryId
     });
-    notificationStore.showToast('error', `Cannot score match ${match.id}: ${p1Name} vs ${p2Name}. Both players must be assigned first. This match may be waiting for a previous round to complete.`);
+    notificationStore.showToast('error', `Cannot score match ${match.id}: ${getMatchDisplayName(match)}. Both players must be assigned first. This match may be waiting for a previous round to complete.`);
     return;
   }
 
   selectedMatch.value = match;
-  const scoringConfig = resolveCategoryScoringConfig(match.categoryId);
-  manualScores.value = createManualScoreRows(scoringConfig.gamesPerMatch);
-
-  // Pre-fill with existing scores if any
-  if (match.scores && match.scores.length > 0) {
-    match.scores.slice(0, scoringConfig.gamesPerMatch).forEach((game, index) => {
-      manualScores.value[index] = {
-        score1: game.score1 || 0,
-        score2: game.score2 || 0,
-      };
-    });
-  }
-  showManualScoreDialog.value = true;
-}
-
-// Submit manual scores
-async function submitManualScores() {
-  if (!selectedMatch.value) return;
-
-  submittingScores.value = true;
-  try {
-    const match = selectedMatch.value;
-    const scoringConfig = resolveCategoryScoringConfig(match.categoryId);
-
-    // Build game scores with winner calculation
-    const games = manualScores.value
-      .filter(g => g.score1 > 0 || g.score2 > 0) // Only include games with scores
-      .map((g, index) => {
-        const validation = validateCompletedGameScore(g.score1, g.score2, scoringConfig);
-        if (!validation.isValid) {
-          throw new Error(`Game ${index + 1}: ${validation.message}`);
-        }
-
-        const isComplete = validation.isValid;
-        let winnerId: string | undefined = undefined;
-        if (isComplete) {
-          winnerId = g.score1 > g.score2 ? match.participant1Id : match.participant2Id;
-        }
-        return {
-          gameNumber: index + 1,
-          score1: g.score1,
-          score2: g.score2,
-          isComplete,
-          winnerId,
-        };
-      });
-
-    console.log('[MatchControlView] Submitting scores for match:', {
-      id: match.id,
-      p1: match.participant1Id,
-      p2: match.participant2Id,
-      games
-    });
-
-    await matchStore.submitManualScores(
-      tournamentId.value,
-      match.id,
-      games,
-      match.categoryId
-    );
-
-    // Log activity if match completed (non-blocking)
-    const p1Wins = games.filter(g => g.winnerId === match.participant1Id).length;
-    const p2Wins = games.filter(g => g.winnerId === match.participant2Id).length;
-    const gamesNeeded = getGamesNeeded(scoringConfig);
-    if (p1Wins >= gamesNeeded || p2Wins >= gamesNeeded) {
-      const winnerName = p1Wins >= gamesNeeded
-        ? getParticipantName(match.participant1Id)
-        : getParticipantName(match.participant2Id);
-      const scoreString = games.map(g => `${g.score1}-${g.score2}`).join(', ');
-      activityStore.logMatchCompleted(
-        tournamentId.value,
-        match.id,
-        getParticipantName(match.participant1Id),
-        getParticipantName(match.participant2Id),
-        winnerName,
-        scoreString,
-        getCourtName(match.courtId),
-        getCategoryName(match.categoryId)
-      ).catch((err) => console.warn('Activity logging failed:', err));
-    }
-
-    notificationStore.showToast('success', 'Scores saved');
-    showManualScoreDialog.value = false;
-  } catch (error) {
-    console.error('Error submitting scores:', error);
-    const message = error instanceof Error ? error.message : 'Failed to save scores';
-    notificationStore.showToast('error', message);
-  } finally {
-    submittingScores.value = false;
-  }
+  openDialog('score');
 }
 
 function copyToClipboard(text: string, label: string) {
@@ -1260,17 +1145,16 @@ const alreadyScheduledCount = computed(() => {
 
 // Reset schedule loading state
 const resettingSchedule = ref(false);
-const showResetConfirmDialog = ref(false);
 
 // Reset schedule for selected category
 async function resetSchedule() {
   // Show confirmation dialog instead of native confirm()
-  showResetConfirmDialog.value = true;
+  openDialog('reset');
 }
 
 // Actually perform the reset after confirmation
 async function confirmResetSchedule() {
-  showResetConfirmDialog.value = false;
+  closeDialog('reset');
 
   // Use selected categories or 'all' if all are selected
   const categoryIdsToReset = selectedCategoryIds.value; // removed allCategoriesSelected
@@ -1383,7 +1267,7 @@ async function runAutoSchedule() {
       );
       // Only close dialog on full success
       if (totalUnscheduled.length === 0) {
-        showAutoScheduleDialog.value = false;
+        closeDialog('autoSchedule');
         autoScheduleResult.value = null;
       }
     }
@@ -1451,7 +1335,7 @@ watch(
         availableCourts: courts.length,
         availableCourtNames: courts.map(c => c.name),
         pendingMatches: matches.length,
-        firstPendingMatch: matches[0] ? `${getParticipantName(matches[0].participant1Id)} vs ${getParticipantName(matches[0].participant2Id)}` : 'None'
+        firstPendingMatch: matches[0] ? getMatchDisplayName(matches[0]) : 'None'
       });
     }
 
@@ -1473,7 +1357,7 @@ watch(
       const p1Name = getParticipantName(match.participant1Id);
       const p2Name = getParticipantName(match.participant2Id);
       
-      console.log(`[AutoAssign] Assigning ${p1Name} vs ${p2Name} to ${court.name}`);
+      console.log(`[AutoAssign] Assigning ${getMatchDisplayName(match)} to ${court.name}`);
       
       try {
         await tournamentStore.assignMatchToCourt(
@@ -1492,7 +1376,7 @@ watch(
         activityStore.logActivity(
           tournamentId.value,
           'court_assigned',
-          `Auto-assigned: ${p1} vs ${p2} → ${court.name} (${categoryName})`
+          `Auto-assigned: ${getMatchDisplayName(match)} → ${court.name} (${categoryName})`
         );
         
       } catch (error) {
@@ -2022,16 +1906,23 @@ async function advanceState(): Promise<void> {
           v-if="scheduleViewMode === 'compact'"
           class="flex-grow-1 overflow-auto"
         >
-          <compact-data-table
+          <v-data-table
             :items="filteredMatches"
-            :columns="[
-              { key: 'match', title: 'Match', width: '40%', essential: true },
-              { key: 'status', title: 'Status', width: '100px', essential: true },
-              { key: 'court', title: 'Court', width: '120px', essential: true },
+            :headers="[
+              { title: 'Match', key: 'match', width: '40%', sortable: false },
+              { title: 'Status', key: 'status', width: '100px', sortable: true },
+              { title: 'Court', key: 'court', width: '120px', sortable: true },
+              { title: 'Actions', key: 'actions', align: 'end', sortable: false },
             ]"
             :items-per-page="50"
+            density="compact"
+            class="fill-height"
+            fixed-header
+            hover
+            show-expand
+            item-value="id"
           >
-            <template #cell-match="{ item }">
+            <template #item.match="{ item }">
               <div class="d-flex flex-column py-1">
                 <div class="d-flex align-center gap-2 mb-1">
                   <span class="text-caption text-grey">#{{ item.id }}</span>
@@ -2068,7 +1959,7 @@ async function advanceState(): Promise<void> {
               </div>
             </template>
 
-            <template #cell-status="{ item }">
+            <template #item.status="{ item }">
               <v-chip
                 size="small"
                 :color="quickFilters.find(f => f.value === item.status)?.color || (item.status === 'completed' ? 'success' : 'grey')"
@@ -2080,7 +1971,7 @@ async function advanceState(): Promise<void> {
               </v-chip>
             </template>
 
-            <template #cell-court="{ item }">
+            <template #item.court="{ item }">
               <div
                 v-if="item.courtId"
                 class="d-flex align-center"
@@ -2100,7 +1991,7 @@ async function advanceState(): Promise<void> {
               >-</span>
             </template>
 
-            <template #actions="{ item }">
+            <template #item.actions="{ item }">
               <div class="d-flex justify-end gap-1">
                 <v-btn
                   v-if="item.status === 'ready' || item.status === 'in_progress'"
@@ -2108,7 +1999,7 @@ async function advanceState(): Promise<void> {
                   color="primary"
                   variant="tonal"
                   prepend-icon="mdi-scoreboard"
-                  @click="openScoreDialog(item.id)"
+                  @click.stop="openScoreDialog(item.id)"
                 >
                   Score
                 </v-btn>
@@ -2118,7 +2009,7 @@ async function advanceState(): Promise<void> {
                   color="secondary"
                   variant="tonal"
                   prepend-icon="mdi-court-sport"
-                  @click="openAssignCourtDialog(item)"
+                  @click.stop="openAssignCourtDialog(item)"
                 >
                   Assign
                 </v-btn>
@@ -2155,22 +2046,29 @@ async function advanceState(): Promise<void> {
               </div>
             </template>
 
-            <template #details="{ item }">
-              <div class="d-flex flex-wrap gap-4 text-body-2">
-                <div><strong>Match:</strong> {{ getBracketCode(item) }}-{{ item.matchNumber }}</div>
-                <div><strong>Round:</strong> {{ item.round }}</div>
-                <div><strong>Category:</strong> {{ getCategoryName(item.categoryId) }}</div>
-                <div v-if="item.scheduledTime">
-                  <strong>Scheduled:</strong>
-                  {{ new Date(item.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
-                </div>
-                <div v-if="item.scores && item.scores.length > 0">
-                  <strong>Score:</strong>
-                  {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
-                </div>
-              </div>
+            <template #expanded-row="{ columns, item }">
+              <tr>
+                <td
+                  :colspan="columns.length"
+                  class="bg-grey-lighten-5 pa-4"
+                >
+                  <div class="d-flex flex-wrap gap-4 text-body-2">
+                    <div><strong>Match:</strong> {{ getBracketCode(item) }}-{{ item.matchNumber }}</div>
+                    <div><strong>Round:</strong> {{ item.round }}</div>
+                    <div><strong>Category:</strong> {{ getCategoryName(item.categoryId) }}</div>
+                    <div v-if="item.scheduledTime">
+                      <strong>Scheduled:</strong>
+                      {{ new Date(item.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+                    </div>
+                    <div v-if="item.scores && item.scores.length > 0">
+                      <strong>Score:</strong>
+                      {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
+                    </div>
+                  </div>
+                </td>
+              </tr>
             </template>
-          </compact-data-table>
+          </v-data-table>
         </div>
 
         <!-- Schedule Table - Full View (Legacy) -->
@@ -2406,7 +2304,6 @@ async function advanceState(): Promise<void> {
               <court-grid
                 :courts="courts"
                 :matches="matches"
-                :get-participant-name="getParticipantName"
                 :get-category-name="getCategoryName"
                 @assign="openAssignCourtDialogForCourt"
                 @score="openScoreDialog"
@@ -2464,306 +2361,150 @@ async function advanceState(): Promise<void> {
     </div>
 
     <!-- Dialogs -->
-    <v-dialog
+    <AssignCourtDialog
       v-model="showAssignCourtDialog"
-      max-width="400"
-    >
-      <v-card>
-        <v-card-title>Assign Court</v-card-title>
-        <v-card-text>
-          <v-select
-            v-model="selectedCourtId"
-            :items="availableCourts"
-            item-title="name"
-            item-value="id"
-            label="Select Court"
-            variant="outlined"
-            :no-data-text="'No available courts'"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            color="grey"
-            variant="text"
-            @click="showAssignCourtDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            :disabled="!selectedCourtId"
-            @click="assignCourt"
-          >
-            Assign
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-    <!-- Add other dialogs like schedule dialog, etc. if needed, or rely on existing ones implied -->
-    <v-dialog
+      :match="selectedMatch"
+      :initial-court-id="selectedCourtId"
+      :tournament-id="tournamentId"
+      :courts="courts"
+      @assigned="showAssignCourtDialog = false"
+    />
+
+    <AutoScheduleDialog
       v-model="showAutoScheduleDialog"
-      max-width="500"
-    >
-      <v-card>
-        <v-card-title>Auto Schedule Matches</v-card-title>
-        <v-card-text>
-          <p class="text-body-2 mb-4">
-            Automatically assign queued matches to available courts.
-          </p>
-          <!-- Add configuration here if needed -->
-          <v-select
-            v-model="selectedCategoryIds"
-            :items="categoryOptions"
-            item-title="name"
-            item-value="id"
-            label="Categories"
-            multiple
-            chips
-            variant="outlined"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            color="grey"
-            variant="text"
-            @click="showAutoScheduleDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            @click="/* Implement auto schedule logic */ showAutoScheduleDialog = false"
-          >
-            Run Auto-Schedule
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-    
-    <v-dialog
+      :tournament-id="tournamentId"
+      :categories="categories"
+      :courts="courts"
+      @scheduled="autoScheduleResult = $event"
+    />
+
+    <ScheduleMatchDialog
       v-model="showScheduleDialog"
-      max-width="400"
-    >
-      <v-card>
-        <v-card-title>Edit Schedule</v-card-title>
-        <v-card-text>
-          <v-text-field
-            v-model="scheduledTime"
-            type="datetime-local"
-            label="Scheduled Time"
-            variant="outlined"
-          />
-          <v-select
-            v-model="selectedCourtId"
-            :items="courtOptions"
-            item-title="name"
-            item-value="id"
-            label="Court (Optional)"
-            variant="outlined"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            color="grey"
-            variant="text"
-            @click="showScheduleDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            @click="saveSchedule"
-          >
-            Save
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      :match="selectedMatch"
+      :tournament-id="tournamentId"
+      :courts="courts"
+      @saved="showScheduleDialog = false"
+    />
 
-    <v-dialog
+    <ManualScoreDialog
+      v-if="tournament"
       v-model="showManualScoreDialog"
-      max-width="500"
-    >
-      <v-card>
-        <v-card-title>Manual Score Entry</v-card-title>
-        <v-card-text>
-          <div
-            v-if="selectedMatch"
-            class="d-flex justify-space-between mb-4 px-2"
-          >
-            <div
-              class="font-weight-bold text-truncate"
-              style="max-width: 45%"
-            >
-              {{ getParticipantName(selectedMatch.participant1Id) }}
-            </div>
-            <div
-              class="font-weight-bold text-truncate"
-              style="max-width: 45%; text-align: right"
-            >
-              {{ getParticipantName(selectedMatch.participant2Id) }}
-            </div>
-          </div>
-          
-          <div
-            v-for="(game, index) in manualScores"
-            :key="index"
-            class="d-flex align-center mb-3"
-          >
-            <div
-              class="text-caption mr-2 font-weight-medium"
-              style="width: 60px"
-            >
-              Game {{ index + 1 }}
-            </div>
-            <v-text-field
-              v-model.number="game.score1"
-              type="number"
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="mr-2 text-center"
-              min="0"
-              :max="manualScoreInputMax"
-            />
-            <span class="mx-2 font-weight-bold text-medium-emphasis">-</span>
-            <v-text-field
-              v-model.number="game.score2"
-              type="number"
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="ml-2 text-center"
-              min="0"
-              :max="manualScoreInputMax"
-            />
-          </div>
-
-          <v-alert
-            type="info"
-            variant="tonal"
-            density="compact"
-            class="mt-2"
-          >
-            Best of {{ manualScoringConfig.gamesPerMatch }},
-            first to {{ manualScoringConfig.pointsToWin }},
-            win by {{ manualScoringConfig.mustWinBy }}
-            <template v-if="manualScoringConfig.maxPoints != null">
-              (cap {{ manualScoringConfig.maxPoints }})
-            </template>
-          </v-alert>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            color="grey"
-            variant="text"
-            @click="showManualScoreDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            :loading="submittingScores"
-            @click="submitManualScores"
-          >
-            Save Scores
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      :match="selectedMatch"
+      :tournament-id="tournamentId"
+      :tournament="tournament"
+      :categories="categories"
+      @saved="showManualScoreDialog = false"
+    />
 
     <!-- Unschedule Confirmation Dialog -->
-    <v-dialog
+    <BaseDialog
       v-model="showUnscheduleDialog"
+      title="Unschedule Match?"
       max-width="400"
+      @cancel="showUnscheduleDialog = false"
     >
-      <v-card>
-        <v-card-title>Unschedule Match?</v-card-title>
-        <v-card-text>
-          Are you sure you want to unschedule this match? It will be moved back to the queue and the court will be released.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            color="grey"
-            variant="text"
-            @click="showUnscheduleDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="warning"
-            @click="confirmUnschedule"
-          >
-            Unschedule
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <p class="text-body-1">
+        Are you sure you want to unschedule this match? It will be moved back to the queue and the court will be released.
+      </p>
+      <template #actions>
+        <v-spacer />
+        <v-btn
+          color="grey"
+          variant="text"
+          @click="showUnscheduleDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="warning"
+          @click="confirmUnschedule"
+        >
+          Unschedule
+        </v-btn>
+      </template>
+    </BaseDialog>
 
     <!-- Release Court Confirmation -->
-    <v-dialog
+    <BaseDialog
       v-model="showReleaseDialog"
+      title="Release Court?"
       max-width="400"
+      @cancel="showReleaseDialog = false"
     >
-      <v-card>
-        <v-card-title class="text-h6">
-          Release Court?
-        </v-card-title>
-        <v-card-text>
-          Are you sure you want to release this court? If a match is currently assigned, it will be unscheduled.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showReleaseDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="warning"
-            @click="confirmReleaseCourt"
-          >
-            Release
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <p class="text-body-1">
+        Are you sure you want to release this court? If a match is currently assigned, it will be unscheduled.
+      </p>
+      <template #actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="showReleaseDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="warning"
+          @click="confirmReleaseCourt"
+        >
+          Release
+        </v-btn>
+      </template>
+    </BaseDialog>
+
+    <BaseDialog
+      v-model="showResetDialog"
+      title="Reset Schedule?"
+      max-width="420"
+      @cancel="showResetDialog = false"
+    >
+      <p class="text-body-1">
+        This will unschedule queued/ready matches for selected categories and release assigned courts. In-progress and completed matches are not changed.
+      </p>
+      <template #actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :disabled="resettingSchedule"
+          @click="showResetDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="warning"
+          :loading="resettingSchedule"
+          @click="confirmResetSchedule"
+        >
+          Reset
+        </v-btn>
+      </template>
+    </BaseDialog>
 
     <!-- Consistency Check Confirmation -->
-    <v-dialog
+    <BaseDialog
       v-model="showConsistencyDialog"
+      title="Run Diagnostics?"
       max-width="400"
+      @cancel="showConsistencyDialog = false"
     >
-      <v-card>
-        <v-card-title class="text-h6">
-          Run Diagnostics?
-        </v-card-title>
-        <v-card-text>
-          This will scan for and fix data inconsistencies, such as 'Zombie Courts' (courts marked busy but with no match) and double-booked matches.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showConsistencyDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="warning"
-            @click="confirmConsistencyCheck"
-          >
-            Run Fix
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <p class="text-body-1">
+        This will scan for and fix data inconsistencies, such as 'Zombie Courts' (courts marked busy but with no match) and double-booked matches.
+      </p>
+      <template #actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="showConsistencyDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="warning"
+          @click="confirmConsistencyCheck"
+        >
+          Run Fix
+        </v-btn>
+      </template>
+    </BaseDialog>
   </div>
 </template>
 

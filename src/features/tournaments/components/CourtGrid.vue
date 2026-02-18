@@ -7,7 +7,6 @@ interface Props {
   courts: Court[];
   matches: Match[];
   matchDurations?: Map<string, number>; // matchId -> duration in minutes
-  getParticipantName: (id: string | undefined) => string;
   getCategoryName: (id: string) => string;
 }
 
@@ -66,8 +65,6 @@ const gridColumns = computed(() => {
         :key="court.id"
         :court="court"
         :match="getMatchForCourt(court.id)"
-        :participant1-name="getParticipantName(getMatchForCourt(court.id)?.participant1Id)"
-        :participant2-name="getParticipantName(getMatchForCourt(court.id)?.participant2Id)"
         :category-name="getCategoryName(getMatchForCourt(court.id)?.categoryId || '')"
         :match-duration="matchDurations?.get(getMatchForCourt(court.id)?.id || '')"
         @assign="emit('assign', $event)"

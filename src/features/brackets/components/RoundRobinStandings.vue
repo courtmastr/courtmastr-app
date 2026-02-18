@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useMatchStore } from '@/stores/matchStore';
-import { useRegistrationStore } from '@/stores/registrationStore';
+import { useMatchStore } from '@/stores/matches';
+import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match } from '@/types';
 
 const props = defineProps<{
@@ -13,6 +14,7 @@ const props = defineProps<{
 const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
 const { getParticipantName } = useParticipantResolver();
+const { getMatchStatusColor, getRankBadgeColor } = useMatchDisplay();
 
 const loading = ref(true);
 const activeTab = ref('standings');
@@ -163,26 +165,9 @@ watch(
   }
 );
 
-function getMatchStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    completed: 'success',
-    in_progress: 'info',
-    ready: 'warning',
-    scheduled: 'grey',
-  };
-  return colors[status] || 'grey';
-}
-
 function getMatchScore(match: Match): string {
   if (match.scores.length === 0) return '-';
   return match.scores.map((s) => `${s.score1}-${s.score2}`).join(', ');
-}
-
-function getRankBadgeColor(rank: number): string {
-  if (rank === 1) return 'warning'; // Gold
-  if (rank === 2) return 'grey-lighten-1'; // Silver
-  if (rank === 3) return 'brown'; // Bronze
-  return 'grey';
 }
 </script>
 

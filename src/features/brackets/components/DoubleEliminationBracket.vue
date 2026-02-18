@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match } from '@/types';
 import html2canvas from 'html2canvas';
 
@@ -14,6 +15,7 @@ const props = defineProps<{
 const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
 const { getParticipantName: resolveParticipantName } = useParticipantResolver();
+const { getMatchStatusColor } = useMatchDisplay();
 
 const loading = ref(true);
 const activeTab = ref('winners');
@@ -139,15 +141,7 @@ function isBye(match: Match, participantId: string | undefined): boolean {
   return !!(otherParticipant && (match.status === 'completed' || match.winnerId));
 }
 
-function getMatchStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    completed: 'success',
-    in_progress: 'info',
-    ready: 'warning',
-    scheduled: 'grey',
-  };
-  return colors[status] || 'grey';
-}
+
 
 function isWinner(match: Match, participantId: string | undefined): boolean {
   return match.winnerId === participantId && !!participantId;

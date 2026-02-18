@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useUserStore } from '@/stores/users';
 import { useNotificationStore } from '@/stores/notifications';
 import FilterBar from '@/components/common/FilterBar.vue';
-import CompactDataTable from '@/components/common/CompactDataTable.vue';
+
 import type { User, UserRole } from '@/types';
 
 const router = useRouter();
@@ -15,17 +15,16 @@ const notificationStore = useNotificationStore();
 
 const searchQuery = ref('');
 const selectedRole = ref<'all' | UserRole>('all');
-const selectedStatus = ref<'all' | 'active' | 'inactive'>('all');
+
 
 const showEditDialog = ref(false);
 const showStatusDialog = ref(false);
 const statusDialogTarget = ref<User | null>(null);
-const editForm = ref<{ id: string; displayName: string; email: string; phone: string }>({
-  id: '',
-  displayName: '',
-  email: '',
-  phone: '',
-});
+  const editForm = ref<{ id: string; displayName: string; email: string }>({
+    id: '',
+    displayName: '',
+    email: '',
+  });
 
 const roleOptions = [
   { title: 'Admin', value: 'admin' },
@@ -39,16 +38,13 @@ const tableHeaders = [
   { title: 'Name', key: 'displayName' },
   { title: 'Email', key: 'email' },
   { title: 'Role', key: 'role' },
-  { title: 'Status', key: 'status' },
   { title: 'Created', key: 'createdAt' },
-  { title: 'Last Active', key: 'lastLoginAt' },
   { title: 'Actions', key: 'actions', sortable: false },
 ];
 
 const hasActiveFilters = computed(() =>
   Boolean(searchQuery.value.trim()) ||
-  selectedRole.value !== 'all' ||
-  selectedStatus.value !== 'all'
+  selectedRole.value !== 'all'
 );
 
 const filteredUsers = computed(() => {
@@ -61,10 +57,7 @@ const filteredUsers = computed(() => {
 
     const matchesRole = selectedRole.value === 'all' || user.role === selectedRole.value;
 
-    const userStatus = user.isActive === false ? 'inactive' : 'active';
-    const matchesStatus = selectedStatus.value === 'all' || userStatus === selectedStatus.value;
-
-    return matchesSearch && matchesRole && matchesStatus;
+    return matchesSearch && matchesRole;
   });
 });
 
@@ -112,7 +105,6 @@ function openEditDialog(user: User): void {
     id: user.id,
     displayName: user.displayName,
     email: user.email,
-    phone: user.phone || '',
   };
   showEditDialog.value = true;
 }
@@ -122,7 +114,6 @@ async function saveUserProfile(): Promise<void> {
     await userStore.updateUserProfile(editForm.value.id, {
       displayName: editForm.value.displayName.trim(),
       email: editForm.value.email.trim(),
-      phone: editForm.value.phone.trim(),
     });
     showEditDialog.value = false;
     notificationStore.showToast('success', 'User profile updated');
@@ -185,44 +176,39 @@ async function confirmStatusChange(): Promise<void> {
     <filter-bar
       :search="searchQuery"
       :category="selectedRole"
-      :status="selectedStatus"
       :enable-category="true"
-      :enable-status="true"
+      :enable-status="false"
       :enable-court="false"
       :category-options="[{ title: 'All Roles', value: 'all' }, ...roleOptions]"
-      :status-options="[
-        { title: 'All Statuses', value: 'all' },
-        { title: 'Active', value: 'active' },
-        { title: 'Inactive', value: 'inactive' }
-      ]"
       search-label="Search"
       search-placeholder="Search by name or email"
       :has-active-filters="hasActiveFilters"
       @update:search="searchQuery = $event"
       @update:category="selectedRole = ($event || 'all') as UserRole | 'all'"
-      @update:status="selectedStatus = ($event || 'all') as 'active' | 'inactive' | 'all'"
       @clear="clearFilters"
     />
 
     <v-card>
-      <compact-data-table
+      <v-data-table
         :items="filteredUsers"
-        :columns="[
-          { key: 'user', title: 'User', width: '40%', essential: true },
-          { key: 'role', title: 'Role', width: '25%', essential: true },
-          { key: 'status', title: 'Status', width: '15%', essential: true },
-          { key: 'actions', title: 'Actions', width: '20%', essential: true },
+        :headers="[
+          { title: 'User', key: 'user', sortable: true },
+          { title: 'Role', key: 'role', sortable: true },
+          { title: 'Actions', key: 'actions', sortable: false },
         ]"
         :loading="userStore.loading"
+        class="elevation-1"
+        show-expand
+        item-value="id"
       >
-        <template #cell-user="{ item }">
+        <template #item.user="{ item }">
           <div class="d-flex flex-column py-1">
             <span class="font-weight-medium">{{ item.displayName }}</span>
             <span class="text-caption text-grey">{{ item.email }}</span>
           </div>
         </template>
 
-        <template #cell-role="{ item }">
+        <template #item.role="{ item }">
           <v-select
             :model-value="item.role"
             :items="roleOptions"
@@ -234,17 +220,7 @@ async function confirmStatusChange(): Promise<void> {
           />
         </template>
 
-        <template #cell-status="{ item }">
-          <v-chip
-            :color="item.isActive === false ? 'error' : 'success'"
-            size="small"
-            label
-          >
-            {{ item.isActive === false ? 'Inactive' : 'Active' }}
-          </v-chip>
-        </template>
-
-        <template #actions="{ item }">
+        <template #item.actions="{ item }">
           <div class="d-flex ga-1 justify-end">
             <v-btn
               icon="mdi-pencil"
@@ -265,14 +241,18 @@ async function confirmStatusChange(): Promise<void> {
           </div>
         </template>
 
-        <template #details="{ item }">
-          <div class="d-flex flex-wrap gap-4 text-body-2">
-            <div><strong>Email:</strong> {{ item.email }}</div>
-            <div><strong>Created:</strong> {{ formatDate(item.createdAt) }}</div>
-            <div><strong>Last Active:</strong> {{ formatDate(item.lastLoginAt) }}</div>
-          </div>
+        <template #expanded-row="{ columns, item }">
+          <tr>
+            <td :colspan="columns.length" class="bg-grey-lighten-5 pa-4">
+              <div class="d-flex flex-wrap gap-4 text-body-2">
+                <div><strong>Email:</strong> {{ item.email }}</div>
+                <div><strong>Created:</strong> {{ formatDate(item.createdAt) }}</div>
+                <div><strong>Last Active:</strong> {{ formatDate(item.lastLoginAt) }}</div>
+              </div>
+            </td>
+          </tr>
         </template>
-      </compact-data-table>
+      </v-data-table>
     </v-card>
 
     <v-dialog

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useMatchDisplay } from '@/composables/useMatchDisplay';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Court, Match } from '@/types';
 
 interface Props {
   court: Court;
   match?: Match;
-  participant1Name?: string;
-  participant2Name?: string;
   categoryName?: string;
   matchDuration?: number; // in minutes
 }
@@ -18,6 +18,9 @@ const emit = defineEmits<{
   score: [matchId: string];
   release: [courtId: string];
 }>();
+
+const { getMatchStatusColor, getMatchStatusLabel, formatMatchDuration } = useMatchDisplay();
+const { getParticipantName } = useParticipantResolver();
 
 const statusColor = computed(() => {
   switch (props.court.status) {
@@ -43,45 +46,10 @@ const statusLabel = computed(() => {
   }
 });
 
-const matchStatusColor = computed(() => {
-  if (!props.match) return 'grey';
-  switch (props.match.status) {
-    case 'in_progress':
-      return 'success';
-    case 'ready':
-      return 'warning';
-    case 'scheduled':
-      return 'info';
-    default:
-      return 'grey';
-  }
-});
-
-const matchStatusLabel = computed(() => {
-  if (!props.match) return 'No Match';
-  switch (props.match.status) {
-    case 'in_progress':
-      return 'Live';
-    case 'ready':
-      return 'Ready';
-    case 'scheduled':
-      return 'Scheduled';
-    default:
-      return props.match.status;
-  }
-});
-
 const hasMatch = computed(() => !!props.match);
 
-const formattedDuration = computed(() => {
-  if (!props.matchDuration || props.matchDuration <= 0) return '';
-  const hours = Math.floor(props.matchDuration / 60);
-  const minutes = props.matchDuration % 60;
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
-});
+const participant1Name = computed(() => props.match ? getParticipantName(props.match.participant1Id) : 'TBD');
+const participant2Name = computed(() => props.match ? getParticipantName(props.match.participant2Id) : 'TBD');
 </script>
 
 <template>
@@ -125,32 +93,32 @@ const formattedDuration = computed(() => {
         <!-- Match Status Badge -->
         <div class="d-flex align-center mb-2">
           <v-chip
-            :color="matchStatusColor"
+            :color="getMatchStatusColor(match!)"
             size="x-small"
             variant="tonal"
             label
             class="mr-2"
           >
-            {{ matchStatusLabel }}
+            {{ getMatchStatusLabel(match!) }}
           </v-chip>
           <span
             v-if="matchDuration && matchDuration > 0"
             class="text-caption text-medium-emphasis"
           >
-            {{ formattedDuration }}
+            {{ formatMatchDuration(matchDuration) }}
           </span>
         </div>
 
         <!-- Players -->
         <div class="players text-body-2">
           <div class="player-name text-truncate font-weight-medium">
-            {{ participant1Name || 'TBD' }}
+            {{ participant1Name }}
           </div>
           <div class="vs text-caption text-medium-emphasis my-1">
             vs
           </div>
           <div class="player-name text-truncate font-weight-medium">
-            {{ participant2Name || 'TBD' }}
+            {{ participant2Name }}
           </div>
         </div>
 

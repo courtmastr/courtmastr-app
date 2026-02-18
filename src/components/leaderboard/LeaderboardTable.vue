@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { LeaderboardEntry, TiebreakerResolution } from '@/types/leaderboard';
-import CompactDataTable from '@/components/common/CompactDataTable.vue';
+
 import TiebreakerTooltip from './TiebreakerTooltip.vue';
 
 const props = defineProps<{
@@ -68,14 +68,16 @@ function diffColor(val: number): string {
 </script>
 
 <template>
-  <compact-data-table
+  <v-data-table
     :items="entries"
-    :columns="compactHeaders"
+    :headers="compactHeaders.map(h => ({ title: h.title, key: h.key, sortable: false, align: h.align || 'start' }))"
     :loading="loading"
-    :compact="dense"
     class="leaderboard-table rounded-lg"
+    :class="{ 'dense-table': dense }"
+    show-expand
+    item-value="participantName"
   >
-    <template #cell-rank="{ item }">
+    <template #item.rank="{ item }">
       <div
         v-if="item.matchesPlayed === 0"
         class="text-center text-medium-emphasis"
@@ -98,7 +100,7 @@ function diffColor(val: number): string {
       </div>
     </template>
 
-    <template #cell-participant="{ item }">
+    <template #item.participant="{ item }">
       <div
         class="d-flex align-center"
         :class="{ 'text-disabled': item.eliminated }"
@@ -124,7 +126,7 @@ function diffColor(val: number): string {
 
     <template
       v-if="showCategory"
-      #cell-category="{ item }"
+      #item.category="{ item }"
     >
       <v-chip
         size="x-small"
@@ -135,7 +137,7 @@ function diffColor(val: number): string {
       </v-chip>
     </template>
 
-    <template #cell-stats="{ item }">
+    <template #item.stats="{ item }">
       <div class="d-flex align-center gap-2">
         <v-chip
           size="x-small"
@@ -151,104 +153,108 @@ function diffColor(val: number): string {
       </div>
     </template>
 
-    <template #details="{ item }">
-      <div class="pa-2">
-        <div class="text-subtitle-2 mb-2 font-weight-medium">
-          <v-icon
-            icon="mdi-history"
-            size="18"
-            class="mr-1"
-          />
-          Match Statistics for {{ item.participantName }}
-        </div>
-        <v-row dense>
-          <v-col
-            cols="6"
-            sm="3"
-          >
-            <v-card
-              variant="outlined"
-              class="pa-2"
-            >
-              <div class="text-caption text-medium-emphasis">
-                Games Won
-              </div>
-              <div class="text-h6 font-weight-bold text-success">
-                {{ item.gamesWon }}
-              </div>
-            </v-card>
-          </v-col>
-          <v-col
-            cols="6"
-            sm="3"
-          >
-            <v-card
-              variant="outlined"
-              class="pa-2"
-            >
-              <div class="text-caption text-medium-emphasis">
-                Games Lost
-              </div>
-              <div class="text-h6 font-weight-bold text-error">
-                {{ item.gamesLost }}
-              </div>
-            </v-card>
-          </v-col>
-          <v-col
-            cols="6"
-            sm="3"
-          >
-            <v-card
-              variant="outlined"
-              class="pa-2"
-            >
-              <div class="text-caption text-medium-emphasis">
-                Win Rate
-              </div>
-              <div class="text-h6 font-weight-bold">
-                {{ item.matchesPlayed > 0 ? `${item.winRate.toFixed(1)}%` : '—' }}
-              </div>
-            </v-card>
-          </v-col>
-          <v-col
-            cols="6"
-            sm="3"
-          >
-            <v-card
-              variant="outlined"
-              class="pa-2"
-            >
-              <div class="text-caption text-medium-emphasis">
-                Game Diff
-              </div>
-              <div
-                class="text-h6 font-weight-bold"
-                :class="`text-${diffColor(item.gameDifference)}`"
+    <template #expanded-row="{ columns, item }">
+      <tr>
+        <td :colspan="columns.length" class="pa-0">
+          <div class="pa-2">
+            <div class="text-subtitle-2 mb-2 font-weight-medium">
+              <v-icon
+                icon="mdi-history"
+                size="18"
+                class="mr-1"
+              />
+              Match Statistics for {{ item.participantName }}
+            </div>
+            <v-row dense>
+              <v-col
+                cols="6"
+                sm="3"
               >
-                {{ diffText(item.gameDifference) }}
-              </div>
-            </v-card>
-          </v-col>
-        </v-row>
-        <div
-          v-if="item.firstMatchAt || item.lastMatchAt"
-          class="mt-3 text-caption text-medium-emphasis"
-        >
-          <v-icon
-            icon="mdi-calendar-clock"
-            size="14"
-            class="mr-1"
-          />
-          <span v-if="item.firstMatchAt">First: {{ item.firstMatchAt.toLocaleDateString() }}</span>
-          <span
-            v-if="item.firstMatchAt && item.lastMatchAt"
-            class="mx-2"
-          >•</span>
-          <span v-if="item.lastMatchAt">Last: {{ item.lastMatchAt.toLocaleDateString() }}</span>
-        </div>
-      </div>
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Games Won
+                  </div>
+                  <div class="text-h6 font-weight-bold text-success">
+                    {{ item.gamesWon }}
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Games Lost
+                  </div>
+                  <div class="text-h6 font-weight-bold text-error">
+                    {{ item.gamesLost }}
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Win Rate
+                  </div>
+                  <div class="text-h6 font-weight-bold">
+                    {{ item.matchesPlayed > 0 ? `${item.winRate.toFixed(1)}%` : '—' }}
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Game Diff
+                  </div>
+                  <div
+                    class="text-h6 font-weight-bold"
+                    :class="`text-${diffColor(item.gameDifference)}`"
+                  >
+                    {{ diffText(item.gameDifference) }}
+                  </div>
+                </v-card>
+              </v-col>
+            </v-row>
+            <div
+              v-if="item.firstMatchAt || item.lastMatchAt"
+              class="mt-3 text-caption text-medium-emphasis"
+            >
+              <v-icon
+                icon="mdi-calendar-clock"
+                size="14"
+                class="mr-1"
+              />
+              <span v-if="item.firstMatchAt">First: {{ item.firstMatchAt.toLocaleDateString() }}</span>
+              <span
+                v-if="item.firstMatchAt && item.lastMatchAt"
+                class="mx-2"
+              >•</span>
+              <span v-if="item.lastMatchAt">Last: {{ item.lastMatchAt.toLocaleDateString() }}</span>
+            </div>
+          </div>
+        </td>
+      </tr>
     </template>
-  </compact-data-table>
+  </v-data-table>
 </template>
 
 <style scoped>
