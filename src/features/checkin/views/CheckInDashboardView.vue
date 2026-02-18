@@ -295,7 +295,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <v-container fluid class="checkin-dashboard">
+  <v-container
+    fluid
+    class="checkin-dashboard"
+  >
     <!-- Header -->
     <div class="d-flex align-center justify-space-between mb-4">
       <div>
@@ -317,35 +320,70 @@ onUnmounted(() => {
 
     <!-- Stats Cards -->
     <v-row class="mb-4">
-      <v-col cols="6" md="3">
+      <v-col
+        cols="6"
+        md="3"
+      >
         <v-card>
           <v-card-text>
-            <div class="text-caption text-grey">Approved</div>
-            <div class="text-h5 font-weight-bold">{{ stats.approved }}</div>
+            <div class="text-caption text-grey">
+              Approved
+            </div>
+            <div class="text-h5 font-weight-bold">
+              {{ stats.approved }}
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="6" md="3">
-        <v-card color="success" variant="tonal">
+      <v-col
+        cols="6"
+        md="3"
+      >
+        <v-card
+          color="success"
+          variant="tonal"
+        >
           <v-card-text>
-            <div class="text-caption">Checked In</div>
-            <div class="text-h5 font-weight-bold">{{ stats.checkedIn }}</div>
+            <div class="text-caption">
+              Checked In
+            </div>
+            <div class="text-h5 font-weight-bold">
+              {{ stats.checkedIn }}
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="6" md="3">
-        <v-card color="error" variant="tonal">
+      <v-col
+        cols="6"
+        md="3"
+      >
+        <v-card
+          color="error"
+          variant="tonal"
+        >
           <v-card-text>
-            <div class="text-caption">No Show</div>
-            <div class="text-h5 font-weight-bold">{{ stats.noShow }}</div>
+            <div class="text-caption">
+              No Show
+            </div>
+            <div class="text-h5 font-weight-bold">
+              {{ stats.noShow }}
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="6" md="3">
+      <v-col
+        cols="6"
+        md="3"
+      >
         <v-card>
           <v-card-text>
-            <div class="text-caption text-grey">Check-in Rate</div>
-            <div class="text-h5 font-weight-bold" :class="stats.checkInRate >= 80 ? 'text-success' : ''">
+            <div class="text-caption text-grey">
+              Check-in Rate
+            </div>
+            <div
+              class="text-h5 font-weight-bold"
+              :class="stats.checkInRate >= 80 ? 'text-success' : ''"
+            >
               {{ stats.checkInRate }}%
             </div>
           </v-card-text>
@@ -373,7 +411,13 @@ onUnmounted(() => {
             <template #append-inner>
               <v-tooltip text="Press / to focus search">
                 <template #activator="{ props: tooltipProps }">
-                  <v-icon v-bind="tooltipProps" size="small" color="grey">mdi-keyboard-slash</v-icon>
+                  <v-icon
+                    v-bind="tooltipProps"
+                    size="small"
+                    color="grey"
+                  >
+                    mdi-keyboard-slash
+                  </v-icon>
                 </template>
               </v-tooltip>
             </template>
@@ -430,7 +474,10 @@ onUnmounted(() => {
       <v-divider />
 
       <!-- Bulk Actions Bar -->
-      <div v-if="selectedRegistrationIds.length > 0" class="px-4 py-2 bg-primary-lighten-5 d-flex align-center">
+      <div
+        v-if="selectedRegistrationIds.length > 0"
+        class="px-4 py-2 bg-primary-lighten-5 d-flex align-center"
+      >
         <span class="text-body-2 font-weight-medium">{{ selectedRegistrationIds.length }} selected</span>
         <v-spacer />
         <v-btn

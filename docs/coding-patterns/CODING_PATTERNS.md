@@ -678,6 +678,49 @@ rg -n "Search participants|Filter by Category|Filter by Court|Clear Filters" src
 
 ---
 
+## Category: UI / Layout
+
+### CP-015: Command Center 3-Panel Layout Must Be Resizable
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-16 |
+| **Source Bug** | Match Control command center had fixed 3-column widths and could not be resized for venue/operator preference |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<!-- Fixed breakpoints lock panel proportions -->
+<v-col cols="12" md="6" lg="7">...</v-col>
+<v-col cols="12" md="3" lg="2">...</v-col>
+<v-col cols="12" md="3" lg="3">...</v-col>
+```
+
+**Correct Pattern (✅):**
+```vue
+<!-- Desktop: draggable splitters between panels -->
+<div ref="commandLayoutRef" class="command-layout" :style="commandLayoutStyle">
+  <div class="command-panel command-panel--courts">...</div>
+  <button class="command-resizer" @mousedown="beginCommandResize('left-middle', $event)" />
+  <div class="command-panel command-panel--queue">...</div>
+  <button class="command-resizer" @mousedown="beginCommandResize('middle-right', $event)" />
+  <div class="command-panel command-panel--alerts">...</div>
+</div>
+
+<!-- Mobile: collapse to courts-only with side panels hidden -->
+```
+
+**Rule:** Any 3-panel operational layout (courts/queue/alerts) must support user-driven width adjustment on desktop and collapse cleanly on small screens.
+
+**Detection:**
+```bash
+rg -n "v-else-if=\"viewMode === 'command'\" -A 120 src/features/tournaments/views/MatchControlView.vue | rg "v-col|md=\"6\"|lg=\"7\"|md=\"3\"|lg=\"2\"|lg=\"3\""
+rg -n "command-layout|command-resizer|beginCommandResize" src/features/tournaments/views/MatchControlView.vue
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

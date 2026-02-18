@@ -25,6 +25,7 @@ import {
 } from '@/services/firebase';
 import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import { useBracketGenerator } from '@/composables/useBracketGenerator';
+import { useAuditStore } from '@/stores/audit';
 
 const USE_CLOUD_FUNCTION_FOR_BRACKETS = false;
 const USE_CLOUD_FUNCTION_FOR_SCHEDULE = false;
@@ -226,6 +227,14 @@ export const useTournamentStore = defineStore('tournaments', () => {
       });
 
       const docRef = await Promise.race([addDocPromise, timeoutPromise]) as DocumentReference;
+      
+      const auditStore = useAuditStore();
+      await auditStore.logTournamentCreated(docRef.id, tournamentData.name, {
+        sport: tournamentData.sport,
+        startDate: tournamentData.startDate.toISOString(),
+        location: tournamentData.location,
+      });
+      
       return docRef.id;
     } catch (err) {
       console.error('Error creating tournament:', err);
@@ -276,7 +285,11 @@ export const useTournamentStore = defineStore('tournaments', () => {
     tournamentId: string,
     status: TournamentStatus
   ): Promise<void> {
+    const oldStatus = currentTournament.value?.status;
+    const tournamentName = currentTournament.value?.name || tournamentId;
     await updateTournament(tournamentId, { status });
+    const auditStore = useAuditStore();
+    await auditStore.logTournamentStatusChanged(tournamentId, tournamentName, oldStatus || 'unknown', status);
   }
 
   // Delete tournament
@@ -285,7 +298,12 @@ export const useTournamentStore = defineStore('tournaments', () => {
     error.value = null;
 
     try {
+      const tournamentName = currentTournament.value?.name || tournamentId;
       await deleteDoc(doc(db, 'tournaments', tournamentId));
+      
+      const auditStore = useAuditStore();
+      await auditStore.logTournamentDeleted(tournamentId, tournamentName);
+      
       tournaments.value = tournaments.value.filter((t) => t.id !== tournamentId);
       if (currentTournament.value?.id === tournamentId) {
         currentTournament.value = null;
@@ -314,6 +332,10 @@ export const useTournamentStore = defineStore('tournaments', () => {
           updatedAt: serverTimestamp(),
         }
       );
+      const auditStore = useAuditStore();
+      await auditStore.logCategoryCreated(tournamentId, docRef.id, categoryData.name, {
+        format: categoryData.format,
+      });
       return docRef.id;
     } catch (err) {
       console.error('Error adding category:', err);
@@ -342,7 +364,10 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
   async function deleteCategory(tournamentId: string, categoryId: string): Promise<void> {
     try {
+      const category = categories.value.find((c) => c.id === categoryId);
       await deleteDoc(doc(db, `tournaments/${tournamentId}/categories`, categoryId));
+      const auditStore = useAuditStore();
+      await auditStore.logCategoryDeleted(tournamentId, categoryId, category?.name || categoryId);
       categories.value = categories.value.filter((c) => c.id !== categoryId);
     } catch (err) {
       console.error('Error deleting category:', err);
@@ -366,6 +391,8 @@ export const useTournamentStore = defineStore('tournaments', () => {
           updatedAt: serverTimestamp(),
         }
       );
+      const auditStore = useAuditStore();
+      await auditStore.logCourtCreated(tournamentId, docRef.id, courtData.name);
       return docRef.id;
     } catch (err) {
       console.error('Error adding court:', err);
@@ -664,7 +691,10 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
   async function deleteCourt(tournamentId: string, courtId: string): Promise<void> {
     try {
+      const court = courts.value.find((c) => c.id === courtId);
       await deleteDoc(doc(db, `tournaments/${tournamentId}/courts`, courtId));
+      const auditStore = useAuditStore();
+      await auditStore.logCourtDeleted(tournamentId, courtId, court?.name || courtId);
       courts.value = courts.value.filter((c) => c.id !== courtId);
     } catch (err) {
       console.error('Error deleting court:', err);
@@ -716,7 +746,13 @@ export const useTournamentStore = defineStore('tournaments', () => {
       consolationFinal?: boolean;
     } = {}
   ): Promise<{ success: boolean; matchCount: number }> {
-    return executeBracketOperation(tournamentId, categoryId, options);
+    const result = await executeBracketOperation(tournamentId, categoryId, options);
+    if (result.success) {
+      const category = categories.value.find((c) => c.id === categoryId);
+      const auditStore = useAuditStore();
+      await auditStore.logBracketGenerated(tournamentId, categoryId, category?.name || categoryId);
+    }
+    return result;
   }
 
   async function regenerateBracket(
@@ -728,9 +764,15 @@ export const useTournamentStore = defineStore('tournaments', () => {
     } = {}
   ): Promise<{ success: boolean; matchCount: number }> {
     const bracketGen = useBracketGenerator();
-    return executeBracketOperation(tournamentId, categoryId, options, async () => {
+    const result = await executeBracketOperation(tournamentId, categoryId, options, async () => {
       await bracketGen.deleteBracket(tournamentId, categoryId);
     });
+    if (result.success) {
+      const category = categories.value.find((c) => c.id === categoryId);
+      const auditStore = useAuditStore();
+      await auditStore.logBracketRegenerated(tournamentId, categoryId, category?.name || categoryId);
+    }
+    return result;
   }
 
   async function generateSchedule(

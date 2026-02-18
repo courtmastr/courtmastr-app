@@ -171,16 +171,6 @@
             class="ml-4"
             :ripple="false"
           />
-
-          <v-list-item
-            v-if="currentTournamentId"
-            :to="`/tournaments/${currentTournamentId}/leaderboard`"
-            prepend-icon="mdi-podium-gold"
-            title="Leaderboard"
-            rounded="lg"
-            class="ml-4"
-            :ripple="false"
-          />
           
           <v-divider class="my-2 ml-4" />
           

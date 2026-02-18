@@ -40,7 +40,13 @@ function getItemColor(item: ReadinessItem): string {
 <template>
   <v-card variant="outlined">
     <v-card-title class="d-flex align-center py-3">
-      <v-icon start color="primary" class="mr-2">mdi-clipboard-check</v-icon>
+      <v-icon
+        start
+        color="primary"
+        class="mr-2"
+      >
+        mdi-clipboard-check
+      </v-icon>
       Setup Checklist
       <v-spacer />
       <v-chip
@@ -63,16 +69,28 @@ function getItemColor(item: ReadinessItem): string {
       />
 
       <!-- Completed Items (Collapsible) -->
-      <v-expansion-panels v-if="completedItems.length > 0" variant="accordion" class="mb-2">
+      <v-expansion-panels
+        v-if="completedItems.length > 0"
+        variant="accordion"
+        class="mb-2"
+      >
         <v-expansion-panel>
           <v-expansion-panel-title>
             <div class="d-flex align-center">
-              <v-icon color="success" class="mr-2">mdi-check-circle</v-icon>
+              <v-icon
+                color="success"
+                class="mr-2"
+              >
+                mdi-check-circle
+              </v-icon>
               <span class="text-body-2">Completed ({{ completedItems.length }})</span>
             </div>
           </v-expansion-panel-title>
           <v-expansion-panel-text>
-            <v-list density="compact" class="pa-0">
+            <v-list
+              density="compact"
+              class="pa-0"
+            >
               <v-list-item
                 v-for="item in completedItems"
                 :key="item.id"
@@ -83,7 +101,9 @@ function getItemColor(item: ReadinessItem): string {
                 @click="navigateTo(item.route)"
               >
                 <template #prepend>
-                  <v-icon color="success">{{ item.icon }}</v-icon>
+                  <v-icon color="success">
+                    {{ item.icon }}
+                  </v-icon>
                 </template>
               </v-list-item>
             </v-list>
@@ -92,13 +112,16 @@ function getItemColor(item: ReadinessItem): string {
       </v-expansion-panels>
 
       <!-- Pending Items -->
-      <v-list density="compact" class="pa-0">
+      <v-list
+        density="compact"
+        class="pa-0"
+      >
         <v-list-item
           v-for="item in pendingItems"
           :key="item.id"
-          @click="navigateTo(item.route)"
           class="mb-1 rounded"
           :class="{ 'bg-grey-lighten-4': !item.optional }"
+          @click="navigateTo(item.route)"
         >
           <template #prepend>
             <v-icon :color="getItemColor(item)">

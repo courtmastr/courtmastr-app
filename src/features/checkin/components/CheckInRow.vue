@@ -112,9 +112,9 @@ function saveBib() {
           <!-- Selection Checkbox -->
           <v-checkbox-btn
             :model-value="isSelected"
-            @update:model-value="emit('select', $event)"
             density="compact"
             hide-details
+            @update:model-value="emit('select', $event)"
           />
 
           <!-- Participant Info -->
@@ -218,7 +218,10 @@ function saveBib() {
     </v-card>
 
     <!-- No Show Confirmation Dialog -->
-    <v-dialog v-model="showNoShowConfirm" max-width="400">
+    <v-dialog
+      v-model="showNoShowConfirm"
+      max-width="400"
+    >
       <v-card>
         <v-card-title class="text-h6">
           Confirm No Show

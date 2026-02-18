@@ -7,12 +7,15 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import CategoryManagement from '../components/CategoryManagement.vue';
 import CourtManagement from '../components/CourtManagement.vue';
 import CategoryRegistrationStats from '../components/CategoryRegistrationStats.vue';
 import OrganizerChecklist from '../components/OrganizerChecklist.vue';
+import StateBanner from '../components/StateBanner.vue';
 import CompactDataTable from '@/components/common/CompactDataTable.vue';
+import StatusBadge from '@/components/common/StatusBadge.vue';
 // ActiveMatchesSection removed - using compact summary on dashboard instead
 
 const route = useRoute();
@@ -225,6 +228,26 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
+function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
+  if (!currentState) return 'REG_OPEN';
+  return getNextTournamentState(currentState);
+}
+
+async function advanceState(): Promise<void> {
+  if (!tournament.value?.state) return;
+  const nextState = getNextTournamentState(tournament.value.state);
+  if (nextState) {
+    try {
+      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
+      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
+    } catch (error) {
+      notificationStore.showToast('error', 'Failed to advance tournament state');
+    }
+  }
+}
+
+const showUnlockDialog = ref(false);
+
 async function generateBracket(categoryId: string) {
   try {
     await tournamentStore.generateBracket(tournamentId.value, categoryId);
@@ -432,14 +455,11 @@ async function handleDeleteTournament() {
             <h1 class="text-h4 font-weight-bold text-gradient">
               {{ tournament.name }}
             </h1>
-            <v-chip
-              :color="getStatusColor(tournament.status)"
-              class="ml-3 font-weight-medium"
+            <StatusBadge
+              :status="tournament.status"
+              type="general"
               size="small"
-              label
-            >
-              {{ tournament.status.toUpperCase() }}
-            </v-chip>
+            />
           </div>
           <div class="d-flex align-center text-body-2 text-grey-darken-1 ml-10">
             <v-icon
@@ -599,6 +619,16 @@ async function handleDeleteTournament() {
       </v-card-text>
     </v-card>
 
+    <!-- State Banner (TOURNEY-003) -->
+    <StateBanner
+      v-if="tournament"
+      :state="tournament.state || 'DRAFT'"
+      :next-state="getNextState(tournament.state || 'DRAFT')"
+      :is-admin="isAdmin"
+      @advance="advanceState"
+      @unlock="showUnlockDialog = true"
+    />
+
     <!-- Stats Grid -->
     <v-row class="mb-6">
       <v-col
@@ -620,7 +650,17 @@ async function handleDeleteTournament() {
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.approvedRegistrations }}</span>
-            <span class="text-caption text-grey font-weight-medium">PARTICIPANTS</span>
+            <v-tooltip
+              text="Approved and checked-in participants"
+              location="bottom"
+            >
+              <template #activator="{ props }">
+                <span
+                  class="text-caption text-grey font-weight-medium"
+                  v-bind="props"
+                >PARTICIPANTS</span>
+              </template>
+            </v-tooltip>
           </div>
         </v-card>
       </v-col>
@@ -644,7 +684,17 @@ async function handleDeleteTournament() {
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.totalMatches }}</span>
-            <span class="text-caption text-grey font-weight-medium">TOTAL MATCHES</span>
+            <v-tooltip
+              text="Total matches across all categories"
+              location="bottom"
+            >
+              <template #activator="{ props }">
+                <span
+                  class="text-caption text-grey font-weight-medium"
+                  v-bind="props"
+                >TOTAL MATCHES</span>
+              </template>
+            </v-tooltip>
           </div>
         </v-card>
       </v-col>
@@ -668,7 +718,17 @@ async function handleDeleteTournament() {
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.inProgressMatches }}</span>
-            <span class="text-caption text-grey font-weight-medium">IN PROGRESS</span>
+            <v-tooltip
+              text="Matches currently being played"
+              location="bottom"
+            >
+              <template #activator="{ props }">
+                <span
+                  class="text-caption text-grey font-weight-medium"
+                  v-bind="props"
+                >IN PROGRESS</span>
+              </template>
+            </v-tooltip>
           </div>
         </v-card>
       </v-col>
@@ -692,7 +752,17 @@ async function handleDeleteTournament() {
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.progress }}%</span>
-            <span class="text-caption text-grey font-weight-medium">COMPLETED</span>
+            <v-tooltip
+              text="Percentage of matches completed"
+              location="bottom"
+            >
+              <template #activator="{ props }">
+                <span
+                  class="text-caption text-grey font-weight-medium"
+                  v-bind="props"
+                >COMPLETED</span>
+              </template>
+            </v-tooltip>
           </div>
           <v-progress-linear
             :model-value="stats.progress"
@@ -872,10 +942,16 @@ async function handleDeleteTournament() {
           <v-card-text>
             <!-- Organizer Checklist (TOURNEY-106) -->
             <v-row class="mb-4">
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <organizer-checklist :tournament-id="tournamentId" />
               </v-col>
-              <v-col cols="12" md="8">
+              <v-col
+                cols="12"
+                md="8"
+              >
                 <!-- Category Registration Stats -->
                 <CategoryRegistrationStats
                   :tournament-id="tournamentId"
@@ -1095,25 +1171,25 @@ async function handleDeleteTournament() {
               ]"
               :items-per-page="10"
             >
-              <template #cell-match="{ item }"
-                <div class="d-flex flex-column py-1"
-                  <div class="font-weight-medium"
+              <template #cell-match="{ item }">
+                <div class="d-flex flex-column py-1">
+                  <div class="font-weight-medium">
                     #{{ item.matchNumber }}: {{ getParticipantName(item.participant1Id) }} vs {{ getParticipantName(item.participant2Id) }}
-                  </div
-                  <div class="text-caption text-grey"
+                  </div>
+                  <div class="text-caption text-grey">
                     {{ getCategoryName(item.categoryId) }} • Round {{ item.round }}
-                  </div
-                </div
-              </template
-              <template #cell-status="{ item }"
+                  </div>
+                </div>
+              </template>
+              <template #cell-status="{ item }">
                 <v-chip
                   :color="getStatusColor(item.status)"
                   size="small"
                 >
                   {{ item.status }}
-                </v-chip
-              </template
-              <template #actions="{ item }"
+                </v-chip>
+              </template>
+              <template #actions="{ item }">
                 <v-btn
                   v-if="item.status === 'ready' || item.status === 'in_progress'"
                   size="small"
@@ -1121,19 +1197,23 @@ async function handleDeleteTournament() {
                   :to="{ path: `/tournaments/${tournamentId}/matches/${item.id}/score`, query: item.categoryId ? { category: item.categoryId } : undefined }"
                 >
                   Score
-                </v-btn
-              </template
-              <template #details="{ item }"
-                <div class="d-flex flex-wrap gap-4 text-body-2"
-                  <div><strong>Score:</strong> 
-                    <span v-if="item.scores.length > 0"
+                </v-btn>
+              </template>
+              <template #details="{ item }">
+                <div class="d-flex flex-wrap gap-4 text-body-2">
+                  <div>
+                    <strong>Score:</strong> 
+                    <span v-if="item.scores.length > 0">
                       {{ item.scores.map((s: any) => `${s.score1}-${s.score2}`).join(', ') }}
-                    </span
-                    <span v-else class="text-grey"-</span
-                  </div
-                  <div><strong>Court:</strong> {{ courts.find((c) => c.id === item.courtId)?.name || '-' }}</div
-                </div
-              </template
+                    </span>
+                    <span
+                      v-else
+                      class="text-grey"
+                    >-</span>
+                  </div>
+                  <div><strong>Court:</strong> {{ courts.find((c) => c.id === item.courtId)?.name || '-' }}</div>
+                </div>
+              </template>
             </compact-data-table>
           </v-card-text>
         </v-tabs-window-item>

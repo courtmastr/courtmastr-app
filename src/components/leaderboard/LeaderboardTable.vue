@@ -122,7 +122,10 @@ function diffColor(val: number): string {
       </div>
     </template>
 
-    <template #cell-category="{ item }" v-if="showCategory">
+    <template
+      v-if="showCategory"
+      #cell-category="{ item }"
+    >
       <v-chip
         size="x-small"
         variant="tonal"
@@ -134,7 +137,12 @@ function diffColor(val: number): string {
 
     <template #cell-stats="{ item }">
       <div class="d-flex align-center gap-2">
-        <v-chip size="x-small" color="primary" variant="tonal" title="Match Points">
+        <v-chip
+          size="x-small"
+          color="primary"
+          variant="tonal"
+          title="Match Points"
+        >
           {{ item.matchPoints }} pts
         </v-chip>
         <span class="text-caption">
@@ -146,43 +154,96 @@ function diffColor(val: number): string {
     <template #details="{ item }">
       <div class="pa-2">
         <div class="text-subtitle-2 mb-2 font-weight-medium">
-          <v-icon icon="mdi-history" size="18" class="mr-1" />
+          <v-icon
+            icon="mdi-history"
+            size="18"
+            class="mr-1"
+          />
           Match Statistics for {{ item.participantName }}
         </div>
         <v-row dense>
-          <v-col cols="6" sm="3">
-            <v-card variant="outlined" class="pa-2">
-              <div class="text-caption text-medium-emphasis">Games Won</div>
-              <div class="text-h6 font-weight-bold text-success">{{ item.gamesWon }}</div>
+          <v-col
+            cols="6"
+            sm="3"
+          >
+            <v-card
+              variant="outlined"
+              class="pa-2"
+            >
+              <div class="text-caption text-medium-emphasis">
+                Games Won
+              </div>
+              <div class="text-h6 font-weight-bold text-success">
+                {{ item.gamesWon }}
+              </div>
             </v-card>
           </v-col>
-          <v-col cols="6" sm="3">
-            <v-card variant="outlined" class="pa-2">
-              <div class="text-caption text-medium-emphasis">Games Lost</div>
-              <div class="text-h6 font-weight-bold text-error">{{ item.gamesLost }}</div>
+          <v-col
+            cols="6"
+            sm="3"
+          >
+            <v-card
+              variant="outlined"
+              class="pa-2"
+            >
+              <div class="text-caption text-medium-emphasis">
+                Games Lost
+              </div>
+              <div class="text-h6 font-weight-bold text-error">
+                {{ item.gamesLost }}
+              </div>
             </v-card>
           </v-col>
-          <v-col cols="6" sm="3">
-            <v-card variant="outlined" class="pa-2">
-              <div class="text-caption text-medium-emphasis">Win Rate</div>
+          <v-col
+            cols="6"
+            sm="3"
+          >
+            <v-card
+              variant="outlined"
+              class="pa-2"
+            >
+              <div class="text-caption text-medium-emphasis">
+                Win Rate
+              </div>
               <div class="text-h6 font-weight-bold">
                 {{ item.matchesPlayed > 0 ? `${item.winRate.toFixed(1)}%` : '—' }}
               </div>
             </v-card>
           </v-col>
-          <v-col cols="6" sm="3">
-            <v-card variant="outlined" class="pa-2">
-              <div class="text-caption text-medium-emphasis">Game Diff</div>
-              <div class="text-h6 font-weight-bold" :class="`text-${diffColor(item.gameDifference)}`">
+          <v-col
+            cols="6"
+            sm="3"
+          >
+            <v-card
+              variant="outlined"
+              class="pa-2"
+            >
+              <div class="text-caption text-medium-emphasis">
+                Game Diff
+              </div>
+              <div
+                class="text-h6 font-weight-bold"
+                :class="`text-${diffColor(item.gameDifference)}`"
+              >
                 {{ diffText(item.gameDifference) }}
               </div>
             </v-card>
           </v-col>
         </v-row>
-        <div v-if="item.firstMatchAt || item.lastMatchAt" class="mt-3 text-caption text-medium-emphasis">
-          <v-icon icon="mdi-calendar-clock" size="14" class="mr-1" />
+        <div
+          v-if="item.firstMatchAt || item.lastMatchAt"
+          class="mt-3 text-caption text-medium-emphasis"
+        >
+          <v-icon
+            icon="mdi-calendar-clock"
+            size="14"
+            class="mr-1"
+          />
           <span v-if="item.firstMatchAt">First: {{ item.firstMatchAt.toLocaleDateString() }}</span>
-          <span v-if="item.firstMatchAt && item.lastMatchAt" class="mx-2">•</span>
+          <span
+            v-if="item.firstMatchAt && item.lastMatchAt"
+            class="mx-2"
+          >•</span>
           <span v-if="item.lastMatchAt">Last: {{ item.lastMatchAt.toLocaleDateString() }}</span>
         </div>
       </div>

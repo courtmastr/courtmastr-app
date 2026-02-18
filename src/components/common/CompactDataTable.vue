@@ -83,7 +83,10 @@ function getSortIcon(column: Column): string {
 </script>
 
 <template>
-  <div class="compact-data-table" :class="{ 'compact-data-table--compact': compact }">
+  <div
+    class="compact-data-table"
+    :class="{ 'compact-data-table--compact': compact }"
+  >
     <!-- Header Row -->
     <div class="compact-data-table__header d-flex align-center px-3 py-2 bg-surface border-b text-caption font-weight-medium text-grey">
       <div
@@ -109,13 +112,19 @@ function getSortIcon(column: Column): string {
       </div>
       
       <!-- Actions Column -->
-      <div class="compact-data-table__cell compact-data-table__cell--end" style="width: 100px; flex: none;">
+      <div
+        class="compact-data-table__cell compact-data-table__cell--end"
+        style="width: 100px; flex: none;"
+      >
         Actions
       </div>
       
       <!-- Expand Column (if enabled) -->
-      <div v-if="showExpand" class="compact-data-table__cell" style="width: 40px; flex: none;">
-      </div>
+      <div
+        v-if="showExpand"
+        class="compact-data-table__cell"
+        style="width: 40px; flex: none;"
+      />
     </div>
 
     <!-- Data Rows -->
@@ -137,21 +146,35 @@ function getSortIcon(column: Column): string {
               :class="[`compact-data-table__cell--${column.align || 'start'}`]"
               :style="{ width: column.width || 'auto', flex: column.width ? 'none' : '1' }"
             >
-              <slot :name="`cell-${column.key}`" :item="rowItem" :value="rowItem[column.key]">
+              <slot
+                :name="`cell-${column.key}`"
+                :item="rowItem"
+                :value="rowItem[column.key]"
+              >
                 {{ rowItem[column.key] }}
               </slot>
             </div>
             
             <!-- Actions Cell -->
-            <div class="compact-data-table__cell compact-data-table__cell--end" style="width: 100px; flex: none;">
-              <slot name="actions" :item="rowItem" />
+            <div
+              class="compact-data-table__cell compact-data-table__cell--end"
+              style="width: 100px; flex: none;"
+            >
+              <slot
+                name="actions"
+                :item="rowItem"
+              />
             </div>
           </div>
         </template>
 
         <template #details="{ item: rowItem, handleAction }">
           <div class="d-flex flex-wrap gap-4">
-            <slot name="details" :item="rowItem" :handle-action="handleAction" />
+            <slot
+              name="details"
+              :item="rowItem"
+              :handle-action="handleAction"
+            />
           </div>
         </template>
       </expandable-row>
@@ -168,7 +191,10 @@ function getSortIcon(column: Column): string {
     </v-alert>
 
     <!-- Pagination -->
-    <div v-if="totalPages > 1" class="compact-data-table__pagination d-flex align-center justify-center pa-3">
+    <div
+      v-if="totalPages > 1"
+      class="compact-data-table__pagination d-flex align-center justify-center pa-3"
+    >
       <v-pagination
         v-model="currentPage"
         :length="totalPages"

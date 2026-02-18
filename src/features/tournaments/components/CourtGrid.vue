@@ -77,9 +77,20 @@ const gridColumns = computed(() => {
     </div>
     
     <!-- Empty State -->
-    <div v-if="displayCourts.length === 0" class="court-grid__empty text-center pa-8">
-      <v-icon size="48" color="grey-lighten-1" class="mb-4">mdi-badminton</v-icon>
-      <div class="text-h6 text-medium-emphasis mb-2">No Courts Configured</div>
+    <div
+      v-if="displayCourts.length === 0"
+      class="court-grid__empty text-center pa-8"
+    >
+      <v-icon
+        size="48"
+        color="grey-lighten-1"
+        class="mb-4"
+      >
+        mdi-badminton
+      </v-icon>
+      <div class="text-h6 text-medium-emphasis mb-2">
+        No Courts Configured
+      </div>
       <div class="text-body-2 text-medium-emphasis">
         Add courts in tournament settings to start managing matches
       </div>

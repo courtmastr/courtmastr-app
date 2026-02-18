@@ -37,6 +37,7 @@ import {
 } from './bracketMatchAdapter';
 import { useAdvanceWinner } from '@/composables/useAdvanceWinner';
 import { useAuthStore } from '@/stores/auth';
+import { useAuditStore } from '@/stores/audit';
 import type { ScoreCorrectionRecord } from '@/types/scoring';
 
 const USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER = false;
@@ -1046,6 +1047,23 @@ export const useMatchStore = defineStore('matches', () => {
           { merge: true }
         );
       }
+
+      const auditStore = useAuditStore();
+      const participant1Name = matchData.participant1Id || 'Unknown';
+      const participant2Name = matchData.participant2Id || 'Unknown';
+      const scoreString = games.map(g => `${g.score1}-${g.score2}`).join(', ');
+
+      if (isMatchComplete && winnerId) {
+        const winnerName = winnerId === participant1Id ? participant1Name : participant2Name;
+        await auditStore.logMatchCompleted(
+          tournamentId,
+          matchId,
+          participant1Name,
+          participant2Name,
+          winnerName,
+          scoreString
+        );
+      }
     } catch (err) {
       console.error('Error submitting manual scores:', err);
       throw err;
@@ -1237,7 +1255,8 @@ export const useMatchStore = defineStore('matches', () => {
   async function unscheduleMatch(
     tournamentId: string,
     matchId: string,
-    categoryId?: string
+    categoryId?: string,
+    releaseCourtId?: string
   ): Promise<void> {
     try {
       const matchScoresPath = categoryId
@@ -1253,8 +1272,13 @@ export const useMatchStore = defineStore('matches', () => {
         updatedAt: serverTimestamp(),
       });
 
-      if (match?.courtId) {
-        batch.update(doc(db, `tournaments/${tournamentId}/courts`, match.courtId), {
+      // Determine correct court to release:
+      // 1. Explicitly passed courtId (most reliable for "zombie" fixes)
+      // 2. Court currently assigned to match in store
+      const courtIdToRelease = releaseCourtId || match?.courtId;
+
+      if (courtIdToRelease) {
+        batch.update(doc(db, `tournaments/${tournamentId}/courts`, courtIdToRelease), {
           status: 'available',
           currentMatchId: null,
           updatedAt: serverTimestamp(),
@@ -1380,41 +1404,41 @@ export const useMatchStore = defineStore('matches', () => {
 
   async function checkAndFixConsistency(tournamentId: string): Promise<void> {
     console.log('[checkAndFixConsistency] Starting consistency check for tournament:', tournamentId);
-    
+
     try {
       // Fetch all courts for this tournament
       const courtsSnap = await getDocs(collection(db, `tournaments/${tournamentId}/courts`));
       const courts = courtsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      
+
       // Fetch all match_scores for this tournament
       const matchScoresSnap = await getDocs(collection(db, `tournaments/${tournamentId}/match_scores`));
       const matchScores = new Map(matchScoresSnap.docs.map(d => [d.id, d.data()]));
-      
+
       let fixesApplied = 0;
-      
+
       for (const court of courts) {
         const courtData = court as any;
         const currentMatchId = courtData.currentMatchId;
-        
+
         if (currentMatchId) {
           const matchScore = matchScores.get(currentMatchId);
-          
+
           // Check if match is completed but court still shows it as active
           if (matchScore?.status === 'completed' || matchScore?.status === 'walkover') {
             console.log(`[checkAndFixConsistency] Found zombie court: ${court.id} has completed match ${currentMatchId}`);
-            
+
             // Release the court
             await updateDoc(doc(db, `tournaments/${tournamentId}/courts`, court.id), {
               status: 'available',
               currentMatchId: null,
               updatedAt: serverTimestamp(),
             });
-            
+
             fixesApplied++;
           }
         }
       }
-      
+
       console.log(`[checkAndFixConsistency] Completed. Applied ${fixesApplied} fixes.`);
     } catch (err) {
       console.error('[checkAndFixConsistency] Error during consistency check:', err);

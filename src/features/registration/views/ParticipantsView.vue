@@ -436,27 +436,29 @@ function clearFilters() {
         ]"
         :loading="loading"
       >
-        <template #cell-name="{ item }"
+        <template #cell-name="{ item }">
           <div class="d-flex align-center py-2">
-            <v-avatar
-              size="36"
-              color="primary"
-              class="mr-3"
-            >
-              <span class="text-caption">{{ item.firstName.charAt(0) }}</span>
-            </v-avatar>
-            <div>
-              <div class="font-weight-medium">
-                {{ item.firstName }} {{ item.lastName }}
-              </div>
-              <div class="text-caption text-grey">
-                {{ item.email || 'No email' }}
-              </div>
+          <v-avatar
+            size="36"
+            color="primary"
+            class="mr-3"
+          >
+            <span class="text-caption">{{ item.firstName.charAt(0) }}</span>
+          </v-avatar>
+          <div>
+            <div class="font-weight-medium">
+              {{ item.firstName }} {{ item.lastName }}
             </div>
+            <div class="text-caption text-grey">
+              {{ item.email || 'No email' }}
+            </div>
+          </div>
           </div>
         </template>
 
-        <template #cell-category="{ item }"
+        <template
+          #cell-category="{ item }"
+        >
           <v-chip
             size="small"
             variant="outlined"
@@ -465,7 +467,9 @@ function clearFilters() {
           </v-chip>
         </template>
 
-        <template #cell-status="{ item }"
+        <template
+          #cell-status="{ item }"
+        >
           <v-chip
             :color="getParticipantStatus(item.id) === 'checked_in' ? 'success' : 'info'"
             size="small"
@@ -475,32 +479,36 @@ function clearFilters() {
           </v-chip>
         </template>
 
-        <template #actions="{ item }"
-          <div class="d-flex justify-end">
-            <v-btn
-              icon="mdi-pencil"
-              size="small"
-              variant="text"
-              color="primary"
-              title="Edit Player"
-              @click="openEditPlayerDialog(item)"
-            />
-            <v-btn
-              icon="mdi-delete"
-              size="small"
-              variant="text"
-              color="error"
-              title="Delete Player"
-              @click="requestDeletePlayer(item.id)"
-            />
+        <template
+          #actions="{ item }"
+        >
+          <div
+            class="d-flex justify-end"
+          >
+          <v-btn
+            icon="mdi-pencil"
+            size="small"
+            variant="text"
+            color="primary"
+            title="Edit Player"
+            @click="openEditPlayerDialog(item)"
+          />
+          <v-btn
+            icon="mdi-delete"
+            size="small"
+            variant="text"
+            color="error"
+            title="Delete Player"
+            @click="requestDeletePlayer(item.id)"
+          />
           </div>
         </template>
 
-        <template #details="{ item }"
-          <div class="d-flex flex-wrap gap-4 text-body-2"
+        <template #details="{ item }">
+          <div class="d-flex flex-wrap gap-4 text-body-2">
             <div><strong>Skill Level:</strong> {{ item.skillLevel || 5 }} / 10</div>
-            <div><strong>Email:</strong> {{ item.email || 'No email' }}</div>
-            <div><strong>Phone:</strong> {{ item.phone || 'No phone' }}</div>
+          <div><strong>Email:</strong> {{ item.email || 'No email' }}</div>
+          <div><strong>Phone:</strong> {{ item.phone || 'No phone' }}</div>
           </div>
         </template>
       </compact-data-table>

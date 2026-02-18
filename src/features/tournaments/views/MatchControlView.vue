@@ -6,6 +6,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useNotificationStore } from '@/stores/notifications';
 import { useActivityStore } from '@/stores/activities';
+import { useAuthStore } from '@/stores/auth';
 import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import ActivityFeed from '@/components/ActivityFeed.vue';
@@ -19,7 +20,9 @@ import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
 import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
 import CompactDataTable from '@/components/common/CompactDataTable.vue';
 import { useMatchDuration } from '@/composables/useMatchDuration';
+import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
 import type { Match, Court, ScoringConfig } from '@/types';
+import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
 import {
   getGamesNeeded,
@@ -38,9 +41,13 @@ const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
 const notificationStore = useNotificationStore();
 const activityStore = useActivityStore();
+const authStore = useAuthStore();
 const scheduler = useMatchScheduler();
 const { getDurationColor, getMatchDuration } = useMatchDuration();
 const { getParticipantName } = useParticipantResolver();
+
+const isAdmin = computed(() => authStore.isAdmin);
+const showUnlockDialog = ref(false);
 
 
 const tournamentId = computed(() => route.params.tournamentId as string);
@@ -78,6 +85,40 @@ onUnmounted(() => {
 // Filter state
 const selectedCategory = ref<string>('all');
 const viewMode = ref<'queue' | 'courts' | 'schedule' | 'command'>('command');
+
+interface CommandPanelWidths {
+  left: number;
+  middle: number;
+  right: number;
+}
+
+type CommandResizeHandle = 'left-middle' | 'middle-right';
+
+interface CommandResizeState {
+  handle: CommandResizeHandle;
+  startX: number;
+  startWidths: CommandPanelWidths;
+}
+
+const COMMAND_PANEL_DEFAULT_WIDTHS: CommandPanelWidths = {
+  left: 62,
+  middle: 18,
+  right: 20,
+};
+
+const COMMAND_PANEL_MIN_WIDTHS: CommandPanelWidths = {
+  left: 42,
+  middle: 16,
+  right: 16,
+};
+
+const commandLayoutRef = ref<HTMLElement | null>(null);
+const commandPanelWidths = ref<CommandPanelWidths>({ ...COMMAND_PANEL_DEFAULT_WIDTHS });
+const commandResizeState = ref<CommandResizeState | null>(null);
+
+const commandLayoutStyle = computed(() => ({
+  gridTemplateColumns: `${commandPanelWidths.value.left}% 10px ${commandPanelWidths.value.middle}% 10px ${commandPanelWidths.value.right}%`,
+}));
 
 // Schedule view filter state
 const scheduleFilters = ref({
@@ -166,6 +207,77 @@ watch(showAutoScheduleDialog, (newValue) => {
     autoScheduleResult.value = null;
   }
 });
+
+const clampWidth = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
+
+function resetCommandLayout() {
+  commandPanelWidths.value = { ...COMMAND_PANEL_DEFAULT_WIDTHS };
+}
+
+function beginCommandResize(handle: CommandResizeHandle, event: MouseEvent) {
+  if (!commandLayoutRef.value) return;
+
+  commandResizeState.value = {
+    handle,
+    startX: event.clientX,
+    startWidths: { ...commandPanelWidths.value },
+  };
+
+  window.addEventListener('mousemove', handleCommandResize);
+  window.addEventListener('mouseup', stopCommandResize);
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
+
+function handleCommandResize(event: MouseEvent) {
+  if (!commandResizeState.value || !commandLayoutRef.value) return;
+
+  const containerWidth = commandLayoutRef.value.getBoundingClientRect().width;
+  if (containerWidth <= 0) return;
+
+  const deltaPercent = ((event.clientX - commandResizeState.value.startX) / containerWidth) * 100;
+  const { startWidths, handle } = commandResizeState.value;
+
+  if (handle === 'left-middle') {
+    const maxLeft = 100 - startWidths.right - COMMAND_PANEL_MIN_WIDTHS.middle;
+    const nextLeft = clampWidth(
+      startWidths.left + deltaPercent,
+      COMMAND_PANEL_MIN_WIDTHS.left,
+      maxLeft
+    );
+    const nextMiddle = 100 - startWidths.right - nextLeft;
+
+    commandPanelWidths.value = {
+      left: nextLeft,
+      middle: nextMiddle,
+      right: startWidths.right,
+    };
+    return;
+  }
+
+  const maxMiddle = 100 - startWidths.left - COMMAND_PANEL_MIN_WIDTHS.right;
+  const nextMiddle = clampWidth(
+    startWidths.middle + deltaPercent,
+    COMMAND_PANEL_MIN_WIDTHS.middle,
+    maxMiddle
+  );
+  const nextRight = 100 - startWidths.left - nextMiddle;
+
+  commandPanelWidths.value = {
+    left: startWidths.left,
+    middle: nextMiddle,
+    right: nextRight,
+  };
+}
+
+function stopCommandResize() {
+  commandResizeState.value = null;
+  window.removeEventListener('mousemove', handleCommandResize);
+  window.removeEventListener('mouseup', stopCommandResize);
+  document.body.style.removeProperty('cursor');
+  document.body.style.removeProperty('user-select');
+}
 
 // Share links dialog
 const showShareDialog = ref(false);
@@ -557,7 +669,7 @@ const stats = computed(() => {
     ready: allReadyMatches.value.length,
     inProgress: allInProgressMatches.value.length,
     completed: allCompletedMatches.value.length,
-    courtsAvailable: availableCourts.value.length,
+    totalCourts: courts.value.length,
     courtsInUse: courtsInUse.value.length,
   };
 
@@ -678,6 +790,7 @@ onUnmounted(() => {
   tournamentStore.unsubscribeAll();
   matchStore.unsubscribeAll();
   activityStore.unsubscribe();
+  stopCommandResize();
 
   // Clear auto-ready interval
   if (autoReadyInterval) {
@@ -783,7 +896,7 @@ async function confirmReleaseCourt() {
        const match = matches.value.find(m => m.id === court.currentMatchId);
        if (match) {
          console.log('[releaseCourt] Unscheduling match instead of just releasing court');
-         await matchStore.unscheduleMatch(tournamentId.value, match.id, match.categoryId);
+         await matchStore.unscheduleMatch(tournamentId.value, match.id, match.categoryId, court.id);
          notificationStore.showToast('success', 'Court released and match unscheduled');
          return;
        }
@@ -814,6 +927,13 @@ function selectMatchFromQueue(matchId: string) {
     selectedMatch.value = match;
     // Scroll to or highlight the match in the queue
     console.log('[CommandCenter] Selected match from queue:', matchId);
+  }
+}
+
+function openAssignCourtDialogFromQueue(matchId: string) {
+  const match = matches.value.find(m => m.id === matchId);
+  if (match) {
+    openAssignCourtDialog(match);
   }
 }
 
@@ -1044,11 +1164,7 @@ async function submitManualScores() {
       tournamentId.value,
       match.id,
       games,
-      match.categoryId,
-      {
-        p1: match.participant1Id || '',
-        p2: match.participant2Id || '',
-      }
+      match.categoryId
     );
 
     // Log activity if match completed (non-blocking)
@@ -1499,11 +1615,38 @@ function toggleAutoStart(enabled: boolean) {
   }
 }
 
+function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
+  if (!currentState) return 'REG_OPEN';
+  return getNextTournamentState(currentState);
+}
+
+async function advanceState(): Promise<void> {
+  if (!tournament.value?.state) return;
+  const nextState = getNextTournamentState(tournament.value.state);
+  if (nextState) {
+    try {
+      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
+      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
+    } catch (error) {
+      notificationStore.showToast('error', 'Failed to advance tournament state');
+    }
+  }
+}
 
 </script>
 
 <template>
   <div class="match-control-container h-100 d-flex flex-column bg-background">
+    <!-- State Banner -->
+    <StateBanner
+      v-if="tournament"
+      :state="tournament.state || 'DRAFT'"
+      :next-state="getNextState(tournament.state || 'DRAFT')"
+      :is-admin="isAdmin"
+      @advance="advanceState"
+      @unlock="showUnlockDialog = true"
+    />
+
     <!-- Header Toolbar -->
     <v-toolbar
       color="surface"
@@ -1641,11 +1784,11 @@ function toggleAutoStart(enabled: boolean) {
               <v-icon
                 size="14"
                 class="mr-1"
-                :color="stats.courtsInUse === stats.courtsAvailable ? 'error' : 'success'"
+                :color="stats.courtsInUse === stats.totalCourts ? 'error' : 'success'"
               >
                 mdi-circle
               </v-icon>
-              Courts: {{ stats.courtsInUse }} / {{ stats.courtsAvailable }} Busy
+              Busy: {{ stats.courtsInUse }} / Total: {{ stats.totalCourts }}
             </div>
           </div>
 
@@ -1851,14 +1994,34 @@ function toggleAutoStart(enabled: boolean) {
         <!-- TOURNEY-104: Compact Schedule Toggle -->
         <div class="px-4 py-2 bg-surface border-b d-flex align-center justify-space-between">
           <span class="text-body-2 text-grey">{{ filteredMatches.length }} matches</span>
-          <v-btn-toggle v-model="scheduleViewMode" density="compact" variant="outlined" mandatory>
-            <v-btn value="compact" prepend-icon="mdi-view-compact" size="small">Compact</v-btn>
-            <v-btn value="full" prepend-icon="mdi-table" size="small">Full</v-btn>
+          <v-btn-toggle
+            v-model="scheduleViewMode"
+            density="compact"
+            variant="outlined"
+            mandatory
+          >
+            <v-btn
+              value="compact"
+              prepend-icon="mdi-view-compact"
+              size="small"
+            >
+              Compact
+            </v-btn>
+            <v-btn
+              value="full"
+              prepend-icon="mdi-table"
+              size="small"
+            >
+              Full
+            </v-btn>
           </v-btn-toggle>
         </div>
 
         <!-- Schedule Table - Compact View (TOURNEY-104) -->
-        <div v-if="scheduleViewMode === 'compact'" class="flex-grow-1 overflow-auto">
+        <div
+          v-if="scheduleViewMode === 'compact'"
+          class="flex-grow-1 overflow-auto"
+        >
           <compact-data-table
             :items="filteredMatches"
             :columns="[
@@ -1872,19 +2035,32 @@ function toggleAutoStart(enabled: boolean) {
               <div class="d-flex flex-column py-1">
                 <div class="d-flex align-center gap-2 mb-1">
                   <span class="text-caption text-grey">#{{ item.id }}</span>
-                  <v-chip size="x-small" variant="outlined" density="compact">
+                  <v-chip
+                    size="x-small"
+                    variant="outlined"
+                    density="compact"
+                  >
                     {{ getCategoryName(item.categoryId) }}
                   </v-chip>
                 </div>
                 <div class="d-flex flex-column">
-                  <span :class="{'font-weight-bold text-success': item.winnerId === item.participant1Id}" class="text-body-2">
+                  <span
+                    :class="{'font-weight-bold text-success': item.winnerId === item.participant1Id}"
+                    class="text-body-2"
+                  >
                     {{ getParticipantName(item.participant1Id) }}
                   </span>
-                  <span :class="{'font-weight-bold text-success': item.winnerId === item.participant2Id}" class="text-body-2">
+                  <span
+                    :class="{'font-weight-bold text-success': item.winnerId === item.participant2Id}"
+                    class="text-body-2"
+                  >
                     {{ getParticipantName(item.participant2Id) }}
                   </span>
                 </div>
-                <div v-if="item.scores && item.scores.length > 0" class="mt-1">
+                <div
+                  v-if="item.scores && item.scores.length > 0"
+                  class="mt-1"
+                >
                   <span class="font-mono text-caption text-grey">
                     {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
                   </span>
@@ -1905,13 +2081,23 @@ function toggleAutoStart(enabled: boolean) {
             </template>
 
             <template #cell-court="{ item }">
-              <div v-if="item.courtId" class="d-flex align-center">
-                <v-icon size="small" :color="item.status === 'in_progress' ? 'success' : 'grey'" class="mr-1">
+              <div
+                v-if="item.courtId"
+                class="d-flex align-center"
+              >
+                <v-icon
+                  size="small"
+                  :color="item.status === 'in_progress' ? 'success' : 'grey'"
+                  class="mr-1"
+                >
                   mdi-court-sport
                 </v-icon>
                 <span class="text-body-2">{{ getCourtName(item.courtId) }}</span>
               </div>
-              <span v-else class="text-grey-lighten-1 text-caption">-</span>
+              <span
+                v-else
+                class="text-grey-lighten-1 text-caption"
+              >-</span>
             </template>
 
             <template #actions="{ item }">
@@ -1938,10 +2124,19 @@ function toggleAutoStart(enabled: boolean) {
                 </v-btn>
                 <v-menu>
                   <template #activator="{ props }">
-                    <v-btn icon="mdi-dots-vertical" variant="text" size="small" v-bind="props" />
+                    <v-btn
+                      icon="mdi-dots-vertical"
+                      variant="text"
+                      size="small"
+                      v-bind="props"
+                    />
                   </template>
                   <v-list density="compact">
-                    <v-list-item prepend-icon="mdi-pencil" title="Edit Schedule" @click="openScheduleDialog(item)" />
+                    <v-list-item
+                      prepend-icon="mdi-pencil"
+                      title="Edit Schedule"
+                      @click="openScheduleDialog(item)"
+                    />
                     <v-list-item 
                       v-if="item.status !== 'completed' && item.status !== 'walkover'"
                       prepend-icon="mdi-flag-checkered" 
@@ -1960,7 +2155,7 @@ function toggleAutoStart(enabled: boolean) {
               </div>
             </template>
 
-            <template #details="{ item, handleAction }">
+            <template #details="{ item }">
               <div class="d-flex flex-wrap gap-4 text-body-2">
                 <div><strong>Match:</strong> {{ getBracketCode(item) }}-{{ item.matchNumber }}</div>
                 <div><strong>Round:</strong> {{ item.round }}</div>
@@ -1979,7 +2174,10 @@ function toggleAutoStart(enabled: boolean) {
         </div>
 
         <!-- Schedule Table - Full View (Legacy) -->
-        <div v-else class="flex-grow-1 overflow-auto">
+        <div
+          v-else
+          class="flex-grow-1 overflow-auto"
+        >
           <v-data-table
             :items="filteredMatches"
             :headers="[
@@ -2171,22 +2369,36 @@ function toggleAutoStart(enabled: boolean) {
         v-else-if="viewMode === 'command'"
         class="fill-height d-flex flex-column bg-background"
       >
-        <v-row class="fill-height ma-0" no-gutters>
-          <!-- LEFT PANEL: Court Grid (Flexible) -->
-          <v-col
-            cols="12"
-            md="6"
-            lg="7"
-            class="d-flex flex-column border-e fill-height"
-          >
+        <div
+          ref="commandLayoutRef"
+          class="command-layout fill-height"
+          :style="commandLayoutStyle"
+        >
+          <!-- LEFT PANEL: Court Grid -->
+          <div class="command-panel command-panel--courts d-flex flex-column fill-height">
             <div class="px-3 py-2 bg-surface border-b d-flex align-center">
-              <v-icon size="20" class="mr-2" color="primary">mdi-stadium</v-icon>
+              <v-icon
+                size="20"
+                class="mr-2"
+                color="primary"
+              >
+                mdi-stadium
+              </v-icon>
               <span class="font-weight-medium">Courts</span>
-              <v-spacer></v-spacer>
-              <v-chip size="x-small" variant="tonal" color="success">
+              <v-spacer />
+              <v-chip
+                size="x-small"
+                variant="tonal"
+                color="success"
+              >
                 {{ courts.filter(c => c.status === 'available').length }} Available
               </v-chip>
-              <v-chip size="x-small" variant="tonal" color="info" class="ml-1">
+              <v-chip
+                size="x-small"
+                variant="tonal"
+                color="info"
+                class="ml-1"
+              >
                 {{ courts.filter(c => c.status === 'in_use').length }} In Use
               </v-chip>
             </div>
@@ -2201,31 +2413,42 @@ function toggleAutoStart(enabled: boolean) {
                 @release="releaseCourt"
               />
             </div>
-          </v-col>
+          </div>
+
+          <button
+            type="button"
+            class="command-resizer"
+            aria-label="Resize courts and ready queue panels"
+            @mousedown="beginCommandResize('left-middle', $event)"
+            @dblclick="resetCommandLayout"
+          >
+            <span class="command-resizer__grip" />
+          </button>
 
           <!-- MIDDLE PANEL: Ready Queue -->
-          <v-col
-            cols="12"
-            md="3"
-            lg="2"
-            class="d-flex flex-column border-e fill-height hidden-sm-and-down"
-          >
+          <div class="command-panel command-panel--queue d-flex flex-column fill-height">
             <ready-queue
               :matches="matches.filter(m => m.status === 'ready' || m.status === 'scheduled')"
+              :categories="categories"
               :get-participant-name="getParticipantName"
               :get-category-name="getCategoryName"
               @select="selectMatchFromQueue"
-              @assign="openAssignCourtDialog"
+              @assign="openAssignCourtDialogFromQueue"
             />
-          </v-col>
+          </div>
+
+          <button
+            type="button"
+            class="command-resizer"
+            aria-label="Resize ready queue and alerts panels"
+            @mousedown="beginCommandResize('middle-right', $event)"
+            @dblclick="resetCommandLayout"
+          >
+            <span class="command-resizer__grip" />
+          </button>
 
           <!-- RIGHT PANEL: Alerts -->
-          <v-col
-            cols="12"
-            md="3"
-            lg="3"
-            class="d-flex flex-column fill-height hidden-sm-and-down"
-          >
+          <div class="command-panel command-panel--alerts d-flex flex-column fill-height">
             <alerts-panel
               :courts="courts"
               :matches="matches"
@@ -2235,8 +2458,8 @@ function toggleAutoStart(enabled: boolean) {
               @view-match="openScoreDialog"
               @release-court="releaseCourt"
             />
-          </v-col>
-        </v-row>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2668,6 +2891,65 @@ function toggleAutoStart(enabled: boolean) {
 
 .match-control-container {
   height: calc(100vh - 64px); // Adjust based on app header
+}
+
+.command-layout {
+  display: grid;
+  min-height: 0;
+  width: 100%;
+}
+
+.command-panel {
+  min-width: 0;
+  min-height: 0;
+}
+
+.command-panel--courts,
+.command-panel--queue {
+  border-right: 1px solid rgba($border, 0.8);
+}
+
+.command-resizer {
+  border: 0;
+  border-left: 1px solid rgba($border, 0.8);
+  border-right: 1px solid rgba($border, 0.8);
+  background-color: rgba($primary-base, 0.03);
+  cursor: col-resize;
+  padding: 0;
+  width: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.command-resizer:hover,
+.command-resizer:focus-visible {
+  background-color: rgba($primary-base, 0.12);
+  outline: none;
+}
+
+.command-resizer__grip {
+  width: 2px;
+  height: 24px;
+  border-radius: 999px;
+  background-color: rgba($primary-base, 0.45);
+}
+
+@media (max-width: 960px) {
+  .command-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .command-panel--queue,
+  .command-panel--alerts,
+  .command-resizer {
+    display: none;
+  }
+
+  .command-panel--courts {
+    border-right: 0;
+  }
 }
 
 .court-card {

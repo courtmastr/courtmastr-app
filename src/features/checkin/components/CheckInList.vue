@@ -163,27 +163,38 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="listRef" class="checkin-list">
+  <div
+    ref="listRef"
+    class="checkin-list"
+  >
     <!-- Header Row -->
     <div class="checkin-list__header d-flex align-center pa-3 bg-surface border-b">
       <v-checkbox-btn
         :model-value="allSelected"
         :indeterminate="someSelected"
-        @update:model-value="toggleSelectAll"
         density="compact"
         hide-details
+        @update:model-value="toggleSelectAll"
       />
       <span class="text-body-2 font-weight-medium ml-2">
         Select all ({{ registrations.length }})
       </span>
       <v-spacer />
-      <v-chip v-if="selectedIds.length > 0" size="small" color="primary" variant="tonal">
+      <v-chip
+        v-if="selectedIds.length > 0"
+        size="small"
+        color="primary"
+        variant="tonal"
+      >
         {{ selectedIds.length }} selected
       </v-chip>
     </div>
 
     <!-- List Items -->
-    <div v-if="registrations.length > 0" class="checkin-list__items">
+    <div
+      v-if="registrations.length > 0"
+      class="checkin-list__items"
+    >
       <check-in-row
         v-for="(registration, index) in registrations"
         :key="registration.id"

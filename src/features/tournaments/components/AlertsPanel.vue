@@ -69,13 +69,13 @@ const alerts = computed((): Alert[] => {
   for (const match of inProgressMatches) {
     const startTime = match.startedAt instanceof Date 
       ? match.startedAt 
-      : new Date(match.startedAt);
+      : match.startedAt ? new Date(match.startedAt) : new Date();
     const durationMinutes = (now.value.getTime() - startTime.getTime()) / (1000 * 60);
     
     if (durationMinutes > props.lateThresholdMinutes) {
       const court = props.courts.find(c => c.id === match.courtId);
       result.push({
-        id: `late-${match.id}`,
+        id: `late-${match.categoryId}-${match.id}`,
         type: 'late_match',
         severity: 'warning',
         title: 'Match Running Long',
@@ -90,15 +90,15 @@ const alerts = computed((): Alert[] => {
   
   for (const match of readyMatches) {
     // If match has been ready for a while
-    const readyTime = match.readyAt instanceof Date 
-      ? match.readyAt 
-      : match.readyAt ? new Date(match.readyAt) : null;
+    const readyTime = match.updatedAt instanceof Date 
+      ? match.updatedAt 
+      : match.updatedAt ? new Date(match.updatedAt) : null;
     
     if (readyTime) {
       const waitMinutes = (now.value.getTime() - readyTime.getTime()) / (1000 * 60);
       if (waitMinutes > props.idleThresholdMinutes) {
         result.push({
-          id: `unassigned-${match.id}`,
+          id: `unassigned-${match.categoryId}-${match.id}`,
           type: 'unassigned_ready',
           severity: 'warning',
           title: 'Match Waiting for Court',
@@ -109,7 +109,7 @@ const alerts = computed((): Alert[] => {
     } else {
       // No ready timestamp - still show as waiting
       result.push({
-        id: `unassigned-${match.id}`,
+        id: `unassigned-${match.categoryId}-${match.id}`,
         type: 'unassigned_ready',
         severity: 'info',
         title: 'Match Ready for Court',
@@ -184,11 +184,15 @@ function handleAlertClick(alert: Alert) {
   <div class="alerts-panel">
     <!-- Header -->
     <div class="alerts-panel__header d-flex align-center px-3 py-2 bg-surface border-b">
-      <v-icon size="20" class="mr-2" :color="errorCount > 0 ? 'error' : warningCount > 0 ? 'warning' : 'info'">
+      <v-icon
+        size="20"
+        class="mr-2"
+        :color="errorCount > 0 ? 'error' : warningCount > 0 ? 'warning' : 'info'"
+      >
         mdi-bell
       </v-icon>
       <span class="font-weight-medium">Alerts</span>
-      <v-spacer></v-spacer>
+      <v-spacer />
       <v-chip 
         v-if="alertCount > 0" 
         size="x-small" 
@@ -197,21 +201,36 @@ function handleAlertClick(alert: Alert) {
       >
         {{ alertCount }}
       </v-chip>
-      <v-chip v-else size="x-small" variant="tonal" color="success">
+      <v-chip
+        v-else
+        size="x-small"
+        variant="tonal"
+        color="success"
+      >
         All Good
       </v-chip>
     </div>
 
     <!-- Alerts List -->
-    <v-list density="compact" class="alerts-panel__list pa-0">
-      <template v-for="(alert, index) in alerts" :key="alert.id">
+    <v-list
+      density="compact"
+      class="alerts-panel__list pa-0"
+    >
+      <template
+        v-for="(alert, index) in alerts"
+        :key="alert.id"
+      >
         <v-list-item
           :class="['alerts-panel__item', `alerts-panel__item--${alert.severity}`]"
           @click="handleAlertClick(alert)"
         >
           <template #prepend>
-            <v-icon :icon="getAlertIcon(alert.type)" :color="getAlertColor(alert.severity)" size="20" class="mr-2">
-            </v-icon>
+            <v-icon
+              :icon="getAlertIcon(alert.type)"
+              :color="getAlertColor(alert.severity)"
+              size="20"
+              class="mr-2"
+            />
           </template>
 
           <v-list-item-title class="text-body-2 font-weight-medium">
@@ -223,19 +242,29 @@ function handleAlertClick(alert: Alert) {
           </v-list-item-subtitle>
 
           <template #append>
-            <v-icon size="16" color="grey-lighten-1">
+            <v-icon
+              size="16"
+              color="grey-lighten-1"
+            >
               mdi-chevron-right
             </v-icon>
           </template>
         </v-list-item>
 
-        <v-divider v-if="index < alerts.length - 1"></v-divider>
+        <v-divider v-if="index < alerts.length - 1" />
       </template>
     </v-list>
 
     <!-- Empty State -->
-    <div v-if="alerts.length === 0" class="alerts-panel__empty text-center pa-6">
-      <v-icon size="40" color="success" class="mb-3">
+    <div
+      v-if="alerts.length === 0"
+      class="alerts-panel__empty text-center pa-6"
+    >
+      <v-icon
+        size="40"
+        color="success"
+        class="mb-3"
+      >
         mdi-check-circle
       </v-icon>
       <div class="text-body-2 text-medium-emphasis">

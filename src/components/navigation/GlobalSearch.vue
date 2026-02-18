@@ -1,6 +1,9 @@
 <template>
   <div class="global-search pa-4">
-    <v-tooltip text="Global search: Find tournaments and navigate to pages" location="bottom">
+    <v-tooltip
+      text="Global search: Find tournaments and navigate to pages"
+      location="bottom"
+    >
       <template #activator="{ props: tooltipProps }">
         <v-autocomplete
           v-bind="tooltipProps"

@@ -10,15 +10,40 @@ import {
   normalizeTournamentState,
   assertCanEditScoring,
   isScoringLocked,
+  getNextTournamentState,
+  type TournamentLifecycleState,
 } from '@/guards/tournamentState';
 import { sanitizeScoringConfig } from '@/features/scoring/utils/validation';
+import StateBanner from '@/features/tournaments/components/StateBanner.vue';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
 const router = useRouter();
 const tournamentStore = useTournamentStore();
 const notificationStore = useNotificationStore();
+const authStore = useAuthStore();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
+const isAdmin = computed(() => authStore.isAdmin);
+const showUnlockDialog = ref(false);
+
+function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
+  if (!currentState) return 'REG_OPEN';
+  return getNextTournamentState(currentState);
+}
+
+async function advanceState(): Promise<void> {
+  if (!tournament.value?.state) return;
+  const nextState = getNextTournamentState(tournament.value.state);
+  if (nextState) {
+    try {
+      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
+      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
+    } catch (error) {
+      notificationStore.showToast('error', 'Failed to advance tournament state');
+    }
+  }
+}
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const courts = computed(() => tournamentStore.courts);
@@ -318,6 +343,16 @@ async function confirmDelete() {
             </p>
           </div>
         </div>
+
+        <!-- State Banner -->
+        <StateBanner
+          v-if="tournament"
+          :state="tournament.state || 'DRAFT'"
+          :next-state="getNextState(tournament.state || 'DRAFT')"
+          :is-admin="isAdmin"
+          @advance="advanceState"
+          @unlock="showUnlockDialog = true"
+        />
 
         <!-- Basic Info -->
         <v-card class="mb-4">
@@ -631,7 +666,10 @@ async function confirmDelete() {
                     />
 
                     <v-row>
-                      <v-col cols="12" md="6">
+                      <v-col
+                        cols="12"
+                        md="6"
+                      >
                         <v-select
                           v-model="categoryScoringOverrides[category.id].config.gamesPerMatch"
                           :items="gamesOptions"
@@ -644,7 +682,10 @@ async function confirmDelete() {
                           @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
                         />
                       </v-col>
-                      <v-col cols="12" md="6">
+                      <v-col
+                        cols="12"
+                        md="6"
+                      >
                         <v-text-field
                           v-model.number="categoryScoringOverrides[category.id].config.pointsToWin"
                           label="Points to Win"
@@ -659,7 +700,10 @@ async function confirmDelete() {
                     </v-row>
 
                     <v-row>
-                      <v-col cols="12" md="6">
+                      <v-col
+                        cols="12"
+                        md="6"
+                      >
                         <v-text-field
                           v-model.number="categoryScoringOverrides[category.id].config.mustWinBy"
                           label="Win By"
@@ -671,7 +715,10 @@ async function confirmDelete() {
                           @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
                         />
                       </v-col>
-                      <v-col cols="12" md="6">
+                      <v-col
+                        cols="12"
+                        md="6"
+                      >
                         <v-text-field
                           :model-value="categoryScoringOverrides[category.id].config.maxPoints ?? ''"
                           label="Max Points Cap"

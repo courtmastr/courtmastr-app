@@ -94,7 +94,12 @@ const formattedDuration = computed(() => {
     <!-- Header: Court Name & Status -->
     <v-card-item class="pa-2 pb-1">
       <template #prepend>
-        <v-icon :color="statusColor" size="20">mdi-badminton</v-icon>
+        <v-icon
+          :color="statusColor"
+          size="20"
+        >
+          mdi-badminton
+        </v-icon>
       </template>
       <v-card-title class="text-subtitle-2 font-weight-bold px-0">
         {{ court.name }}
@@ -113,7 +118,10 @@ const formattedDuration = computed(() => {
 
     <!-- Match Info -->
     <v-card-text class="pa-2 pt-0">
-      <div v-if="hasMatch" class="match-info">
+      <div
+        v-if="hasMatch"
+        class="match-info"
+      >
         <!-- Match Status Badge -->
         <div class="d-flex align-center mb-2">
           <v-chip
@@ -125,7 +133,10 @@ const formattedDuration = computed(() => {
           >
             {{ matchStatusLabel }}
           </v-chip>
-          <span v-if="matchDuration && matchDuration > 0" class="text-caption text-medium-emphasis">
+          <span
+            v-if="matchDuration && matchDuration > 0"
+            class="text-caption text-medium-emphasis"
+          >
             {{ formattedDuration }}
           </span>
         </div>
@@ -135,22 +146,38 @@ const formattedDuration = computed(() => {
           <div class="player-name text-truncate font-weight-medium">
             {{ participant1Name || 'TBD' }}
           </div>
-          <div class="vs text-caption text-medium-emphasis my-1">vs</div>
+          <div class="vs text-caption text-medium-emphasis my-1">
+            vs
+          </div>
           <div class="player-name text-truncate font-weight-medium">
             {{ participant2Name || 'TBD' }}
           </div>
         </div>
 
         <!-- Category -->
-        <div v-if="categoryName" class="text-caption text-medium-emphasis mt-2 text-truncate">
+        <div
+          v-if="categoryName"
+          class="text-caption text-medium-emphasis mt-2 text-truncate"
+        >
           {{ categoryName }}
         </div>
       </div>
 
       <!-- Empty State -->
-      <div v-else class="empty-state text-center py-4">
-        <v-icon size="32" color="grey-lighten-1" class="mb-2">mdi-badminton</v-icon>
-        <div class="text-caption text-medium-emphasis">No match assigned</div>
+      <div
+        v-else
+        class="empty-state text-center py-4"
+      >
+        <v-icon
+          size="32"
+          color="grey-lighten-1"
+          class="mb-2"
+        >
+          mdi-badminton
+        </v-icon>
+        <div class="text-caption text-medium-emphasis">
+          No match assigned
+        </div>
       </div>
     </v-card-text>
 

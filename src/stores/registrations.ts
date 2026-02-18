@@ -17,6 +17,8 @@ import {
   Timestamp,
 } from '@/services/firebase';
 import type { Registration, RegistrationStatus, Player } from '@/types';
+import { useAuditStore } from '@/stores/audit';
+import { useAuthStore } from '@/stores/auth';
 
 export const useRegistrationStore = defineStore('registrations', () => {
   // State
@@ -332,7 +334,22 @@ export const useRegistrationStore = defineStore('registrations', () => {
     tournamentId: string,
     registrationId: string
   ): Promise<void> {
+    const registration = registrations.value.find(r => r.id === registrationId);
+    const participantName = registration?.teamName || registration?.playerId || registrationId;
+
     await updateRegistrationStatus(tournamentId, registrationId, 'checked_in');
+
+    const auditStore = useAuditStore();
+    const authStore = useAuthStore();
+    const actor = authStore.currentUser;
+
+    if (actor) {
+      await auditStore.logRegistrationCheckedIn(
+        tournamentId,
+        registrationId,
+        participantName
+      );
+    }
   }
 
   // Undo check-in (return to approved)
@@ -341,7 +358,22 @@ export const useRegistrationStore = defineStore('registrations', () => {
     registrationId: string,
     approvedBy?: string
   ): Promise<void> {
+    const registration = registrations.value.find(r => r.id === registrationId);
+    const participantName = registration?.teamName || registration?.playerId || registrationId;
+
     await updateRegistrationStatus(tournamentId, registrationId, 'approved', approvedBy);
+
+    const auditStore = useAuditStore();
+    const authStore = useAuthStore();
+    const actor = authStore.currentUser;
+
+    if (actor) {
+      await auditStore.logRegistrationCheckedInUndo(
+        tournamentId,
+        registrationId,
+        participantName
+      );
+    }
   }
 
   // Withdraw registration

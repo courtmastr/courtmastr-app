@@ -106,6 +106,12 @@ export function useNavigation() {
           icon: 'mdi-account-multiple',
           to: `/tournaments/${tournamentId}/registrations`,
           allowed: isAdmin.value || isOrganizer.value,
+        },
+        {
+          title: 'Participants',
+          icon: 'mdi-account-group',
+          to: `/tournaments/${tournamentId}/participants`,
+          allowed: isAdmin.value || isOrganizer.value,
         }
       );
     }

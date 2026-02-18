@@ -32,7 +32,12 @@ function handleAction(action: string) {
       :class="{ 'expandable-row__main--expanded': isOpen }"
       @click="toggle"
     >
-      <slot name="main" :item="item" :toggle="toggle" :is-open="isOpen" />
+      <slot
+        name="main"
+        :item="item"
+        :toggle="toggle"
+        :is-open="isOpen"
+      />
       
       <!-- Expand/Collapse Icon -->
       <v-btn
@@ -50,9 +55,16 @@ function handleAction(action: string) {
 
     <!-- Expanded Details (collapsible) -->
     <v-expand-transition>
-      <div v-show="isOpen" class="expandable-row__details bg-grey-lighten-4">
+      <div
+        v-show="isOpen"
+        class="expandable-row__details bg-grey-lighten-4"
+      >
         <div class="pa-3">
-          <slot name="details" :item="item" :handle-action="handleAction" />
+          <slot
+            name="details"
+            :item="item"
+            :handle-action="handleAction"
+          />
         </div>
       </div>
     </v-expand-transition>

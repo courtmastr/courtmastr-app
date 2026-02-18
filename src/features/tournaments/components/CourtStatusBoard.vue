@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { differenceInMinutes, format } from 'date-fns';
+import { computed } from 'vue';
+import { differenceInMinutes } from 'date-fns';
+import CourtSummary from './CourtSummary.vue';
 
 interface Court {
   id: string;
@@ -25,6 +27,9 @@ const props = defineProps<{
   availableCourts: Court[];
   nextQueuedMatch: Match | null;
 }>();
+
+const busyCourts = computed(() => props.courts.filter(c => c.status === 'in_use').length);
+const idleCourts = computed(() => props.availableCourts.length);
 
 const emit = defineEmits<{
   assignNext: [courtId: string];
@@ -66,13 +71,11 @@ function getParticipantNames(match: Match): string {
       </v-icon>
       Court Status
       <v-spacer />
-      <v-chip
-        size="small"
-        color="success"
-        variant="tonal"
-      >
-        {{ availableCourts.length }}/{{ courts.length }} Available
-      </v-chip>
+      <CourtSummary
+        :busy-courts="busyCourts"
+        :total-courts="courts.length"
+        :idle-courts="idleCourts"
+      />
     </v-card-title>
 
     <v-divider />

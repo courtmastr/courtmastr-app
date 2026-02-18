@@ -21,6 +21,9 @@ const Participants = () => import('@/features/registration/views/ParticipantsVie
 // Leaderboard view
 const Leaderboard = () => import('@/features/tournaments/views/LeaderboardView.vue');
 
+// Admin views
+const AuditLogView = () => import('@/features/admin/views/AuditLogView.vue');
+
 // Scoring views
 const ScoringInterface = () => import('@/features/scoring/views/ScoringInterfaceView.vue');
 const MatchList = () => import('@/features/scoring/views/MatchListView.vue');
@@ -163,6 +166,14 @@ const routes: RouteRecordRaw[] = [
     name: 'scoring-interface',
     component: ScoringInterface,
     meta: { requiresAuth: true, requiresScorekeeper: true },
+  },
+
+  // Audit log route (admin only)
+  {
+    path: '/tournaments/:tournamentId/audit',
+    name: 'tournament-audit',
+    component: AuditLogView,
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
 
   // Leaderboard routes

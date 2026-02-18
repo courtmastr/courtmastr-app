@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Match } from '@/types';
+import type { Match, Category } from '@/types';
+import { useMatchIdentification } from '@/composables/useMatchIdentification';
 
 interface Props {
   matches: Match[];
+  categories: Category[];
   getParticipantName: (id: string | undefined) => string;
   getCategoryName: (id: string) => string;
   selectedMatchId?: string | null;
 }
+
+const { formatMatchNumber } = useMatchIdentification();
 
 const props = defineProps<Props>();
 
@@ -64,20 +68,42 @@ function isSelected(matchId: string): boolean {
   <div class="ready-queue">
     <!-- Header -->
     <div class="ready-queue__header d-flex align-center px-3 py-2 bg-surface border-b">
-      <v-icon size="20" class="mr-2" color="warning">mdi-playlist-play</v-icon>
+      <v-icon
+        size="20"
+        class="mr-2"
+        color="warning"
+      >
+        mdi-playlist-play
+      </v-icon>
       <span class="font-weight-medium">Ready Queue</span>
-      <v-spacer></v-spacer>
-      <v-chip size="x-small" variant="tonal" color="warning" class="mr-1">
+      <v-spacer />
+      <v-chip
+        size="x-small"
+        variant="tonal"
+        color="warning"
+        class="mr-1"
+      >
         {{ readyCount }} ready
       </v-chip>
-      <v-chip v-if="scheduledCount > 0" size="x-small" variant="tonal" color="info">
+      <v-chip
+        v-if="scheduledCount > 0"
+        size="x-small"
+        variant="tonal"
+        color="info"
+      >
         {{ scheduledCount }} scheduled
       </v-chip>
     </div>
 
     <!-- Queue List -->
-    <v-list density="compact" class="ready-queue__list pa-0">
-      <template v-for="(match, index) in sortedMatches" :key="match.id">
+    <v-list
+      density="compact"
+      class="ready-queue__list pa-0"
+    >
+      <template
+        v-for="(match, index) in sortedMatches"
+        :key="match.id"
+      >
         <v-list-item
           :class="['ready-queue__item', { 'ready-queue__item--selected': isSelected(match.id) }]"
           :active="isSelected(match.id)"
@@ -98,7 +124,15 @@ function isSelected(matchId: string): boolean {
             </div>
           </template>
 
-          <v-list-item-title class="text-body-2 font-weight-medium">
+          <v-list-item-title class="text-body-2 font-weight-medium d-flex align-center">
+            <v-chip
+              size="x-small"
+              variant="outlined"
+              color="primary"
+              class="mr-2"
+            >
+              {{ formatMatchNumber(match, categories) }}
+            </v-chip>
             {{ getParticipantName(match.participant1Id) }}
           </v-list-item-title>
           
@@ -126,14 +160,25 @@ function isSelected(matchId: string): boolean {
           </template>
         </v-list-item>
 
-        <v-divider v-if="index < sortedMatches.length - 1"></v-divider>
+        <v-divider v-if="index < sortedMatches.length - 1" />
       </template>
     </v-list>
 
     <!-- Empty State -->
-    <div v-if="sortedMatches.length === 0" class="ready-queue__empty text-center pa-6">
-      <v-icon size="40" color="grey-lighten-1" class="mb-3">mdi-playlist-check</v-icon>
-      <div class="text-body-2 text-medium-emphasis">No matches ready</div>
+    <div
+      v-if="sortedMatches.length === 0"
+      class="ready-queue__empty text-center pa-6"
+    >
+      <v-icon
+        size="40"
+        color="grey-lighten-1"
+        class="mb-3"
+      >
+        mdi-playlist-check
+      </v-icon>
+      <div class="text-body-2 text-medium-emphasis">
+        No matches ready
+      </div>
       <div class="text-caption text-medium-emphasis mt-1">
         All caught up!
       </div>

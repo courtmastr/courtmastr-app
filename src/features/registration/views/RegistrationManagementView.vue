@@ -7,7 +7,9 @@ import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import FilterBar from '@/components/common/FilterBar.vue';
 import CompactDataTable from '@/components/common/CompactDataTable.vue';
+import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { FORMAT_LABELS } from '@/types';
+import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
 
 const route = useRoute();
 const router = useRouter();
@@ -759,10 +761,41 @@ const canApprove = computed(() => {
     return reg?.status === 'pending';
   });
 });
+
+const isAdmin = computed(() => authStore.isAdmin);
+const showUnlockDialog = ref(false);
+
+function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
+  if (!currentState) return 'REG_OPEN';
+  return getNextTournamentState(currentState);
+}
+
+async function advanceState(): Promise<void> {
+  if (!tournament.value?.state) return;
+  const nextState = getNextTournamentState(tournament.value.state);
+  if (nextState) {
+    try {
+      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
+      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
+    } catch (error) {
+      notificationStore.showToast('error', 'Failed to advance tournament state');
+    }
+  }
+}
 </script>
 
 <template>
   <v-container fluid>
+    <!-- State Banner -->
+    <StateBanner
+      v-if="tournament"
+      :state="tournament.state || 'DRAFT'"
+      :next-state="getNextState(tournament.state || 'DRAFT')"
+      :is-admin="isAdmin"
+      @advance="advanceState"
+      @unlock="showUnlockDialog = true"
+    />
+
     <!-- Header -->
     <!-- Compact Header -->
     <div class="compact-header mb-6">
@@ -1327,7 +1360,8 @@ const canApprove = computed(() => {
             </template>
             <template #details="{ item }">
               <div class="d-flex flex-wrap gap-4 text-body-2">
-                <div><strong>Payment:</strong> 
+                <div>
+                  <strong>Payment:</strong> 
                   <v-chip
                     :color="getPaymentColor(item.paymentStatus)"
                     size="small"
@@ -1337,7 +1371,9 @@ const canApprove = computed(() => {
                     {{ item.paymentStatus || 'unpaid' }}
                   </v-chip>
                 </div>
-                <div v-if="item.seed"><strong>Seed:</strong> #{{ item.seed }}</div>
+                <div v-if="item.seed">
+                  <strong>Seed:</strong> #{{ item.seed }}
+                </div>
                 <div><strong>Registered:</strong> {{ formatDate(item.createdAt) }}</div>
               </div>
             </template>

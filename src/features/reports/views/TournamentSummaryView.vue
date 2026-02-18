@@ -255,8 +255,23 @@ function exportSummaryCsv(): void {
       >
         <v-card>
           <v-card-text>
-            <div class="text-caption text-grey">
+            <div class="text-caption text-grey d-flex align-center">
               Registrations
+              <v-tooltip
+                text="Total number of players/teams registered for this tournament"
+                location="top"
+              >
+                <template #activator="{ props }">
+                  <v-icon
+                    size="14"
+                    color="medium-emphasis"
+                    class="ml-1"
+                    v-bind="props"
+                  >
+                    mdi-information-outline
+                  </v-icon>
+                </template>
+              </v-tooltip>
             </div>
             <div class="text-h5 font-weight-bold">
               {{ summary.totalRegistrations }}
@@ -274,8 +289,23 @@ function exportSummaryCsv(): void {
       >
         <v-card>
           <v-card-text>
-            <div class="text-caption text-grey">
+            <div class="text-caption text-grey d-flex align-center">
               Participation Rate
+              <v-tooltip
+                text="Percentage of approved registrants who checked in to the tournament"
+                location="top"
+              >
+                <template #activator="{ props }">
+                  <v-icon
+                    size="14"
+                    color="medium-emphasis"
+                    class="ml-1"
+                    v-bind="props"
+                  >
+                    mdi-information-outline
+                  </v-icon>
+                </template>
+              </v-tooltip>
             </div>
             <div class="text-h5 font-weight-bold">
               {{ summary.participationRate }}%
@@ -290,8 +320,23 @@ function exportSummaryCsv(): void {
       >
         <v-card>
           <v-card-text>
-            <div class="text-caption text-grey">
+            <div class="text-caption text-grey d-flex align-center">
               Match Completion
+              <v-tooltip
+                text="Percentage of all matches that have been completed or won by walkover"
+                location="top"
+              >
+                <template #activator="{ props }">
+                  <v-icon
+                    size="14"
+                    color="medium-emphasis"
+                    class="ml-1"
+                    v-bind="props"
+                  >
+                    mdi-information-outline
+                  </v-icon>
+                </template>
+              </v-tooltip>
             </div>
             <div class="text-h5 font-weight-bold">
               {{ summary.completionRate }}%
@@ -309,8 +354,23 @@ function exportSummaryCsv(): void {
       >
         <v-card>
           <v-card-text>
-            <div class="text-caption text-grey">
+            <div class="text-caption text-grey d-flex align-center">
               Court Utilization
+              <v-tooltip
+                text="Percentage of available courts that have been used for at least one match"
+                location="top"
+              >
+                <template #activator="{ props }">
+                  <v-icon
+                    size="14"
+                    color="medium-emphasis"
+                    class="ml-1"
+                    v-bind="props"
+                  >
+                    mdi-information-outline
+                  </v-icon>
+                </template>
+              </v-tooltip>
             </div>
             <div class="text-h5 font-weight-bold">
               {{ summary.courtUtilizationRate }}%

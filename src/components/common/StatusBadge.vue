@@ -59,7 +59,7 @@ const statusConfig = computed(() => {
     }
   }
   
-  // General statuses
+  // General statuses (tournament states)
   switch (normalizedStatus) {
     case 'active':
       return { color: 'success', label: 'Active', icon: 'mdi-check-circle' };
@@ -67,6 +67,12 @@ const statusConfig = computed(() => {
       return { color: 'error', label: 'Inactive', icon: 'mdi-close-circle' };
     case 'draft':
       return { color: 'grey', label: 'Draft', icon: 'mdi-pencil' };
+    case 'registration':
+      return { color: 'info', label: 'Registration', icon: 'mdi-account-plus' };
+    case 'completed':
+      return { color: 'secondary', label: 'Completed', icon: 'mdi-trophy' };
+    case 'cancelled':
+      return { color: 'error', label: 'Cancelled', icon: 'mdi-close-circle' };
     case 'locked':
       return { color: 'warning', label: 'Locked', icon: 'mdi-lock' };
     default:

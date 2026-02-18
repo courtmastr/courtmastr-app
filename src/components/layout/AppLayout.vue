@@ -25,14 +25,10 @@ const showBreadcrumbs = computed(() => {
 });
 
 const showContextualNav = computed(() => {
-  const publicTournamentRoutes = ['self-registration', 'public-bracket', 'public-live-scores', 'public-scoring'];
-  const routeName = route.name as string | undefined;
-
   return Boolean(
     isAuthenticated.value &&
     route.params.tournamentId &&
-    routeName &&
-    !publicTournamentRoutes.includes(routeName)
+    route.name === 'tournament-dashboard'
   );
 });
 

@@ -307,6 +307,53 @@ export interface Notification {
   createdAt: Date;
 }
 
+// Audit Log Types
+export type AuditAction =
+  | 'score_submit'
+  | 'score_edit'
+  | 'match_complete'
+  | 'check_in'
+  | 'check_in_undo'
+  | 'no_show_mark'
+  | 'no_show_restore'
+  | 'court_assign'
+  | 'court_release'
+  | 'tournament_state_change'
+  | 'tournament_state_unlock'
+  | 'registration_approve'
+  | 'registration_reject'
+  | 'bracket_generate'
+  | 'bracket_delete';
+
+export type AuditEntityType = 'match' | 'registration' | 'court' | 'tournament' | 'bracket';
+
+export interface AuditLog {
+  id: string;
+  tournamentId: string;
+  actorId: string;
+  actorName: string;
+  actorRole: UserRole;
+  action: AuditAction;
+  entityType: AuditEntityType;
+  entityId: string;
+  entityName?: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  description: string;
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+}
+
+export interface AuditLogFilter {
+  action?: AuditAction;
+  entityType?: AuditEntityType;
+  entityId?: string;
+  actorId?: string;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+}
+
 // API Response Types
 export interface ApiResponse<T> {
   success: boolean;
