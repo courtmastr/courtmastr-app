@@ -11,8 +11,8 @@ export interface Column {
   essential?: boolean; // Always visible
 }
 
-interface Props {
-  items: Record<string, unknown>[];
+interface Props<T = Record<string, unknown>> {
+  items: T[];
   columns: Column[];
   itemsPerPage?: number;
   showExpand?: boolean;
@@ -36,6 +36,19 @@ const currentPage = ref(1);
 const sortKey = ref<string | null>(null);
 const sortDirection = ref<'asc' | 'desc'>('asc');
 
+function isExpanded<T extends Record<string, unknown>>(item: T): boolean {
+  return expandedItems.value.has(item.id as string | number);
+}
+
+function toggleExpand<T extends Record<string, unknown>>(item: T) {
+  const id = item.id as string | number;
+  if (expandedItems.value.has(id)) {
+    expandedItems.value.delete(id);
+  } else {
+    expandedItems.value.add(id);
+  }
+}
+
 const essentialColumns = computed(() => 
   props.columns.filter(col => col.essential !== false)
 );
@@ -49,19 +62,6 @@ const paginatedItems = computed(() => {
   const end = start + props.itemsPerPage;
   return props.items.slice(start, end);
 });
-
-function isExpanded(item: Record<string, unknown>): boolean {
-  return expandedItems.value.has(item.id as string | number);
-}
-
-function toggleExpand(item: Record<string, unknown>) {
-  const id = item.id as string | number;
-  if (expandedItems.value.has(id)) {
-    expandedItems.value.delete(id);
-  } else {
-    expandedItems.value.add(id);
-  }
-}
 
 function handleSort(column: Column) {
   if (!column.sortable) return;

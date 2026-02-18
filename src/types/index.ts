@@ -144,7 +144,7 @@ export interface Team {
 }
 
 // Registration Types
-export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'checked_in';
+export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'checked_in' | 'no_show';
 export type PaymentStatus = 'unpaid' | 'paid' | 'partial' | 'refunded';
 
 export interface Registration {
@@ -160,6 +160,7 @@ export interface Registration {
   paymentStatus?: PaymentStatus; // Payment tracking
   paymentNote?: string; // e.g., "Paid via Venmo", "Cash collected"
   seed?: number;
+  bibNumber?: number | null; // Bib number assigned to participant
   registeredBy: string; // User ID who created the registration
   registeredAt: Date;
   approvedAt?: Date;
@@ -206,6 +207,9 @@ export interface Match {
   isLosersBracket?: boolean;
   loserNextMatchId?: string; // Where loser goes (double elim)
   loserNextMatchSlot?: 'participant1' | 'participant2';
+  // Score correction tracking
+  corrected?: boolean; // Whether this match has been corrected
+  correctionCount?: number; // How many times the score has been corrected
   createdAt: Date;
   updatedAt: Date;
 }

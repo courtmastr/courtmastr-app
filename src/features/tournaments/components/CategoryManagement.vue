@@ -2,6 +2,9 @@
 import { ref, computed } from 'vue';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
+import { useDialogManager } from '@/composables/useDialogManager';
+import BaseDialog from '@/components/common/BaseDialog.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
 import type { Category, CategoryType, CategoryGender, AgeGroup, TournamentFormat } from '@/types';
 import { AGE_GROUP_LABELS, FORMAT_LABELS } from '@/types';
 
@@ -14,13 +17,10 @@ const notificationStore = useNotificationStore();
 
 const categories = computed(() => tournamentStore.categories);
 
-// Dialog state
-const showDialog = ref(false);
+// Dialog state management
+const { dialogs, open, close } = useDialogManager(['category', 'deleteCategory']);
 const editingCategory = ref<Category | null>(null);
 const loading = ref(false);
-
-// Delete category dialog state
-const showDeleteCategoryDialog = ref(false);
 const categoryToDelete = ref<Category | null>(null);
 
 // Form state
@@ -72,7 +72,7 @@ function openAddDialog() {
     minGamesGuaranteed: 3,
     seedingEnabled: true,
   };
-  showDialog.value = true;
+  open('category');
 }
 
 function openEditDialog(category: Category) {
@@ -87,7 +87,7 @@ function openEditDialog(category: Category) {
     minGamesGuaranteed: category.minGamesGuaranteed || 3,
     seedingEnabled: category.seedingEnabled,
   };
-  showDialog.value = true;
+  open('category');
 }
 
 async function saveCategory() {
@@ -119,7 +119,7 @@ async function saveCategory() {
       await tournamentStore.addCategory(props.tournamentId, categoryData as any);
       notificationStore.showToast('success', 'Category added');
     }
-    showDialog.value = false;
+    close('category');
   } catch (error) {
     notificationStore.showToast('error', 'Failed to save category');
   } finally {
@@ -129,12 +129,12 @@ async function saveCategory() {
 
 function requestDeleteCategory(category: Category) {
   categoryToDelete.value = category;
-  showDeleteCategoryDialog.value = true;
+  open('deleteCategory');
 }
 
 async function confirmDeleteCategory() {
   if (!categoryToDelete.value) return;
-  showDeleteCategoryDialog.value = false;
+  close('deleteCategory');
   try {
     await tournamentStore.deleteCategory(props.tournamentId, categoryToDelete.value.id);
     notificationStore.showToast('success', 'Category deleted');
@@ -265,24 +265,17 @@ function getFormatColor(format: TournamentFormat): string {
     </v-card>
 
     <!-- Empty State -->
-    <v-card
+    <EmptyState
       v-else
-      class="text-center py-8"
-    >
-      <v-icon
-        size="48"
-        color="grey-lighten-1"
-      >
-        mdi-folder-open-outline
-      </v-icon>
-      <p class="text-body-2 text-grey mt-2">
-        No categories yet. Add your first category to get started.
-      </p>
-    </v-card>
+      icon="mdi-folder-open-outline"
+      title="No categories yet"
+      message="Add your first category to get started"
+      :action="{ label: 'Add Category', handler: openAddDialog }"
+    />
 
     <!-- Add/Edit Dialog -->
     <v-dialog
-      v-model="showDialog"
+      v-model="dialogs.category"
       max-width="600"
       persistent
     >
@@ -396,7 +389,7 @@ function getFormatColor(format: TournamentFormat): string {
           <v-spacer />
           <v-btn
             variant="text"
-            @click="showDialog = false"
+            @click="close('category')"
           >
             Cancel
           </v-btn>
@@ -413,32 +406,30 @@ function getFormatColor(format: TournamentFormat): string {
     </v-dialog>
 
     <!-- Delete Category Confirmation Dialog -->
-    <v-dialog
-      v-model="showDeleteCategoryDialog"
+    <BaseDialog
+      v-model="dialogs.deleteCategory"
+      title="Delete Category?"
       max-width="400"
-      persistent
+      :persistent="true"
+      @confirm="confirmDeleteCategory"
+      @cancel="close('deleteCategory')"
     >
-      <v-card>
-        <v-card-title>Delete Category?</v-card-title>
-        <v-card-text>
-          Delete "{{ categoryToDelete?.name }}"? This cannot be undone.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showDeleteCategoryDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="error"
-            @click="confirmDeleteCategory"
-          >
-            Delete
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <p>Delete "{{ categoryToDelete?.name }}"? This cannot be undone.</p>
+      <template #actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="close('deleteCategory')"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="error"
+          @click="confirmDeleteCategory"
+        >
+          Delete
+        </v-btn>
+      </template>
+    </BaseDialog>
   </div>
 </template>

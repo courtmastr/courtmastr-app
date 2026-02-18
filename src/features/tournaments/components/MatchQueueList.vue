@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { differenceInMinutes } from 'date-fns';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 
 interface Court {
   id: string;
@@ -41,11 +42,7 @@ const emit = defineEmits<{
   toggleAutoStart: [enabled: boolean];
 }>();
 
-function getParticipantNames(match: Match): string {
-  const p1 = match.participant1Name || 'Player 1';
-  const p2 = match.participant2Name || 'Player 2';
-  return `${p1} vs ${p2}`;
-}
+const { getMatchupString } = useParticipantResolver();
 
 function getWaitTime(match: Match): string {
   if (!match.queuedAt) return '';
@@ -229,7 +226,7 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
 
             <!-- Participants -->
             <v-list-item-title class="text-body-1 font-weight-medium mb-1">
-              {{ getParticipantNames(match) }}
+              {{ getMatchupString(match) }}
             </v-list-item-title>
 
             <!-- Category and Wait Time -->

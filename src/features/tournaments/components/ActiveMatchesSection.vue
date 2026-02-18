@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useMatchDuration } from '@/composables/useMatchDuration';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 
 interface Match {
   id: string;
@@ -9,7 +10,7 @@ interface Match {
   participant2Name?: string;
   categoryName?: string;
   courtName?: string;
-  startedAt?: Date | string; // Allow string date
+  startedAt?: Date | string;
   scores?: Array<{ score1: number; score2: number }>;
   status: string;
 }
@@ -26,22 +27,7 @@ const emit = defineEmits<{
 }>();
 
 const { getMatchDuration, getDurationColor } = useMatchDuration();
-
-function getParticipantNames(match: Match): string {
-  const p1 = match.participant1Name || 'Player 1';
-  const p2 = match.participant2Name || 'Player 2';
-  
-  // Debug: Log what we're displaying vs the actual IDs
-  console.log('[ActiveMatchesSection] Displaying match:', {
-    matchId: match.id,
-    p1Name: p1,
-    p2Name: p2,
-    p1Id: match.participant1Id,
-    p2Id: match.participant2Id
-  });
-  
-  return `${p1} vs ${p2}`;
-}
+const { getMatchupString } = useParticipantResolver();
 
 function getCurrentScore(match: Match): string {
   if (!match.scores || match.scores.length === 0) {
@@ -130,7 +116,7 @@ function getCurrentScore(match: Match): string {
           <td>
             <div class="py-1">
               <div class="font-weight-medium text-body-2">
-                {{ getParticipantNames(match) }}
+                {{ getMatchupString(match) }}
               </div>
               <div class="text-caption text-medium-emphasis">
                 {{ match.categoryName }}

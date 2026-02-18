@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { computed } from 'vue';
 import { differenceInMinutes } from 'date-fns';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import CourtSummary from './CourtSummary.vue';
 
 interface Court {
@@ -38,6 +38,8 @@ const emit = defineEmits<{
   restoreCourt: [courtId: string];
 }>();
 
+const { getMatchupString } = useParticipantResolver();
+
 function getCourtColor(court: Court): string {
   if (!court.status || court.status === 'available') return 'success';
   if (court.status === 'in_use') return 'primary';
@@ -54,12 +56,6 @@ function getMatchDuration(match: Match): string {
   if (!match.startedAt) return '';
   const minutes = differenceInMinutes(new Date(), match.startedAt);
   return `${minutes} min`;
-}
-
-function getParticipantNames(match: Match): string {
-  const p1 = match.participant1Name || 'Player 1';
-  const p2 = match.participant2Name || 'Player 2';
-  return `${p1} vs ${p2}`;
 }
 </script>
 
@@ -210,7 +206,7 @@ function getParticipantNames(match: Match): string {
               <div v-else-if="court.status === 'in_use'">
                 <template v-if="getCurrentMatch(court)">
                   <div class="text-body-2 font-weight-medium mb-2">
-                    {{ getParticipantNames(getCurrentMatch(court)!) }}
+                    {{ getMatchupString(getCurrentMatch(court)!) }}
                   </div>
                   <div class="text-caption d-flex align-center">
                     <v-icon

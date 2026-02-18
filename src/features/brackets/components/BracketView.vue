@@ -95,7 +95,7 @@ watch(() => props.categoryId, async () => {
   loading.value = false;
 });
 
-function getParticipantName(registrationId: string | undefined, match?: Match): string {
+function getParticipantDisplayName(registrationId: string | undefined, match?: Match): string {
   if (!registrationId) {
     // Check if this is a bye (other participant exists and match is completed with a winner)
     if (match) {
@@ -245,7 +245,7 @@ function getScoreDisplay(match: Match): string {
                 }"
               >
                 <span class="participant-name">
-                  {{ getParticipantName(match.participant1Id, match) }}
+                  {{ getParticipantDisplayName(match.participant1Id, match) }}
                 </span>
                 <span
                   v-if="match.scores.length > 0"
@@ -267,7 +267,7 @@ function getScoreDisplay(match: Match): string {
                 }"
               >
                 <span class="participant-name">
-                  {{ getParticipantName(match.participant2Id, match) }}
+                  {{ getParticipantDisplayName(match.participant2Id, match) }}
                 </span>
                 <span
                   v-if="match.scores.length > 0"

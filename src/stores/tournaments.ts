@@ -23,6 +23,7 @@ import {
   functions,
   type DocumentReference,
 } from '@/services/firebase';
+import { convertTimestamps } from '@/utils/firestore';
 import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import { useBracketGenerator } from '@/composables/useBracketGenerator';
 import { useAuditStore } from '@/stores/audit';
@@ -886,23 +887,6 @@ export const useTournamentStore = defineStore('tournaments', () => {
     categories.value = [];
     courts.value = [];
     unsubscribeAll();
-  }
-
-  // Helper to convert Firestore Timestamps to Dates
-  function convertTimestamps(data: Record<string, unknown>): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(data)) {
-      if (value instanceof Timestamp) {
-        result[key] = value.toDate();
-      } else if (value && typeof value === 'object' && 'toDate' in value) {
-        result[key] = (value as Timestamp).toDate();
-      } else {
-        result[key] = value;
-      }
-    }
-
-    return result;
   }
 
   return {

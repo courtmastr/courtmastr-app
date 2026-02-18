@@ -132,11 +132,26 @@ const statusConfig = computed(() => /* mapping logic */);
 
 ## 📂 Codebase References
 
+### Core Components
+| Component | Location | Purpose | Docs |
+|-----------|----------|---------|------|
+| **BaseDialog** | `src/components/common/BaseDialog.vue` | Standardized dialog wrapper | [UI-001](../../docs/ui-patterns/base-dialog.md) |
+| **EmptyState** | `src/components/common/EmptyState.vue` | Empty state for lists | [UI-002](../../docs/ui-patterns/empty-state.md) |
+| **StatusBadge** | `src/components/common/StatusBadge.vue` | Status display chip | - |
+
+### Composables
+| Composable | Location | Purpose | Docs |
+|------------|----------|---------|------|
+| **useAsyncOperation** | `src/composables/useAsyncOperation.ts` | Async operation state management | [COMP-001](../../docs/ui-patterns/use-async-operation.md) |
+| **useDialogManager** | `src/composables/useDialogManager.ts` | Dialog state management | - |
+| **useParticipantResolver** | `src/composables/useParticipantResolver.ts` | Participant name resolution | - |
+| **useMatchScheduler** | `src/composables/useMatchScheduler.ts` | Match scheduling logic | - |
+| **useBracketGenerator** | `src/composables/useBracketGenerator.ts` | Bracket generation | - |
+
+### Other References
 **Functions**: `functions/src/updateMatch.ts`, `bracket.ts`, `scheduling.ts`
 **Stores**: `src/stores/tournaments.ts`, `auth.ts`, `matches.ts`
-**Composables**: `useParticipantResolver.ts`, `useMatchScheduler.ts`, `useBracketGenerator.ts`
 **Services**: `src/services/firebase.ts`
-**Components**: `src/components/common/StatusBadge.vue`
 **Config**: `package.json`, `vite.config.ts`, `firebase.json`
 
 ## Dev & Deploy

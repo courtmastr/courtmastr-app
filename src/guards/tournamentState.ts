@@ -4,6 +4,8 @@ import type {
   TournamentStatus,
 } from '@/types';
 
+export type { TournamentLifecycleState };
+
 const TOURNAMENT_STATE_FLOW: TournamentLifecycleState[] = [
   'DRAFT',
   'REG_OPEN',

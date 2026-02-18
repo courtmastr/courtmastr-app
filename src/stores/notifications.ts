@@ -15,8 +15,8 @@ import {
   limit,
   onSnapshot,
   serverTimestamp,
-  Timestamp,
 } from '@/services/firebase';
+import { convertTimestamps } from '@/utils/firestore';
 import type { Notification, NotificationType } from '@/types';
 
 export const useNotificationStore = defineStore('notifications', () => {
@@ -226,23 +226,6 @@ export const useNotificationStore = defineStore('notifications', () => {
   // Remove toast notification
   function removeToast(id: string): void {
     toastNotifications.value = toastNotifications.value.filter((t) => t.id !== id);
-  }
-
-  // Helper: Convert Firestore Timestamps to Dates
-  function convertTimestamps(data: Record<string, unknown>): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(data)) {
-      if (value instanceof Timestamp) {
-        result[key] = value.toDate();
-      } else if (value && typeof value === 'object' && 'toDate' in value) {
-        result[key] = (value as Timestamp).toDate();
-      } else {
-        result[key] = value;
-      }
-    }
-
-    return result;
   }
 
   // Cleanup subscription

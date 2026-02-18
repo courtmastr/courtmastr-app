@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Court, Match } from '@/types';
 
 interface Alert {
@@ -22,7 +23,7 @@ interface Props {
   matchDurationMinutes?: number; // Configured expected duration
   idleThresholdMinutes?: number; // Threshold for idle court alert (default 10)
   lateThresholdMinutes?: number; // Threshold for late match (default 30)
-  getParticipantName: (id: string | undefined) => string;
+  getParticipantName?: (id: string | undefined) => string;
   getCategoryName: (id: string) => string;
 }
 
@@ -37,6 +38,8 @@ const emit = defineEmits<{
   viewMatch: [matchId: string];
   releaseCourt: [courtId: string];
 }>();
+
+const { getMatchDisplayName } = useMatchDisplay();
 
 const now = computed(() => new Date());
 
@@ -79,7 +82,7 @@ const alerts = computed((): Alert[] => {
         type: 'late_match',
         severity: 'warning',
         title: 'Match Running Long',
-        message: `${props.getParticipantName(match.participant1Id)} vs ${props.getParticipantName(match.participant2Id)} on ${court?.name || 'Unknown Court'} - ${Math.round(durationMinutes)} min`,
+        message: `${getMatchDisplayName(match)} on ${court?.name || 'Unknown Court'} - ${Math.round(durationMinutes)} min`,
         matchId: match.id,
       });
     }
@@ -102,7 +105,7 @@ const alerts = computed((): Alert[] => {
           type: 'unassigned_ready',
           severity: 'warning',
           title: 'Match Waiting for Court',
-          message: `${props.getParticipantName(match.participant1Id)} vs ${props.getParticipantName(match.participant2Id)} waiting ${Math.round(waitMinutes)} min`,
+          message: `${getMatchDisplayName(match)} waiting ${Math.round(waitMinutes)} min`,
           matchId: match.id,
         });
       }
@@ -113,7 +116,7 @@ const alerts = computed((): Alert[] => {
         type: 'unassigned_ready',
         severity: 'info',
         title: 'Match Ready for Court',
-        message: `${props.getParticipantName(match.participant1Id)} vs ${props.getParticipantName(match.participant2Id)} ready to assign`,
+        message: `${getMatchDisplayName(match)} ready to assign`,
         matchId: match.id,
       });
     }

@@ -56,7 +56,7 @@
           </template>
 
           <v-list-item-title>
-            {{ getParticipantName(match.participant1Id) }} vs {{ getParticipantName(match.participant2Id) }}
+            {{ getMatchDisplayName(match) }}
           </v-list-item-title>
           <v-list-item-subtitle>
             Round {{ match.round }} • {{ match.categoryName || 'Unknown Category' }}
@@ -92,6 +92,7 @@
 import { ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match, Court } from '@/types';
 
 const props = defineProps<{
@@ -107,6 +108,7 @@ const emit = defineEmits<{
 }>();
 
 const { getParticipantName } = useParticipantResolver();
+const { getMatchDisplayName } = useMatchDisplay();
 
 const localMatches = ref<Match[]>([...props.matches]);
 const selectedCourt = ref<Record<string, string>>({});

@@ -35,7 +35,7 @@
         </template>
 
         <v-list-item-title>
-          {{ getParticipantName(match.participant1Id) }} vs {{ getParticipantName(match.participant2Id) }}
+          {{ getMatchDisplayName(match) }}
         </v-list-item-title>
 
         <template #append>
@@ -76,6 +76,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match } from '@/types';
 
 const props = defineProps<{
@@ -88,6 +89,7 @@ const emit = defineEmits<{
 }>();
 
 const { getParticipantName } = useParticipantResolver();
+const { getMatchDisplayName } = useMatchDisplay();
 
 const readyMatches = computed(() => {
   return props.matches.filter(m => m.status === 'ready' && m.courtId);

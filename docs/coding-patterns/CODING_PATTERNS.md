@@ -721,6 +721,239 @@ rg -n "command-layout|command-resizer|beginCommandResize" src/features/tournamen
 
 ---
 
+### CP-016: Use `BaseDialog` for Standardized Dialogs
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source** | Week 2 Refactoring — Standardized dialog component |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-dialog v-model="showDialog" max-width="600">
+  <v-card>
+    <v-card-title>Title</v-card-title>
+    <v-card-text>Content</v-card-text>
+    <v-card-actions>
+      <v-btn @click="showDialog = false">Cancel</v-btn>
+      <v-btn @click="save">Save</v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
+```
+
+**Correct Pattern (✅):**
+```vue
+<BaseDialog
+  v-model="showDialog"
+  title="Add Category"
+  @confirm="save"
+  :loading="loading"
+>
+  <v-text-field v-model="form.name" label="Name" />
+</BaseDialog>
+```
+
+**Detection:**
+```bash
+grep -rn "v-dialog" src/ --include="*.vue" | grep -v "BaseDialog" | wc -l
+```
+
+**Migration:** See [docs/ui-patterns/base-dialog.md](../ui-patterns/base-dialog.md)
+
+---
+
+### CP-017: Use `EmptyState` for List Empty States
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source** | Week 2 Refactoring — Standardized empty state component |
+| **Severity** | Low |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-card-text class="text-center py-8">
+  <v-icon size="48" color="grey-lighten-1">mdi-folder-open</v-icon>
+  <p class="text-body-2 text-grey mt-2">No items</p>
+</v-card-text>
+```
+
+**Correct Pattern (✅):**
+```vue
+<EmptyState
+  title="No categories yet"
+  message="Add your first category to get started"
+  :action="{ label: 'Add Category', handler: openAddDialog }"
+/>
+```
+
+**Detection:**
+```bash
+grep -rn "text-center py-8" src/ --include="*.vue"
+```
+
+**Migration:** See [docs/ui-patterns/empty-state.md](../ui-patterns/empty-state.md)
+
+---
+
+### CP-018: Use `useAsyncOperation` for Async State Management
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source** | Week 2 Refactoring — Standardized async operation composable |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const loading = ref(false);
+const error = ref<string | null>(null);
+
+async function save() {
+  loading.value = true;
+  error.value = null;
+  try {
+    await store.save();
+  } catch (err) {
+    error.value = 'Failed';
+  } finally {
+    loading.value = false;
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+const { loading, error, execute } = useAsyncOperation();
+
+async function save() {
+  await execute(() => store.save());
+}
+```
+
+**Detection:**
+```bash
+grep -rn "loading.value = true" src/ --include="*.vue" --include="*.ts" | grep -v "useAsyncOperation"
+```
+
+**Migration:** See [docs/ui-patterns/use-async-operation.md](../ui-patterns/use-async-operation.md)
+
+---
+
+### CP-019: Operational Match Lists Must Use Shared `ManualScoreDialog`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Score Matches `Score` action opened a separate scoring screen instead of manual entry |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// Score Matches list item click navigates away
+function goToScoring(matchId: string, categoryId?: string) {
+  router.push({
+    path: `/tournaments/${tournamentId}/matches/${matchId}/score`,
+    query: categoryId ? { category: categoryId } : undefined,
+  });
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+// Reuse shared manual-entry dialog used by match operations views
+function openScoreDialog(match: Match): void {
+  if (!match.participant1Id || !match.participant2Id) {
+    notificationStore.showToast('error', 'Cannot score this match until both participants are assigned');
+    return;
+  }
+  selectedMatch.value = match;
+  showManualScoreDialog.value = true;
+}
+```
+```vue
+<ManualScoreDialog
+  v-model="showManualScoreDialog"
+  :match="selectedMatch"
+  :tournament-id="tournamentId"
+  :tournament="tournament"
+  :categories="tournamentStore.categories"
+/>
+```
+
+**Rule:** In operational scoring lists (`Score Matches`, `Match Control`, live scheduling views), `Score`/`Correct` actions should open shared manual-entry dialog UI, not route to a separate scoring page.  
+If a view uses `useDialogManager`, every dialog used in template `v-model` must be bound via `computed` state (or `dialogs.<name>`) and not undefined legacy `show*Dialog` refs.
+
+**Detection:**
+```bash
+rg -n "router.push\\(\\{\\s*path:\\s*`/tournaments/\\$\\{.*\\}/matches/\\$\\{.*\\}/score`" src/features/scoring/views src/features/tournaments/views --glob "*.vue"
+rg -n "title=\\\"Manual Score Entry\\\"|manualScores" src/features/scoring/views src/features/tournaments/views --glob "*.vue" | grep -v "ManualScoreDialog.vue"
+rg -n 'v-model="show[A-Za-z]+Dialog"|const show[A-Za-z]+Dialog = computed<boolean>' src/features/tournaments/views/MatchControlView.vue
+```
+
+---
+
+### CP-020: Do Not Block Auth on Firestore Profile Failures
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Deployed register/login showed generic auth failure when `/users/{uid}` profile read/write failed |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    currentUser.value = null;
+    return;
+  }
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    if (userDoc.exists()) {
+      currentUser.value = mapUser(userDoc.data());
+    }
+  } catch (err) {
+    error.value = 'Failed to load user profile';
+    // ❌ currentUser never set => app treats authenticated users as logged out
+  }
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+try {
+  const userDoc = await getDoc(doc(db, 'users', user.uid));
+  if (userDoc.exists()) {
+    setCurrentUserFromFirestore(user, userDoc.data());
+  } else {
+    await createUserProfile(user, 'viewer');
+  }
+} catch (err) {
+  console.error('Error fetching user profile:', err);
+  currentUser.value = buildFallbackUser(user, 'viewer');
+  error.value = 'Signed in with limited access. Failed to load user profile.';
+}
+```
+
+**Rule:** Auth success (`onAuthStateChanged` user present) must always populate a safe fallback `currentUser` even if Firestore profile lookup/create fails.
+
+**Detection:**
+```bash
+rg -n "Error fetching user profile|Failed to load user profile|An authentication error occurred" src/stores/auth.ts
+rg -n "catch \\(err\\).*user profile" src/stores/auth.ts -A 5 | rg -v "buildFallbackUser|Signed in with limited access"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

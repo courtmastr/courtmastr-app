@@ -4,8 +4,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
+import { useNotificationStore } from '@/stores/notifications';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import FilterBar from '@/components/common/FilterBar.vue';
+import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.vue';
 import type { Match } from '@/types';
 
 const route = useRoute();
@@ -13,6 +15,7 @@ const router = useRouter();
 const matchStore = useMatchStore();
 const tournamentStore = useTournamentStore();
 const registrationStore = useRegistrationStore();
+const notificationStore = useNotificationStore();
 const { getParticipantName } = useParticipantResolver();
 
 // Search and filter state
@@ -22,6 +25,8 @@ const selectedCategory = ref<string>('all');
 const selectedStatus = ref<string>('all');
 const selectedCourt = ref<string>('all');
 const selectedSort = ref<string>('round_asc');
+const selectedMatch = ref<Match | null>(null);
+const showManualScoreDialog = ref(false);
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -62,11 +67,14 @@ function truncateId(id: string): string {
   return id.slice(0, 8) + '...';
 }
 
-function goToScoring(matchId: string, categoryId?: string) {
-  router.push({
-    path: `/tournaments/${tournamentId.value}/matches/${matchId}/score`,
-    query: categoryId ? { category: categoryId } : undefined
-  });
+function openScoreDialog(match: Match): void {
+  if (!match.participant1Id || !match.participant2Id) {
+    notificationStore.showToast('error', 'Cannot score this match until both participants are assigned');
+    return;
+  }
+
+  selectedMatch.value = match;
+  showManualScoreDialog.value = true;
 }
 
 const roundOptions = computed(() => {
@@ -293,7 +301,7 @@ function clearFilters() {
           v-for="match in filteredInProgressMatches"
           :key="match.id"
           class="match-item"
-          @click="goToScoring(match.id, match.categoryId)"
+          @click="openScoreDialog(match)"
         >
           <template #prepend>
             <v-avatar
@@ -325,6 +333,7 @@ function clearFilters() {
               color="success"
               variant="tonal"
               size="small"
+              @click.stop="openScoreDialog(match)"
             >
               Score
             </v-btn>
@@ -359,7 +368,7 @@ function clearFilters() {
           v-for="match in filteredReadyMatches"
           :key="match.id"
           class="match-item"
-          @click="goToScoring(match.id, match.categoryId)"
+          @click="openScoreDialog(match)"
         >
           <template #prepend>
             <v-avatar
@@ -385,8 +394,9 @@ function clearFilters() {
               color="warning"
               variant="tonal"
               size="small"
+              @click.stop="openScoreDialog(match)"
             >
-              Start
+              Score
             </v-btn>
           </template>
         </v-list-item>
@@ -480,7 +490,7 @@ function clearFilters() {
           v-for="match in filteredCompletedMatches"
           :key="match.id"
           class="match-item"
-          @click="goToScoring(match.id, match.categoryId)"
+          @click="openScoreDialog(match)"
         >
           <template #prepend>
             <v-avatar
@@ -540,6 +550,7 @@ function clearFilters() {
               variant="tonal"
               size="small"
               prepend-icon="mdi-pencil"
+              @click.stop="openScoreDialog(match)"
             >
               Correct
             </v-btn>
@@ -592,6 +603,16 @@ function clearFilters() {
         There are no matches ready to be scored at this time.
       </p>
     </v-card>
+
+    <ManualScoreDialog
+      v-if="tournament"
+      v-model="showManualScoreDialog"
+      :match="selectedMatch"
+      :tournament-id="tournamentId"
+      :tournament="tournament"
+      :categories="tournamentStore.categories"
+      @saved="showManualScoreDialog = false"
+    />
   </v-container>
 </template>
 

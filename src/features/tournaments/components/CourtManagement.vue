@@ -5,6 +5,7 @@ import { useNotificationStore } from '@/stores/notifications';
 import { useActivityStore } from '@/stores/activities';
 import { useMatchStore } from '@/stores/matches';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useDialogManager } from '@/composables/useDialogManager';
 import type { Court, CourtStatus } from '@/types';
 
 const props = defineProps<{
@@ -19,17 +20,11 @@ const { getParticipantName } = useParticipantResolver();
 
 const courts = computed(() => tournamentStore.courts);
 
-// Dialog state
-const showDialog = ref(false);
+// Dialog state management
+const { dialogs, open, close } = useDialogManager(['court', 'deleteCourt', 'addMultiple']);
 const editingCourt = ref<Court | null>(null);
 const loading = ref(false);
-
-// Delete court dialog state
-const showDeleteCourtDialog = ref(false);
 const courtToDelete = ref<Court | null>(null);
-
-// Add multiple courts dialog state
-const showAddMultipleDialog = ref(false);
 const multipleCourtCount = ref(4);
 
 // Form state
@@ -53,7 +48,7 @@ function openAddDialog() {
     number: nextNumber,
     status: 'available',
   };
-  showDialog.value = true;
+  open('court');
 }
 
 function openEditDialog(court: Court) {
@@ -63,7 +58,7 @@ function openEditDialog(court: Court) {
     number: court.number,
     status: court.status,
   };
-  showDialog.value = true;
+  open('court');
 }
 
 async function saveCourt() {
@@ -87,7 +82,7 @@ async function saveCourt() {
       await tournamentStore.addCourt(props.tournamentId, courtData);
       notificationStore.showToast('success', 'Court added');
     }
-    showDialog.value = false;
+    close('court');
   } catch (error) {
     notificationStore.showToast('error', 'Failed to save court');
   } finally {
@@ -101,12 +96,12 @@ function requestDeleteCourt(court: Court) {
     return;
   }
   courtToDelete.value = court;
-  showDeleteCourtDialog.value = true;
+  open('deleteCourt');
 }
 
 async function confirmDeleteCourt() {
   if (!courtToDelete.value) return;
-  showDeleteCourtDialog.value = false;
+  close('deleteCourt');
   try {
     await tournamentStore.deleteCourt(props.tournamentId, courtToDelete.value.id);
     notificationStore.showToast('success', 'Court deleted');
@@ -166,7 +161,7 @@ async function toggleCourtStatus(court: Court) {
 
 function openAddMultipleDialog() {
   multipleCourtCount.value = 4;
-  showAddMultipleDialog.value = true;
+  open('addMultiple');
 }
 
 async function confirmAddMultipleCourts() {
@@ -175,7 +170,7 @@ async function confirmAddMultipleCourts() {
     notificationStore.showToast('error', 'Please enter a number between 1 and 20');
     return;
   }
-  showAddMultipleDialog.value = false;
+  close('addMultiple');
   loading.value = true;
   try {
     const startNumber = courts.value.length + 1;
@@ -313,7 +308,7 @@ function getStatusColor(status: CourtStatus): string {
 
     <!-- Add/Edit Dialog -->
     <v-dialog
-      v-model="showDialog"
+      v-model="dialogs.court"
       max-width="400"
       persistent
     >
@@ -358,7 +353,7 @@ function getStatusColor(status: CourtStatus): string {
           <v-spacer />
           <v-btn
             variant="text"
-            @click="showDialog = false"
+            @click="close('court')"
           >
             Cancel
           </v-btn>
@@ -376,7 +371,7 @@ function getStatusColor(status: CourtStatus): string {
 
     <!-- Delete Court Confirmation Dialog -->
     <v-dialog
-      v-model="showDeleteCourtDialog"
+      v-model="dialogs.deleteCourt"
       max-width="400"
       persistent
     >
@@ -389,7 +384,7 @@ function getStatusColor(status: CourtStatus): string {
           <v-spacer />
           <v-btn
             variant="text"
-            @click="showDeleteCourtDialog = false"
+            @click="close('deleteCourt')"
           >
             Cancel
           </v-btn>
@@ -405,7 +400,7 @@ function getStatusColor(status: CourtStatus): string {
 
     <!-- Add Multiple Courts Dialog -->
     <v-dialog
-      v-model="showAddMultipleDialog"
+      v-model="dialogs.addMultiple"
       max-width="400"
       persistent
     >
@@ -426,7 +421,7 @@ function getStatusColor(status: CourtStatus): string {
           <v-spacer />
           <v-btn
             variant="text"
-            @click="showAddMultipleDialog = false"
+            @click="close('addMultiple')"
           >
             Cancel
           </v-btn>

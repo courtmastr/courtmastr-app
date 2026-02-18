@@ -1,3 +1,31 @@
+- id: e2c5e36f
+  title: direct vite build command not found in run-and-log shell
+  status: "❌ unresolved"
+  date: "2026-02-18"
+  fingerprint: "e2c5e36f"
+  command: "node scripts/run-and-log.mjs vite build"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-18-06-33-11.vite-build.log"
+- id: f44de9d5
+  title: build:log fails with widespread existing TypeScript errors
+  status: "❌ unresolved"
+  date: "2026-02-18"
+  fingerprint: "f44de9d5"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-18-06-31-52.vue-tsc-b.log"
+- id: 41a15271
+  title: lint:log fails because eslint no longer supports --ignore-path
+  status: "❌ unresolved"
+  date: "2026-02-18"
+  fingerprint: "41a15271"
+  command: "npm run lint:log -- src/stores/auth.ts src/services/firebase.ts src/features/auth/views/LoginView.vue src/features/auth/views/RegisterView.vue"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-18-06-11-08.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 8c707ab7
+  title: lint:log fails due existing workspace-wide lint violations
+  status: "❌ unresolved"
+  date: "2026-02-18"
+  fingerprint: "8c707ab7"
+  command: "npm run lint:log -- src/features/scoring/views/MatchListView.vue"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-18-05-39-23.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 626b5359
   title: lint:log fails with existing workspace lint violations
   status: "❌ unresolved"

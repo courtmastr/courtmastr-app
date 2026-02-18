@@ -11,9 +11,9 @@ import {
   limit,
   onSnapshot,
   serverTimestamp,
-  Timestamp,
   where,
 } from '@/services/firebase';
+import { convertTimestamps } from '@/utils/firestore';
 import { useAuthStore } from '@/stores/auth';
 
 export type AuditActionType =
@@ -481,23 +481,6 @@ export const useAuditStore = defineStore('audit', () => {
       { categoryName, matchesScheduled },
       { targetId: categoryId, targetType: 'category' }
     );
-  }
-
-  // Helper: Convert Firestore Timestamps to Dates
-  function convertTimestamps(data: Record<string, unknown>): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(data)) {
-      if (value instanceof Timestamp) {
-        result[key] = value.toDate();
-      } else if (value && typeof value === 'object' && 'toDate' in value) {
-        result[key] = (value as Timestamp).toDate();
-      } else {
-        result[key] = value;
-      }
-    }
-
-    return result;
   }
 
   // Cleanup subscription

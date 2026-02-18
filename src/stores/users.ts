@@ -22,11 +22,11 @@ export const useUserStore = defineStore('users', () => {
   let usersUnsubscribe: (() => void) | null = null;
 
   const activeUsers = computed(() =>
-    users.value.filter((user) => user.isActive !== false)
+    users.value
   );
 
   const inactiveUsers = computed(() =>
-    users.value.filter((user) => user.isActive === false)
+    []
   );
 
   function convertUserData(id: string, data: Record<string, unknown>): User {
@@ -35,13 +35,6 @@ export const useUserStore = defineStore('users', () => {
       email: (data.email as string) || '',
       displayName: (data.displayName as string) || 'User',
       role: (data.role as UserRole) || 'viewer',
-      phone: data.phone as string | undefined,
-      avatarUrl: data.avatarUrl as string | undefined,
-      isActive: data.isActive === false ? false : true,
-      lastLoginAt: data.lastLoginAt instanceof Timestamp ? data.lastLoginAt.toDate() : undefined,
-      loginCount: typeof data.loginCount === 'number' ? data.loginCount : 0,
-      deactivatedAt: data.deactivatedAt instanceof Timestamp ? data.deactivatedAt.toDate() : undefined,
-      deactivatedBy: data.deactivatedBy as string | undefined,
       createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
       updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
     };
@@ -92,14 +85,13 @@ export const useUserStore = defineStore('users', () => {
 
   async function updateUserProfile(
     userId: string,
-    updates: Pick<User, 'displayName' | 'email' | 'phone'>
+    updates: Pick<User, 'displayName' | 'email'>
   ): Promise<void> {
     await setDoc(
       doc(db, 'users', userId),
       {
         displayName: updates.displayName,
         email: updates.email,
-        phone: updates.phone || null,
         updatedAt: serverTimestamp(),
       },
       { merge: true }

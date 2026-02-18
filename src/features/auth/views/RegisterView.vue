@@ -69,6 +69,20 @@ async function handleRegister() {
     loading.value = false;
   }
 }
+
+async function handleGoogleRegister() {
+  loading.value = true;
+  authStore.clearError();
+
+  try {
+    await authStore.signInWithGoogle();
+    router.push('/tournaments');
+  } catch (err) {
+    // Error is handled by the store
+  } finally {
+    loading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -227,6 +241,24 @@ async function handleRegister() {
                 class="mt-2"
               >
                 Create Account
+              </v-btn>
+
+              <div class="d-flex align-center my-4">
+                <v-divider />
+                <span class="mx-3 text-caption text-grey">or</span>
+                <v-divider />
+              </div>
+
+              <v-btn
+                variant="outlined"
+                size="large"
+                block
+                prepend-icon="mdi-google"
+                :loading="loading"
+                :disabled="loading"
+                @click="handleGoogleRegister"
+              >
+                Continue with Google
               </v-btn>
             </v-form>
           </v-card-text>

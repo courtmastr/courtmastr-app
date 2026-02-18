@@ -3,6 +3,7 @@ import { onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useAuthStore } from '@/stores/auth';
+import EmptyState from '@/components/common/EmptyState.vue';
 import type { Tournament } from '@/types';
 
 const router = useRouter();
@@ -94,29 +95,12 @@ function viewTournament(tournament: Tournament): void {
     <!-- Empty State -->
     <v-row v-else-if="tournaments.length === 0">
       <v-col cols="12">
-        <v-card class="text-center py-12">
-          <v-icon
-            size="64"
-            color="grey-lighten-1"
-          >
-            mdi-trophy-outline
-          </v-icon>
-          <h3 class="text-h6 mt-4">
-            No tournaments yet
-          </h3>
-          <p class="text-body-2 text-grey mt-2">
-            {{ isAdmin ? 'Create your first tournament to get started.' : 'Check back later for upcoming tournaments.' }}
-          </p>
-          <v-btn
-            v-if="isAdmin"
-            color="primary"
-            class="mt-4"
-            aria-hidden="true"
-            @click="router.push('/tournaments/create')"
-          >
-            Create Tournament
-          </v-btn>
-        </v-card>
+        <EmptyState
+          icon="mdi-trophy-outline"
+          title="No tournaments yet"
+          :message="isAdmin ? 'Create your first tournament to get started.' : 'Check back later for upcoming tournaments.'"
+          :action="isAdmin ? { label: 'Create Tournament', handler: () => router.push('/tournaments/create') } : undefined"
+        />
       </v-col>
     </v-row>
 

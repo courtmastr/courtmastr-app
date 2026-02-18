@@ -118,7 +118,7 @@
             :subtitle="`${match.score || 'N/A'} • ${formatTime(match.completedAt)}`"
           >
             <v-list-item-title>
-              {{ getParticipantName(match.participant1Id) }} vs {{ getParticipantName(match.participant2Id) }}
+              {{ getMatchDisplayName(match) }}
             </v-list-item-title>
           </v-list-item>
         </v-list>
@@ -172,6 +172,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match, Court } from '@/types';
 
 const props = defineProps<{
@@ -180,6 +181,7 @@ const props = defineProps<{
 }>();
 
 const { getParticipantName } = useParticipantResolver();
+const { getMatchDisplayName } = useMatchDisplay();
 
 const stats = computed(() => {
   const total = props.matches.length;
@@ -188,8 +190,8 @@ const stats = computed(() => {
 
   const completedMatches = props.matches.filter(m => m.status === 'completed' && m.startedAt && m.completedAt);
   const durations = completedMatches.map(m => {
-    const start = m.startedAt?.toDate ? m.startedAt.toDate() : new Date(m.startedAt);
-    const end = m.completedAt?.toDate ? m.completedAt.toDate() : new Date(m.completedAt);
+    const start = m.startedAt instanceof Date ? m.startedAt : new Date(m.startedAt);
+    const end = m.completedAt instanceof Date ? m.completedAt : new Date(m.completedAt);
     return (end.getTime() - start.getTime()) / (1000 * 60);
   });
   const avgDuration = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 30;

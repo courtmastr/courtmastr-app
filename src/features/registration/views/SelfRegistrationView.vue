@@ -5,6 +5,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import { useAsyncOperation } from '@/composables/useAsyncOperation';
 
 const route = useRoute();
 const router = useRouter();
@@ -16,7 +17,8 @@ const notificationStore = useNotificationStore();
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
-const loading = ref(false);
+
+const { loading, execute } = useAsyncOperation<void>();
 const submitted = ref(false);
 
 // Form
@@ -47,60 +49,60 @@ onMounted(async () => {
 });
 
 async function submitRegistration() {
-  if (!tournament.value) return;
-
-  loading.value = true;
-
-  try {
-    // Create player record
-    const playerId = await registrationStore.addPlayer(tournamentId.value, {
-      firstName: firstName.value,
-      lastName: lastName.value,
-      email: email.value,
-      phone: phone.value,
-      userId: authStore.currentUser?.id,
-    });
-
-    // Create partner if needed
-    let partnerPlayerId: string | undefined;
-    if (needsPartner.value && partnerName.value) {
-      const [pFirstName, ...pLastNameParts] = partnerName.value.split(' ');
-      partnerPlayerId = await registrationStore.addPlayer(tournamentId.value, {
-        firstName: pFirstName,
-        lastName: pLastNameParts.join(' ') || '',
-        email: partnerEmail.value,
+  await execute(
+    async () => {
+      // Create player record
+      const playerId = await registrationStore.addPlayer(tournamentId.value, {
+        firstName: firstName.value,
+        lastName: lastName.value,
+        email: email.value,
+        phone: phone.value,
+        userId: authStore.currentUser?.id,
       });
-    }
 
-    // Create registrations for each selected category
-    for (const categoryId of selectedCategories.value) {
-      const category = categories.value.find((c) => c.id === categoryId);
-      const isDoubles = category?.type === 'doubles' || category?.type === 'mixed_doubles';
-
-      const registrationData: any = {
-        tournamentId: tournamentId.value,
-        categoryId,
-        participantType: 'player',
-        playerId,
-        status: tournament.value.settings.requireApproval ? 'pending' : 'approved',
-        registeredBy: authStore.currentUser?.id || playerId,
-      };
-
-      if (isDoubles && partnerPlayerId) {
-        registrationData.partnerPlayerId = partnerPlayerId;
+      // Create partner if needed
+      let partnerPlayerId: string | undefined;
+      if (needsPartner.value && partnerName.value) {
+        const [pFirstName, ...pLastNameParts] = partnerName.value.split(' ');
+        partnerPlayerId = await registrationStore.addPlayer(tournamentId.value, {
+          firstName: pFirstName,
+          lastName: pLastNameParts.join(' ') || '',
+          email: partnerEmail.value,
+        });
       }
 
-      await registrationStore.createRegistration(tournamentId.value, registrationData);
-    }
+      // Create registrations for each selected category
+      for (const categoryId of selectedCategories.value) {
+        const category = categories.value.find((c) => c.id === categoryId);
+        const isDoubles = category?.type === 'doubles' || category?.type === 'mixed_doubles';
 
-    submitted.value = true;
-    notificationStore.showToast('success', 'Registration submitted successfully!');
-  } catch (error) {
-    console.error('Error submitting registration:', error);
-    notificationStore.showToast('error', 'Failed to submit registration');
-  } finally {
-    loading.value = false;
-  }
+        const registrationData: any = {
+          tournamentId: tournamentId.value,
+          categoryId,
+          participantType: 'player',
+          playerId,
+          status: tournament.value.settings.requireApproval ? 'pending' : 'approved',
+          registeredBy: authStore.currentUser?.id || playerId,
+        };
+
+        if (isDoubles && partnerPlayerId) {
+          registrationData.partnerPlayerId = partnerPlayerId;
+        }
+
+        await registrationStore.createRegistration(tournamentId.value, registrationData);
+      }
+
+      submitted.value = true;
+      notificationStore.showToast('success', 'Registration submitted successfully!');
+    },
+    {
+      onError: (err) => {
+        console.error('Error submitting registration:', err);
+        notificationStore.showToast('error', 'Failed to submit registration');
+      }
+    },
+    'Failed to submit registration'
+  );
 }
 
 function formatDate(date: Date): string {
