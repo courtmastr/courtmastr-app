@@ -28,161 +28,109 @@
 
     <v-divider />
 
-    <!-- Collapsible Tournament Management Section -->
     <v-list
       nav
       density="compact"
     >
-      <v-list-group value="tournament-management">
-        <template #activator="{ props }">
-          <v-list-item
-            v-bind="props"
-            prepend-icon="mdi-tournament"
-            title="Tournament Management"
-            rounded="lg"
-            :ripple="false"
-          />
-        </template>
-        
+      <!-- Always visible -->
+      <v-list-item
+        to="/tournaments"
+        prepend-icon="mdi-format-list-bulleted"
+        title="Tournaments"
+        rounded="lg"
+        :ripple="false"
+      />
+      <v-list-item
+        v-if="isOrganizer"
+        to="/tournaments/create"
+        prepend-icon="mdi-plus-circle"
+        title="Create Tournament"
+        rounded="lg"
+        :ripple="false"
+      />
+
+      <!-- Tournament-specific (only when a tournament is active) -->
+      <template v-if="currentTournamentId">
+        <v-divider class="my-2" />
+
         <v-list-item
-          to="/tournaments"
+          :to="`/tournaments/${currentTournamentId}`"
           prepend-icon="mdi-view-dashboard"
           title="Dashboard"
           rounded="lg"
-          class="ml-4"
           :ripple="false"
         />
-        
-        <v-list-item
-          v-if="isOrganizer"
-          to="/tournaments/create"
-          prepend-icon="mdi-plus-circle"
-          title="Create Tournament"
-          rounded="lg"
-          class="ml-4"
-          :ripple="false"
-        />
-      </v-list-group>
-
-      <!-- Collapsible Live Operations Section -->
-      <v-list-group
-        v-if="currentTournamentId"
-        value="live-operations"
-      >
-        <template #activator="{ props }">
-          <v-list-item
-            v-bind="props"
-            prepend-icon="mdi-monitor"
-            title="Live Operations"
-            rounded="lg"
-            :ripple="false"
-          />
-        </template>
-        
         <v-list-item
           v-if="isOrganizer"
           :to="`/tournaments/${currentTournamentId}/match-control`"
           prepend-icon="mdi-controller"
           title="Match Control"
           rounded="lg"
-          class="ml-4"
           :ripple="false"
         />
-        
         <v-list-item
           v-if="isOrganizer"
-          :to="`/tournaments/${currentTournamentId}/match-control`"
+          :to="`/tournaments/${currentTournamentId}/categories`"
+          prepend-icon="mdi-tag-multiple"
+          title="Categories"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
+          :to="`/tournaments/${currentTournamentId}/courts`"
           prepend-icon="mdi-stadium"
-          title="Court Management"
+          title="Courts"
           rounded="lg"
-          class="ml-4"
           :ripple="false"
         />
-        
         <v-list-item
-          v-if="isScorekeeper"
-          :to="`/tournaments/${currentTournamentId}/matches`"
-          prepend-icon="mdi-scoreboard"
-          title="Score Matches"
+          :to="`/tournaments/${currentTournamentId}/brackets`"
+          prepend-icon="mdi-tournament"
+          title="Brackets"
           rounded="lg"
-          class="ml-4"
           :ripple="false"
         />
-      </v-list-group>
-
-      <!-- Collapsible Registration Section -->
-      <v-list-group
-        v-if="currentTournamentId && isOrganizer"
-        value="registration"
-      >
-        <template #activator="{ props }">
-          <v-list-item
-            v-bind="props"
-            prepend-icon="mdi-account-multiple"
-            title="Registration"
-            rounded="lg"
-            :ripple="false"
-          />
-        </template>
-        
         <v-list-item
+          v-if="isOrganizer"
           :to="`/tournaments/${currentTournamentId}/registrations`"
-          prepend-icon="mdi-format-list-bulleted"
-          title="Manage Registrations"
+          prepend-icon="mdi-account-multiple"
+          title="Registrations"
           rounded="lg"
-          class="ml-4"
           :ripple="false"
         />
-
         <v-list-item
-          :to="`/tournaments/${currentTournamentId}/participants`"
-          prepend-icon="mdi-account-group"
-          title="Participants"
+          :to="`/tournaments/${currentTournamentId}/leaderboard`"
+          prepend-icon="mdi-trophy"
+          title="Leaderboard"
           rounded="lg"
-          class="ml-4"
           :ripple="false"
         />
-      </v-list-group>
+      </template>
     </v-list>
 
-    <!-- User Menu at Bottom -->
+    <!-- Bottom: Settings + Logout -->
     <template #append>
       <v-list
         nav
         density="compact"
       >
-        <v-list-group value="user-menu">
-          <template #activator="{ props }">
-            <v-list-item
-              v-bind="props"
-              prepend-icon="mdi-cog"
-              title="Settings"
-              rounded="lg"
-              :ripple="false"
-            />
-          </template>
-          
-          <v-list-item
-            v-if="currentTournamentId && isOrganizer"
-            :to="`/tournaments/${currentTournamentId}/settings`"
-            prepend-icon="mdi-cog"
-            title="Tournament Settings"
-            rounded="lg"
-            class="ml-4"
-            :ripple="false"
-          />
-          
-          <v-divider class="my-2 ml-4" />
-          
-          <v-list-item
-            prepend-icon="mdi-logout"
-            title="Logout"
-            rounded="lg"
-            class="ml-4"
-            :ripple="false"
-            @click="handleLogout"
-          />
-        </v-list-group>
+        <v-divider class="mb-2" />
+        <v-list-item
+          v-if="currentTournamentId && isOrganizer"
+          :to="`/tournaments/${currentTournamentId}/settings`"
+          prepend-icon="mdi-cog"
+          title="Tournament Settings"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          prepend-icon="mdi-logout"
+          title="Logout"
+          rounded="lg"
+          :ripple="false"
+          @click="handleLogout"
+        />
       </v-list>
     </template>
   </v-navigation-drawer>
@@ -213,7 +161,6 @@ const router = useRouter();
 
 const currentUser = computed(() => authStore.currentUser);
 const isOrganizer = computed(() => authStore.isOrganizer);
-const isScorekeeper = computed(() => authStore.isScorekeeper);
 const currentTournamentId = computed(() => {
   // Try to get tournament ID from route, otherwise use the current tournament from store
   const routeParams = route.params;
@@ -251,27 +198,5 @@ async function handleLogout(): Promise<void> {
   }
 }
 
-// Group active state
-:deep(.v-list-group__items) {
-  .v-list-item {
-    padding-left: 24px !important;
-    
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 3px;
-      height: 0;
-      background-color: $primary-base;
-      transition: height 0.2s ease;
-      border-radius: 0 4px 4px 0;
-    }
-    
-    &.v-list-item--active::before {
-      height: 70%;
-    }
-  }
-}
+
 </style>

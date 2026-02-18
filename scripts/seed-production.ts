@@ -79,6 +79,17 @@ const MIXED_DOUBLES_TEAMS = [
   { male: { first: 'Timothy', last: 'Roberts' }, female: { first: 'Amelia', last: 'Clark' } },
 ];
 
+function formatFullName(player: { first: string; last: string }): string {
+  return `${player.first} ${player.last}`;
+}
+
+function formatTeamName(
+  malePlayer: { first: string; last: string },
+  femalePlayer: { first: string; last: string }
+): string {
+  return `${formatFullName(malePlayer)} / ${formatFullName(femalePlayer)}`;
+}
+
 // Function to create an admin user if it doesn't exist
 async function createAdminUser() {
   const email = 'admin@courtmaster.local';
@@ -241,7 +252,7 @@ async function createPlayersAndRegistrations(
         participantType: 'team',
         playerId: maleId,
         partnerPlayerId: femaleId,
-        teamName: `${team.male.last} / ${team.female.last}`,
+        teamName: formatTeamName(team.male, team.female),
         status: 'approved',
         seed: i + 1,
         registeredAt: serverTimestamp(),

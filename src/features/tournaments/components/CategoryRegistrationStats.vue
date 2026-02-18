@@ -81,7 +81,7 @@ function canGenerateBracket(stats: typeof categoryStats.value[0]): boolean {
 
 const emit = defineEmits<{
   (e: 'generate-bracket', categoryId: string): void;
-  (e: 'generate-elimination', categoryId: string): void;
+  (e: 'create-levels', categoryId: string): void;
   (e: 'regenerate-bracket', categoryId: string): void;
   (e: 'manage-registrations', categoryId: string): void;
   (e: 'manage-seeds', categoryId: string): void;
@@ -521,11 +521,11 @@ function getBracketInfo(stats: typeof categoryStats.value[0]): { size: number; b
                     stats.category.poolStageId !== null &&
                     stats.category.poolStageId !== undefined
                   "
-                  prepend-icon="mdi-tournament-variant"
-                  @click="emit('generate-elimination', stats.category.id)"
+                  prepend-icon="mdi-layers-triple"
+                  @click="emit('create-levels', stats.category.id)"
                 >
-                  <v-list-item-title>Generate Elimination Stage</v-list-item-title>
-                  <v-list-item-subtitle>Use completed pool results</v-list-item-subtitle>
+                  <v-list-item-title>Create Levels</v-list-item-title>
+                  <v-list-item-subtitle>Split pools into Advanced / Intermediate / Beginner</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item
                   prepend-icon="mdi-refresh"

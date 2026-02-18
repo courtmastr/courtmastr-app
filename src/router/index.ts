@@ -125,10 +125,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true },
   },
 
-  // Courts redirect
+  // Courts — standalone page
   {
     path: '/tournaments/:tournamentId/courts',
-    redirect: to => `/tournaments/${to.params.tournamentId}/match-control`
+    name: 'tournament-courts',
+    component: () => import('@/features/tournaments/views/CourtsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
 
   // Match control (for organizers)
@@ -142,13 +144,23 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/scoring',
     redirect: to => `/tournaments/${to.params.tournamentId}/matches`,
   },
+
+  // Categories — standalone page
+  {
+    path: '/tournaments/:tournamentId/categories',
+    name: 'tournament-categories',
+    component: () => import('@/features/tournaments/views/CategoriesView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+
+  // Brackets — standalone page with category/level selector
   {
     path: '/tournaments/:tournamentId/brackets',
-    redirect: to => ({
-      path: `/tournaments/${to.params.tournamentId}`,
-      query: { tab: 'brackets' },
-    }),
+    name: 'tournament-brackets',
+    component: () => import('@/features/tournaments/views/BracketsView.vue'),
+    meta: { requiresAuth: true },
   },
+
   {
     path: '/tournaments/:tournamentId/results',
     redirect: to => `/tournaments/${to.params.tournamentId}/leaderboard`,
@@ -188,6 +200,12 @@ const routes: RouteRecordRaw[] = [
     name: 'category-leaderboard',
     component: Leaderboard,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/tournaments/:tournamentId/reports',
+    name: 'tournament-reports',
+    component: () => import('@/features/reports/views/TournamentSummaryView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
     path: '/profile',

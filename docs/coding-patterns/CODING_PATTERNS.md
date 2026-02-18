@@ -1012,6 +1012,246 @@ rg -n "\\$\\{[^}]*firstName[^}]*\\}\\s*\\$\\{[^}]*lastName[^}]*\\}" src/features
 
 ---
 
+### CP-022: Preserve Firestore Doc IDs When Hydrating Typed Objects
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Pool/elimination generation failed because hydrated objects lost required `id` fields (`tournamentId`/`stageId` resolution broke) |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const category = {
+  id: categoryDoc.id,
+  ...(categoryDoc.data() as Omit<Category, 'id'>),
+};
+```
+```typescript
+const participant = {
+  id: Number(docSnap.data().id ?? docSnap.id),
+  ...(docSnap.data() as Omit<StoredParticipant, 'id'>),
+};
+```
+
+**Correct Pattern (✅):**
+```typescript
+const category = {
+  ...(categoryDoc.data() as Omit<Category, 'id'>),
+  id: categoryDoc.id,
+};
+```
+```typescript
+const participant = {
+  ...(docSnap.data() as Omit<StoredParticipant, 'id'>),
+  id: Number(docSnap.data().id ?? docSnap.id),
+};
+```
+
+**Rule:** When combining Firestore `doc.data()` with a canonical `id` from `doc.id`, always spread `doc.data()` first and set `id` last so partial/legacy payloads cannot overwrite the ID.
+
+**Detection:**
+```bash
+rg -n -U "id:\\s*[^\\n]+,\\n\\s*\\.\\.\\.\\(.*doc.*data\\(" src --glob "*.ts" --glob "*.vue"
+```
+
+---
+
+### CP-023: Use Category-Scoped Match Identity in Multi-Category Views
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Match Control command center showed Vue duplicate-key warnings and unscheduled wrong match doc (`match_scores/<id>` NOT_FOUND) when different categories shared the same match ID |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<template v-for="match in matches" :key="match.id">
+  <v-list-item @click="emit('assign', match.id)" />
+</template>
+```
+```typescript
+const match = matches.value.find((m) => m.id === matchId);
+await matchStore.unscheduleMatch(tournamentId, matchId, match?.categoryId);
+```
+
+**Correct Pattern (✅):**
+```vue
+<template v-for="match in matches" :key="`${match.categoryId}-${match.id}`">
+  <v-list-item @click="emit('assign', { matchId: match.id, categoryId: match.categoryId })" />
+</template>
+```
+```typescript
+const match = matches.value.find((m) => m.id === ref.matchId && m.categoryId === ref.categoryId);
+await matchStore.unscheduleMatch(tournamentId, ref.matchId, ref.categoryId, releaseCourtId);
+```
+
+**Rule:** Any list/action operating on matches aggregated from multiple categories MUST use a composite identity (`categoryId + match.id`) for both render keys and event payloads.
+
+**Detection:**
+```bash
+rg -n ":key=\"match.id\"|emit\\('(select|assign|unschedule)',\\s*match.id\\)|find\\(m => m.id === .*\\)" src/features/tournaments --glob "*.vue" --glob "*.ts"
+```
+
+---
+
+### CP-024: Hide/Lock Provisional Pool Rankings Until Pool Completion
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Create Levels dialog displayed misleading Pool/Global ranks before pool stage completion |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-data-table :items="assignmentRows">
+  <template #item.poolRank="{ item }">{{ item.poolRank }}</template>
+  <template #item.globalRank="{ item }">{{ item.globalRank }}</template>
+  <template #item.finalLevelIndex="{ item }">
+    <v-select :model-value="item.finalLevelIndex" />
+  </template>
+</v-data-table>
+```
+
+**Correct Pattern (✅):**
+```vue
+<v-alert v-if="pendingMatches > 0" type="warning">
+  Pool Rank and Global Rank are provisional until all pool matches are completed.
+</v-alert>
+<template #item.poolRank="{ item }">
+  <span v-if="isPoolStageComplete">{{ item.poolRank }}</span>
+  <span v-else>--</span>
+</template>
+<template #item.globalRank="{ item }">
+  <span v-if="isPoolStageComplete">{{ item.globalRank }}</span>
+  <span v-else>--</span>
+</template>
+<v-select :disabled="!isPoolStageComplete" />
+```
+
+**Rule:** Any level-splitting UI that depends on pool standings must not present standings as final (or allow manual level overrides) until all required pool matches are complete.
+
+**Detection:**
+```bash
+rg -n "Create Levels from Pool Results|item.poolRank|item.globalRank|isPoolStageComplete|finalLevelIndex" src/features/tournaments/components/CreateLevelsDialog.vue
+```
+
+---
+
+### CP-025: Add Explicit Rules for Every New Firestore Subcollection Path
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Level generation failed with `FirebaseError: No matching allow statements` |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await setDoc(doc(db, `tournaments/${tId}/categories/${cId}/levels/${levelId}`), data);
+await setDoc(doc(db, `tournaments/${tId}/categories/${cId}/level_assignments/${regId}`), data);
+await setDoc(doc(db, `tournaments/${tId}/categories/${cId}/level_generation/config`), data);
+```
+```rules
+match /categories/{categoryId} {
+  allow read, write: if isAuthenticated();
+  // Missing: /levels, /level_assignments, /level_generation subcollection rules
+}
+```
+
+**Correct Pattern (✅):**
+```rules
+match /categories/{categoryId} {
+  allow read: if true;
+  allow write: if isAuthenticated();
+
+  match /levels/{levelId} { allow read: if true; allow write: if isAuthenticated(); }
+  match /level_assignments/{assignmentId} { allow read: if true; allow write: if isAuthenticated(); }
+  match /level_generation/{configId} { allow read: if true; allow write: if isAuthenticated(); }
+}
+```
+
+**Rule:** Firestore rules are not inherited to subcollections. Every newly introduced subcollection path must be explicitly matched in `firestore.rules` before shipping.
+
+**Detection:**
+```bash
+rg -n "categories/.*/(levels|level_assignments|level_generation)|/levels/\\$\\{levelId\\}" src --glob "*.ts" --glob "*.vue"
+rg -n "match /levels/\\{levelId\\}|match /level_assignments/\\{assignmentId\\}|match /level_generation/\\{configId\\}" firestore.rules
+```
+
+---
+
+### CP-026: Never Use Truthy Checks for Numeric IDs
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Seed flow failed to detect generated pool stage because valid `stageId = 0` was treated as false |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+let poolStageId = 0;
+if (!poolStageId) {
+  throw new Error('Pool stage not found');
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+let poolStageId: number | null = null;
+if (poolStageId === null) {
+  throw new Error('Pool stage not found');
+}
+```
+
+**Rule:** IDs can be `0` in brackets-manager tables (`stage`, `group`, `round`, `match`). Use explicit `null/undefined` checks, never generic truthy checks.
+
+**Detection:**
+```bash
+rg -n "if\\s*\\(\\s*!.*(stageId|groupId|roundId|matchId|id)\\s*\\)" scripts src --glob "*.ts" --glob "*.vue"
+```
+
+---
+
+### CP-027: Seed Team Names Must Use Full Player Names
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Seeded registrations in `seed-simple`/`seed-production` showed repeated team labels (`Davis / Anderson`, `Carter / Carter`) even when teams were different |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+teamName: `${p1.last} / ${p2.last}`;
+```
+
+**Correct Pattern (✅):**
+```typescript
+const formatTeamName = (p1: PlayerName, p2: PlayerName): string =>
+  `${p1.first} ${p1.last} / ${p2.first} ${p2.last}`;
+
+teamName: formatTeamName(p1, p2);
+```
+
+**Rule:** Seed data must use full-name team labels and deterministic unique name generation so registration lists are human-readable and not collision-prone.
+
+**Detection:**
+```bash
+rg -n "teamName:\\s*`\\$\\{\\w+\\.last\\}\\s*/\\s*\\$\\{\\w+\\.last\\}`" scripts --glob "seed*.ts"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

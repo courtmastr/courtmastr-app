@@ -104,6 +104,11 @@ interface CommandResizeState {
   startWidths: CommandPanelWidths;
 }
 
+interface QueueMatchRef {
+  matchId: string;
+  categoryId: string;
+}
+
 const COMMAND_PANEL_DEFAULT_WIDTHS: CommandPanelWidths = {
   left: 62,
   middle: 18,
@@ -899,7 +904,11 @@ async function confirmReleaseCourt() {
     // If there's a match on this court, we should unschedule it properly
     // to avoid the "In Progress but Unassigned" state.
     if (court.currentMatchId) {
-       const match = matches.value.find(m => m.id === court.currentMatchId);
+       const match = matches.value.find(m =>
+         m.id === court.currentMatchId &&
+         m.courtId === court.id &&
+         (m.status === 'in_progress' || m.status === 'ready' || m.status === 'scheduled')
+       );
        if (match) {
          console.log('[releaseCourt] Unscheduling match instead of just releasing court');
          await matchStore.unscheduleMatch(tournamentId.value, match.id, match.categoryId, court.id);
@@ -926,17 +935,17 @@ function openAssignCourtDialogForCourt(courtId: string) {
   openDialog('assignCourt');
 }
 
-function selectMatchFromQueue(matchId: string) {
-  const match = matches.value.find(m => m.id === matchId);
+function selectMatchFromQueue(ref: QueueMatchRef) {
+  const match = matches.value.find(m => m.id === ref.matchId && m.categoryId === ref.categoryId);
   if (match) {
     selectedMatch.value = match;
     // Scroll to or highlight the match in the queue
-    console.log('[CommandCenter] Selected match from queue:', matchId);
+    console.log('[CommandCenter] Selected match from queue:', ref);
   }
 }
 
-function openAssignCourtDialogFromQueue(matchId: string) {
-  const match = matches.value.find(m => m.id === matchId);
+function openAssignCourtDialogFromQueue(ref: QueueMatchRef) {
+  const match = matches.value.find(m => m.id === ref.matchId && m.categoryId === ref.categoryId);
   if (match) {
     openAssignCourtDialog(match);
   }
@@ -1421,7 +1430,7 @@ async function handleManualAssign(matchId: string, courtId: string) {
 
 const showConsistencyDialog = ref(false);
 const showUnscheduleDialog = ref(false);
-const matchToUnscheduleId = ref<string | null>(null);
+const matchToUnschedule = ref<QueueMatchRef | null>(null);
 
 function handleConsistencyCheck() {
   showConsistencyDialog.value = true;
@@ -1438,24 +1447,24 @@ async function confirmConsistencyCheck() {
   }
 }
 
-async function handleUnschedule(matchId: string) {
-  matchToUnscheduleId.value = matchId;
+async function handleUnschedule(ref: QueueMatchRef) {
+  matchToUnschedule.value = ref;
   showUnscheduleDialog.value = true;
 }
 
 async function confirmUnschedule() {
-  if (!matchToUnscheduleId.value) return;
-  
-  const matchId = matchToUnscheduleId.value;
-  const match = matches.value.find(m => m.id === matchId);
+  if (!matchToUnschedule.value) return;
+
+  const { matchId, categoryId } = matchToUnschedule.value;
+  const match = matches.value.find(m => m.id === matchId && m.categoryId === categoryId);
   
   showUnscheduleDialog.value = false;
-  matchToUnscheduleId.value = null;
+  matchToUnschedule.value = null;
 
   if (!match) return;
 
   try {
-    await matchStore.unscheduleMatch(tournamentId.value, matchId, match.categoryId);
+    await matchStore.unscheduleMatch(tournamentId.value, matchId, categoryId);
     notificationStore.showToast('success', 'Match unscheduled and moved to queue');
     
     // Log activity
@@ -2039,7 +2048,7 @@ async function advanceState(): Promise<void> {
                       prepend-icon="mdi-calendar-remove" 
                       title="Unschedule" 
                       color="warning"
-                      @click="handleUnschedule(item.id)"
+                      @click="handleUnschedule({ matchId: item.id, categoryId: item.categoryId })"
                     />
                   </v-list>
                 </v-menu>
@@ -2231,7 +2240,7 @@ async function advanceState(): Promise<void> {
                       prepend-icon="mdi-calendar-remove" 
                       title="Unschedule" 
                       color="warning"
-                      @click="handleUnschedule(item.id)"
+                      @click="handleUnschedule({ matchId: item.id, categoryId: item.categoryId })"
                     />
                   </v-list>
                 </v-menu>

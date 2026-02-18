@@ -8,16 +8,22 @@ interface Props {
   categories: Category[];
   getParticipantName: (id: string | undefined) => string;
   getCategoryName: (id: string) => string;
-  selectedMatchId?: string | null;
+  selectedMatchKey?: string | null;
+  enableAssign?: boolean;
 }
 
 const { formatMatchNumber } = useMatchIdentification();
 
 const props = defineProps<Props>();
 
+interface QueueMatchRef {
+  matchId: string;
+  categoryId: string;
+}
+
 const emit = defineEmits<{
-  select: [matchId: string];
-  assign: [matchId: string];
+  select: [ref: QueueMatchRef];
+  assign: [ref: QueueMatchRef];
 }>();
 
 // Sort ready matches by priority:
@@ -59,8 +65,12 @@ function getMatchPriorityLabel(match: Match): string {
   return `R${match.round}`;
 }
 
-function isSelected(matchId: string): boolean {
-  return props.selectedMatchId === matchId;
+function getMatchKey(match: Match): string {
+  return `${match.categoryId}-${match.id}`;
+}
+
+function isSelected(match: Match): boolean {
+  return props.selectedMatchKey === getMatchKey(match);
 }
 </script>
 
@@ -102,12 +112,12 @@ function isSelected(matchId: string): boolean {
     >
       <template
         v-for="(match, index) in sortedMatches"
-        :key="match.id"
+        :key="getMatchKey(match)"
       >
         <v-list-item
-          :class="['ready-queue__item', { 'ready-queue__item--selected': isSelected(match.id) }]"
-          :active="isSelected(match.id)"
-          @click="emit('select', match.id)"
+          :class="['ready-queue__item', { 'ready-queue__item--selected': isSelected(match) }]"
+          :active="isSelected(match)"
+          @click="emit('select', { matchId: match.id, categoryId: match.categoryId })"
         >
           <template #prepend>
             <div class="d-flex flex-column align-center mr-3">
@@ -146,13 +156,13 @@ function isSelected(matchId: string): boolean {
                 {{ getCategoryName(match.categoryId) }}
               </span>
               <v-btn
-                v-if="match.status === 'ready'"
+                v-if="match.status === 'ready' && props.enableAssign !== false"
                 size="x-small"
                 variant="tonal"
                 color="success"
                 class="mt-1"
                 prepend-icon="mdi-plus"
-                @click.stop="emit('assign', match.id)"
+                @click.stop="emit('assign', { matchId: match.id, categoryId: match.categoryId })"
               >
                 Assign
               </v-btn>

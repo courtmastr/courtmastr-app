@@ -19,7 +19,7 @@ import {
 } from '@/services/firebase';
 import { BracketsManager } from 'brackets-manager';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
-import type { Registration, Category } from '@/types';
+import type { Registration, Category, LevelEliminationFormat } from '@/types';
 
 // ============================================
 // Types
@@ -144,8 +144,8 @@ export function useBracketGenerator() {
       }
 
       const category = {
-        id: categoryDoc.id,
         ...(categoryDoc.data() as Omit<Category, 'id'>),
+        id: categoryDoc.id,
       } as Category;
 
       progress.value = 10;
@@ -159,8 +159,8 @@ export function useBracketGenerator() {
 
       const registrationsSnap = await getDocs(registrationsQuery);
       const registrations = registrationsSnap.docs.map(d => ({
+        ...d.data(),
         id: d.id,
-        ...d.data()
       })) as Registration[];
 
       if (registrations.length < 2) {
@@ -296,8 +296,8 @@ export function useBracketGenerator() {
       }
 
       const category = {
-        id: categoryDoc.id,
         ...(categoryDoc.data() as Omit<Category, 'id'>),
+        id: categoryDoc.id,
       } as Category;
       if (category.format !== 'pool_to_elimination') {
         throw new Error('Category is not configured for pool-to-elimination');
@@ -427,6 +427,80 @@ export function useBracketGenerator() {
   }
 
   /**
+   * Generate a level-specific elimination bracket under
+   * tournaments/{t}/categories/{c}/levels/{levelId}/...
+   */
+  async function generateLevelBracket(
+    tournamentId: string,
+    categoryId: string,
+    levelId: string,
+    levelName: string,
+    orderedRegistrationIds: string[],
+    eliminationFormat: LevelEliminationFormat,
+    options: BracketOptions = {}
+  ): Promise<BracketResult> {
+    loading.value = true;
+    error.value = null;
+    progress.value = 0;
+
+    try {
+      if (orderedRegistrationIds.length < 2) {
+        throw new Error('Need at least 2 participants to generate level bracket');
+      }
+
+      const levelPath = `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}`;
+      const storage = new ClientFirestoreStorage(db, levelPath);
+      const manager = new BracketsManager(storage);
+
+      progress.value = 20;
+
+      await clearBracketStorage(storage);
+
+      const participantsData: StoredParticipant[] = orderedRegistrationIds.map((registrationId, index) => ({
+        id: index + 1,
+        tournament_id: `${categoryId}:${levelId}`,
+        name: registrationId,
+      }));
+      await storage.insert('participant', participantsData);
+
+      const maxBracketSize = eliminationFormat === 'playoff_8' ? 8 : undefined;
+      const seeding = createSeedingArrayWithExistingOrder(
+        participantsData.map((participant) => participant.id),
+        maxBracketSize
+      );
+
+      const stageType = eliminationFormat === 'double_elimination'
+        ? 'double_elimination'
+        : 'single_elimination';
+
+      progress.value = 60;
+
+      const result = await createStageWithStats(
+        manager,
+        storage,
+        `${categoryId}:${levelId}`,
+        levelName,
+        stageType,
+        seeding,
+        {
+          seedOrdering: options.seedOrdering || ['inner_outer'],
+          grandFinal: stageType === 'double_elimination' ? options.grandFinal || 'double' : undefined,
+          consolationFinal: options.consolationFinal,
+        }
+      );
+
+      progress.value = 100;
+      return result;
+    } catch (err) {
+      console.error('Error generating level bracket:', err);
+      error.value = err instanceof Error ? err.message : 'Failed to generate level bracket';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /**
    * Delete existing bracket for a category
    */
   async function deleteBracket(
@@ -488,6 +562,7 @@ export function useBracketGenerator() {
     progress,
     generateBracket,
     generateEliminationFromPool,
+    generateLevelBracket,
     deleteBracket,
   };
 }
@@ -664,6 +739,22 @@ function createSeedingFromParticipantIds(participantIds: number[]): (number | nu
   const seeding: (number | null)[] = [...participantIds];
 
   while (seeding.length < bracketSize) {
+    seeding.push(null);
+  }
+
+  return seeding;
+}
+
+function createSeedingArrayWithExistingOrder(
+  participantIds: number[],
+  maxBracketSize?: number
+): (number | null)[] {
+  const bracketSize = Math.pow(2, Math.ceil(Math.log2(Math.max(participantIds.length, 2))));
+  const targetSize = maxBracketSize || bracketSize;
+  const trimmed = participantIds.slice(0, targetSize);
+  const seeding: (number | null)[] = [...trimmed];
+
+  while (seeding.length < targetSize) {
     seeding.push(null);
   }
 
@@ -870,6 +961,15 @@ async function deleteMatchScoresByIds(
 
     await batch.commit();
   }
+}
+
+async function clearBracketStorage(storage: ClientFirestoreStorage): Promise<void> {
+  await storage.delete('match');
+  await storage.delete('match_game');
+  await storage.delete('round');
+  await storage.delete('group');
+  await storage.delete('stage');
+  await storage.delete('participant');
 }
 
 async function createStageWithStats(

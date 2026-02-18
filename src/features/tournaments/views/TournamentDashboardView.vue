@@ -7,18 +7,13 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
-import { useMatchDisplay } from '@/composables/useMatchDisplay';
-import BaseDialog from '@/components/common/BaseDialog.vue';
 import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
-import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
-import CategoryManagement from '../components/CategoryManagement.vue';
-import CourtManagement from '../components/CourtManagement.vue';
-import CategoryRegistrationStats from '../components/CategoryRegistrationStats.vue';
 import OrganizerChecklist from '../components/OrganizerChecklist.vue';
 import StateBanner from '../components/StateBanner.vue';
+import ActiveMatchesSection from '../components/ActiveMatchesSection.vue';
+import ReadyQueue from '../components/ReadyQueue.vue';
 
 import StatusBadge from '@/components/common/StatusBadge.vue';
-// ActiveMatchesSection removed - using compact summary on dashboard instead
 
 const route = useRoute();
 const router = useRouter();
@@ -28,7 +23,6 @@ const registrationStore = useRegistrationStore();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
 const { getParticipantName } = useParticipantResolver();
-const { getMatchDisplayName } = useMatchDisplay();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -39,20 +33,8 @@ const registrations = computed(() => registrationStore.registrations);
 const loading = computed(() => tournamentStore.loading);
 const isAdmin = computed(() => authStore.isAdmin);
 
-const activeTab = ref('overview');
 const selectedCategory = ref<string | null>(null);
-
-// Initialize active tab based on URL hash or query parameter
-if (route.query.tab) {
-  activeTab.value = route.query.tab as string;
-}
-
-// Watch for changes in route query parameter to update active tab
-watch(() => route.query.tab, (newTab) => {
-  if (newTab) {
-    activeTab.value = newTab as string;
-  }
-});
+const FINISHED_MATCH_STATUSES = new Set(['completed', 'walkover', 'cancelled']);
 
 // Statistics
 const stats = computed(() => {
@@ -74,86 +56,76 @@ const stats = computed(() => {
   };
 });
 
-const players = computed(() => registrationStore.players);
+function isFinishedMatchStatus(status: string): boolean {
+  return FINISHED_MATCH_STATUSES.has(status);
+}
 
-// Helper to get category name from match
 function getCategoryName(categoryId: string): string {
-  const category = categories.value.find((c) => c.id === categoryId);
-  return category?.name || 'Unknown';
+  const category = categories.value.find((item) => item.id === categoryId);
+  return category?.name || 'Unknown Category';
 }
 
-// Helper to get participant display name from registration
-function getParticipantDisplay(registration: any): string {
-  // For teams (doubles), show team name if available
-  if (registration.teamName) {
-    return registration.teamName;
-  }
-
-  // For singles or when teamName is not set, look up player names
-  const player = players.value.find((p) => p.id === registration.playerId);
-  const playerName = player ? `${player.firstName} ${player.lastName}` : 'Unknown';
-
-  // If there's a partner, show both names
-  if (registration.partnerPlayerId) {
-    const partner = players.value.find((p) => p.id === registration.partnerPlayerId);
-    const partnerName = partner ? `${partner.firstName} ${partner.lastName}` : 'Unknown';
-    return `${playerName} / ${partnerName}`;
-  }
-
-  return playerName;
+function getCourtName(courtId?: string): string {
+  if (!courtId) return 'No Court';
+  const court = courts.value.find((item) => item.id === courtId);
+  if (!court) return 'No Court';
+  return court.name || `Court ${court.number}`;
 }
 
-// Enrich active matches with participant and court names for ActiveMatchesSection
-const enrichedActiveMatches = computed(() => {
+const queueMatches = computed(() => {
   return matches.value
-    .filter(m => m.status === 'in_progress')
-    .map(match => {
-      const category = categories.value.find(c => c.id === match.categoryId);
-      const court = courts.value.find(c => c.id === match.courtId);
-      
-      const p1Reg = registrations.value.find(r => r.id === match.participant1Id);
-      const p2Reg = registrations.value.find(r => r.id === match.participant2Id);
-      
-      const p1Player = p1Reg ? registrationStore.players.find(p => p.id === p1Reg.playerId) : null;
-      const p2Player = p2Reg ? registrationStore.players.find(p => p.id === p2Reg.playerId) : null;
-      
-      let p1Name = p1Reg && p1Player ? `${p1Player.firstName} ${p1Player.lastName}` : 'TBD';
-      let p2Name = p2Reg && p2Player ? `${p2Player.firstName} ${p2Player.lastName}` : 'TBD';
-      
-      // Add partner names for doubles
-      if (p1Reg?.partnerPlayerId) {
-        const partner = registrationStore.players.find(p => p.id === p1Reg.partnerPlayerId);
-        if (partner) p1Name += ` / ${partner.firstName} ${partner.lastName}`;
-      }
-      if (p2Reg?.partnerPlayerId) {
-        const partner = registrationStore.players.find(p => p.id === p2Reg.partnerPlayerId);
-        if (partner) p2Name += ` / ${partner.firstName} ${partner.lastName}`;
-      }
-      
-      return {
-        ...match,
-        participant1Name: p1Name,
-        participant2Name: p2Name,
-        categoryName: category?.name || 'Unknown Category',
-        courtName: court?.name || `Court ${court?.number}` || 'No Court',
-      };
-    }) as any[]; // Type cast for component compatibility
+    .filter((match) => match.status === 'ready' || match.status === 'scheduled')
+    .sort((a, b) => a.round - b.round || a.matchNumber - b.matchNumber);
 });
 
-function handleEnterScore(matchId: string) {
-  const match = matches.value.find((m) => m.id === matchId);
-  router.push({
-    path: `/tournaments/${tournamentId.value}/matches/${matchId}/score`,
-    query: match?.categoryId ? { category: match.categoryId } : undefined
-  });
-}
+const remainingMatches = computed(() => {
+  return matches.value.filter((match) => !isFinishedMatchStatus(match.status));
+});
 
-function handleCompleteMatch(matchId: string) {
-  const match = matches.value.find((m) => m.id === matchId);
-  if (!match) return;
-  matchToComplete.value = match;
-  showCompleteMatchDialog.value = true;
-}
+const totalRemainingMatches = computed(() => remainingMatches.value.length);
+
+const categoryMatchProgress = computed(() => {
+  return categories.value
+    .map((category) => {
+      const categoryMatches = matches.value.filter((match) => match.categoryId === category.id);
+      const total = categoryMatches.length;
+      const completed = categoryMatches.filter((match) => isFinishedMatchStatus(match.status)).length;
+      const remaining = total - completed;
+      const live = categoryMatches.filter((match) => match.status === 'in_progress').length;
+      const upcoming = categoryMatches.filter((match) => match.status === 'ready' || match.status === 'scheduled').length;
+      const nextRounds = categoryMatches
+        .filter((match) => !isFinishedMatchStatus(match.status))
+        .map((match) => match.round)
+        .filter((round) => round > 0);
+      const nextRound = nextRounds.length > 0 ? Math.min(...nextRounds) : null;
+
+      return {
+        categoryId: category.id,
+        categoryName: category.name,
+        total,
+        completed,
+        remaining,
+        live,
+        upcoming,
+        nextRound,
+      };
+    })
+    .filter((item) => item.total > 0)
+    .sort((a, b) => b.remaining - a.remaining || a.categoryName.localeCompare(b.categoryName));
+});
+
+// Enrich active matches with category and court names for ActiveMatchesSection
+const enrichedActiveMatches = computed(() => {
+  return matches.value
+    .filter((match) => match.status === 'in_progress')
+    .map((match) => {
+      return {
+        ...match,
+        categoryName: getCategoryName(match.categoryId),
+        courtName: getCourtName(match.courtId),
+      };
+    });
+});
 
 async function confirmCompleteMatch(winnerId: string) {
   if (!matchToComplete.value) return;
@@ -167,14 +139,11 @@ async function confirmCompleteMatch(winnerId: string) {
   matchToComplete.value = null;
 }
 
-function getCurrentScore(match: any): string {
-  if (!match.scores || match.scores.length === 0) return '0 - 0';
-  const current = match.scores[match.scores.length - 1];
-  return `${current.score1} - ${current.score2}`;
-}
-
-function navigateToMatchControl() {
-  router.push(`/tournaments/${tournamentId.value}/match-control`);
+function handleQueueSelect(ref: { matchId: string; categoryId: string }): void {
+  router.push({
+    path: `/tournaments/${tournamentId.value}/matches/${ref.matchId}/score`,
+    query: { category: ref.categoryId },
+  });
 }
 
 onMounted(async () => {
@@ -211,17 +180,6 @@ onUnmounted(() => {
   registrationStore.unsubscribeAll();
 });
 
-function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    draft: 'grey',
-    registration: 'info',
-    active: 'success',
-    completed: 'secondary',
-    cancelled: 'error',
-  };
-  return colors[status] || 'grey';
-}
-
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -251,137 +209,9 @@ async function advanceState(): Promise<void> {
 
 const showUnlockDialog = ref(false);
 
-async function generateBracket(categoryId: string) {
-  try {
-    await tournamentStore.generateBracket(tournamentId.value, categoryId);
-    notificationStore.showToast('success', 'Bracket generated successfully!');
-  } catch (error) {
-    notificationStore.showToast('error', 'Failed to generate bracket');
-  }
-}
-
-async function generateEliminationStage(categoryId: string) {
-  try {
-    await tournamentStore.generatePoolEliminationBracket(tournamentId.value, categoryId);
-    notificationStore.showToast('success', 'Elimination stage generated from pool results!');
-  } catch (error) {
-    notificationStore.showToast('error', 'Failed to generate elimination stage');
-  }
-}
-
-const showRegenerateBracketDialog = ref(false);
-const regenerateCategoryId = ref<string | null>(null);
-const regenerateInProgress = ref(false);
-
 // Complete match dialog state
 const showCompleteMatchDialog = ref(false);
 const matchToComplete = ref<any>(null);
-
-// Seeding state
-const showSeedingDialog = ref(false);
-const seedingCategoryId = ref<string | null>(null);
-const seedingRegistrations = ref<Array<{ id: string; name: string; seed: number | null }>>([]);
-const savingSeed = ref(false);
-
-function openSeedingDialog(categoryId: string) {
-  seedingCategoryId.value = categoryId;
-
-  // Get registrations for this category that are approved/checked_in
-  const categoryRegs = registrations.value.filter(
-    (r) => r.categoryId === categoryId && (r.status === 'approved' || r.status === 'checked_in')
-  );
-
-  // Sort by existing seed first, then alphabetically
-  seedingRegistrations.value = categoryRegs
-    .map((r) => ({
-      id: r.id,
-      name: r.teamName || getParticipantName(r.id),
-      seed: r.seed || null,
-    }))
-    .sort((a, b) => {
-      // Seeded players first (by seed number), then unseeded
-      if (a.seed !== null && b.seed !== null) return a.seed - b.seed;
-      if (a.seed !== null) return -1;
-      if (b.seed !== null) return 1;
-      return a.name.localeCompare(b.name);
-    });
-
-  showSeedingDialog.value = true;
-}
-
-async function saveSeed(regId: string, seed: number | null) {
-  savingSeed.value = true;
-  try {
-    await registrationStore.updateSeed(tournamentId.value, regId, seed);
-
-    // Update local state
-    const reg = seedingRegistrations.value.find((r) => r.id === regId);
-    if (reg) reg.seed = seed;
-
-    notificationStore.showToast('success', 'Seed updated');
-  } catch (error) {
-    notificationStore.showToast('error', 'Failed to update seed');
-  } finally {
-    savingSeed.value = false;
-  }
-}
-
-async function autoAssignSeeds() {
-  savingSeed.value = true;
-  try {
-    // Assign seeds 1-4 to first 4 players (by current order)
-    for (let i = 0; i < Math.min(4, seedingRegistrations.value.length); i++) {
-      const reg = seedingRegistrations.value[i];
-      await registrationStore.updateSeed(tournamentId.value, reg.id, i + 1);
-      reg.seed = i + 1;
-    }
-    // Clear seeds for the rest
-    for (let i = 4; i < seedingRegistrations.value.length; i++) {
-      const reg = seedingRegistrations.value[i];
-      if (reg.seed !== null) {
-        await registrationStore.updateSeed(tournamentId.value, reg.id, null);
-        reg.seed = null;
-      }
-    }
-    notificationStore.showToast('success', 'Auto-assigned top 4 seeds');
-  } catch (error) {
-    notificationStore.showToast('error', 'Failed to auto-assign seeds');
-  } finally {
-    savingSeed.value = false;
-  }
-}
-
-function clearAllSeeds() {
-  seedingRegistrations.value.forEach(async (reg) => {
-    if (reg.seed !== null) {
-      await registrationStore.updateSeed(tournamentId.value, reg.id, null);
-      reg.seed = null;
-    }
-  });
-  notificationStore.showToast('success', 'All seeds cleared');
-}
-
-function confirmRegenerateBracket(categoryId: string) {
-  regenerateCategoryId.value = categoryId;
-  showRegenerateBracketDialog.value = true;
-}
-
-async function regenerateBracket() {
-  if (!regenerateCategoryId.value) return;
-
-  regenerateInProgress.value = true;
-  try {
-    await tournamentStore.regenerateBracket(tournamentId.value, regenerateCategoryId.value);
-    notificationStore.showToast('success', 'Bracket regenerated successfully! Progression links updated.');
-    showRegenerateBracketDialog.value = false;
-  } catch (error) {
-    console.error('Failed to regenerate bracket:', error);
-    notificationStore.showToast('error', 'Failed to regenerate bracket');
-  } finally {
-    regenerateInProgress.value = false;
-    regenerateCategoryId.value = null;
-  }
-}
 
 const scheduleResult = ref<{
   scheduled: number;
@@ -604,7 +434,7 @@ async function handleDeleteTournament() {
             variant="flat"
             color="primary"
             prepend-icon="mdi-tournament"
-            @click="activeTab = 'categories'"
+            :to="`/tournaments/${tournamentId}/categories`"
           >
             Setup Categories
           </v-btn>
@@ -613,7 +443,7 @@ async function handleDeleteTournament() {
             variant="flat"
             color="primary"
             prepend-icon="mdi-account-check"
-            @click="activeTab = 'registrations'"
+            :to="`/tournaments/${tournamentId}/registrations`"
           >
             Review Registrations
           </v-btn>
@@ -623,7 +453,7 @@ async function handleDeleteTournament() {
             variant="flat"
             color="primary"
             prepend-icon="mdi-trophy-variant"
-            @click="activeTab = 'brackets'"
+            :to="`/tournaments/${tournamentId}/brackets`"
           >
             View Results
           </v-btn>
@@ -787,11 +617,8 @@ async function handleDeleteTournament() {
       </v-col>
     </v-row>
 
-    <!-- Active Matches Section (Overview Tab Only) -->
-    <div
-      v-if="activeTab === 'overview' && stats.inProgressMatches > 0"
-      class="mb-6"
-    >
+    <!-- Live + Upcoming Match Context -->
+    <div class="mb-6">
       <div class="d-flex align-center justify-space-between mb-4">
         <h2 class="text-h5 font-weight-bold text-gradient-primary">
           <v-icon
@@ -800,179 +627,131 @@ async function handleDeleteTournament() {
           >
             mdi-whistle
           </v-icon>
-          Active Matches
+          Live and Upcoming Matches
         </h2>
-        <v-btn
-          variant="text"
-          color="primary"
-          prepend-icon="mdi-court-sport"
-          @click="activeTab = 'courts-manage'"
-        >
-          View Court Status
-        </v-btn>
-      </div>
-
-      <!-- Compact Active Matches Summary -->
-      <v-card
-        variant="outlined"
-        class="mb-4"
-      >
-        <v-card-title class="d-flex align-center justify-space-between">
-          <div class="d-flex align-center">
-            <v-icon
-              start
-              color="info"
-            >
-              mdi-timer-sand
-            </v-icon>
-            Active Matches
-          </div>
+        <div class="d-flex align-center ga-2">
           <v-chip
-            color="info"
             size="small"
+            color="error"
             variant="tonal"
           >
-            {{ enrichedActiveMatches.length }}
+            {{ stats.inProgressMatches }} live
+          </v-chip>
+          <v-chip
+            size="small"
+            color="warning"
+            variant="tonal"
+          >
+            {{ queueMatches.length }} upcoming
+          </v-chip>
+          <v-chip
+            size="small"
+            color="primary"
+            variant="tonal"
+          >
+            {{ totalRemainingMatches }} remaining
+          </v-chip>
+        </div>
+      </div>
+
+      <v-row>
+        <v-col
+          cols="12"
+          lg="7"
+        >
+          <ActiveMatchesSection
+            :matches="enrichedActiveMatches"
+            :show-actions="false"
+          />
+        </v-col>
+        <v-col
+          cols="12"
+          lg="5"
+        >
+          <ReadyQueue
+            :matches="matches"
+            :categories="categories"
+            :get-participant-name="getParticipantName"
+            :get-category-name="getCategoryName"
+            :enable-assign="false"
+            @select="handleQueueSelect"
+          />
+        </v-col>
+      </v-row>
+
+      <v-card
+        class="mt-4"
+        variant="outlined"
+      >
+        <v-card-title class="d-flex align-center justify-space-between">
+          <span>Remaining Matches by Category</span>
+          <v-chip
+            size="small"
+            color="primary"
+            variant="tonal"
+          >
+            {{ totalRemainingMatches }} open
           </v-chip>
         </v-card-title>
         <v-divider />
-        <v-card-text
-          v-if="enrichedActiveMatches.length > 0"
-          class="pa-0"
-        >
-          <v-list
-            density="compact"
-            class="pa-0"
-          >
-            <v-list-item
-              v-for="match in enrichedActiveMatches.slice(0, 3)"
-              :key="match.id"
-              class="px-4"
+        <v-table density="compact">
+          <thead>
+            <tr>
+              <th class="text-left">
+                Category
+              </th>
+              <th class="text-center">
+                Live
+              </th>
+              <th class="text-center">
+                Upcoming
+              </th>
+              <th class="text-center">
+                Remaining
+              </th>
+              <th class="text-center">
+                Next Round
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="item in categoryMatchProgress"
+              :key="item.categoryId"
             >
-              <v-list-item-title class="text-body-2">
-                {{ match.participant1Name }} vs {{ match.participant2Name }}
-              </v-list-item-title>
-              <v-list-item-subtitle class="text-caption">
-                {{ match.categoryName }} • {{ match.courtName }}
-              </v-list-item-subtitle>
-              <template #append>
-                <v-chip
-                  size="x-small"
-                  variant="flat"
-                  color="secondary"
-                >
-                  {{ getCurrentScore(match) }}
-                </v-chip>
-              </template>
-            </v-list-item>
-            <v-divider v-if="enrichedActiveMatches.length > 3" />
-            <v-list-item
-              v-if="enrichedActiveMatches.length > 3"
-              class="px-4"
-            >
-              <v-list-item-title class="text-center text-medium-emphasis text-caption">
-                +{{ enrichedActiveMatches.length - 3 }} more matches in progress
-              </v-list-item-title>
-            </v-list-item>
-          </v-list>
-        </v-card-text>
-        <v-card-text
-          v-else
-          class="text-center text-medium-emphasis py-6"
-        >
-          <v-icon
-            size="48"
-            color="grey-lighten-2"
-            class="mb-2"
-          >
-            mdi-trophy-outline
-          </v-icon>
-          <div class="text-body-2">
-            No matches currently in progress
-          </div>
-        </v-card-text>
-        <v-divider />
-        <v-card-actions>
-          <v-btn
-            variant="text"
-            color="primary"
-            block
-            @click="navigateToMatchControl"
-          >
-            <v-icon start>
-              mdi-arrow-right
-            </v-icon>
-            View Match Control
-          </v-btn>
-        </v-card-actions>
+              <td class="font-weight-medium">
+                {{ item.categoryName }}
+              </td>
+              <td class="text-center">
+                {{ item.live }}
+              </td>
+              <td class="text-center">
+                {{ item.upcoming }}
+              </td>
+              <td class="text-center">
+                {{ item.remaining }} / {{ item.total }}
+              </td>
+              <td class="text-center">
+                {{ item.nextRound ? `Round ${item.nextRound}` : '-' }}
+              </td>
+            </tr>
+            <tr v-if="categoryMatchProgress.length === 0">
+              <td
+                colspan="5"
+                class="text-center text-medium-emphasis py-4"
+              >
+                No category match data available yet
+              </td>
+            </tr>
+          </tbody>
+        </v-table>
       </v-card>
     </div>
 
-    <!-- Tabs -->
-    <v-card>
-      <v-tabs
-        v-model="activeTab"
-        color="primary"
-      >
-        <v-tab value="overview">
-          Overview
-        </v-tab>
-        <v-tab
-          v-if="isAdmin"
-          value="categories"
-        >
-          Categories
-        </v-tab>
-        <v-tab
-          v-if="isAdmin"
-          value="courts-manage"
-        >
-          Courts
-        </v-tab>
-        <v-tab value="brackets">
-          Brackets
-        </v-tab>
-        <v-tab value="matches">
-          Matches
-        </v-tab>
-        <v-tab
-          v-if="isAdmin"
-          value="registrations"
-        >
-          Registrations
-        </v-tab>
-        <v-tab :to="`/tournaments/${tournamentId}/leaderboard`">
-          Leaderboard
-        </v-tab>
-      </v-tabs>
-
-      <v-divider />
-
-      <v-tabs-window v-model="activeTab">
-        <!-- Overview Tab -->
-        <v-tabs-window-item value="overview">
-          <v-card-text>
-            <!-- Organizer Checklist (TOURNEY-106) -->
-            <v-row class="mb-4">
-              <v-col
-                cols="12"
-                md="4"
-              >
+    <!-- Dashboard Overview -->
+    <v-row class="mt-6 mb-4">
+              <v-col cols="12">
                 <organizer-checklist :tournament-id="tournamentId" />
-              </v-col>
-              <v-col
-                cols="12"
-                md="8"
-              >
-                <!-- Category Registration Stats -->
-                <CategoryRegistrationStats
-                  :tournament-id="tournamentId"
-                  @generate-bracket="generateBracket"
-                  @generate-elimination="generateEliminationStage"
-                  @regenerate-bracket="confirmRegenerateBracket"
-                  @manage-registrations="(categoryId) => router.push(`/tournaments/${tournamentId}/registrations?category=${categoryId}`)"
-                  @manage-seeds="openSeedingDialog"
-                />
               </v-col>
             </v-row>
 
@@ -1109,192 +888,6 @@ async function handleDeleteTournament() {
                 </v-row>
               </v-card-text>
             </v-card>
-          </v-card-text>
-        </v-tabs-window-item>
-
-        <!-- Categories Tab (Admin only) -->
-        <v-tabs-window-item
-          v-if="isAdmin"
-          value="categories"
-        >
-          <v-card-text>
-            <CategoryManagement :tournament-id="tournamentId" />
-          </v-card-text>
-        </v-tabs-window-item>
-
-        <!-- Courts Management Tab (Admin only) -->
-        <v-tabs-window-item
-          v-if="isAdmin"
-          value="courts-manage"
-        >
-          <v-card-text>
-            <CourtManagement :tournament-id="tournamentId" />
-          </v-card-text>
-        </v-tabs-window-item>
-
-        <!-- Brackets Tab -->
-        <v-tabs-window-item value="brackets">
-          <v-card-text>
-            <v-select
-              v-model="selectedCategory"
-              :items="categories"
-              item-title="name"
-              item-value="id"
-              label="Select Category"
-              class="mb-4"
-              style="max-width: 300px"
-            />
-            
-            <!-- New brackets-viewer.js Display -->
-            <BracketsManagerViewer
-              v-if="selectedCategory"
-              :tournament-id="tournamentId"
-              :category-id="selectedCategory"
-            />
-            
-            <!-- Fallback: Old custom bracket view (keep for now) -->
-            <!-- 
-            <SmartBracketView
-              v-if="selectedCategory"
-              :tournament-id="tournamentId"
-              :category-id="selectedCategory"
-            />
-            -->
-          </v-card-text>
-        </v-tabs-window-item>
-
-        <!-- Matches Tab -->
-        <v-tabs-window-item value="matches">
-          <v-card-text>
-            <v-select
-              v-model="selectedCategory"
-              :items="categories"
-              item-title="name"
-              item-value="id"
-              label="Select Category"
-              class="mb-4"
-              style="max-width: 300px"
-            />
-             <v-data-table
-               :items="matches"
-               :headers="[
-                 { title: 'Match', key: 'match', sortable: true },
-                 { title: 'Status', key: 'status', sortable: true },
-                 { title: 'Actions', key: 'actions', sortable: false },
-               ]"
-               :items-per-page="10"
-               class="elevation-1"
-               show-expand
-               item-value="id"
-             >
-               <template #item.match="{ item }">
-                 <div class="d-flex flex-column py-1">
-                   <div class="font-weight-medium">
-                     #{{ item.matchNumber }}: {{ getMatchDisplayName(item) }}
-                   </div>
-                   <div class="text-caption text-grey">
-                     {{ getCategoryName(item.categoryId) }} • Round {{ item.round }}
-                   </div>
-                 </div>
-               </template>
-               <template #item.status="{ item }">
-                 <v-chip
-                   :color="getStatusColor(item.status)"
-                   size="small"
-                 >
-                   {{ item.status }}
-                 </v-chip>
-               </template>
-               <template #item.actions="{ item }">
-                 <v-btn
-                   v-if="item.status === 'ready' || item.status === 'in_progress'"
-                   size="small"
-                   color="primary"
-                   :to="{ path: `/tournaments/${tournamentId}/matches/${item.id}/score`, query: item.categoryId ? { category: item.categoryId } : undefined }"
-                 >
-                   Score
-                 </v-btn>
-               </template>
-               <template #expanded-row="{ columns, item }">
-                 <tr>
-                   <td :colspan="columns.length" class="bg-grey-lighten-5 pa-4">
-                     <div class="d-flex flex-wrap gap-4 text-body-2">
-                       <div>
-                         <strong>Score:</strong> 
-                         <span v-if="item.scores.length > 0">
-                           {{ item.scores.map((s: any) => `${s.score1}-${s.score2}`).join(', ') }}
-                         </span>
-                         <span
-                           v-else
-                           class="text-grey"
-                         >-</span>
-                       </div>
-                       <div><strong>Court:</strong> {{ courts.find((c) => c.id === item.courtId)?.name || '-' }}</div>
-                     </div>
-                   </td>
-                 </tr>
-               </template>
-             </v-data-table>
-          </v-card-text>
-        </v-tabs-window-item>
-
-        <!-- Registrations Tab (Admin only) -->
-        <v-tabs-window-item
-          v-if="isAdmin"
-          value="registrations"
-        >
-          <v-card-text>
-            <div class="d-flex justify-end mb-4">
-              <v-btn
-                color="primary"
-                prepend-icon="mdi-account-plus"
-                :to="`/tournaments/${tournamentId}/registrations`"
-              >
-                Manage Registrations
-              </v-btn>
-            </div>
-             <v-data-table
-               :items="registrations"
-               :headers="[
-                 { title: 'Player', key: 'player', sortable: true },
-                 { title: 'Category', key: 'category', sortable: true },
-                 { title: 'Status', key: 'status', sortable: true },
-               ]"
-               :items-per-page="10"
-               class="elevation-1"
-               show-expand
-               item-value="id"
-             >
-               <template #item.player="{ item }">
-                 <div class="d-flex flex-column">
-                   <span class="font-weight-medium">{{ getParticipantDisplay(item) }}</span>
-                 </div>
-               </template>
-               <template #item.category="{ item }">
-                 <span class="text-caption text-grey">{{ categories.find((c) => c.id === item.categoryId)?.name || 'Unknown' }}</span>
-               </template>
-               <template #item.status="{ item }">
-                 <v-chip
-                   :color="item.status === 'approved' ? 'success' : item.status === 'pending' ? 'warning' : 'grey'"
-                   size="small"
-                 >
-                   {{ item.status }}
-                 </v-chip>
-               </template>
-               <template #expanded-row="{ columns, item }">
-                 <tr>
-                   <td :colspan="columns.length" class="bg-grey-lighten-5 pa-4">
-                     <div class="text-body-2">
-                       <strong>Registered:</strong> {{ item.createdAt?.toLocaleDateString() || 'Unknown' }}
-                     </div>
-                   </td>
-                 </tr>
-               </template>
-             </v-data-table>
-          </v-card-text>
-        </v-tabs-window-item>
-      </v-tabs-window>
-    </v-card>
   </v-container>
 
   <!-- Loading State -->
@@ -1313,185 +906,6 @@ async function handleDeleteTournament() {
       />
     </v-row>
   </v-container>
-
-  <!-- Regenerate Bracket Confirmation Dialog -->
-  <BaseDialog
-    v-model="showRegenerateBracketDialog"
-    title="Regenerate Bracket?"
-    max-width="500"
-    @confirm="regenerateBracket"
-    @cancel="showRegenerateBracketDialog = false"
-  >
-    <div class="d-flex align-center">
-      <v-icon
-        color="warning"
-        class="mr-2"
-      >
-        mdi-alert
-      </v-icon>
-      <span>Regenerate Bracket?</span>
-    </div>
-    <p class="mb-3">
-      This will regenerate the bracket for this category with proper progression links.
-    </p>
-    <v-alert
-      type="warning"
-      variant="tonal"
-      class="mb-3"
-    >
-      <strong>Warning:</strong> This will reset all matches and clear any existing scores.
-      Only do this if bracket progression is broken.
-    </v-alert>
-    <p class="text-body-2 text-grey">
-      Seeding and participant assignments will be preserved.
-    </p>
-    <template #actions>
-      <v-spacer />
-      <v-btn
-        variant="text"
-        @click="showRegenerateBracketDialog = false"
-      >
-        Cancel
-      </v-btn>
-      <v-btn
-        color="warning"
-        variant="flat"
-        :loading="regenerateInProgress"
-        @click="regenerateBracket"
-      >
-        Regenerate Bracket
-      </v-btn>
-    </template>
-  </BaseDialog>
-
-  <!-- Seeding Dialog -->
-  <v-dialog
-    v-model="showSeedingDialog"
-    max-width="600"
-  >
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon class="mr-2">
-          mdi-seed
-        </v-icon>
-        Manage Seeds
-        <v-spacer />
-        <v-chip
-          size="small"
-          color="primary"
-          variant="tonal"
-        >
-          {{ seedingRegistrations.length }} players
-        </v-chip>
-      </v-card-title>
-
-      <v-card-text>
-        <v-alert
-          type="info"
-          variant="tonal"
-          density="compact"
-          class="mb-4"
-        >
-          <strong>Seeding tips:</strong>
-          <ul class="text-body-2 mt-1 mb-0">
-            <li>Seed your top 4 players to ensure they don't meet early</li>
-            <li>Seeded players get favorable bracket positions (byes if available)</li>
-            <li>Leave seed empty for unseeded players</li>
-          </ul>
-        </v-alert>
-
-        <div class="d-flex gap-2 mb-4">
-          <v-btn
-            size="small"
-            variant="tonal"
-            color="primary"
-            prepend-icon="mdi-auto-fix"
-            data-testid="auto-assign-seeds-btn"
-            :loading="savingSeed"
-            @click="autoAssignSeeds"
-          >
-            Auto-assign Top 4
-          </v-btn>
-          <v-btn
-            size="small"
-            variant="text"
-            color="error"
-            prepend-icon="mdi-eraser"
-            @click="clearAllSeeds"
-          >
-            Clear All
-          </v-btn>
-        </div>
-
-        <v-list density="compact">
-          <v-list-item
-            v-for="(reg, index) in seedingRegistrations"
-            :key="reg.id"
-            :class="{ 'bg-primary-lighten-5': reg.seed !== null }"
-          >
-            <template #prepend>
-              <v-avatar
-                :color="reg.seed !== null ? 'primary' : 'grey-lighten-2'"
-                size="32"
-                class="mr-3"
-              >
-                <span
-                  v-if="reg.seed !== null"
-                  class="text-white font-weight-bold"
-                >
-                  {{ reg.seed }}
-                </span>
-                <span
-                  v-else
-                  class="text-grey"
-                >{{ index + 1 }}</span>
-              </v-avatar>
-            </template>
-
-            <v-list-item-title class="font-weight-medium">
-              {{ reg.name }}
-            </v-list-item-title>
-
-            <template #append>
-              <v-select
-                :model-value="reg.seed"
-                :items="[
-                  { title: 'No seed', value: null },
-                  { title: 'Seed #1', value: 1 },
-                  { title: 'Seed #2', value: 2 },
-                  { title: 'Seed #3', value: 3 },
-                  { title: 'Seed #4', value: 4 },
-                  { title: 'Seed #5', value: 5 },
-                  { title: 'Seed #6', value: 6 },
-                  { title: 'Seed #7', value: 7 },
-                  { title: 'Seed #8', value: 8 },
-                ]"
-                item-title="title"
-                item-value="value"
-                variant="outlined"
-                density="compact"
-                hide-details
-                style="width: 120px"
-                :data-testid="`seed-input-${reg.id}`"
-                @update:model-value="(val) => saveSeed(reg.id, val)"
-              />
-            </template>
-          </v-list-item>
-        </v-list>
-      </v-card-text>
-
-      <v-card-actions>
-        <v-spacer />
-        <v-btn
-          variant="text"
-          data-testid="close-seeding-dialog-btn"
-          @click="showSeedingDialog = false"
-        >
-          Done
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
 
   <!-- Delete Confirmation Dialog -->
   <v-dialog

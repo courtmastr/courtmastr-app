@@ -63,6 +63,9 @@ export type CategoryType = 'singles' | 'doubles' | 'mixed_doubles';
 export type CategoryGender = 'men' | 'women' | 'mixed' | 'open';
 export type AgeGroup = 'open' | 'u10' | 'u12' | 'u15' | 'u18' | 'u21' | 'senior' | '35+' | '45+' | '55+';
 export type PoolPhase = 'pool' | 'elimination';
+export type LevelingMode = 'pool_position' | 'global_bands';
+export type LevelEliminationFormat = 'single_elimination' | 'double_elimination' | 'playoff_8';
+export type LevelingStatus = 'not_started' | 'configured' | 'generated';
 
 export interface Category {
   id: string;
@@ -95,6 +98,59 @@ export interface Category {
   poolGroupCount?: number | null;
   poolQualifiersPerGroup?: number | null;
   poolQualifiedRegistrationIds?: string[];
+  levelingEnabled?: boolean | null;
+  levelingStatus?: LevelingStatus | null;
+  recommendedLevelMode?: LevelingMode | null;
+  selectedLevelMode?: LevelingMode | null;
+  levelCount?: number | null;
+  levelsVersion?: number | null;
+  poolCompletedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LevelDefinition {
+  id: string;
+  name: string;
+  order: number;
+  eliminationFormat: LevelEliminationFormat;
+  participantCount: number;
+  stageId?: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LevelAssignment {
+  id: string; // registrationId
+  registrationId: string;
+  levelId: string;
+  levelName: string;
+  sourceMode: LevelingMode;
+  poolId?: string;
+  poolLabel?: string;
+  poolRank?: number;
+  globalRank?: number;
+  levelSeed?: number | null;
+  overridden: boolean;
+  overriddenBy?: string;
+  overriddenAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LevelGenerationConfig {
+  mode: LevelingMode;
+  levelCount: number;
+  levelNames: string[];
+  recommendedMode: LevelingMode;
+  poolMappings?: Array<{
+    poolId: string;
+    rank1LevelId: string;
+    rank2LevelId: string;
+    rank3PlusLevelId: string;
+  }>;
+  globalBands?: number[];
+  createdBy: string;
   createdAt: Date;
   updatedAt: Date;
 }

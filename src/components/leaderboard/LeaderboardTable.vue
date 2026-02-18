@@ -25,11 +25,16 @@ const resolutionMap = computed(() => {
 const compactHeaders = computed(() => {
   const cols = [
     { key: 'rank', title: '#', width: '60px', align: 'center' as const },
-    { key: 'participant', title: 'Participant', width: '40%', essential: true },
+    { key: 'participant', title: 'Participant', width: '28%' },
     ...(props.showCategory
       ? [{ key: 'category', title: 'Category', width: '120px' }]
       : []),
-    { key: 'stats', title: 'Stats', width: '150px', essential: true },
+    { key: 'status', title: 'Status', width: '110px' },
+    { key: 'matchPoints', title: 'MP', width: '70px', align: 'center' as const },
+    { key: 'record', title: 'W-L', width: '80px', align: 'center' as const },
+    { key: 'games', title: 'Games', width: '90px', align: 'center' as const },
+    { key: 'points', title: 'Pts For/Ag', width: '110px', align: 'center' as const },
+    { key: 'pointDiff', title: 'Pts +/-', width: '80px', align: 'center' as const },
   ];
   return cols;
 });
@@ -60,10 +65,26 @@ function diffText(val: number): string {
   return String(val);
 }
 
-function diffColor(val: number): string {
-  if (val > 0) return 'success';
-  if (val < 0) return 'error';
-  return '';
+function diffColorClass(val: number): string {
+  if (val > 0) return 'text-success';
+  if (val < 0) return 'text-error';
+  return 'text-medium-emphasis';
+}
+
+function statusLabel(entry: LeaderboardEntry): string {
+  if (entry.matchesPlayed === 0) return 'Awaiting';
+  if (entry.eliminated) return 'Eliminated';
+  if (entry.rank === 1) return 'Leader';
+  if (entry.rank <= 3) return 'Podium';
+  return 'Active';
+}
+
+function statusColor(entry: LeaderboardEntry): string {
+  if (entry.matchesPlayed === 0) return 'grey';
+  if (entry.eliminated) return 'error';
+  if (entry.rank === 1) return 'warning';
+  if (entry.rank <= 3) return 'success';
+  return 'info';
 }
 </script>
 
@@ -112,15 +133,6 @@ function diffColor(val: number): string {
           v-if="resolutionMap.has(item.registrationId) && item.matchesPlayed > 0"
           :resolution="resolutionMap.get(item.registrationId)!"
         />
-        <v-chip
-          v-if="item.eliminated"
-          size="x-small"
-          color="error"
-          variant="tonal"
-          class="ml-2"
-        >
-          Elim. Rd {{ item.eliminationRound ?? '?' }}
-        </v-chip>
       </div>
     </template>
 
@@ -137,20 +149,36 @@ function diffColor(val: number): string {
       </v-chip>
     </template>
 
-    <template #item.stats="{ item }">
-      <div class="d-flex align-center gap-2">
-        <v-chip
-          size="x-small"
-          color="primary"
-          variant="tonal"
-          title="Match Points"
-        >
-          {{ item.matchPoints }} pts
-        </v-chip>
-        <span class="text-caption">
-          {{ item.matchesWon }}W / {{ item.matchesLost }}L
-        </span>
-      </div>
+    <template #item.status="{ item }">
+      <v-chip
+        size="small"
+        :color="statusColor(item)"
+        variant="tonal"
+      >
+        {{ statusLabel(item) }}
+      </v-chip>
+    </template>
+
+    <template #item.matchPoints="{ item }">
+      <span class="font-weight-bold">{{ item.matchPoints }}</span>
+    </template>
+
+    <template #item.record="{ item }">
+      <span>{{ item.matchesWon }}-{{ item.matchesLost }}</span>
+    </template>
+
+    <template #item.games="{ item }">
+      <span>{{ item.gamesWon }}-{{ item.gamesLost }}</span>
+    </template>
+
+    <template #item.points="{ item }">
+      <span>{{ item.pointsFor }} / {{ item.pointsAgainst }}</span>
+    </template>
+
+    <template #item.pointDiff="{ item }">
+      <span :class="diffColorClass(item.pointDifference)">
+        {{ diffText(item.pointDifference) }}
+      </span>
     </template>
 
     <template #expanded-row="{ columns, item }">
@@ -227,7 +255,7 @@ function diffColor(val: number): string {
                   </div>
                   <div
                     class="text-h6 font-weight-bold"
-                    :class="`text-${diffColor(item.gameDifference)}`"
+                    :class="diffColorClass(item.gameDifference)"
                   >
                     {{ diffText(item.gameDifference) }}
                   </div>

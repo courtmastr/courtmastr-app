@@ -1,29 +1,28 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useMatchDuration } from '@/composables/useMatchDuration';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import type { Match as TournamentMatch } from '@/types';
 
-interface Match {
-  id: string;
-  participant1Id: string;
-  participant2Id: string;
+type Match = TournamentMatch & {
   participant1Name?: string;
   participant2Name?: string;
   categoryName?: string;
   courtName?: string;
-  startedAt?: Date | string;
-  scores?: Array<{ score1: number; score2: number }>;
-  status: string;
-}
+};
 
 const props = defineProps<{
   matches: Match[];
+  showActions?: boolean;
 }>();
+
+const shouldShowActions = computed(() => props.showActions !== false);
 
 const emit = defineEmits<{
   completeMatch: [matchId: string];
   enterScore: [matchId: string];
   viewDetails: [matchId: string];
-  unschedule: [matchId: string];
+  unschedule: [ref: { matchId: string; categoryId: string }];
 }>();
 
 const { getMatchDuration, getDurationColor } = useMatchDuration();
@@ -85,6 +84,7 @@ function getCurrentScore(match: Match): string {
             Duration
           </th>
           <th
+            v-if="shouldShowActions"
             class="text-right"
             style="width: 120px"
           >
@@ -95,7 +95,7 @@ function getCurrentScore(match: Match): string {
       <tbody>
         <tr
           v-for="match in matches"
-          :key="match.id"
+          :key="`${match.categoryId}-${match.id}`"
           class="match-row"
         >
           <!-- Court -->
@@ -120,6 +120,9 @@ function getCurrentScore(match: Match): string {
               </div>
               <div class="text-caption text-medium-emphasis">
                 {{ match.categoryName }}
+                <template v-if="match.round">
+                  • Round {{ match.round }}
+                </template>
               </div>
             </div>
           </td>
@@ -144,7 +147,10 @@ function getCurrentScore(match: Match): string {
           </td>
 
           <!-- Actions -->
-          <td class="text-right">
+          <td
+            v-if="shouldShowActions"
+            class="text-right"
+          >
             <div class="d-flex justify-end gap-1">
               <v-btn
                 icon="mdi-scoreboard-outline"
@@ -162,7 +168,7 @@ function getCurrentScore(match: Match): string {
                 color="warning"
                 density="comfortable"
                 title="Unschedule / Release"
-                @click="emit('unschedule', match.id)"
+                @click="emit('unschedule', { matchId: match.id, categoryId: match.categoryId })"
               />
               <v-btn
                 icon="mdi-check"
@@ -178,7 +184,7 @@ function getCurrentScore(match: Match): string {
         </tr>
         <tr v-if="matches.length === 0">
           <td
-            colspan="5"
+            :colspan="shouldShowActions ? 5 : 4"
             class="text-center text-medium-emphasis py-4"
           >
             No matches currently in progress

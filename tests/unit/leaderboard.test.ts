@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { LeaderboardEntry } from '../../src/types/leaderboard';
 import type { ResolvedMatch } from '../../src/types/leaderboard';
-import type { Registration, Player, Category } from '../../src/types';
+import type { Registration, Player, Category, Match } from '../../src/types';
 import {
   aggregateStats,
   resolveParticipantName,
@@ -12,6 +12,7 @@ import {
   findHeadToHeadMatch,
   groupByDescending,
   matchesToResolvedMatches,
+  generateLeaderboard,
 } from '../../src/composables/useLeaderboard';
 
 // ============================================
@@ -111,11 +112,53 @@ function makeEntry(
   };
 }
 
+function makeStoreMatch(
+  id: string,
+  categoryId: string,
+  p1: string,
+  p2: string,
+  winner: string,
+  games: [number, number][],
+  matchNumber = 1
+): Match {
+  return {
+    id,
+    tournamentId: 't1',
+    categoryId,
+    round: 1,
+    matchNumber,
+    bracketPosition: { bracket: 'winners', round: 1, position: matchNumber },
+    participant1Id: p1,
+    participant2Id: p2,
+    winnerId: winner,
+    status: 'completed',
+    scores: games.map((g, i) => ({
+      gameNumber: i + 1,
+      score1: g[0],
+      score2: g[1],
+      winnerId: g[0] > g[1] ? p1 : p2,
+      isComplete: true,
+    })),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
 // ============================================
 // resolveParticipantName
 // ============================================
 
 describe('resolveParticipantName', () => {
+  it('returns full names for doubles when partnerPlayerId exists', () => {
+    const reg = {
+      ...makeReg('r1', 'cat1', 'p1'),
+      partnerPlayerId: 'p2',
+      teamName: 'Baker / Baker',
+    };
+    const players = [makePlayer('p1', 'Alex', 'Baker'), makePlayer('p2', 'Blake', 'Baker')];
+    expect(resolveParticipantName(reg, players)).toBe('Alex Baker / Blake Baker');
+  });
+
   it('returns teamName when present', () => {
     const reg = { ...makeReg('r1'), teamName: 'Dream Team', teamId: 't1' };
     expect(resolveParticipantName(reg, [])).toBe('Dream Team');
@@ -715,5 +758,76 @@ describe('matchesToResolvedMatches', () => {
     const resolved = matchesToResolvedMatches(matches);
     expect(resolved[0].scores).toHaveLength(3);
     expect(resolved[0].scores).toEqual(scores);
+  });
+});
+
+describe('generateLeaderboard', () => {
+  it('includes category summaries for tournament scope', async () => {
+    const categories = [
+      makeCategory('cat1', 'round_robin'),
+      makeCategory('cat2', 'single_elimination'),
+    ];
+    const players = [
+      makePlayer('p1', 'Alice', 'A'),
+      makePlayer('p2', 'Bob', 'B'),
+      makePlayer('p3', 'Cara', 'C'),
+      makePlayer('p4', 'Dan', 'D'),
+    ];
+    const registrations = [
+      makeReg('r1', 'cat1', 'p1'),
+      makeReg('r2', 'cat1', 'p2'),
+      makeReg('r3', 'cat2', 'p3'),
+      makeReg('r4', 'cat2', 'p4'),
+    ];
+    const matches = [
+      makeStoreMatch('m1', 'cat1', 'r1', 'r2', 'r1', [[21, 17], [21, 19]], 1),
+      makeStoreMatch('m2', 'cat2', 'r3', 'r4', 'r3', [[21, 14], [21, 16]], 2),
+    ];
+
+    const leaderboard = await generateLeaderboard('t1', undefined, undefined, {
+      matches,
+      registrations,
+      categories,
+      players,
+    });
+
+    expect(leaderboard.scope).toBe('tournament');
+    expect(leaderboard.categories).toBeDefined();
+    expect(leaderboard.categories).toHaveLength(2);
+    expect(leaderboard.categories!.map((c) => c.categoryId).sort()).toEqual(['cat1', 'cat2']);
+  });
+
+  it('respects tournament categoryIds filter and returns matching category summaries', async () => {
+    const categories = [
+      makeCategory('cat1', 'round_robin'),
+      makeCategory('cat2', 'single_elimination'),
+    ];
+    const players = [
+      makePlayer('p1', 'Alice', 'A'),
+      makePlayer('p2', 'Bob', 'B'),
+      makePlayer('p3', 'Cara', 'C'),
+      makePlayer('p4', 'Dan', 'D'),
+    ];
+    const registrations = [
+      makeReg('r1', 'cat1', 'p1'),
+      makeReg('r2', 'cat1', 'p2'),
+      makeReg('r3', 'cat2', 'p3'),
+      makeReg('r4', 'cat2', 'p4'),
+    ];
+    const matches = [
+      makeStoreMatch('m1', 'cat1', 'r1', 'r2', 'r1', [[21, 17], [21, 19]], 1),
+      makeStoreMatch('m2', 'cat2', 'r3', 'r4', 'r3', [[21, 14], [21, 16]], 2),
+    ];
+
+    const leaderboard = await generateLeaderboard(
+      't1',
+      undefined,
+      { categoryIds: ['cat1'] },
+      { matches, registrations, categories, players }
+    );
+
+    expect(leaderboard.entries.every((entry) => entry.categoryId === 'cat1')).toBe(true);
+    expect(leaderboard.categories).toHaveLength(1);
+    expect(leaderboard.categories![0].categoryId).toBe('cat1');
   });
 });

@@ -20,6 +20,7 @@ async function loadBracketsViewer() {
 const props = defineProps<{
   tournamentId: string;
   categoryId: string;
+  levelId?: string;
 }>();
 
 const loading = ref(true);
@@ -119,7 +120,9 @@ async function fetchBracketData() {
 
     console.log('🔍 Fetching bracket data for:', props.tournamentId, props.categoryId);
 
-    const categoryPath = `tournaments/${props.tournamentId}/categories/${props.categoryId}`;
+    const categoryPath = props.levelId
+      ? `tournaments/${props.tournamentId}/categories/${props.categoryId}/levels/${props.levelId}`
+      : `tournaments/${props.tournamentId}/categories/${props.categoryId}`;
     const storage = new ClientFirestoreStorage(db, categoryPath);
 
     const stageData = await storage.select('stage') as Stage[] | null;
@@ -136,10 +139,11 @@ async function fetchBracketData() {
 
     let stage = stageData[0];
     try {
-      const categoryDoc = await getDoc(
-        doc(db, 'tournaments', props.tournamentId, 'categories', props.categoryId)
-      );
-      const preferredStageId = categoryDoc.exists() ? categoryDoc.data()?.stageId : null;
+      const preferredStageDocRef = props.levelId
+        ? doc(db, 'tournaments', props.tournamentId, 'categories', props.categoryId, 'levels', props.levelId)
+        : doc(db, 'tournaments', props.tournamentId, 'categories', props.categoryId);
+      const preferredStageDoc = await getDoc(preferredStageDocRef);
+      const preferredStageId = preferredStageDoc.exists() ? preferredStageDoc.data()?.stageId : null;
 
       if (preferredStageId !== null && preferredStageId !== undefined) {
         const matchingStage = stageData.find(
@@ -195,7 +199,9 @@ function setupRealtimeListeners() {
   cleanupRealtimeListeners();
   console.log(`🔄 [BracketsViewer] Setting up real-time listeners for category ${props.categoryId}`);
 
-  const basePath = `tournaments/${props.tournamentId}/categories/${props.categoryId}`;
+  const basePath = props.levelId
+    ? `tournaments/${props.tournamentId}/categories/${props.categoryId}/levels/${props.levelId}`
+    : `tournaments/${props.tournamentId}/categories/${props.categoryId}`;
   const unsubscribers: (() => void)[] = [];
 
   // Listener 1: /match collection
@@ -319,7 +325,7 @@ onMounted(async () => {
   setupRealtimeListeners();
 });
 
-watch(() => props.categoryId, async () => {
+watch(() => `${props.categoryId}:${props.levelId || ''}`, async () => {
   cleanupRealtimeListeners();
   await fetchBracketData();
   setupRealtimeListeners();
