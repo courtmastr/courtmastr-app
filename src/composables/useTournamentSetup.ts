@@ -11,7 +11,7 @@ export interface SetupOptions {
   tournamentId: string;
   categoryId: string;
   // Bracket options
-  format?: 'single_elimination' | 'double_elimination' | 'round_robin';
+  format?: 'single_elimination' | 'double_elimination' | 'round_robin' | 'pool_to_elimination';
   grandFinal?: 'simple' | 'double' | 'none';
   consolationFinal?: boolean;
   // Schedule options

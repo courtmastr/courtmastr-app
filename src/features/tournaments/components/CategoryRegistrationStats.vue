@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import { FORMAT_LABELS, AGE_GROUP_LABELS } from '@/types';
-import type { Category, Registration } from '@/types';
 
 const props = defineProps<{
   tournamentId: string;
@@ -67,17 +66,6 @@ const overallStats = computed(() => {
   };
 });
 
-function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    pending: 'warning',
-    approved: 'success',
-    checked_in: 'info',
-    withdrawn: 'grey',
-    rejected: 'error',
-  };
-  return colors[status] || 'grey';
-}
-
 function getCategoryTypeIcon(type: string): string {
   const icons: Record<string, string> = {
     singles: 'mdi-account',
@@ -93,6 +81,7 @@ function canGenerateBracket(stats: typeof categoryStats.value[0]): boolean {
 
 const emit = defineEmits<{
   (e: 'generate-bracket', categoryId: string): void;
+  (e: 'generate-elimination', categoryId: string): void;
   (e: 'regenerate-bracket', categoryId: string): void;
   (e: 'manage-registrations', categoryId: string): void;
   (e: 'manage-seeds', categoryId: string): void;
@@ -115,12 +104,6 @@ function getBracketInfo(stats: typeof categoryStats.value[0]): { size: number; b
   const bracketSize = Math.pow(2, Math.ceil(Math.log2(ready)));
   const byes = bracketSize - ready;
   return { size: bracketSize, byes };
-}
-
-function hasCompletedMatches(categoryId: string): boolean {
-  // Check if there are any completed matches for this category
-  // We'll rely on the parent component to track this via matchStore
-  return false; // Default - parent will provide actual logic
 }
 </script>
 
@@ -531,6 +514,19 @@ function hasCompletedMatches(categoryId: string): boolean {
                 </v-btn>
               </template>
               <v-list density="compact">
+                <v-list-item
+                  v-if="
+                    stats.category.format === 'pool_to_elimination' &&
+                    stats.category.poolPhase !== 'elimination' &&
+                    stats.category.poolStageId !== null &&
+                    stats.category.poolStageId !== undefined
+                  "
+                  prepend-icon="mdi-tournament-variant"
+                  @click="emit('generate-elimination', stats.category.id)"
+                >
+                  <v-list-item-title>Generate Elimination Stage</v-list-item-title>
+                  <v-list-item-subtitle>Use completed pool results</v-list-item-subtitle>
+                </v-list-item>
                 <v-list-item
                   prepend-icon="mdi-refresh"
                   @click="emit('regenerate-bracket', stats.category.id)"

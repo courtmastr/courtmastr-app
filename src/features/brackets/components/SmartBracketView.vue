@@ -18,6 +18,9 @@ const category = computed(() =>
 );
 
 const format = computed(() => category.value?.format || 'single_elimination');
+const isPoolPhase = computed(
+  () => format.value === 'pool_to_elimination' && category.value?.poolPhase !== 'elimination'
+);
 </script>
 
 <template>
@@ -56,7 +59,7 @@ const format = computed(() => category.value?.format || 'single_elimination');
 
     <!-- Round Robin View -->
     <RoundRobinStandings
-      v-if="format === 'round_robin'"
+      v-if="format === 'round_robin' || isPoolPhase"
       :tournament-id="tournamentId"
       :category-id="categoryId"
     />

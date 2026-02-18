@@ -114,7 +114,7 @@ const filteredParticipants = computed(() => {
   }
 
   if (filterCategory.value) {
-    result = result.filter((player) => getParticipantCategoryId(player.id) === filterCategory.value);
+    result = result.filter((player) => hasParticipantInCategory(player.id, filterCategory.value!));
   }
 
   if (filterStatus.value) {
@@ -161,26 +161,41 @@ function getPlayerName(playerId: string): string {
   return player ? `${player.firstName} ${player.lastName}` : 'Unknown';
 }
 
-function getParticipantRegistration(playerId: string) {
-  return activeRegistrations.value.find((registration) =>
+function getParticipantRegistrations(playerId: string) {
+  return activeRegistrations.value.filter((registration) =>
     registration.playerId === playerId || registration.partnerPlayerId === playerId
   );
 }
 
-function getParticipantCategoryId(playerId: string): string | null {
-  return getParticipantRegistration(playerId)?.categoryId || null;
+function hasParticipantInCategory(playerId: string, categoryId: string): boolean {
+  return getParticipantRegistrations(playerId).some((registration) => registration.categoryId === categoryId);
+}
+
+function getParticipantCategories(playerId: string): string[] {
+  const categoryIds = Array.from(new Set(
+    getParticipantRegistrations(playerId).map((registration) => registration.categoryId)
+  ));
+
+  return categoryIds
+    .map((categoryId) => categories.value.find((category) => category.id === categoryId)?.name || 'Unknown')
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function getParticipantCategory(playerId: string): string {
-  const reg = getParticipantRegistration(playerId);
-  if (!reg) return '-';
-  const category = categories.value.find(c => c.id === reg.categoryId);
-  return category?.name || 'Unknown';
+  const categoryNames = getParticipantCategories(playerId);
+  return categoryNames.length > 0 ? categoryNames.join(', ') : '-';
 }
 
 function getParticipantStatus(playerId: string): string {
-  const reg = getParticipantRegistration(playerId);
-  return reg?.status || 'unknown';
+  const participantRegistrations = getParticipantRegistrations(playerId);
+  if (participantRegistrations.length === 0) return 'unknown';
+  if (participantRegistrations.some((registration) => registration.status === 'checked_in')) {
+    return 'checked_in';
+  }
+  if (participantRegistrations.some((registration) => registration.status === 'approved')) {
+    return 'approved';
+  }
+  return participantRegistrations[0].status;
 }
 
 function openEditPlayerDialog(player: any) {
@@ -460,12 +475,16 @@ function clearFilters() {
         </template>
 
         <template #item.category="{ item }">
-          <v-chip
-            size="small"
-            variant="outlined"
-          >
-            {{ getParticipantCategory(item.id) }}
-          </v-chip>
+          <div class="d-flex flex-wrap gap-1">
+            <v-chip
+              v-for="categoryName in getParticipantCategories(item.id)"
+              :key="`${item.id}-${categoryName}`"
+              size="small"
+              variant="outlined"
+            >
+              {{ categoryName }}
+            </v-chip>
+          </div>
         </template>
 
         <template #item.status="{ item }">

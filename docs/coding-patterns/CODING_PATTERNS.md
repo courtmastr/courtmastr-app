@@ -954,6 +954,64 @@ rg -n "catch \\(err\\).*user profile" src/stores/auth.ts -A 5 | rg -v "buildFall
 
 ---
 
+### CP-021: Resolve Player Names with Fallbacks in Registration UI
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Manual registration dialog showed `undefined undefined` for player choices when legacy player docs lacked `firstName`/`lastName` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<!-- Direct concatenation assumes both fields always exist -->
+<v-select
+  :items="players"
+  :item-title="(p) => `${p.firstName} ${p.lastName}`"
+/>
+```
+```typescript
+function getPlayerName(playerId: string): string {
+  const player = players.value.find((p) => p.id === playerId);
+  return `${player?.firstName} ${player?.lastName}`;
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+interface PlayerNameSource {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  name?: string;
+  fullName?: string;
+}
+
+function getPlayerDisplayName(player: PlayerNameSource | undefined): string {
+  if (!player) return 'Unknown';
+  const firstLast = `${player.firstName || ''} ${player.lastName || ''}`.trim();
+  if (firstLast) return firstLast;
+  return player.displayName || player.name || player.fullName || (player.id ? `Player ${player.id}` : 'Unknown');
+}
+```
+```vue
+<v-select
+  :items="players"
+  :item-title="getPlayerItemTitle"
+/>
+```
+
+**Rule:** Any player label shown in registration flows (dropdowns, list rows, team name generation) must use a shared fallback resolver, not direct ```${firstName} ${lastName}``` concatenation.
+
+**Detection:**
+```bash
+rg -n "\\$\\{[^}]*firstName[^}]*\\}\\s*\\$\\{[^}]*lastName[^}]*\\}" src/features/registration --glob "*.vue" --glob "*.ts"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

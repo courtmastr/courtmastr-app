@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import type { Stage, Match, MatchGame, Participant } from 'brackets-model';
-import { db, onSnapshot, collection } from '@/services/firebase';
+import { db, onSnapshot, collection, doc, getDoc } from '@/services/firebase';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
 import { query, where, getDocs } from 'firebase/firestore';
 
@@ -134,7 +134,25 @@ async function fetchBracketData() {
       return;
     }
 
-    const stage = stageData[0];
+    let stage = stageData[0];
+    try {
+      const categoryDoc = await getDoc(
+        doc(db, 'tournaments', props.tournamentId, 'categories', props.categoryId)
+      );
+      const preferredStageId = categoryDoc.exists() ? categoryDoc.data()?.stageId : null;
+
+      if (preferredStageId !== null && preferredStageId !== undefined) {
+        const matchingStage = stageData.find(
+          (candidate) => String(candidate.id) === String(preferredStageId)
+        );
+        if (matchingStage) {
+          stage = matchingStage;
+        }
+      }
+    } catch (stageResolveError) {
+      console.warn('Unable to resolve preferred stageId for category:', stageResolveError);
+    }
+
     stages.value = [stage];
     console.log('📊 Found stage:', stage);
 

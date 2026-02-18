@@ -1,3 +1,17 @@
+- id: 21408232
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-18"
+  fingerprint: "21408232"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-18-08-01-38.vue-tsc-b.log"
+- id: f4dc4418
+  title: build:log fails with widespread existing TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-18"
+  fingerprint: "f4dc4418"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-18-07-05-32.vue-tsc-b.log"
 - id: e2c5e36f
   title: direct vite build command not found in run-and-log shell
   status: "❌ unresolved"

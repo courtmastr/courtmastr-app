@@ -9,7 +9,7 @@ import BaseDialog from '@/components/common/BaseDialog.vue';
 import FilterBar from '@/components/common/FilterBar.vue';
 
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
-import { FORMAT_LABELS } from '@/types';
+import { FORMAT_LABELS, type Category } from '@/types';
 import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
 
 const route = useRoute();
@@ -18,6 +18,38 @@ const tournamentStore = useTournamentStore();
 const registrationStore = useRegistrationStore();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
+
+const PLAYER_FLOW_TIPS = {
+  import: 'Step 1: Import players from CSV/TXT or paste rows',
+  addPlayer: 'Step 1: Add player profiles first',
+  addRegistration: 'Step 2: Register added players into a category',
+};
+
+interface PlayerNameSource {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  displayName?: string;
+  fullName?: string;
+}
+
+interface ImportPreviewRow {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  skillLevel: number;
+  categoryName: string;
+  categoryId: string | null;
+  participantType: 'player' | 'team';
+  partnerFirstName: string;
+  partnerLastName: string;
+  partnerEmail: string;
+  partnerPhone: string;
+  partnerSkillLevel: number | null;
+  valid: boolean;
+}
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -57,9 +89,20 @@ const editingPayment = ref<{
 
 // Import state
 const importFile = ref<File | null>(null);
-const importPreview = ref<any[]>([]);
+const importSourceLabel = ref('');
+const pastedImportText = ref('');
+const importMode = ref<'upload' | 'paste'>('upload');
+const importPreview = ref<ImportPreviewRow[]>([]);
 const importErrors = ref<string[]>([]);
 const importing = ref(false);
+
+const IMPORT_HEADER =
+  'First Name,Last Name,Email,Phone,Skill Level (1-10),Category,Partner First Name,Partner Last Name,Partner Email,Partner Phone,Partner Skill Level (1-10)';
+const IMPORT_SINGLES_EXAMPLE =
+  "John,Doe,john@example.com,555-1234,7,Men's Singles,,,,,";
+const IMPORT_DOUBLES_EXAMPLE =
+  "Priya,Shah,priya@example.com,555-2001,8,Mixed Doubles,Arjun,Patel,arjun@example.com,555-2002,8";
+const IMPORT_PLACEHOLDER = `${IMPORT_HEADER}\n${IMPORT_SINGLES_EXAMPLE}\n${IMPORT_DOUBLES_EXAMPLE}`;
 
 // Edit player state
 const editingPlayer = ref<{
@@ -234,10 +277,27 @@ watch(filterCategory, (newVal) => {
   });
 });
 
+function getPlayerDisplayName(player: PlayerNameSource | undefined): string {
+  if (!player) return 'Unknown';
+
+  const firstLast = `${player.firstName || ''} ${player.lastName || ''}`.trim();
+  if (firstLast) return firstLast;
+
+  if (player.displayName?.trim()) return player.displayName.trim();
+  if (player.name?.trim()) return player.name.trim();
+  if (player.fullName?.trim()) return player.fullName.trim();
+
+  return player.id ? `Player ${player.id}` : 'Unknown';
+}
+
+function getPlayerItemTitle(player: unknown): string {
+  return getPlayerDisplayName(player as PlayerNameSource | undefined);
+}
+
 function getPlayerName(playerId: string | undefined): string {
   if (!playerId) return 'Unknown';
-  const player = players.value.find((p) => p.id === playerId);
-  return player ? `${player.firstName} ${player.lastName}` : 'Unknown';
+  const player = players.value.find((p) => p.id === playerId) as PlayerNameSource | undefined;
+  return getPlayerDisplayName(player);
 }
 
 function getParticipantDisplay(registration: any): string {
@@ -280,10 +340,29 @@ async function addPlayer() {
 
 async function addRegistration() {
   try {
+    if (!newRegistration.value.categoryId || !newRegistration.value.playerId) {
+      notificationStore.showToast('error', 'Please select category and player');
+      return;
+    }
+
+    if (isDoublesCategory.value && !newRegistration.value.partnerPlayerId) {
+      notificationStore.showToast('error', 'Please select a partner for doubles registration');
+      return;
+    }
+
+    if (
+      isDoublesCategory.value &&
+      newRegistration.value.playerId &&
+      newRegistration.value.partnerPlayerId === newRegistration.value.playerId
+    ) {
+      notificationStore.showToast('error', 'Player and partner must be different');
+      return;
+    }
+
     const playerName = getPlayerName(newRegistration.value.playerId);
     const partnerName = isDoublesCategory.value ? getPlayerName(newRegistration.value.partnerPlayerId) : '';
     const teamName = isDoublesCategory.value
-      ? `${playerName.split(' ').pop()} / ${partnerName.split(' ').pop()}`
+      ? `${playerName} / ${partnerName}`
       : null;
 
     await registrationStore.createRegistration(tournamentId.value, {
@@ -300,7 +379,9 @@ async function addRegistration() {
     showAddRegistrationDialog.value = false;
     resetRegistrationForm();
   } catch (error) {
-    notificationStore.showToast('error', 'Failed to add registration');
+    console.error('Error adding registration:', error);
+    const message = error instanceof Error ? error.message : 'Failed to add registration';
+    notificationStore.showToast('error', message);
   }
 }
 
@@ -536,13 +617,12 @@ function getPaymentIcon(status: string | undefined): string {
   return icons[status || 'unpaid'] || 'mdi-close-circle';
 }
 
-// CSV Import Functions
+// File Import Functions (.csv and .txt)
 function downloadTemplate() {
   const categoryNames = categories.value.map((c) => c.name).join(' | ');
-  const csvContent = `First Name,Last Name,Email,Phone,Skill Level (1-10),Category
-John,Doe,john@example.com,555-1234,7,Mens Singles
-Jane,Smith,jane@example.com,555-5678,8,Womens Singles
-Mike,Johnson,mike@example.com,555-9012,6,Mens Singles
+  const csvContent = `${IMPORT_HEADER}
+${IMPORT_SINGLES_EXAMPLE}
+${IMPORT_DOUBLES_EXAMPLE}
 
 # Instructions:
 # - First Name and Last Name are required
@@ -551,7 +631,7 @@ Mike,Johnson,mike@example.com,555-9012,6,Mens Singles
 # - Skill Level should be 1-10 (defaults to 5 if empty)
 # - Category must match one of your tournament categories exactly:
 #   ${categoryNames}
-# - For doubles, create separate rows for each player with the same category
+# - For doubles/mixed doubles, provide partner columns in the same row
 # - Delete these instruction lines before importing
 `;
 
@@ -570,55 +650,203 @@ function handleFileUpload(event: Event) {
   if (!file) return;
 
   importFile.value = file;
+  importSourceLabel.value = '';
+  importMode.value = 'upload';
   importErrors.value = [];
   importPreview.value = [];
 
   const reader = new FileReader();
   reader.onload = (e) => {
     const text = e.target?.result as string;
-    parseCSV(text);
+    parseImportText(text);
   };
   reader.readAsText(file);
 }
 
-function parseCSV(text: string) {
-  const lines = text.split('\n').filter((line) => line.trim() && !line.startsWith('#'));
-  const errors: string[] = [];
-  const preview: any[] = [];
+function normalizeEmail(email?: string): string {
+  return (email || '').trim().toLowerCase();
+}
 
-  // Skip header row
-  const dataLines = lines.slice(1);
+function buildPlayerNameKey(firstName: string, lastName: string, phone?: string): string {
+  return `${firstName.trim().toLowerCase()}|${lastName.trim().toLowerCase()}|${(phone || '').trim().toLowerCase()}`;
+}
+
+function getCategoryById(categoryId: string | null): Category | undefined {
+  if (!categoryId) return undefined;
+  return categories.value.find((category) => category.id === categoryId);
+}
+
+function normalizeCategoryName(categoryName: string): string {
+  return categoryName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function findCategoryByName(categoryName: string): Category | undefined {
+  const trimmedName = categoryName.trim();
+  if (!trimmedName) return undefined;
+
+  const exact = categories.value.find(
+    (category) => category.name.toLowerCase() === trimmedName.toLowerCase()
+  );
+  if (exact) return exact;
+
+  const normalizedInput = normalizeCategoryName(trimmedName);
+  return categories.value.find(
+    (category) => normalizeCategoryName(category.name) === normalizedInput
+  );
+}
+
+function buildRegistrationKey(
+  categoryId: string,
+  playerId: string,
+  partnerPlayerId?: string
+): string {
+  if (!partnerPlayerId) {
+    return `${categoryId}|player|${playerId}`;
+  }
+
+  const sortedPair = [playerId, partnerPlayerId].sort().join('|');
+  return `${categoryId}|team|${sortedPair}`;
+}
+
+function parseSkillLevel(raw: string, lineNumber: number, fieldName: string, errors: string[]): number | null {
+  if (!raw.trim()) return null;
+  const parsed = parseInt(raw.trim(), 10);
+  if (isNaN(parsed) || parsed < 1 || parsed > 10) {
+    errors.push(`Row ${lineNumber}: ${fieldName} must be 1-10`);
+    return null;
+  }
+  return parsed;
+}
+
+function parseImportColumns(line: string): string[] {
+  if (line.includes(',')) {
+    return line.split(',').map((value) => value.trim());
+  }
+
+  if (line.includes('|')) {
+    return line.split('|').map((value) => value.trim());
+  }
+
+  return [];
+}
+
+function parseImportText(text: string) {
+  const lines = text
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#') && !line.startsWith('//'));
+
+  const errors: string[] = [];
+  const preview: ImportPreviewRow[] = [];
+
+  if (lines.length === 0) {
+    importErrors.value = ['No data found. Upload a file or paste rows to continue'];
+    importPreview.value = [];
+    return;
+  }
+
+  const firstLine = lines[0].toLowerCase();
+  const hasHeader = (
+    firstLine.includes('first name') ||
+    firstLine.includes('last name') ||
+    firstLine.includes('email') ||
+    firstLine.includes('category')
+  );
+
+  const dataLines = hasHeader ? lines.slice(1) : lines;
 
   for (let i = 0; i < dataLines.length; i++) {
     const line = dataLines[i];
-    const values = line.split(',').map((v) => v.trim());
+    const lineNumber = hasHeader ? i + 2 : i + 1;
+    let firstName = '';
+    let lastName = '';
+    let email = '';
+    let phone = '';
+    let skillLevel = 5;
+    let categoryName = '';
+    let partnerFirstName = '';
+    let partnerLastName = '';
+    let partnerEmail = '';
+    let partnerPhone = '';
+    let partnerSkillLevel: number | null = null;
 
-    if (values.length < 2) {
-      errors.push(`Row ${i + 2}: Missing required fields (First Name, Last Name)`);
-      continue;
+    const values = parseImportColumns(line);
+    if (values.length > 0) {
+      const skillLevelRaw = values[4] || '';
+      const partnerSkillLevelRaw = values[10] || '';
+      [
+        firstName,
+        lastName,
+        email = '',
+        phone = '',
+        ,
+        categoryName = '',
+        partnerFirstName = '',
+        partnerLastName = '',
+        partnerEmail = '',
+        partnerPhone = '',
+      ] = values;
+
+      const parsedSkill = parseSkillLevel(skillLevelRaw, lineNumber, 'Skill Level', errors);
+      if (parsedSkill === null && skillLevelRaw.trim()) continue;
+      skillLevel = parsedSkill ?? 5;
+
+      const parsedPartnerSkill = parseSkillLevel(partnerSkillLevelRaw, lineNumber, 'Partner Skill Level', errors);
+      if (parsedPartnerSkill === null && partnerSkillLevelRaw.trim()) continue;
+      partnerSkillLevel = parsedPartnerSkill;
+    } else {
+      const nameParts = line.split(/\s+/).filter(Boolean);
+      if (nameParts.length < 2) {
+        errors.push(`Row ${lineNumber}: For TXT import, provide at least first and last name`);
+        continue;
+      }
+      firstName = nameParts[0];
+      lastName = nameParts.slice(1).join(' ');
     }
-
-    const [firstName, lastName, email, phone, skillLevelStr, categoryName] = values;
 
     if (!firstName || !lastName) {
-      errors.push(`Row ${i + 2}: First Name and Last Name are required`);
+      errors.push(`Row ${lineNumber}: First Name and Last Name are required`);
       continue;
     }
 
-    const skillLevel = skillLevelStr ? parseInt(skillLevelStr, 10) : 5;
-    if (isNaN(skillLevel) || skillLevel < 1 || skillLevel > 10) {
-      errors.push(`Row ${i + 2}: Skill Level must be 1-10`);
+    const hasAnyPartnerField = Boolean(
+      partnerFirstName || partnerLastName || partnerEmail || partnerPhone || partnerSkillLevel !== null
+    );
+    const hasPartnerName = Boolean(partnerFirstName && partnerLastName);
+
+    if (hasAnyPartnerField && !hasPartnerName) {
+      errors.push(`Row ${lineNumber}: Partner First Name and Partner Last Name are both required for doubles`);
       continue;
     }
 
-    // Find matching category
-    let matchedCategory = null;
+    if (
+      hasPartnerName &&
+      normalizeEmail(email) &&
+      normalizeEmail(email) === normalizeEmail(partnerEmail)
+    ) {
+      errors.push(`Row ${lineNumber}: Player and partner email cannot be the same`);
+      continue;
+    }
+
+    let matchedCategory: Category | undefined;
     if (categoryName) {
-      matchedCategory = categories.value.find(
-        (c) => c.name.toLowerCase() === categoryName.toLowerCase()
-      );
+      matchedCategory = findCategoryByName(categoryName);
       if (!matchedCategory) {
-        errors.push(`Row ${i + 2}: Category "${categoryName}" not found`);
+        errors.push(`Row ${lineNumber}: Category "${categoryName}" not found`);
+        continue;
+      }
+
+      const isCategoryDoubles = matchedCategory.type === 'doubles' || matchedCategory.type === 'mixed_doubles';
+      if (isCategoryDoubles && !hasPartnerName) {
+        errors.push(`Row ${lineNumber}: ${matchedCategory.name} requires partner columns in the same row`);
+        continue;
+      }
+      if (!isCategoryDoubles && hasPartnerName) {
+        errors.push(`Row ${lineNumber}: Partner columns are only allowed for doubles/mixed doubles categories`);
+        continue;
       }
     }
 
@@ -630,7 +858,13 @@ function parseCSV(text: string) {
       skillLevel,
       categoryName: categoryName || '',
       categoryId: matchedCategory?.id || null,
-      valid: !categoryName || !!matchedCategory,
+      participantType: hasPartnerName ? 'team' : 'player',
+      partnerFirstName,
+      partnerLastName,
+      partnerEmail: partnerEmail || '',
+      partnerPhone: partnerPhone || '',
+      partnerSkillLevel: hasPartnerName ? (partnerSkillLevel ?? skillLevel) : null,
+      valid: true,
     });
   }
 
@@ -638,38 +872,158 @@ function parseCSV(text: string) {
   importPreview.value = preview;
 }
 
+function previewPastedData(): void {
+  const text = pastedImportText.value.trim();
+  if (!text) {
+    notificationStore.showToast('error', 'Paste data first');
+    return;
+  }
+
+  importFile.value = null;
+  importSourceLabel.value = 'Pasted data';
+  importMode.value = 'paste';
+  importErrors.value = [];
+  importPreview.value = [];
+  parseImportText(text);
+}
+
+interface ImportPlayerPayload {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  skillLevel?: number;
+}
+
+async function resolveOrCreateImportPlayer(
+  player: ImportPlayerPayload,
+  emailCache: Map<string, string>,
+  nameCache: Map<string, string>,
+): Promise<string> {
+  const normalizedEmail = normalizeEmail(player.email);
+  const nameKey = buildPlayerNameKey(player.firstName, player.lastName, player.phone);
+
+  if (normalizedEmail && emailCache.has(normalizedEmail)) {
+    return emailCache.get(normalizedEmail)!;
+  }
+  if (nameCache.has(nameKey)) {
+    return nameCache.get(nameKey)!;
+  }
+
+  if (normalizedEmail) {
+    const existingByEmail = players.value.find(
+      (existingPlayer) => normalizeEmail(existingPlayer.email) === normalizedEmail
+    );
+    if (existingByEmail) {
+      emailCache.set(normalizedEmail, existingByEmail.id);
+      nameCache.set(nameKey, existingByEmail.id);
+      return existingByEmail.id;
+    }
+  }
+
+  const existingByName = players.value.find((existingPlayer) =>
+    existingPlayer.firstName.trim().toLowerCase() === player.firstName.trim().toLowerCase() &&
+    existingPlayer.lastName.trim().toLowerCase() === player.lastName.trim().toLowerCase() &&
+    (player.phone ? (existingPlayer.phone || '').trim().toLowerCase() === player.phone.trim().toLowerCase() : true)
+  );
+  if (existingByName) {
+    if (normalizedEmail) emailCache.set(normalizedEmail, existingByName.id);
+    nameCache.set(nameKey, existingByName.id);
+    return existingByName.id;
+  }
+
+  const playerId = await registrationStore.addPlayer(tournamentId.value, {
+    firstName: player.firstName.trim(),
+    lastName: player.lastName.trim(),
+    email: player.email?.trim() || '',
+    phone: player.phone?.trim() || '',
+    skillLevel: player.skillLevel ?? 5,
+  });
+
+  if (normalizedEmail) emailCache.set(normalizedEmail, playerId);
+  nameCache.set(nameKey, playerId);
+  return playerId;
+}
+
 async function executeImport() {
   if (importPreview.value.length === 0) return;
 
   importing.value = true;
-  let successCount = 0;
+  let processedRowCount = 0;
+  let registrationCount = 0;
   let errorCount = 0;
+  const emailCache = new Map<string, string>();
+  const nameCache = new Map<string, string>();
+  const existingRegistrationKeys = new Set<string>();
+
+  for (const registration of registrations.value) {
+    if (
+      !registration.categoryId ||
+      !registration.playerId ||
+      registration.status === 'rejected' ||
+      registration.status === 'withdrawn'
+    ) {
+      continue;
+    }
+    existingRegistrationKeys.add(
+      buildRegistrationKey(registration.categoryId, registration.playerId, registration.partnerPlayerId)
+    );
+  }
 
   try {
     for (const row of importPreview.value) {
       try {
-        // Create player
-        const playerId = await registrationStore.addPlayer(tournamentId.value, {
+        const playerId = await resolveOrCreateImportPlayer({
           firstName: row.firstName,
           lastName: row.lastName,
           email: row.email,
           phone: row.phone,
           skillLevel: row.skillLevel,
-        });
+        }, emailCache, nameCache);
+
+        let partnerPlayerId: string | undefined;
+        if (row.participantType === 'team') {
+          partnerPlayerId = await resolveOrCreateImportPlayer({
+            firstName: row.partnerFirstName,
+            lastName: row.partnerLastName,
+            email: row.partnerEmail,
+            phone: row.partnerPhone,
+            skillLevel: row.partnerSkillLevel ?? row.skillLevel,
+          }, emailCache, nameCache);
+        }
 
         // Create registration if category specified
         if (row.categoryId) {
+          const category = getCategoryById(row.categoryId);
+          const categoryIsDoubles = category?.type === 'doubles' || category?.type === 'mixed_doubles';
+          const registrationKey = buildRegistrationKey(row.categoryId, playerId, partnerPlayerId);
+
+          if (existingRegistrationKeys.has(registrationKey)) {
+            errorCount++;
+            continue;
+          }
+
+          const participantType: 'player' | 'team' = categoryIsDoubles ? 'team' : 'player';
+          if (participantType === 'team' && !partnerPlayerId) {
+            errorCount++;
+            continue;
+          }
+
           await registrationStore.createRegistration(tournamentId.value, {
             tournamentId: tournamentId.value,
             categoryId: row.categoryId,
-            participantType: 'player',
+            participantType,
             playerId: playerId,
+            partnerPlayerId: participantType === 'team' ? partnerPlayerId : undefined,
+            teamName: participantType === 'team' ? `${row.lastName} / ${row.partnerLastName}` : undefined,
             status: 'approved',
             registeredBy: authStore.currentUser?.id || '',
           });
+          existingRegistrationKeys.add(registrationKey);
+          registrationCount++;
         }
 
-        successCount++;
+        processedRowCount++;
       } catch (err) {
         console.error('Error importing row:', row, err);
         errorCount++;
@@ -678,14 +1032,11 @@ async function executeImport() {
 
     notificationStore.showToast(
       'success',
-      `Imported ${successCount} players${errorCount > 0 ? ` (${errorCount} failed)` : ''}`
+      `Processed ${processedRowCount} row(s), created ${registrationCount} registration(s)${errorCount > 0 ? ` (${errorCount} failed)` : ''}`
     );
 
-    // Reset import state
     showImportDialog.value = false;
-    importFile.value = null;
-    importPreview.value = [];
-    importErrors.value = [];
+    resetImport();
   } catch (error) {
     notificationStore.showToast('error', 'Import failed');
   } finally {
@@ -695,6 +1046,9 @@ async function executeImport() {
 
 function resetImport() {
   importFile.value = null;
+  importSourceLabel.value = '';
+  pastedImportText.value = '';
+  importMode.value = 'upload';
   importPreview.value = [];
   importErrors.value = [];
 }
@@ -837,28 +1191,52 @@ async function advanceState(): Promise<void> {
           </div>
         </div>
         <div class="d-flex flex-column flex-sm-row gap-2">
-          <v-btn
-            variant="outlined"
-            prepend-icon="mdi-upload"
-            @click="showImportDialog = true"
+          <v-tooltip
+            :text="PLAYER_FLOW_TIPS.import"
+            location="bottom"
           >
-            Import CSV
-          </v-btn>
-          <v-btn
-            variant="outlined"
-            prepend-icon="mdi-account-plus"
-            @click="showAddPlayerDialog = true"
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                variant="outlined"
+                prepend-icon="mdi-upload"
+                @click="showImportDialog = true"
+              >
+                Import File
+              </v-btn>
+            </template>
+          </v-tooltip>
+          <v-tooltip
+            :text="PLAYER_FLOW_TIPS.addPlayer"
+            location="bottom"
           >
-            Add Player
-          </v-btn>
-          <v-btn
-            color="primary"
-            prepend-icon="mdi-plus"
-            elevation="2"
-            @click="showAddRegistrationDialog = true"
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                variant="outlined"
+                prepend-icon="mdi-account-plus"
+                @click="showAddPlayerDialog = true"
+              >
+                Add Player
+              </v-btn>
+            </template>
+          </v-tooltip>
+          <v-tooltip
+            :text="PLAYER_FLOW_TIPS.addRegistration"
+            location="bottom"
           >
-            Add Registration
-          </v-btn>
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                color="primary"
+                prepend-icon="mdi-plus"
+                elevation="2"
+                @click="showAddRegistrationDialog = true"
+              >
+                Add Registration
+              </v-btn>
+            </template>
+          </v-tooltip>
         </div>
       </div>
     </div>
@@ -1550,6 +1928,14 @@ async function advanceState(): Promise<void> {
       @confirm="addRegistration"
       @cancel="showAddRegistrationDialog = false"
     >
+      <v-alert
+        type="info"
+        variant="tonal"
+        density="compact"
+        class="mb-3"
+      >
+        Flow: Step 1 add/import player, Step 2 register the player into a category.
+      </v-alert>
       <v-select
         v-model="newRegistration.categoryId"
         :items="categories"
@@ -1561,7 +1947,7 @@ async function advanceState(): Promise<void> {
       <v-select
         v-model="newRegistration.playerId"
         :items="players"
-        :item-title="(p: any) => `${p.firstName} ${p.lastName}`"
+        :item-title="getPlayerItemTitle"
         item-value="id"
         label="Player"
         required
@@ -1570,7 +1956,7 @@ async function advanceState(): Promise<void> {
         v-if="isDoublesCategory"
         v-model="newRegistration.partnerPlayerId"
         :items="players.filter((p) => p.id !== newRegistration.playerId)"
-        :item-title="(p: any) => `${p.firstName} ${p.lastName}`"
+        :item-title="getPlayerItemTitle"
         item-value="id"
         label="Partner"
         required
@@ -1661,7 +2047,7 @@ async function advanceState(): Promise<void> {
       </div>
     </BaseDialog>
 
-    <!-- Import CSV Dialog -->
+    <!-- Import Dialog -->
     <v-dialog
       v-model="showImportDialog"
       max-width="800"
@@ -1672,7 +2058,21 @@ async function advanceState(): Promise<void> {
           <v-icon start>
             mdi-upload
           </v-icon>
-          Import Players from CSV
+          Import Participants
+          <v-tooltip
+            text="Use same format for Upload and Paste. Doubles require partner columns."
+            location="bottom"
+          >
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                icon="mdi-information-outline"
+                variant="text"
+                size="small"
+                class="ml-1"
+              />
+            </template>
+          </v-tooltip>
           <v-spacer />
           <v-btn
             icon="mdi-close"
@@ -1683,59 +2083,154 @@ async function advanceState(): Promise<void> {
 
         <v-card-text>
           <!-- Step 1: Download Template & Upload -->
-          <div v-if="!importFile">
+          <div v-if="!importFile && !importSourceLabel">
             <v-alert
               type="info"
               variant="tonal"
               class="mb-4"
             >
-              <div class="font-weight-medium mb-2">
-                CSV Format Instructions:
+              <div class="text-body-2">
+                Use one format for Upload and Paste. Existing players are matched by email first, then by name + phone; the same player can register in Singles, Doubles, and Mixed Doubles.
               </div>
-              <ul class="text-body-2">
-                <li>Columns: First Name, Last Name, Email, Phone, Skill Level (1-10), Category</li>
-                <li>First Name and Last Name are required</li>
-                <li>Category must match exactly one of your tournament categories</li>
-                <li>Players will be auto-registered to the specified category</li>
-              </ul>
             </v-alert>
 
-            <div class="text-center py-4">
-              <v-btn
-                color="primary"
-                variant="outlined"
-                prepend-icon="mdi-download"
-                class="mb-4"
-                @click="downloadTemplate"
-              >
-                Download CSV Template
-              </v-btn>
+            <v-tabs
+              v-model="importMode"
+              color="primary"
+              grow
+              class="mb-4"
+            >
+              <v-tab value="upload">
+                <v-icon start>
+                  mdi-file-upload-outline
+                </v-icon>
+                Upload File
+              </v-tab>
+              <v-tab value="paste">
+                <v-icon start>
+                  mdi-content-paste
+                </v-icon>
+                Paste Data
+              </v-tab>
+            </v-tabs>
 
-              <div class="text-body-2 text-grey mb-4">
-                Your tournament categories:
-              </div>
-              <div class="d-flex flex-wrap justify-center gap-2 mb-6">
-                <v-chip
-                  v-for="cat in categories"
-                  :key="cat.id"
-                  size="small"
-                  color="primary"
-                  variant="tonal"
+            <v-window v-model="importMode">
+              <v-window-item value="upload">
+                <v-card
+                  variant="outlined"
+                  class="pa-4"
                 >
-                  {{ cat.name }}
-                </v-chip>
-              </div>
+                  <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-4">
+                    <div>
+                      <div class="text-subtitle-2">
+                        CSV/TXT Upload
+                      </div>
+                      <div class="text-caption text-grey">
+                        Same format as paste mode
+                      </div>
+                    </div>
+                    <v-btn
+                      color="primary"
+                      variant="outlined"
+                      prepend-icon="mdi-download"
+                      @click="downloadTemplate"
+                    >
+                      Download Template
+                    </v-btn>
+                  </div>
 
-              <v-divider class="my-4" />
+                  <v-file-input
+                    label="Upload CSV or TXT File"
+                    accept=".csv,.txt"
+                    prepend-icon="mdi-file-document-outline"
+                    variant="outlined"
+                    @change="handleFileUpload"
+                  />
 
-              <v-file-input
-                label="Upload CSV File"
-                accept=".csv"
-                prepend-icon="mdi-file-delimited"
-                variant="outlined"
-                @change="handleFileUpload"
-              />
-            </div>
+                  <div class="text-caption text-grey mb-2">
+                    Available categories
+                  </div>
+                  <div class="d-flex flex-wrap gap-2">
+                    <v-chip
+                      v-for="cat in categories"
+                      :key="cat.id"
+                      size="small"
+                      color="primary"
+                      variant="tonal"
+                    >
+                      {{ cat.name }}
+                    </v-chip>
+                  </div>
+                </v-card>
+              </v-window-item>
+
+              <v-window-item value="paste">
+                <v-card
+                  variant="outlined"
+                  class="pa-4 mb-4"
+                >
+                  <div class="text-subtitle-2 mb-2">
+                    Format + Examples
+                  </div>
+                  <v-sheet
+                    rounded="lg"
+                    color="grey-lighten-4"
+                    class="pa-3 mb-3"
+                  >
+                    <div class="text-caption font-weight-medium mb-1">
+                      Header
+                    </div>
+                    <div class="text-caption import-code">
+                      {{ IMPORT_HEADER }}
+                    </div>
+                  </v-sheet>
+
+                  <v-sheet
+                    rounded="lg"
+                    color="grey-lighten-4"
+                    class="pa-3 mb-3"
+                  >
+                    <div class="text-caption font-weight-medium mb-1">
+                      Singles (one row)
+                    </div>
+                    <div class="text-caption import-code">
+                      {{ IMPORT_SINGLES_EXAMPLE }}
+                    </div>
+                  </v-sheet>
+
+                  <v-sheet
+                    rounded="lg"
+                    color="grey-lighten-4"
+                    class="pa-3"
+                  >
+                    <div class="text-caption font-weight-medium mb-1">
+                      Doubles (one row with partner columns)
+                    </div>
+                    <div class="text-caption import-code">
+                      {{ IMPORT_DOUBLES_EXAMPLE }}
+                    </div>
+                  </v-sheet>
+                </v-card>
+
+                <v-textarea
+                  v-model="pastedImportText"
+                  label="Paste rows"
+                  variant="outlined"
+                  rows="8"
+                  auto-grow
+                  :placeholder="IMPORT_PLACEHOLDER"
+                />
+                <div class="d-flex justify-end">
+                  <v-btn
+                    color="primary"
+                    prepend-icon="mdi-magnify"
+                    @click="previewPastedData"
+                  >
+                    Preview Rows
+                  </v-btn>
+                </div>
+              </v-window-item>
+            </v-window>
           </div>
 
           <!-- Step 2: Preview -->
@@ -1747,14 +2242,14 @@ async function advanceState(): Promise<void> {
               >
                 mdi-file-check
               </v-icon>
-              <span class="font-weight-medium">{{ importFile.name }}</span>
+              <span class="font-weight-medium">{{ importFile?.name || importSourceLabel }}</span>
               <v-spacer />
               <v-btn
                 size="small"
                 variant="text"
                 @click="resetImport"
               >
-                Choose Different File
+                Start Over
               </v-btn>
             </div>
 
@@ -1783,7 +2278,7 @@ async function advanceState(): Promise<void> {
 
             <!-- Preview Table -->
             <div class="text-subtitle-2 mb-2">
-              Preview ({{ importPreview.length }} players to import)
+              Preview ({{ importPreview.length }} row{{ importPreview.length === 1 ? '' : 's' }})
             </div>
             <v-table
               density="compact"
@@ -1804,7 +2299,13 @@ async function advanceState(): Promise<void> {
                   v-for="(row, idx) in importPreview.slice(0, 10)"
                   :key="idx"
                 >
-                  <td>{{ row.firstName }} {{ row.lastName }}</td>
+                  <td>
+                    {{
+                      row.participantType === 'team'
+                        ? `${row.firstName} ${row.lastName} / ${row.partnerFirstName} ${row.partnerLastName}`
+                        : `${row.firstName} ${row.lastName}`
+                    }}
+                  </td>
                   <td>{{ row.email || '-' }}</td>
                   <td>{{ row.phone || '-' }}</td>
                   <td>
@@ -1851,7 +2352,7 @@ async function advanceState(): Promise<void> {
               variant="tonal"
               class="mt-4"
             >
-              No valid rows found in the CSV file. Please check the format.
+              No valid rows found. Please check the format.
             </v-alert>
           </div>
         </v-card-text>
@@ -1865,12 +2366,12 @@ async function advanceState(): Promise<void> {
             Cancel
           </v-btn>
           <v-btn
-            v-if="importFile && importPreview.length > 0"
+            v-if="(importFile || importSourceLabel) && importPreview.length > 0"
             color="primary"
             :loading="importing"
             @click="executeImport"
           >
-            Import {{ importPreview.length }} Players
+            Import {{ importPreview.length }} Rows
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -1970,5 +2471,10 @@ async function advanceState(): Promise<void> {
 
 .bg-success-lighten-5 {
   background-color: rgba(var(--v-theme-success), 0.05);
+}
+
+.import-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  line-break: anywhere;
 }
 </style>

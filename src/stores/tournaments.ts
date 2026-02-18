@@ -756,6 +756,36 @@ export const useTournamentStore = defineStore('tournaments', () => {
     return result;
   }
 
+  async function generatePoolEliminationBracket(
+    tournamentId: string,
+    categoryId: string,
+    options: {
+      consolationFinal?: boolean;
+    } = {}
+  ): Promise<{ success: boolean; matchCount: number }> {
+    const bracketGen = useBracketGenerator();
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const result = await bracketGen.generateEliminationFromPool(tournamentId, categoryId, options);
+      const category = categories.value.find((c) => c.id === categoryId);
+      const auditStore = useAuditStore();
+      await auditStore.logBracketGenerated(
+        tournamentId,
+        categoryId,
+        `${category?.name || categoryId} (Elimination Stage)`
+      );
+      return result;
+    } catch (err) {
+      console.error('Error generating elimination from pool:', err);
+      error.value = err instanceof Error ? err.message : 'Failed to generate elimination stage';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function regenerateBracket(
     tournamentId: string,
     categoryId: string,
@@ -924,6 +954,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
     releaseCourtManual,
     getNextQueuedMatch,
     generateBracket,
+    generatePoolEliminationBracket,
     regenerateBracket,
     generateSchedule,
     clearSchedule,

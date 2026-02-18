@@ -23,8 +23,8 @@ const startDate = ref('');
 const endDate = ref('');
 const registrationDeadline = ref('');
 
-// Format settings
-const format = ref<TournamentFormat>('single_elimination');
+// Tournament format is configured later at category level
+const DEFAULT_TOURNAMENT_FORMAT: TournamentFormat = 'single_elimination';
 const selectedCategories = ref<string[]>([]);
 const customCategories = ref<{ name: string; type: string; gender: string }[]>([]);
 
@@ -46,11 +46,6 @@ const courts = ref<{ name: string; number: number }[]>([
   { name: 'Court 1', number: 1 },
 ]);
 
-const formatOptions = [
-  { value: 'single_elimination', title: 'Single Elimination', subtitle: 'Players are eliminated after one loss' },
-  { value: 'double_elimination', title: 'Double Elimination', subtitle: 'Players are eliminated after two losses' },
-];
-
 const categoryOptions = CATEGORY_TEMPLATES.map((cat, index) => ({
   value: index.toString(),
   title: cat.name,
@@ -59,7 +54,6 @@ const categoryOptions = CATEGORY_TEMPLATES.map((cat, index) => ({
 
 const steps = [
   { title: 'Basic Info', icon: 'mdi-information' },
-  { title: 'Format', icon: 'mdi-tournament' },
   { title: 'Categories', icon: 'mdi-tag-multiple' },
   { title: 'Courts', icon: 'mdi-grid' },
   { title: 'Settings', icon: 'mdi-cog' },
@@ -197,7 +191,7 @@ async function createTournament() {
     console.log('[createTournament] Data:', {
       name: name.value,
       sport: 'badminton',
-      format: format.value,
+      format: DEFAULT_TOURNAMENT_FORMAT,
       status: 'draft',
       startDate: startDate.value,
       endDate: endDate.value,
@@ -216,7 +210,7 @@ async function createTournament() {
     const tournamentData: any = {
       name: name.value,
       sport: 'badminton',
-      format: format.value,
+      format: DEFAULT_TOURNAMENT_FORMAT,
       status: 'draft',
       startDate: startDateObj,
       endDate: endDateObj,
@@ -266,7 +260,7 @@ async function createTournament() {
           type: customCat.type as 'singles' | 'doubles' | 'mixed_doubles',
           gender: customCat.gender as 'men' | 'women' | 'mixed' | 'open',
           ageGroup: 'open',
-          format: format.value,
+          format: DEFAULT_TOURNAMENT_FORMAT,
           seedingEnabled: true,
           status: 'setup',
         });
@@ -465,36 +459,8 @@ async function handleSubmit() {
                 </v-card>
               </v-stepper-window-item>
 
-              <!-- Step 2: Format -->
+              <!-- Step 2: Categories -->
               <v-stepper-window-item :value="2">
-                <v-card flat>
-                  <v-card-text>
-                    <h3 class="text-subtitle-1 font-weight-bold mb-4">
-                      Tournament Format
-                    </h3>
-
-                    <v-radio-group v-model="format">
-                      <v-radio
-                        v-for="option in formatOptions"
-                        :key="option.value"
-                        :value="option.value"
-                      >
-                        <template #label>
-                          <div>
-                            <strong>{{ option.title }}</strong>
-                            <p class="text-caption text-grey">
-                              {{ option.subtitle }}
-                            </p>
-                          </div>
-                        </template>
-                      </v-radio>
-                    </v-radio-group>
-                  </v-card-text>
-                </v-card>
-              </v-stepper-window-item>
-
-              <!-- Step 3: Categories -->
-              <v-stepper-window-item :value="3">
                 <v-card flat>
                   <v-card-text>
                     <h3 class="text-subtitle-1 font-weight-bold mb-4">
@@ -503,7 +469,7 @@ async function handleSubmit() {
 
                     <v-checkbox
                       v-for="option in categoryOptions"
-                      :key="option.value"
+                        :key="option.value"
                       v-model="selectedCategories"
                       :value="option.value"
                       :label="option.title"
@@ -574,8 +540,8 @@ async function handleSubmit() {
                 </v-card>
               </v-stepper-window-item>
 
-              <!-- Step 4: Courts -->
-              <v-stepper-window-item :value="4">
+              <!-- Step 3: Courts -->
+              <v-stepper-window-item :value="3">
                 <v-card flat>
                   <v-card-text>
                     <h3 class="text-subtitle-1 font-weight-bold mb-4">
@@ -630,8 +596,8 @@ async function handleSubmit() {
                 </v-card>
               </v-stepper-window-item>
 
-              <!-- Step 5: Settings -->
-              <v-stepper-window-item :value="5">
+              <!-- Step 4: Settings -->
+              <v-stepper-window-item :value="4">
                 <v-card flat>
                   <v-card-text>
                     <h3 class="text-subtitle-1 font-weight-bold mb-4">
@@ -707,8 +673,8 @@ async function handleSubmit() {
                 type="button"
                 :disabled="
                   (currentStep === 1 && !isStep1Valid) ||
-                    (currentStep === 3 && !isStep3Valid) ||
-                    (currentStep === 4 && !isStep4Valid)
+                    (currentStep === 2 && !isStep3Valid) ||
+                    (currentStep === 3 && !isStep4Valid)
                 "
                 @click="nextStep"
               >

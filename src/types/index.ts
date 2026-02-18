@@ -62,6 +62,7 @@ export interface TournamentSettings {
 export type CategoryType = 'singles' | 'doubles' | 'mixed_doubles';
 export type CategoryGender = 'men' | 'women' | 'mixed' | 'open';
 export type AgeGroup = 'open' | 'u10' | 'u12' | 'u15' | 'u18' | 'u21' | 'senior' | '35+' | '45+' | '55+';
+export type PoolPhase = 'pool' | 'elimination';
 
 export interface Category {
   id: string;
@@ -87,6 +88,13 @@ export interface Category {
   mustWinBy?: number;
   maxPoints?: number | null;
   status: 'setup' | 'registration' | 'active' | 'completed';
+  stageId?: number | null;
+  poolStageId?: number | null;
+  eliminationStageId?: number | null;
+  poolPhase?: PoolPhase | null;
+  poolGroupCount?: number | null;
+  poolQualifiersPerGroup?: number | null;
+  poolQualifiedRegistrationIds?: string[];
   createdAt: Date;
   updatedAt: Date;
 }

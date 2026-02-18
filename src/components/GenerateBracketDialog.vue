@@ -9,7 +9,7 @@ const props = defineProps<{
   tournamentId: string;
   categoryId: string;
   categoryName: string;
-  categoryFormat: 'single_elimination' | 'double_elimination' | 'round_robin';
+  categoryFormat: 'single_elimination' | 'double_elimination' | 'round_robin' | 'pool_to_elimination';
 }>();
 
 const emit = defineEmits<{
@@ -179,7 +179,7 @@ function close() {
       />
       
       <v-switch
-        v-if="categoryFormat !== 'round_robin'"
+        v-if="categoryFormat === 'single_elimination' || categoryFormat === 'double_elimination'"
         v-model="thirdPlaceMatch"
         label="Include Third Place Match"
         hide-details

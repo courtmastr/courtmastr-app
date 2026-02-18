@@ -260,6 +260,15 @@ async function generateBracket(categoryId: string) {
   }
 }
 
+async function generateEliminationStage(categoryId: string) {
+  try {
+    await tournamentStore.generatePoolEliminationBracket(tournamentId.value, categoryId);
+    notificationStore.showToast('success', 'Elimination stage generated from pool results!');
+  } catch (error) {
+    notificationStore.showToast('error', 'Failed to generate elimination stage');
+  }
+}
+
 const showRegenerateBracketDialog = ref(false);
 const regenerateCategoryId = ref<string | null>(null);
 const regenerateInProgress = ref(false);
@@ -959,6 +968,7 @@ async function handleDeleteTournament() {
                 <CategoryRegistrationStats
                   :tournament-id="tournamentId"
                   @generate-bracket="generateBracket"
+                  @generate-elimination="generateEliminationStage"
                   @regenerate-bracket="confirmRegenerateBracket"
                   @manage-registrations="(categoryId) => router.push(`/tournaments/${tournamentId}/registrations?category=${categoryId}`)"
                   @manage-seeds="openSeedingDialog"
