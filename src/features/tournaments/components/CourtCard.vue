@@ -9,9 +9,12 @@ interface Props {
   match?: Match;
   categoryName?: string;
   matchDuration?: number; // in minutes
+  readOnly?: boolean; // Hide action buttons (for public/display views)
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  readOnly: false,
+});
 
 const emit = defineEmits<{
   assign: [courtId: string];
@@ -50,6 +53,20 @@ const hasMatch = computed(() => !!props.match);
 
 const participant1Name = computed(() => props.match ? getParticipantName(props.match.participant1Id) : 'TBD');
 const participant2Name = computed(() => props.match ? getParticipantName(props.match.participant2Id) : 'TBD');
+
+// Current live score: latest game in scores array
+const currentScore = computed(() => {
+  const scores = props.match?.scores;
+  if (!scores || scores.length === 0) return null;
+  const game = scores[scores.length - 1];
+  return {
+    score1: game.score1,
+    score2: game.score2,
+    gameNumber: game.gameNumber,
+    totalGames: scores.length,
+    isComplete: game.isComplete,
+  };
+});
 </script>
 
 <template>
@@ -109,16 +126,38 @@ const participant2Name = computed(() => props.match ? getParticipantName(props.m
           </span>
         </div>
 
-        <!-- Players -->
+        <!-- Players + Live Score -->
         <div class="players text-body-2">
-          <div class="player-name text-truncate font-weight-medium">
-            {{ participant1Name }}
+          <div class="d-flex align-center justify-space-between">
+            <div class="player-name text-truncate font-weight-medium flex-grow-1">
+              {{ participant1Name }}
+            </div>
+            <div
+              v-if="currentScore && match?.status === 'in_progress'"
+              class="score-display text-h6 font-weight-bold ml-2 flex-shrink-0"
+            >
+              {{ currentScore.score1 }}
+            </div>
           </div>
-          <div class="vs text-caption text-medium-emphasis my-1">
-            vs
+          <div class="d-flex align-center justify-space-between">
+            <div class="vs text-caption text-medium-emphasis flex-grow-1 text-center">vs</div>
+            <div
+              v-if="currentScore && match?.status === 'in_progress'"
+              class="text-caption text-medium-emphasis ml-2 flex-shrink-0 text-right"
+            >
+              <span v-if="(currentScore.totalGames ?? 1) > 1">G{{ currentScore.gameNumber }}</span>
+            </div>
           </div>
-          <div class="player-name text-truncate font-weight-medium">
-            {{ participant2Name }}
+          <div class="d-flex align-center justify-space-between">
+            <div class="player-name text-truncate font-weight-medium flex-grow-1">
+              {{ participant2Name }}
+            </div>
+            <div
+              v-if="currentScore && match?.status === 'in_progress'"
+              class="score-display text-h6 font-weight-bold ml-2 flex-shrink-0"
+            >
+              {{ currentScore.score2 }}
+            </div>
           </div>
         </div>
 
@@ -149,8 +188,11 @@ const participant2Name = computed(() => props.match ? getParticipantName(props.m
       </div>
     </v-card-text>
 
-    <!-- Actions -->
-    <v-card-actions class="pa-2 pt-0">
+    <!-- Actions (hidden in read-only / public display mode) -->
+    <v-card-actions
+      v-if="!readOnly"
+      class="pa-2 pt-0"
+    >
       <template v-if="hasMatch">
         <div class="d-flex w-100 gap-2">
           <v-btn
@@ -258,5 +300,12 @@ const participant2Name = computed(() => props.match ? getParticipantName(props.m
 
 .gap-2 {
   gap: 8px;
+}
+
+.score-display {
+  min-width: 28px;
+  text-align: right;
+  color: rgb(var(--v-theme-success));
+  line-height: 1.2;
 }
 </style>

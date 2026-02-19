@@ -115,6 +115,33 @@
           rounded="lg"
           :ripple="false"
         />
+
+        <!-- Public / Shareable links -->
+        <v-divider class="my-2" />
+        <v-list-subheader v-if="!rail">
+          Public
+        </v-list-subheader>
+        <v-list-item
+          :to="`/tournaments/${currentTournamentId}/live`"
+          prepend-icon="mdi-broadcast"
+          title="Live Scores"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          :to="`/tournaments/${currentTournamentId}/bracket`"
+          prepend-icon="mdi-tournament"
+          title="Public Bracket"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          :to="`/tournaments/${currentTournamentId}/score`"
+          prepend-icon="mdi-scoreboard"
+          title="Score Entry"
+          rounded="lg"
+          :ripple="false"
+        />
       </template>
     </v-list>
 

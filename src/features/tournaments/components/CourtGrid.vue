@@ -8,6 +8,7 @@ interface Props {
   matches: Match[];
   matchDurations?: Map<string, number>; // matchId -> duration in minutes
   getCategoryName: (id: string) => string;
+  readOnly?: boolean; // Pass-through to CourtCard: hides action buttons
 }
 
 const props = defineProps<Props>();
@@ -56,6 +57,7 @@ const gridColumns = computed(() => {
         :match="getMatchForCourt(court.id)"
         :category-name="getCategoryName(getMatchForCourt(court.id)?.categoryId || '')"
         :match-duration="matchDurations?.get(getMatchForCourt(court.id)?.id || '')"
+        :read-only="readOnly"
         @assign="emit('assign', $event)"
         @score="emit('score', $event)"
         @release="emit('release', $event)"
