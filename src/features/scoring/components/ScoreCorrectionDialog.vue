@@ -153,7 +153,8 @@ async function submitCorrection() {
         newWinnerId: selectedWinnerId.value,
         reason: correctionReason.value,
       },
-      props.categoryId
+      props.categoryId,
+      props.match.levelId
     );
 
     notificationStore.showToast('success', 'Score corrected successfully');

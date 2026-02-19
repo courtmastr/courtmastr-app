@@ -47,7 +47,9 @@ async function assignCourt() {
     await matchStore.assignCourt(
       props.tournamentId,
       props.match.id,
-      selectedCourtId.value
+      selectedCourtId.value,
+      props.match.categoryId,
+      props.match.levelId
     );
     notificationStore.showToast('success', 'Court assigned - match ready!');
     emit('assigned');

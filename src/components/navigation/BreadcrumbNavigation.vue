@@ -6,8 +6,8 @@
     >
       <template #item="{ item }">
         <v-breadcrumbs-item
-          :to="item.to"
-          :disabled="!item.to"
+          :to="item === breadcrumbItems[breadcrumbItems.length - 1] ? undefined : item.to"
+          :disabled="item === breadcrumbItems[breadcrumbItems.length - 1]"
           exact
         >
           {{ item.title }}

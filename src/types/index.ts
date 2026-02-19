@@ -186,6 +186,30 @@ export const FORMAT_LABELS: Record<TournamentFormat, string> = {
   'pool_to_elimination': 'Pool Play to Elimination',
 };
 
+// Tournament status display labels
+export const TOURNAMENT_STATUS_LABELS: Record<TournamentStatus, string> = {
+  'draft': 'Draft',
+  'registration': 'Registration Open',
+  'active': 'Active',
+  'completed': 'Completed',
+  'cancelled': 'Cancelled',
+};
+
+// Category type display labels
+export const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
+  'singles': 'Singles',
+  'doubles': 'Doubles',
+  'mixed_doubles': 'Mixed Doubles',
+};
+
+// Category gender display labels
+export const CATEGORY_GENDER_LABELS: Record<CategoryGender, string> = {
+  'men': "Men's",
+  'women': "Women's",
+  'mixed': 'Mixed',
+  'open': 'Open',
+};
+
 // Player/Team Types
 export interface Player {
   id: string;
@@ -252,6 +276,7 @@ export interface Match {
   id: string;
   tournamentId: string;
   categoryId: string;
+  levelId?: string;
   round: number;
   matchNumber: number; // Position in bracket
   bracketPosition: BracketPosition;

@@ -21,6 +21,7 @@
           v-if="!rail"
           icon="mdi-chevron-left"
           variant="text"
+          aria-label="Collapse sidebar"
           @click.stop="rail = !rail"
         />
       </template>
@@ -65,6 +66,14 @@
           :to="`/tournaments/${currentTournamentId}/match-control`"
           prepend-icon="mdi-controller"
           title="Match Control"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
+          :to="`/tournaments/${currentTournamentId}/live-view`"
+          prepend-icon="mdi-monitor-eye"
+          title="Live View"
           rounded="lg"
           :ripple="false"
         />
@@ -125,11 +134,12 @@
           :ripple="false"
         />
         <v-list-item
+          href="/logout"
           prepend-icon="mdi-logout"
           title="Logout"
           rounded="lg"
           :ripple="false"
-          @click="handleLogout"
+          @click.prevent="handleLogout"
         />
       </v-list>
     </template>

@@ -536,7 +536,8 @@ export const useTournamentStore = defineStore('tournaments', () => {
     tournamentId: string,
     matchId: string,
     courtId: string,
-    categoryId: string
+    categoryId: string,
+    levelId?: string
   ): Promise<void> {
     // 1. Check if court is available
     const courtDoc = await getDoc(doc(db, `tournaments/${tournamentId}/courts`, courtId));
@@ -552,7 +553,9 @@ export const useTournamentStore = defineStore('tournaments', () => {
     const batch = writeBatch(db);
 
     // Update match_scores
-    const matchScoresPath = `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
+    const matchScoresPath = levelId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}/match_scores`
+      : `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
     batch.set(
       doc(db, matchScoresPath, matchId),
       {
@@ -1048,6 +1051,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
     tournamentId: string,
     options: {
       categoryId: string;
+      levelId?: string;
       courtIds?: string[];
       startTime?: Date;
     }
@@ -1082,6 +1086,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
       try {
         const result = await scheduler.scheduleMatches(tournamentId, {
           categoryId: options.categoryId,
+          levelId: options.levelId,
           courtIds: options.courtIds,
           startTime: options.startTime,
           respectDependencies: true,
@@ -1102,10 +1107,11 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
   async function clearSchedule(
     tournamentId: string,
-    categoryId: string
+    categoryId: string,
+    levelId?: string
   ): Promise<{ cleared: number }> {
     const scheduler = useMatchScheduler();
-    return await scheduler.clearSchedule(tournamentId, categoryId);
+    return await scheduler.clearSchedule(tournamentId, categoryId, levelId);
   }
 
   // Update match schedule (court + time) without marking court as in_use

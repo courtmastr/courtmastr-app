@@ -99,7 +99,7 @@ function selectMatch(match: Match) {
   selectedMatch.value = match;
   hasAutoStartedMatch.value = false; // Reset auto-start flag for new match
   // Subscribe to this specific match for real-time updates
-  matchStore.subscribeMatch(tournamentId.value, match.id, match.categoryId);
+  matchStore.subscribeMatch(tournamentId.value, match.id, match.categoryId, match.levelId);
   scoringMode.value = true;
 }
 
@@ -119,13 +119,24 @@ async function addPoint(participant: 'participant1' | 'participant2') {
     if (selectedMatch.value.status === 'ready' && !hasAutoStartedMatch.value) {
       hasAutoStartedMatch.value = true; // Set flag BEFORE starting to prevent duplicates
       isStartingMatch.value = true;
-      await matchStore.startMatch(tournamentId.value, selectedMatch.value.id, selectedMatch.value.categoryId);
+      await matchStore.startMatch(
+        tournamentId.value,
+        selectedMatch.value.id,
+        selectedMatch.value.categoryId,
+        selectedMatch.value.levelId
+      );
       isStartingMatch.value = false;
       // Wait for Firestore to sync the status change
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    await matchStore.updateScore(tournamentId.value, selectedMatch.value.id, participant, selectedMatch.value.categoryId);
+    await matchStore.updateScore(
+      tournamentId.value,
+      selectedMatch.value.id,
+      participant,
+      selectedMatch.value.categoryId,
+      selectedMatch.value.levelId
+    );
   } catch (error) {
     console.error('Failed to update score:', error);
   } finally {
@@ -138,7 +149,13 @@ async function removePoint(participant: 'participant1' | 'participant2') {
 
   isUpdatingScore.value = true;
   try {
-    await matchStore.decrementScore(tournamentId.value, selectedMatch.value.id, participant, selectedMatch.value.categoryId);
+    await matchStore.decrementScore(
+      tournamentId.value,
+      selectedMatch.value.id,
+      participant,
+      selectedMatch.value.categoryId,
+      selectedMatch.value.levelId
+    );
   } catch (error) {
     console.error('Failed to update score:', error);
   } finally {

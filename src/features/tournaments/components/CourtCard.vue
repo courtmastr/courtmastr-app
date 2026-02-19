@@ -152,28 +152,40 @@ const participant2Name = computed(() => props.match ? getParticipantName(props.m
     <!-- Actions -->
     <v-card-actions class="pa-2 pt-0">
       <template v-if="hasMatch">
-        <v-btn
-          v-if="match?.status === 'in_progress' || match?.status === 'ready'"
-          variant="tonal"
-          color="primary"
-          size="small"
-          block
-          prepend-icon="mdi-scoreboard"
-          @click="emit('score', match!.id)"
-        >
-          Score
-        </v-btn>
-        <v-btn
-          v-else-if="match?.status === 'scheduled'"
-          variant="tonal"
-          color="info"
-          size="small"
-          block
-          prepend-icon="mdi-play"
-          @click="emit('score', match!.id)"
-        >
-          Start
-        </v-btn>
+        <div class="d-flex w-100 gap-2">
+          <v-btn
+            v-if="match?.status === 'in_progress' || match?.status === 'ready'"
+            variant="flat"
+            color="primary"
+            size="small"
+            class="flex-grow-1"
+            prepend-icon="mdi-scoreboard"
+            @click="emit('score', match!.id)"
+          >
+            Score
+          </v-btn>
+          <v-btn
+            v-else-if="match?.status === 'scheduled'"
+            variant="flat"
+            color="info"
+            size="small"
+            class="flex-grow-1"
+            prepend-icon="mdi-play"
+            @click="emit('score', match!.id)"
+          >
+            Start
+          </v-btn>
+          <v-btn
+            variant="text"
+            color="error"
+            size="small"
+            prepend-icon="mdi-link-off"
+            aria-label="Release court"
+            @click="emit('release', court.id)"
+          >
+            Release
+          </v-btn>
+        </div>
       </template>
       <template v-else-if="court.status === 'available'">
         <v-btn
@@ -189,10 +201,11 @@ const participant2Name = computed(() => props.match ? getParticipantName(props.m
       </template>
       <template v-else-if="court.status === 'in_use' && !hasMatch">
         <v-btn
-          variant="outlined"
-          color="warning"
+          variant="text"
+          color="error"
           size="small"
           block
+          aria-label="Release court"
           @click="emit('release', court.id)"
         >
           Release
@@ -241,5 +254,9 @@ const participant2Name = computed(() => props.match ? getParticipantName(props.m
 
 .empty-state {
   opacity: 0.6;
+}
+
+.gap-2 {
+  gap: 8px;
 }
 </style>

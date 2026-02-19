@@ -6,7 +6,7 @@ import { useDialogManager } from '@/composables/useDialogManager';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import type { Category, CategoryType, CategoryGender, AgeGroup, TournamentFormat } from '@/types';
-import { AGE_GROUP_LABELS, FORMAT_LABELS } from '@/types';
+import { AGE_GROUP_LABELS, FORMAT_LABELS, CATEGORY_TYPE_LABELS } from '@/types';
 
 const props = defineProps<{
   tournamentId: string;
@@ -218,7 +218,7 @@ function getFormatColor(format: TournamentFormat): string {
               class="mr-1"
               variant="outlined"
             >
-              {{ category.type }}
+              {{ CATEGORY_TYPE_LABELS[category.type] }}
             </v-chip>
             <v-chip
               v-if="category.ageGroup && category.ageGroup !== 'open'"

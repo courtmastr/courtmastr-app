@@ -6,14 +6,12 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
 import OrganizerChecklist from '../components/OrganizerChecklist.vue';
-import StateBanner from '../components/StateBanner.vue';
 import ActiveMatchesSection from '../components/ActiveMatchesSection.vue';
 import ReadyQueue from '../components/ReadyQueue.vue';
-
-import StatusBadge from '@/components/common/StatusBadge.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -34,7 +32,6 @@ const loading = computed(() => tournamentStore.loading);
 const isAdmin = computed(() => authStore.isAdmin);
 
 const selectedCategory = ref<string | null>(null);
-const FINISHED_MATCH_STATUSES = new Set(['completed', 'walkover', 'cancelled']);
 
 // Statistics
 const stats = computed(() => {
@@ -56,10 +53,6 @@ const stats = computed(() => {
   };
 });
 
-function isFinishedMatchStatus(status: string): boolean {
-  return FINISHED_MATCH_STATUSES.has(status);
-}
-
 function getCategoryName(categoryId: string): string {
   const category = categories.value.find((item) => item.id === categoryId);
   return category?.name || 'Unknown Category';
@@ -72,47 +65,11 @@ function getCourtName(courtId?: string): string {
   return court.name || `Court ${court.number}`;
 }
 
-const queueMatches = computed(() => {
-  return matches.value
-    .filter((match) => match.status === 'ready' || match.status === 'scheduled')
-    .sort((a, b) => a.round - b.round || a.matchNumber - b.matchNumber);
-});
-
-const remainingMatches = computed(() => {
-  return matches.value.filter((match) => !isFinishedMatchStatus(match.status));
-});
-
-const totalRemainingMatches = computed(() => remainingMatches.value.length);
-
-const categoryMatchProgress = computed(() => {
-  return categories.value
-    .map((category) => {
-      const categoryMatches = matches.value.filter((match) => match.categoryId === category.id);
-      const total = categoryMatches.length;
-      const completed = categoryMatches.filter((match) => isFinishedMatchStatus(match.status)).length;
-      const remaining = total - completed;
-      const live = categoryMatches.filter((match) => match.status === 'in_progress').length;
-      const upcoming = categoryMatches.filter((match) => match.status === 'ready' || match.status === 'scheduled').length;
-      const nextRounds = categoryMatches
-        .filter((match) => !isFinishedMatchStatus(match.status))
-        .map((match) => match.round)
-        .filter((round) => round > 0);
-      const nextRound = nextRounds.length > 0 ? Math.min(...nextRounds) : null;
-
-      return {
-        categoryId: category.id,
-        categoryName: category.name,
-        total,
-        completed,
-        remaining,
-        live,
-        upcoming,
-        nextRound,
-      };
-    })
-    .filter((item) => item.total > 0)
-    .sort((a, b) => b.remaining - a.remaining || a.categoryName.localeCompare(b.categoryName));
-});
+const { queueMatches, totalRemainingMatches, categoryStageStatuses } = useCategoryStageStatus(
+  categories,
+  matches,
+  getParticipantName
+);
 
 // Enrich active matches with category and court names for ActiveMatchesSection
 const enrichedActiveMatches = computed(() => {
@@ -131,7 +88,13 @@ async function confirmCompleteMatch(winnerId: string) {
   if (!matchToComplete.value) return;
   showCompleteMatchDialog.value = false;
   try {
-    await matchStore.completeMatch(tournamentId.value, matchToComplete.value.id, winnerId);
+    await matchStore.completeMatch(
+      tournamentId.value,
+      matchToComplete.value.id,
+      [],
+      winnerId,
+      matchToComplete.value.categoryId
+    );
     notificationStore.showToast('success', 'Match completed');
   } catch (error) {
     notificationStore.showToast('error', 'Failed to complete match');
@@ -207,8 +170,6 @@ async function advanceState(): Promise<void> {
   }
 }
 
-const showUnlockDialog = ref(false);
-
 // Complete match dialog state
 const showCompleteMatchDialog = ref(false);
 const matchToComplete = ref<any>(null);
@@ -251,6 +212,9 @@ async function updateStatus(status: string) {
   } catch (error) {
   }
 }
+
+// Complete Tournament confirmation
+const showCompleteDialog = ref(false);
 
 // Delete Tournament
 const showDeleteDialog = ref(false);
@@ -297,11 +261,6 @@ async function handleDeleteTournament() {
             <h1 class="text-h4 font-weight-bold text-gradient">
               {{ tournament.name }}
             </h1>
-            <StatusBadge
-              :status="tournament.status"
-              type="general"
-              size="small"
-            />
           </div>
           <div class="d-flex align-center text-body-2 text-grey-darken-1 ml-10">
             <v-icon
@@ -373,7 +332,7 @@ async function handleDeleteTournament() {
                 v-if="tournament.status === 'active'"
                 prepend-icon="mdi-check"
                 title="Complete Tournament"
-                @click="updateStatus('completed')"
+                @click="showCompleteDialog = true"
               />
               <v-divider class="my-1" />
               <v-list-item
@@ -388,19 +347,20 @@ async function handleDeleteTournament() {
       </div>
     </v-card>
 
-    <!-- Contextual Status Card -->
+    <!-- Unified Status + Actions Card -->
     <v-card
       v-if="isAdmin"
       elevation="0"
-      class="mb-6 contextual-card"
+      class="mb-6 unified-status-card"
       :class="`status-${tournament.status}`"
     >
-      <v-card-text class="d-flex flex-column flex-sm-row align-center justify-space-between pa-4">
-        <div class="d-flex align-center mb-3 mb-sm-0">
+      <v-card-text class="d-flex flex-column flex-sm-row align-center justify-space-between pa-4 gap-4">
+        <!-- Left: Status identity -->
+        <div class="d-flex align-center">
           <v-avatar
-            :color="tournament.status === 'active' ? 'success' : 'primary'"
+            :color="tournament.status === 'active' ? 'success' : tournament.status === 'completed' ? 'secondary' : 'primary'"
             variant="tonal"
-            class="mr-4"
+            class="mr-4 flex-shrink-0"
           >
             <v-icon>
               {{
@@ -425,10 +385,67 @@ async function handleDeleteTournament() {
                 tournament.status === 'completed' ? 'View final results and rankings.' : 'Configure settings and categories.'
               }}
             </div>
+            <!-- Lock-state chips (condensed from StateBanner) -->
+            <div
+              v-if="tournament.state"
+              class="d-flex flex-wrap gap-1 mt-2"
+            >
+              <v-chip
+                size="x-small"
+                :color="['SEEDING','BRACKET_GENERATED','BRACKET_LOCKED','LIVE','COMPLETED'].includes(tournament.state) ? 'success' : 'grey'"
+                variant="tonal"
+              >
+                <v-icon
+                  start
+                  size="10"
+                >
+                  {{ ['SEEDING','BRACKET_GENERATED','BRACKET_LOCKED','LIVE','COMPLETED'].includes(tournament.state) ? 'mdi-lock' : 'mdi-lock-open' }}
+                </v-icon>
+                Roster
+              </v-chip>
+              <v-chip
+                size="x-small"
+                :color="['BRACKET_LOCKED','LIVE','COMPLETED'].includes(tournament.state) ? 'success' : 'grey'"
+                variant="tonal"
+              >
+                <v-icon
+                  start
+                  size="10"
+                >
+                  {{ ['BRACKET_LOCKED','LIVE','COMPLETED'].includes(tournament.state) ? 'mdi-lock' : 'mdi-lock-open' }}
+                </v-icon>
+                Bracket
+              </v-chip>
+              <v-chip
+                size="x-small"
+                :color="['LIVE','COMPLETED'].includes(tournament.state) ? 'success' : 'grey'"
+                variant="tonal"
+              >
+                <v-icon
+                  start
+                  size="10"
+                >
+                  {{ ['LIVE','COMPLETED'].includes(tournament.state) ? 'mdi-lock' : 'mdi-lock-open' }}
+                </v-icon>
+                Scoring
+              </v-chip>
+            </div>
           </div>
         </div>
-        
-        <div class="d-flex gap-2">
+
+        <!-- Right: Actions -->
+        <div class="d-flex flex-column flex-sm-row gap-2 flex-shrink-0">
+          <!-- Primary CTA: Enter Match Control (active tournaments) -->
+          <v-btn
+            v-if="tournament.status === 'active'"
+            variant="flat"
+            color="success"
+            prepend-icon="mdi-play-circle"
+            :to="`/tournaments/${tournamentId}/match-control`"
+          >
+            Enter Match Control
+          </v-btn>
+          <!-- Other status CTAs -->
           <v-btn
             v-if="tournament.status === 'draft'"
             variant="flat"
@@ -447,7 +464,6 @@ async function handleDeleteTournament() {
           >
             Review Registrations
           </v-btn>
-
           <v-btn
             v-if="tournament.status === 'completed'"
             variant="flat"
@@ -457,19 +473,20 @@ async function handleDeleteTournament() {
           >
             View Results
           </v-btn>
+          <!-- Advance state (secondary) -->
+          <v-btn
+            v-if="isAdmin && getNextState(tournament.state)"
+            variant="outlined"
+            color="primary"
+            size="small"
+            prepend-icon="mdi-arrow-right-circle"
+            @click="advanceState"
+          >
+            {{ getNextState(tournament.state) }}
+          </v-btn>
         </div>
       </v-card-text>
     </v-card>
-
-    <!-- State Banner (TOURNEY-003) -->
-    <StateBanner
-      v-if="tournament"
-      :state="tournament.state || 'DRAFT'"
-      :next-state="getNextState(tournament.state || 'DRAFT')"
-      :is-admin="isAdmin"
-      @advance="advanceState"
-      @unlock="showUnlockDialog = true"
-    />
 
     <!-- Stats Grid -->
     <v-row class="mb-6">
@@ -559,7 +576,9 @@ async function handleDeleteTournament() {
             </v-icon>
           </div>
           <div class="stat-content">
-            <span class="text-h4 font-weight-bold d-block">{{ stats.inProgressMatches }}</span>
+            <span class="text-h4 font-weight-bold d-block">
+              {{ stats.inProgressMatches }}<span class="text-body-2 text-grey font-weight-regular">/{{ stats.totalMatches }}</span>
+            </span>
             <v-tooltip
               text="Matches currently being played"
               location="bottom"
@@ -617,9 +636,40 @@ async function handleDeleteTournament() {
       </v-col>
     </v-row>
 
+    <!-- Tournament Info Strip -->
+    <div class="d-flex flex-wrap gap-6 px-3 py-2 mb-6 bg-surface rounded border info-strip">
+      <div class="info-strip-item">
+        <span class="text-caption text-grey text-uppercase">Sport</span>
+        <span class="text-body-2 font-weight-medium d-block">{{ tournament.sport }}</span>
+      </div>
+      <div class="info-strip-item">
+        <span class="text-caption text-grey text-uppercase">Categories</span>
+        <span class="text-body-2 font-weight-medium d-block">{{ categories.length }}</span>
+      </div>
+      <div class="info-strip-item">
+        <span class="text-caption text-grey text-uppercase">Courts</span>
+        <span class="text-body-2 font-weight-medium d-block">{{ courts.length }}</span>
+      </div>
+      <div class="info-strip-item">
+        <span class="text-caption text-grey text-uppercase">Match Duration</span>
+        <span class="text-body-2 font-weight-medium d-block">{{ tournament.settings?.matchDurationMinutes || 30 }} min</span>
+      </div>
+      <div class="info-strip-item">
+        <span class="text-caption text-grey text-uppercase">Rest Time</span>
+        <span class="text-body-2 font-weight-medium d-block">{{ tournament.settings?.minRestTimeMinutes || 15 }} min</span>
+      </div>
+      <div
+        v-if="tournament.location"
+        class="info-strip-item"
+      >
+        <span class="text-caption text-grey text-uppercase">Location</span>
+        <span class="text-body-2 font-weight-medium d-block">{{ tournament.location }}</span>
+      </div>
+    </div>
+
     <!-- Live + Upcoming Match Context -->
     <div class="mb-6">
-      <div class="d-flex align-center justify-space-between mb-4">
+      <div class="d-flex align-center mb-4">
         <h2 class="text-h5 font-weight-bold text-gradient-primary">
           <v-icon
             start
@@ -629,29 +679,6 @@ async function handleDeleteTournament() {
           </v-icon>
           Live and Upcoming Matches
         </h2>
-        <div class="d-flex align-center ga-2">
-          <v-chip
-            size="small"
-            color="error"
-            variant="tonal"
-          >
-            {{ stats.inProgressMatches }} live
-          </v-chip>
-          <v-chip
-            size="small"
-            color="warning"
-            variant="tonal"
-          >
-            {{ queueMatches.length }} upcoming
-          </v-chip>
-          <v-chip
-            size="small"
-            color="primary"
-            variant="tonal"
-          >
-            {{ totalRemainingMatches }} remaining
-          </v-chip>
-        </div>
       </div>
 
       <v-row>
@@ -669,7 +696,7 @@ async function handleDeleteTournament() {
           lg="5"
         >
           <ReadyQueue
-            :matches="matches"
+            :matches="queueMatches"
             :categories="categories"
             :get-participant-name="getParticipantName"
             :get-category-name="getCategoryName"
@@ -701,43 +728,43 @@ async function handleDeleteTournament() {
                 Category
               </th>
               <th class="text-center">
-                Live
-              </th>
-              <th class="text-center">
-                Upcoming
+                Stage
               </th>
               <th class="text-center">
                 Remaining
               </th>
-              <th class="text-center">
-                Next Round
+              <th class="text-left">
+                Next Match
               </th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="item in categoryMatchProgress"
+              v-for="item in categoryStageStatuses"
               :key="item.categoryId"
             >
               <td class="font-weight-medium">
                 {{ item.categoryName }}
               </td>
               <td class="text-center">
-                {{ item.live }}
-              </td>
-              <td class="text-center">
-                {{ item.upcoming }}
+                <v-chip
+                  size="x-small"
+                  color="primary"
+                  variant="tonal"
+                >
+                  {{ item.stageLabel }}
+                </v-chip>
               </td>
               <td class="text-center">
                 {{ item.remaining }} / {{ item.total }}
               </td>
-              <td class="text-center">
-                {{ item.nextRound ? `Round ${item.nextRound}` : '-' }}
+              <td class="text-left text-body-2">
+                {{ item.nextMatchLabel }}
               </td>
             </tr>
-            <tr v-if="categoryMatchProgress.length === 0">
+            <tr v-if="categoryStageStatuses.length === 0">
               <td
-                colspan="5"
+                colspan="4"
                 class="text-center text-medium-emphasis py-4"
               >
                 No category match data available yet
@@ -748,12 +775,12 @@ async function handleDeleteTournament() {
       </v-card>
     </div>
 
-    <!-- Dashboard Overview -->
+    <!-- Organizer Checklist -->
     <v-row class="mt-6 mb-4">
-              <v-col cols="12">
-                <organizer-checklist :tournament-id="tournamentId" />
-              </v-col>
-            </v-row>
+      <v-col cols="12">
+        <organizer-checklist :tournament-id="tournamentId" />
+      </v-col>
+    </v-row>
 
             <!-- Schedule Result Alert -->
             <v-alert
@@ -800,94 +827,6 @@ async function handleDeleteTournament() {
               </v-list>
             </v-alert>
 
-            <!-- Tournament Info -->
-            <v-card
-              class="mt-4"
-              variant="outlined"
-            >
-              <v-card-title>
-                <v-icon start>
-                  mdi-information
-                </v-icon>
-                Tournament Info
-              </v-card-title>
-              <v-card-text>
-                <v-row>
-                  <v-col
-                    cols="6"
-                    sm="4"
-                    md="2"
-                  >
-                    <div class="text-caption text-grey">
-                      Sport
-                    </div>
-                    <div class="font-weight-medium">
-                      {{ tournament.sport }}
-                    </div>
-                  </v-col>
-                  <v-col
-                    cols="6"
-                    sm="4"
-                    md="2"
-                  >
-                    <div class="text-caption text-grey">
-                      Categories
-                    </div>
-                    <div class="font-weight-medium">
-                      {{ categories.length }}
-                    </div>
-                  </v-col>
-                  <v-col
-                    cols="6"
-                    sm="4"
-                    md="2"
-                  >
-                    <div class="text-caption text-grey">
-                      Courts
-                    </div>
-                    <div class="font-weight-medium">
-                      {{ courts.length }}
-                    </div>
-                  </v-col>
-                  <v-col
-                    cols="6"
-                    sm="4"
-                    md="2"
-                  >
-                    <div class="text-caption text-grey">
-                      Rest Time
-                    </div>
-                    <div class="font-weight-medium">
-                      {{ tournament.settings?.minRestTimeMinutes || 15 }} min
-                    </div>
-                  </v-col>
-                  <v-col
-                    cols="6"
-                    sm="4"
-                    md="2"
-                  >
-                    <div class="text-caption text-grey">
-                      Match Duration
-                    </div>
-                    <div class="font-weight-medium">
-                      {{ tournament.settings?.matchDurationMinutes || 30 }} min
-                    </div>
-                  </v-col>
-                  <v-col
-                    cols="6"
-                    sm="4"
-                    md="2"
-                  >
-                    <div class="text-caption text-grey">
-                      Location
-                    </div>
-                    <div class="font-weight-medium">
-                      {{ tournament.location || '-' }}
-                    </div>
-                  </v-col>
-                </v-row>
-              </v-card-text>
-            </v-card>
   </v-container>
 
   <!-- Loading State -->
@@ -907,6 +846,53 @@ async function handleDeleteTournament() {
     </v-row>
   </v-container>
 
+  <!-- Complete Tournament Confirmation Dialog -->
+  <v-dialog
+    v-model="showCompleteDialog"
+    max-width="480"
+    persistent
+  >
+    <v-card>
+      <v-card-title class="d-flex align-center pa-4 pb-2">
+        <v-icon
+          start
+          icon="mdi-trophy"
+          color="success"
+        />
+        Complete Tournament?
+      </v-card-title>
+      <v-card-text>
+        <p class="mb-3">
+          You're about to mark <strong>{{ tournament?.name }}</strong> as completed.
+        </p>
+        <v-alert
+          type="warning"
+          variant="tonal"
+          density="compact"
+        >
+          This will close all active scoring. This action cannot be undone.
+        </v-alert>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="showCompleteDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="success"
+          variant="elevated"
+          prepend-icon="mdi-check"
+          @click="updateStatus('completed'); showCompleteDialog = false"
+        >
+          Complete Tournament
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
   <!-- Delete Confirmation Dialog -->
   <v-dialog
     v-model="showDeleteDialog"
@@ -922,7 +908,7 @@ async function handleDeleteTournament() {
         Delete Tournament?
       </v-card-title>
       <v-card-text>
-        Are you sure you want to delete <strong>{{ tournament.name }}</strong>? This action cannot be undone and will remove all matches, scores, and participant data.
+        Are you sure you want to delete <strong>{{ tournament?.name }}</strong>? This action cannot be undone and will remove all matches, scores, and participant data.
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -997,18 +983,28 @@ async function handleDeleteTournament() {
   background-clip: text;
 }
 
-.contextual-card {
-  border: 1px solid rgba($primary-base, 0.1);
-  background: linear-gradient(to right, rgba($primary-base, 0.05), rgba($white, 0.5));
-  
+.unified-status-card {
+  border-left: 4px solid rgba($primary-base, 0.4) !important;
+  border-top: 1px solid rgba($primary-base, 0.08) !important;
+  border-right: 1px solid rgba($primary-base, 0.08) !important;
+  border-bottom: 1px solid rgba($primary-base, 0.08) !important;
+
   &.status-active {
-    border-color: rgba($success, 0.2);
-    background: linear-gradient(to right, rgba($success, 0.05), rgba($white, 0.5));
+    border-left-color: rgba($success, 0.6) !important;
   }
-  
+
+  &.status-registration {
+    border-left-color: rgba($primary-base, 0.5) !important;
+  }
+
   &.status-completed {
-    border-color: rgba($secondary-base, 0.2);
-    background: linear-gradient(to right, rgba($secondary-base, 0.05), rgba($white, 0.5));
+    border-left-color: rgba($secondary-base, 0.5) !important;
+  }
+}
+
+.info-strip {
+  .info-strip-item {
+    min-width: 80px;
   }
 }
 

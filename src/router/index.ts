@@ -141,6 +141,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
+    path: '/tournaments/:tournamentId/live-view',
+    name: 'match-live-view',
+    redirect: to => `/tournaments/${to.params.tournamentId}/match-control?view=queue`,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
     path: '/tournaments/:tournamentId/scoring',
     redirect: to => `/tournaments/${to.params.tournamentId}/matches`,
   },

@@ -26,20 +26,9 @@ function getMatchForCourt(courtId: string): Match | undefined {
   );
 }
 
-// Sort courts: available first, then in_use, then maintenance
+// Sort courts by number ascending
 const sortedCourts = computed(() => {
-  const statusOrder: Record<string, number> = {
-    'available': 0,
-    'in_use': 1,
-    'maintenance': 2,
-  };
-  
-  return [...props.courts].sort((a, b) => {
-    const orderA = statusOrder[a.status] ?? 3;
-    const orderB = statusOrder[b.status] ?? 3;
-    if (orderA !== orderB) return orderA - orderB;
-    return (a.number || 0) - (b.number || 0);
-  });
+  return [...props.courts].sort((a, b) => (a.number || 0) - (b.number || 0));
 });
 
 // Filter out maintenance courts for display (optional - can be toggled)

@@ -1833,26 +1833,20 @@ async function advanceState(): Promise<void> {
                     v-if="reg.status === 'approved'"
                     color="success"
                     variant="tonal"
+                    size="small"
                     prepend-icon="mdi-check-decagram"
+                    :aria-label="`Check in ${getParticipantDisplay(reg)}`"
                     @click="checkInRegistration(reg.id)"
                   >
                     Check In
                   </v-btn>
-                  <v-chip
-                    v-else
-                    color="success"
-                    variant="tonal"
-                  >
-                    <v-icon start>
-                      mdi-check
-                    </v-icon>
-                    Checked In
-                  </v-chip>
                   <v-btn
-                    v-if="reg.status === 'checked_in'"
+                    v-else-if="reg.status === 'checked_in'"
                     color="warning"
                     variant="tonal"
+                    size="small"
                     prepend-icon="mdi-undo-variant"
+                    :aria-label="`Undo check-in for ${getParticipantDisplay(reg)}`"
                     @click="undoCheckInRegistration(reg.id)"
                   >
                     Undo Check-In

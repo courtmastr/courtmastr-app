@@ -19,7 +19,7 @@ import {
 } from '@/services/firebase';
 import { BracketsManager } from 'brackets-manager';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
-import type { Registration, Category, LevelEliminationFormat } from '@/types';
+import type { Registration, Category, LevelEliminationFormat, MatchStatus } from '@/types';
 
 // ============================================
 // Types
@@ -489,6 +489,19 @@ export function useBracketGenerator() {
         }
       );
 
+      const registrationIdByParticipantId = new Map<number, string>(
+        participantsData.map((participant) => [participant.id, participant.name])
+      );
+
+      await initializeLevelMatchScores(
+        tournamentId,
+        categoryId,
+        levelId,
+        storage,
+        result.stageId,
+        registrationIdByParticipantId
+      );
+
       progress.value = 100;
       return result;
     } catch (err) {
@@ -919,6 +932,107 @@ function extractPoolQualifiers(params: {
     groupCount: standingsByGroup.size,
     qualifiersPerGroup,
   };
+}
+
+function convertBracketsStatus(status: number): MatchStatus {
+  switch (status) {
+    case 3:
+      return 'in_progress';
+    case 4:
+      return 'completed';
+    case 0:
+    case 1:
+    case 2:
+    default:
+      return 'ready';
+  }
+}
+
+function resolveWinnerRegistrationId(
+  match: StoredMatch,
+  registrationIdByParticipantId: Map<number, string>
+): string | undefined {
+  const p1Id = toNumberId(match.opponent1?.id ?? null);
+  const p2Id = toNumberId(match.opponent2?.id ?? null);
+
+  if (p1Id === null || p2Id === null) {
+    return undefined;
+  }
+
+  if (match.opponent1?.result === 'win') {
+    return registrationIdByParticipantId.get(p1Id);
+  }
+
+  if (match.opponent2?.result === 'win') {
+    return registrationIdByParticipantId.get(p2Id);
+  }
+
+  return undefined;
+}
+
+async function initializeLevelMatchScores(
+  tournamentId: string,
+  categoryId: string,
+  levelId: string,
+  storage: ClientFirestoreStorage,
+  stageId: number,
+  registrationIdByParticipantId: Map<number, string>
+): Promise<void> {
+  const levelMatches = asArray(await storage.select<StoredMatch>('match', { stage_id: stageId }));
+  if (levelMatches.length === 0) {
+    return;
+  }
+
+  const CHUNK_SIZE = 400;
+  for (let i = 0; i < levelMatches.length; i += CHUNK_SIZE) {
+    const chunk = levelMatches.slice(i, i + CHUNK_SIZE);
+    const batch = writeBatch(db);
+    let operations = 0;
+
+    for (const match of chunk) {
+      const p1Id = toNumberId(match.opponent1?.id ?? null);
+      const p2Id = toNumberId(match.opponent2?.id ?? null);
+      if (p1Id === null || p2Id === null) {
+        continue;
+      }
+
+      const status = convertBracketsStatus(match.status);
+      const winnerId = resolveWinnerRegistrationId(match, registrationIdByParticipantId);
+      const payload: Record<string, unknown> = {
+        status,
+        updatedAt: serverTimestamp(),
+      };
+
+      if (winnerId) {
+        payload.winnerId = winnerId;
+      }
+
+      if (status === 'completed' || status === 'walkover') {
+        payload.completedAt = serverTimestamp();
+      }
+
+      batch.set(
+        doc(
+          db,
+          'tournaments',
+          tournamentId,
+          'categories',
+          categoryId,
+          'levels',
+          levelId,
+          'match_scores',
+          String(match.id)
+        ),
+        payload,
+        { merge: true }
+      );
+      operations += 1;
+    }
+
+    if (operations > 0) {
+      await batch.commit();
+    }
+  }
 }
 
 async function deletePoolStageData(

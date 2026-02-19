@@ -5,6 +5,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useAuthStore } from '@/stores/auth';
 import EmptyState from '@/components/common/EmptyState.vue';
 import type { Tournament } from '@/types';
+import { TOURNAMENT_STATUS_LABELS, FORMAT_LABELS } from '@/types';
 
 const router = useRouter();
 const tournamentStore = useTournamentStore();
@@ -149,7 +150,7 @@ function viewTournament(tournament: Tournament): void {
                 >
                   {{ getStatusIcon(tournament.status) }}
                 </v-icon>
-                {{ tournament.status }}
+                {{ TOURNAMENT_STATUS_LABELS[tournament.status] }}
               </v-chip>
             </template>
           </v-card-item>
@@ -176,7 +177,7 @@ function viewTournament(tournament: Tournament): void {
               >
                 mdi-badminton
               </v-icon>
-              {{ tournament.sport }}
+              {{ tournament.sport.charAt(0).toUpperCase() + tournament.sport.slice(1) }}
             </v-chip>
             <v-chip
               v-if="tournament.format"
@@ -190,13 +191,15 @@ function viewTournament(tournament: Tournament): void {
               >
                 mdi-tournament
               </v-icon>
-              {{ tournament.format.replace('_', ' ') }}
+              {{ FORMAT_LABELS[tournament.format] }}
             </v-chip>
             <v-spacer />
             <v-btn
               icon="mdi-chevron-right"
               variant="text"
               size="small"
+              aria-hidden="true"
+              tabindex="-1"
             />
           </v-card-actions>
         </v-card>

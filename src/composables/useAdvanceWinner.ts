@@ -11,13 +11,16 @@ export function useAdvanceWinner() {
     tournamentId: string,
     categoryId: string,
     matchId: string,
-    winnerId: string
+    winnerId: string,
+    levelId?: string
   ): Promise<void> {
     loading.value = true;
     error.value = null;
 
     try {
-      const rootPath = `tournaments/${tournamentId}/categories/${categoryId}`;
+      const rootPath = levelId
+        ? `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}`
+        : `tournaments/${tournamentId}/categories/${categoryId}`;
       const storage = new ClientFirestoreStorage(db, rootPath);
       const manager = new BracketsManager(storage);
 
