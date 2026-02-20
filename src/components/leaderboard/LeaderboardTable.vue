@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { LeaderboardEntry, TiebreakerResolution } from '@/types/leaderboard';
+
 import TiebreakerTooltip from './TiebreakerTooltip.vue';
 
 const props = defineProps<{
@@ -21,20 +22,19 @@ const resolutionMap = computed(() => {
   return map;
 });
 
-const headers = computed(() => {
+const compactHeaders = computed(() => {
   const cols = [
-    { title: '#', key: 'rank', sortable: false, width: '52px', align: 'center' as const },
-    { title: 'Participant', key: 'participantName', sortable: true, minWidth: '140px' },
+    { key: 'rank', title: '#', width: '60px', align: 'center' as const },
+    { key: 'participant', title: 'Participant', width: '28%' },
     ...(props.showCategory
-      ? [{ title: 'Category', key: 'categoryName', sortable: true, width: '130px' }]
+      ? [{ key: 'category', title: 'Category', width: '120px' }]
       : []),
-    { title: 'Played', key: 'matchesPlayed', sortable: true, align: 'end' as const, width: '72px' },
-    { title: 'Won', key: 'matchesWon', sortable: true, align: 'end' as const, width: '64px' },
-    { title: 'Lost', key: 'matchesLost', sortable: true, align: 'end' as const, width: '64px' },
-    { title: 'Win%', key: 'winRate', sortable: true, align: 'end' as const, width: '72px' },
-    { title: 'Pts', key: 'matchPoints', sortable: true, align: 'end' as const, width: '64px' },
-    { title: 'G+/-', key: 'gameDifference', sortable: true, align: 'end' as const, width: '72px' },
-    { title: 'P+/-', key: 'pointDifference', sortable: true, align: 'end' as const, width: '72px' },
+    { key: 'status', title: 'Status', width: '110px' },
+    { key: 'matchPoints', title: 'MP', width: '70px', align: 'center' as const },
+    { key: 'record', title: 'W-L', width: '80px', align: 'center' as const },
+    { key: 'games', title: 'Games', width: '90px', align: 'center' as const },
+    { key: 'points', title: 'Pts For/Ag', width: '110px', align: 'center' as const },
+    { key: 'pointDiff', title: 'Pts +/-', width: '80px', align: 'center' as const },
   ];
   return cols;
 });
@@ -65,126 +65,46 @@ function diffText(val: number): string {
   return String(val);
 }
 
-function diffColor(val: number): string {
-  if (val > 0) return 'success';
-  if (val < 0) return 'error';
-  return '';
+function diffColorClass(val: number): string {
+  if (val > 0) return 'text-success';
+  if (val < 0) return 'text-error';
+  return 'text-medium-emphasis';
+}
+
+function statusLabel(entry: LeaderboardEntry): string {
+  if (entry.matchesPlayed === 0) return 'Awaiting';
+  if (entry.eliminated) return 'Eliminated';
+  if (entry.rank === 1) return 'Leader';
+  if (entry.rank <= 3) return 'Podium';
+  return 'Active';
+}
+
+function statusColor(entry: LeaderboardEntry): string {
+  if (entry.matchesPlayed === 0) return 'grey';
+  if (entry.eliminated) return 'error';
+  if (entry.rank === 1) return 'warning';
+  if (entry.rank <= 3) return 'success';
+  return 'info';
 }
 </script>
 
 <template>
   <v-data-table
-    :headers="headers"
     :items="entries"
+    :headers="compactHeaders.map(h => ({ title: h.title, key: h.key, sortable: false, align: h.align || 'start' }))"
     :loading="loading"
-    :density="dense ? 'compact' : 'comfortable'"
-    item-value="registrationId"
-    :sort-by="[{ key: 'rank', order: 'asc' }]"
-    hover
     class="leaderboard-table rounded-lg"
-    expand-on-click
+    :class="{ 'dense-table': dense }"
     show-expand
+    item-value="participantName"
   >
-    <!-- Rank header tooltip -->
-    <template #header.rank="{ column }">
-      <v-tooltip location="top" text="Rank determined by BWF Article 16.2 tiebreaker rules">
-        <template #activator="{ props: tooltipProps }">
-          <span v-bind="tooltipProps" class="cursor-help">{{ column.title }}</span>
-        </template>
-      </v-tooltip>
-    </template>
-
-    <!-- Played header tooltip -->
-    <template #header.matchesPlayed="{ column }">
-      <v-tooltip location="top" text="Total matches played">
-        <template #activator="{ props: tooltipProps }">
-          <span v-bind="tooltipProps" class="cursor-help">{{ column.title }}</span>
-        </template>
-      </v-tooltip>
-    </template>
-
-    <!-- Win% header tooltip -->
-    <template #header.winRate="{ column }">
-      <v-tooltip location="top" text="Win Rate: (Matches Won / Matches Played) × 100">
-        <template #activator="{ props: tooltipProps }">
-          <span v-bind="tooltipProps" class="cursor-help">{{ column.title }}</span>
-        </template>
-      </v-tooltip>
-    </template>
-
-    <!-- Pts header tooltip -->
-    <template #header.matchPoints="{ column }">
-      <v-tooltip location="top" text="Match Points: 2 points for win, 1 point for loss (BWF standard)">
-        <template #activator="{ props: tooltipProps }">
-          <span v-bind="tooltipProps" class="cursor-help">{{ column.title }}</span>
-        </template>
-      </v-tooltip>
-    </template>
-
-    <!-- G+/- header tooltip -->
-    <template #header.gameDifference="{ column }">
-      <v-tooltip location="top" text="Game Difference (Games Won minus Games Lost)">
-        <template #activator="{ props: tooltipProps }">
-          <span v-bind="tooltipProps" class="cursor-help">{{ column.title }}</span>
-        </template>
-      </v-tooltip>
-    </template>
-
-    <!-- P+/- header tooltip -->
-    <template #header.pointDifference="{ column }">
-      <v-tooltip location="top" text="Point Difference (Points For minus Points Against)">
-        <template #activator="{ props: tooltipProps }">
-          <span v-bind="tooltipProps" class="cursor-help">{{ column.title }}</span>
-        </template>
-      </v-tooltip>
-    </template>
-
-    <!-- Expanded row content -->
-    <template #expanded-row="{ columns, item }">
-      <tr>
-        <td :colspan="columns.length" class="pa-4 bg-surface-light">
-          <div class="text-subtitle-2 mb-2 font-weight-medium">
-            <v-icon icon="mdi-history" size="18" class="mr-1" />
-            Match Statistics for {{ item.participantName }}
-          </div>
-          <v-row dense>
-            <v-col cols="12" sm="6" md="3">
-              <v-card variant="outlined" class="pa-2">
-                <div class="text-caption text-medium-emphasis">Games Won</div>
-                <div class="text-h6 font-weight-bold text-success">{{ item.gamesWon }}</div>
-              </v-card>
-            </v-col>
-            <v-col cols="12" sm="6" md="3">
-              <v-card variant="outlined" class="pa-2">
-                <div class="text-caption text-medium-emphasis">Games Lost</div>
-                <div class="text-h6 font-weight-bold text-error">{{ item.gamesLost }}</div>
-              </v-card>
-            </v-col>
-            <v-col cols="12" sm="6" md="3">
-              <v-card variant="outlined" class="pa-2">
-                <div class="text-caption text-medium-emphasis">Points Scored</div>
-                <div class="text-h6 font-weight-bold">{{ item.pointsFor }}</div>
-              </v-card>
-            </v-col>
-            <v-col cols="12" sm="6" md="3">
-              <v-card variant="outlined" class="pa-2">
-                <div class="text-caption text-medium-emphasis">Points Against</div>
-                <div class="text-h6 font-weight-bold">{{ item.pointsAgainst }}</div>
-              </v-card>
-            </v-col>
-          </v-row>
-          <div v-if="item.firstMatchAt || item.lastMatchAt" class="mt-3 text-caption text-medium-emphasis">
-            <v-icon icon="mdi-calendar-clock" size="14" class="mr-1" />
-            <span v-if="item.firstMatchAt">First match: {{ item.firstMatchAt.toLocaleDateString() }}</span>
-            <span v-if="item.firstMatchAt && item.lastMatchAt" class="mx-2">•</span>
-            <span v-if="item.lastMatchAt">Last match: {{ item.lastMatchAt.toLocaleDateString() }}</span>
-          </div>
-        </td>
-      </tr>
-    </template>
-
     <template #item.rank="{ item }">
-      <div v-if="item.matchesPlayed === 0" class="text-center text-medium-emphasis">—</div>
+      <div
+        v-if="item.matchesPlayed === 0"
+        class="text-center text-medium-emphasis"
+      >
+        —
+      </div>
       <div
         v-else
         class="d-flex align-center justify-center"
@@ -201,8 +121,11 @@ function diffColor(val: number): string {
       </div>
     </template>
 
-    <template #item.participantName="{ item }">
-      <div class="d-flex align-center" :class="{ 'text-disabled': item.eliminated }">
+    <template #item.participant="{ item }">
+      <div
+        class="d-flex align-center"
+        :class="{ 'text-disabled': item.eliminated }"
+      >
         <span :class="item.eliminated ? '' : 'font-weight-medium'">
           {{ item.participantName }}
         </span>
@@ -210,67 +133,154 @@ function diffColor(val: number): string {
           v-if="resolutionMap.has(item.registrationId) && item.matchesPlayed > 0"
           :resolution="resolutionMap.get(item.registrationId)!"
         />
-        <v-chip
-          v-if="item.eliminated"
-          size="x-small"
-          color="error"
-          variant="tonal"
-          class="ml-2"
-        >
-          Elim. Rd {{ item.eliminationRound ?? '?' }}
-        </v-chip>
       </div>
     </template>
 
-    <template #item.categoryName="{ item }">
-      <v-chip size="x-small" variant="tonal" color="secondary">
+    <template
+      v-if="showCategory"
+      #item.category="{ item }"
+    >
+      <v-chip
+        size="x-small"
+        variant="tonal"
+        color="secondary"
+      >
         {{ item.categoryName }}
       </v-chip>
     </template>
 
-    <template #item.matchesWon="{ item }">
-      <span :class="item.matchesWon > 0 ? 'text-success font-weight-medium' : ''">
-        {{ item.matchesWon }}
-      </span>
-    </template>
-
-    <template #item.matchesLost="{ item }">
-      <span :class="item.matchesLost > 0 ? 'text-error' : ''">
-        {{ item.matchesLost }}
-      </span>
-    </template>
-
-    <template #item.winRate="{ item }">
-      {{ item.matchesPlayed > 0 ? `${item.winRate.toFixed(1)}%` : '—' }}
-    </template>
-
-    <template #item.matchPoints="{ item }">
-      <v-chip size="small" color="primary" variant="tonal">
-        {{ item.matchPoints }}
+    <template #item.status="{ item }">
+      <v-chip
+        size="small"
+        :color="statusColor(item)"
+        variant="tonal"
+      >
+        {{ statusLabel(item) }}
       </v-chip>
     </template>
 
-    <template #item.gameDifference="{ item }">
-      <span :class="diffColor(item.gameDifference) ? `text-${diffColor(item.gameDifference)} font-weight-medium` : ''">
-        {{ diffText(item.gameDifference) }}
-      </span>
+    <template #item.matchPoints="{ item }">
+      <span class="font-weight-bold">{{ item.matchPoints }}</span>
     </template>
 
-    <template #item.pointDifference="{ item }">
-      <span :class="diffColor(item.pointDifference) ? `text-${diffColor(item.pointDifference)}` : ''">
+    <template #item.record="{ item }">
+      <span>{{ item.matchesWon }}-{{ item.matchesLost }}</span>
+    </template>
+
+    <template #item.games="{ item }">
+      <span>{{ item.gamesWon }}-{{ item.gamesLost }}</span>
+    </template>
+
+    <template #item.points="{ item }">
+      <span>{{ item.pointsFor }} / {{ item.pointsAgainst }}</span>
+    </template>
+
+    <template #item.pointDiff="{ item }">
+      <span :class="diffColorClass(item.pointDifference)">
         {{ diffText(item.pointDifference) }}
       </span>
     </template>
 
-    <template #no-data>
-      <div class="text-center py-8 text-medium-emphasis">
-        <v-icon icon="mdi-trophy-outline" size="48" class="mb-2 d-block mx-auto" />
-        No participants yet
-      </div>
-    </template>
-
-    <template #loading>
-      <v-skeleton-loader type="table-row@6" />
+    <template #expanded-row="{ columns, item }">
+      <tr>
+        <td :colspan="columns.length" class="pa-0">
+          <div class="pa-2">
+            <div class="text-subtitle-2 mb-2 font-weight-medium">
+              <v-icon
+                icon="mdi-history"
+                size="18"
+                class="mr-1"
+              />
+              Match Statistics for {{ item.participantName }}
+            </div>
+            <v-row dense>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Games Won
+                  </div>
+                  <div class="text-h6 font-weight-bold text-success">
+                    {{ item.gamesWon }}
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Games Lost
+                  </div>
+                  <div class="text-h6 font-weight-bold text-error">
+                    {{ item.gamesLost }}
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Win Rate
+                  </div>
+                  <div class="text-h6 font-weight-bold">
+                    {{ item.matchesPlayed > 0 ? `${item.winRate.toFixed(1)}%` : '—' }}
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Game Diff
+                  </div>
+                  <div
+                    class="text-h6 font-weight-bold"
+                    :class="diffColorClass(item.gameDifference)"
+                  >
+                    {{ diffText(item.gameDifference) }}
+                  </div>
+                </v-card>
+              </v-col>
+            </v-row>
+            <div
+              v-if="item.firstMatchAt || item.lastMatchAt"
+              class="mt-3 text-caption text-medium-emphasis"
+            >
+              <v-icon
+                icon="mdi-calendar-clock"
+                size="14"
+                class="mr-1"
+              />
+              <span v-if="item.firstMatchAt">First: {{ item.firstMatchAt.toLocaleDateString() }}</span>
+              <span
+                v-if="item.firstMatchAt && item.lastMatchAt"
+                class="mx-2"
+              >•</span>
+              <span v-if="item.lastMatchAt">Last: {{ item.lastMatchAt.toLocaleDateString() }}</span>
+            </div>
+          </div>
+        </td>
+      </tr>
     </template>
   </v-data-table>
 </template>

@@ -56,8 +56,22 @@ export function useParticipantResolver() {
     };
   }
 
+  interface MatchupParticipant {
+    participant1Id?: string;
+    participant2Id?: string;
+    participant1Name?: string;
+    participant2Name?: string;
+  }
+
+  function getMatchupString(match: MatchupParticipant): string {
+    const p1 = match.participant1Name || getParticipantName(match.participant1Id);
+    const p2 = match.participant2Name || getParticipantName(match.participant2Id);
+    return `${p1} vs ${p2}`;
+  }
+
   return {
     getParticipantName,
     getParticipantDisplay,
+    getMatchupString,
   };
 }

@@ -5,6 +5,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import { useAsyncOperation } from '@/composables/useAsyncOperation';
 
 const route = useRoute();
 const router = useRouter();
@@ -16,7 +17,8 @@ const notificationStore = useNotificationStore();
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
-const loading = ref(false);
+
+const { loading, execute } = useAsyncOperation<void>();
 const submitted = ref(false);
 
 // Form
@@ -47,60 +49,60 @@ onMounted(async () => {
 });
 
 async function submitRegistration() {
-  if (!tournament.value) return;
-
-  loading.value = true;
-
-  try {
-    // Create player record
-    const playerId = await registrationStore.addPlayer(tournamentId.value, {
-      firstName: firstName.value,
-      lastName: lastName.value,
-      email: email.value,
-      phone: phone.value,
-      userId: authStore.currentUser?.id,
-    });
-
-    // Create partner if needed
-    let partnerPlayerId: string | undefined;
-    if (needsPartner.value && partnerName.value) {
-      const [pFirstName, ...pLastNameParts] = partnerName.value.split(' ');
-      partnerPlayerId = await registrationStore.addPlayer(tournamentId.value, {
-        firstName: pFirstName,
-        lastName: pLastNameParts.join(' ') || '',
-        email: partnerEmail.value,
+  await execute(
+    async () => {
+      // Create player record
+      const playerId = await registrationStore.addPlayer(tournamentId.value, {
+        firstName: firstName.value,
+        lastName: lastName.value,
+        email: email.value,
+        phone: phone.value,
+        userId: authStore.currentUser?.id,
       });
-    }
 
-    // Create registrations for each selected category
-    for (const categoryId of selectedCategories.value) {
-      const category = categories.value.find((c) => c.id === categoryId);
-      const isDoubles = category?.type === 'doubles' || category?.type === 'mixed_doubles';
-
-      const registrationData: any = {
-        tournamentId: tournamentId.value,
-        categoryId,
-        participantType: 'player',
-        playerId,
-        status: tournament.value.settings.requireApproval ? 'pending' : 'approved',
-        registeredBy: authStore.currentUser?.id || playerId,
-      };
-
-      if (isDoubles && partnerPlayerId) {
-        registrationData.partnerPlayerId = partnerPlayerId;
+      // Create partner if needed
+      let partnerPlayerId: string | undefined;
+      if (needsPartner.value && partnerName.value) {
+        const [pFirstName, ...pLastNameParts] = partnerName.value.split(' ');
+        partnerPlayerId = await registrationStore.addPlayer(tournamentId.value, {
+          firstName: pFirstName,
+          lastName: pLastNameParts.join(' ') || '',
+          email: partnerEmail.value,
+        });
       }
 
-      await registrationStore.createRegistration(tournamentId.value, registrationData);
-    }
+      // Create registrations for each selected category
+      for (const categoryId of selectedCategories.value) {
+        const category = categories.value.find((c) => c.id === categoryId);
+        const isDoubles = category?.type === 'doubles' || category?.type === 'mixed_doubles';
 
-    submitted.value = true;
-    notificationStore.showToast('success', 'Registration submitted successfully!');
-  } catch (error) {
-    console.error('Error submitting registration:', error);
-    notificationStore.showToast('error', 'Failed to submit registration');
-  } finally {
-    loading.value = false;
-  }
+        const registrationData: any = {
+          tournamentId: tournamentId.value,
+          categoryId,
+          participantType: 'player',
+          playerId,
+          status: tournament.value.settings.requireApproval ? 'pending' : 'approved',
+          registeredBy: authStore.currentUser?.id || playerId,
+        };
+
+        if (isDoubles && partnerPlayerId) {
+          registrationData.partnerPlayerId = partnerPlayerId;
+        }
+
+        await registrationStore.createRegistration(tournamentId.value, registrationData);
+      }
+
+      submitted.value = true;
+      notificationStore.showToast('success', 'Registration submitted successfully!');
+    },
+    {
+      onError: (err) => {
+        console.error('Error submitting registration:', err);
+        notificationStore.showToast('error', 'Failed to submit registration');
+      }
+    },
+    'Failed to submit registration'
+  );
 }
 
 function formatDate(date: Date): string {
@@ -116,10 +118,19 @@ function formatDate(date: Date): string {
 <template>
   <v-container>
     <v-row justify="center">
-      <v-col cols="12" md="8" lg="6">
+      <v-col
+        cols="12"
+        md="8"
+        lg="6"
+      >
         <!-- Tournament Info -->
-        <v-card v-if="tournament" class="mb-4">
-          <v-card-title class="text-h5">{{ tournament.name }}</v-card-title>
+        <v-card
+          v-if="tournament"
+          class="mb-4"
+        >
+          <v-card-title class="text-h5">
+            {{ tournament.name }}
+          </v-card-title>
           <v-card-subtitle>
             {{ formatDate(tournament.startDate) }}
             <span v-if="tournament.location"> | {{ tournament.location }}</span>
@@ -130,14 +141,28 @@ function formatDate(date: Date): string {
         </v-card>
 
         <!-- Registration Closed -->
-        <v-alert v-if="tournament && !isRegistrationOpen" type="warning" class="mb-4">
+        <v-alert
+          v-if="tournament && !isRegistrationOpen"
+          type="warning"
+          class="mb-4"
+        >
           Registration is currently closed for this tournament.
         </v-alert>
 
         <!-- Success Message -->
-        <v-card v-else-if="submitted" class="text-center py-8">
-          <v-icon size="64" color="success">mdi-check-circle</v-icon>
-          <h2 class="text-h5 font-weight-bold mt-4">Registration Submitted!</h2>
+        <v-card
+          v-else-if="submitted"
+          class="text-center py-8"
+        >
+          <v-icon
+            size="64"
+            color="success"
+          >
+            mdi-check-circle
+          </v-icon>
+          <h2 class="text-h5 font-weight-bold mt-4">
+            Registration Submitted!
+          </h2>
           <p class="text-body-1 text-grey mt-2">
             {{ tournament?.settings.requireApproval
               ? 'Your registration is pending approval. You will be notified once approved.'
@@ -157,7 +182,9 @@ function formatDate(date: Date): string {
           <v-card-title>Register for Tournament</v-card-title>
           <v-card-text>
             <v-form @submit.prevent="submitRegistration">
-              <h3 class="text-subtitle-1 font-weight-bold mb-3">Your Information</h3>
+              <h3 class="text-subtitle-1 font-weight-bold mb-3">
+                Your Information
+              </h3>
 
               <v-row>
                 <v-col cols="6">
@@ -190,7 +217,9 @@ function formatDate(date: Date): string {
 
               <v-divider class="my-4" />
 
-              <h3 class="text-subtitle-1 font-weight-bold mb-3">Select Categories</h3>
+              <h3 class="text-subtitle-1 font-weight-bold mb-3">
+                Select Categories
+              </h3>
 
               <v-checkbox
                 v-for="category in categories"
@@ -205,7 +234,9 @@ function formatDate(date: Date): string {
               <template v-if="needsPartner">
                 <v-divider class="my-4" />
 
-                <h3 class="text-subtitle-1 font-weight-bold mb-3">Partner Information</h3>
+                <h3 class="text-subtitle-1 font-weight-bold mb-3">
+                  Partner Information
+                </h3>
                 <p class="text-body-2 text-grey mb-4">
                   You selected doubles categories. Please provide your partner's information.
                 </p>
@@ -239,8 +270,14 @@ function formatDate(date: Date): string {
         </v-card>
 
         <!-- Loading -->
-        <v-card v-else class="text-center py-8">
-          <v-progress-circular indeterminate color="primary" />
+        <v-card
+          v-else
+          class="text-center py-8"
+        >
+          <v-progress-circular
+            indeterminate
+            color="primary"
+          />
         </v-card>
       </v-col>
     </v-row>

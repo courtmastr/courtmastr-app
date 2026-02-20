@@ -1,10 +1,19 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="500" persistent>
+  <v-dialog
+    :model-value="modelValue"
+    max-width="500"
+    persistent
+    @update:model-value="$emit('update:modelValue', $event)"
+  >
     <v-card>
       <v-card-title>Delay Match</v-card-title>
 
       <v-card-text v-if="match">
-        <v-alert type="info" variant="tonal" class="mb-4">
+        <v-alert
+          type="info"
+          variant="tonal"
+          class="mb-4"
+        >
           Match will be moved to end of queue and court will be freed.
         </v-alert>
 
@@ -29,8 +38,17 @@
 
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="$emit('update:modelValue', false)">Cancel</v-btn>
-        <v-btn color="warning" variant="elevated" @click="confirm">
+        <v-btn
+          variant="text"
+          @click="$emit('update:modelValue', false)"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="warning"
+          variant="elevated"
+          @click="confirm"
+        >
           Delay Match
         </v-btn>
       </v-card-actions>

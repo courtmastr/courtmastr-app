@@ -20,12 +20,22 @@
         :subtitle="`${getCourtName(match.courtId)} • Round ${match.round}`"
       >
         <template #prepend>
-          <v-icon v-if="match.calledAt" color="success">mdi-check-circle</v-icon>
-          <v-icon v-else color="primary">mdi-bullhorn</v-icon>
+          <v-icon
+            v-if="match.calledAt"
+            color="success"
+          >
+            mdi-check-circle
+          </v-icon>
+          <v-icon
+            v-else
+            color="primary"
+          >
+            mdi-bullhorn
+          </v-icon>
         </template>
 
         <v-list-item-title>
-          {{ getParticipantName(match.participant1Id) }} vs {{ getParticipantName(match.participant2Id) }}
+          {{ getMatchDisplayName(match) }}
         </v-list-item-title>
 
         <template #append>
@@ -38,15 +48,26 @@
           >
             Announce
           </v-btn>
-          <span v-else class="text-caption text-grey">
+          <span
+            v-else
+            class="text-caption text-grey"
+          >
             Called {{ formatTime(match.calledAt) }}
           </span>
         </template>
       </v-list-item>
     </v-list>
 
-    <v-card-text v-else class="text-center text-grey py-4">
-      <v-icon size="48" class="mb-2">mdi-bullhorn-outline</v-icon>
+    <v-card-text
+      v-else
+      class="text-center text-grey py-4"
+    >
+      <v-icon
+        size="48"
+        class="mb-2"
+      >
+        mdi-bullhorn-outline
+      </v-icon>
       <div>No matches ready to announce</div>
     </v-card-text>
   </v-card>
@@ -55,6 +76,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match } from '@/types';
 
 const props = defineProps<{
@@ -67,6 +89,7 @@ const emit = defineEmits<{
 }>();
 
 const { getParticipantName } = useParticipantResolver();
+const { getMatchDisplayName } = useMatchDisplay();
 
 const readyMatches = computed(() => {
   return props.matches.filter(m => m.status === 'ready' && m.courtId);

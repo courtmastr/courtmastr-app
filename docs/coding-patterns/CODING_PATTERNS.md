@@ -623,6 +623,635 @@ grep -rn "tournaments/.*categories.*match_scores" src/ --include="*.ts" --includ
 
 ---
 
+### CP-014: Standardize List Filters With Shared `FilterBar`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-16 |
+| **Source Bug** | TOURNEY-105 — inconsistent filter controls and ordering across list pages |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<!-- Inline page-specific controls with inconsistent order/labels -->
+<v-text-field v-model="searchQuery" label="Search participants" />
+<v-select v-model="selectedCategory" label="Category" />
+<v-select v-model="selectedStatus" label="Status" />
+<v-btn @click="clearFilters">Clear Filters</v-btn>
+```
+
+```vue
+<!-- Another page duplicates the same concept differently -->
+<v-text-field v-model="scheduleFilters.searchQuery" label="Search participants" />
+<v-select v-model="scheduleFilters.courtId" label="Filter by Court" />
+```
+
+**Correct Pattern (✅):**
+```vue
+<filter-bar
+  :search="searchQuery"
+  :category="selectedCategory"
+  :status="selectedStatus"
+  :court="selectedCourt"
+  :sort="selectedSort"
+  :enable-category="true"
+  :enable-status="true"
+  :enable-court="isMatchPage"
+  :category-options="categoryOptions"
+  :status-options="statusOptions"
+  :court-options="courtOptions"
+  :sort-options="sortOptions"
+  :has-active-filters="hasActiveFilters"
+  @update:search="searchQuery = $event"
+  @clear="clearFilters"
+/>
+```
+
+**Rule:** List pages must use the shared `FilterBar` component so Search/Category/Status/Court/Sort/Clear stay consistently labeled, ordered, and reset behavior remains uniform.
+
+**Detection:**
+```bash
+rg -n "<filter-bar" src/features/registration/views/RegistrationManagementView.vue src/features/registration/views/ParticipantsView.vue src/features/checkin/views/CheckInDashboardView.vue src/features/scoring/views/MatchListView.vue src/features/tournaments/views/MatchControlView.vue
+rg -n "Search participants|Filter by Category|Filter by Court|Clear Filters" src/features/registration/views/RegistrationManagementView.vue src/features/registration/views/ParticipantsView.vue src/features/checkin/views/CheckInDashboardView.vue src/features/scoring/views/MatchListView.vue src/features/tournaments/views/MatchControlView.vue
+```
+
+---
+
+## Category: UI / Layout
+
+### CP-015: Command Center 3-Panel Layout Must Be Resizable
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-16 |
+| **Source Bug** | Match Control command center had fixed 3-column widths and could not be resized for venue/operator preference |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<!-- Fixed breakpoints lock panel proportions -->
+<v-col cols="12" md="6" lg="7">...</v-col>
+<v-col cols="12" md="3" lg="2">...</v-col>
+<v-col cols="12" md="3" lg="3">...</v-col>
+```
+
+**Correct Pattern (✅):**
+```vue
+<!-- Desktop: draggable splitters between panels -->
+<div ref="commandLayoutRef" class="command-layout" :style="commandLayoutStyle">
+  <div class="command-panel command-panel--courts">...</div>
+  <button class="command-resizer" @mousedown="beginCommandResize('left-middle', $event)" />
+  <div class="command-panel command-panel--queue">...</div>
+  <button class="command-resizer" @mousedown="beginCommandResize('middle-right', $event)" />
+  <div class="command-panel command-panel--alerts">...</div>
+</div>
+
+<!-- Mobile: collapse to courts-only with side panels hidden -->
+```
+
+**Rule:** Any 3-panel operational layout (courts/queue/alerts) must support user-driven width adjustment on desktop and collapse cleanly on small screens.
+
+**Detection:**
+```bash
+rg -n "v-else-if=\"viewMode === 'command'\" -A 120 src/features/tournaments/views/MatchControlView.vue | rg "v-col|md=\"6\"|lg=\"7\"|md=\"3\"|lg=\"2\"|lg=\"3\""
+rg -n "command-layout|command-resizer|beginCommandResize" src/features/tournaments/views/MatchControlView.vue
+```
+
+---
+
+### CP-016: Use `BaseDialog` for Standardized Dialogs
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source** | Week 2 Refactoring — Standardized dialog component |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-dialog v-model="showDialog" max-width="600">
+  <v-card>
+    <v-card-title>Title</v-card-title>
+    <v-card-text>Content</v-card-text>
+    <v-card-actions>
+      <v-btn @click="showDialog = false">Cancel</v-btn>
+      <v-btn @click="save">Save</v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
+```
+
+**Correct Pattern (✅):**
+```vue
+<BaseDialog
+  v-model="showDialog"
+  title="Add Category"
+  @confirm="save"
+  :loading="loading"
+>
+  <v-text-field v-model="form.name" label="Name" />
+</BaseDialog>
+```
+
+**Detection:**
+```bash
+grep -rn "v-dialog" src/ --include="*.vue" | grep -v "BaseDialog" | wc -l
+```
+
+**Migration:** See [docs/ui-patterns/base-dialog.md](../ui-patterns/base-dialog.md)
+
+---
+
+### CP-017: Use `EmptyState` for List Empty States
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source** | Week 2 Refactoring — Standardized empty state component |
+| **Severity** | Low |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-card-text class="text-center py-8">
+  <v-icon size="48" color="grey-lighten-1">mdi-folder-open</v-icon>
+  <p class="text-body-2 text-grey mt-2">No items</p>
+</v-card-text>
+```
+
+**Correct Pattern (✅):**
+```vue
+<EmptyState
+  title="No categories yet"
+  message="Add your first category to get started"
+  :action="{ label: 'Add Category', handler: openAddDialog }"
+/>
+```
+
+**Detection:**
+```bash
+grep -rn "text-center py-8" src/ --include="*.vue"
+```
+
+**Migration:** See [docs/ui-patterns/empty-state.md](../ui-patterns/empty-state.md)
+
+---
+
+### CP-018: Use `useAsyncOperation` for Async State Management
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source** | Week 2 Refactoring — Standardized async operation composable |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const loading = ref(false);
+const error = ref<string | null>(null);
+
+async function save() {
+  loading.value = true;
+  error.value = null;
+  try {
+    await store.save();
+  } catch (err) {
+    error.value = 'Failed';
+  } finally {
+    loading.value = false;
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+const { loading, error, execute } = useAsyncOperation();
+
+async function save() {
+  await execute(() => store.save());
+}
+```
+
+**Detection:**
+```bash
+grep -rn "loading.value = true" src/ --include="*.vue" --include="*.ts" | grep -v "useAsyncOperation"
+```
+
+**Migration:** See [docs/ui-patterns/use-async-operation.md](../ui-patterns/use-async-operation.md)
+
+---
+
+### CP-019: Operational Match Lists Must Use Shared `ManualScoreDialog`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Score Matches `Score` action opened a separate scoring screen instead of manual entry |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// Score Matches list item click navigates away
+function goToScoring(matchId: string, categoryId?: string) {
+  router.push({
+    path: `/tournaments/${tournamentId}/matches/${matchId}/score`,
+    query: categoryId ? { category: categoryId } : undefined,
+  });
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+// Reuse shared manual-entry dialog used by match operations views
+function openScoreDialog(match: Match): void {
+  if (!match.participant1Id || !match.participant2Id) {
+    notificationStore.showToast('error', 'Cannot score this match until both participants are assigned');
+    return;
+  }
+  selectedMatch.value = match;
+  showManualScoreDialog.value = true;
+}
+```
+```vue
+<ManualScoreDialog
+  v-model="showManualScoreDialog"
+  :match="selectedMatch"
+  :tournament-id="tournamentId"
+  :tournament="tournament"
+  :categories="tournamentStore.categories"
+/>
+```
+
+**Rule:** In operational scoring lists (`Score Matches`, `Match Control`, live scheduling views), `Score`/`Correct` actions should open shared manual-entry dialog UI, not route to a separate scoring page.  
+If a view uses `useDialogManager`, every dialog used in template `v-model` must be bound via `computed` state (or `dialogs.<name>`) and not undefined legacy `show*Dialog` refs.
+
+**Detection:**
+```bash
+rg -n "router.push\\(\\{\\s*path:\\s*`/tournaments/\\$\\{.*\\}/matches/\\$\\{.*\\}/score`" src/features/scoring/views src/features/tournaments/views --glob "*.vue"
+rg -n "title=\\\"Manual Score Entry\\\"|manualScores" src/features/scoring/views src/features/tournaments/views --glob "*.vue" | grep -v "ManualScoreDialog.vue"
+rg -n 'v-model="show[A-Za-z]+Dialog"|const show[A-Za-z]+Dialog = computed<boolean>' src/features/tournaments/views/MatchControlView.vue
+```
+
+---
+
+### CP-020: Do Not Block Auth on Firestore Profile Failures
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Deployed register/login showed generic auth failure when `/users/{uid}` profile read/write failed |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    currentUser.value = null;
+    return;
+  }
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    if (userDoc.exists()) {
+      currentUser.value = mapUser(userDoc.data());
+    }
+  } catch (err) {
+    error.value = 'Failed to load user profile';
+    // ❌ currentUser never set => app treats authenticated users as logged out
+  }
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+try {
+  const userDoc = await getDoc(doc(db, 'users', user.uid));
+  if (userDoc.exists()) {
+    setCurrentUserFromFirestore(user, userDoc.data());
+  } else {
+    await createUserProfile(user, 'viewer');
+  }
+} catch (err) {
+  console.error('Error fetching user profile:', err);
+  currentUser.value = buildFallbackUser(user, 'viewer');
+  error.value = 'Signed in with limited access. Failed to load user profile.';
+}
+```
+
+**Rule:** Auth success (`onAuthStateChanged` user present) must always populate a safe fallback `currentUser` even if Firestore profile lookup/create fails.
+
+**Detection:**
+```bash
+rg -n "Error fetching user profile|Failed to load user profile|An authentication error occurred" src/stores/auth.ts
+rg -n "catch \\(err\\).*user profile" src/stores/auth.ts -A 5 | rg -v "buildFallbackUser|Signed in with limited access"
+```
+
+---
+
+### CP-021: Resolve Player Names with Fallbacks in Registration UI
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Manual registration dialog showed `undefined undefined` for player choices when legacy player docs lacked `firstName`/`lastName` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<!-- Direct concatenation assumes both fields always exist -->
+<v-select
+  :items="players"
+  :item-title="(p) => `${p.firstName} ${p.lastName}`"
+/>
+```
+```typescript
+function getPlayerName(playerId: string): string {
+  const player = players.value.find((p) => p.id === playerId);
+  return `${player?.firstName} ${player?.lastName}`;
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+interface PlayerNameSource {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  name?: string;
+  fullName?: string;
+}
+
+function getPlayerDisplayName(player: PlayerNameSource | undefined): string {
+  if (!player) return 'Unknown';
+  const firstLast = `${player.firstName || ''} ${player.lastName || ''}`.trim();
+  if (firstLast) return firstLast;
+  return player.displayName || player.name || player.fullName || (player.id ? `Player ${player.id}` : 'Unknown');
+}
+```
+```vue
+<v-select
+  :items="players"
+  :item-title="getPlayerItemTitle"
+/>
+```
+
+**Rule:** Any player label shown in registration flows (dropdowns, list rows, team name generation) must use a shared fallback resolver, not direct ```${firstName} ${lastName}``` concatenation.
+
+**Detection:**
+```bash
+rg -n "\\$\\{[^}]*firstName[^}]*\\}\\s*\\$\\{[^}]*lastName[^}]*\\}" src/features/registration --glob "*.vue" --glob "*.ts"
+```
+
+---
+
+### CP-022: Preserve Firestore Doc IDs When Hydrating Typed Objects
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Pool/elimination generation failed because hydrated objects lost required `id` fields (`tournamentId`/`stageId` resolution broke) |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const category = {
+  id: categoryDoc.id,
+  ...(categoryDoc.data() as Omit<Category, 'id'>),
+};
+```
+```typescript
+const participant = {
+  id: Number(docSnap.data().id ?? docSnap.id),
+  ...(docSnap.data() as Omit<StoredParticipant, 'id'>),
+};
+```
+
+**Correct Pattern (✅):**
+```typescript
+const category = {
+  ...(categoryDoc.data() as Omit<Category, 'id'>),
+  id: categoryDoc.id,
+};
+```
+```typescript
+const participant = {
+  ...(docSnap.data() as Omit<StoredParticipant, 'id'>),
+  id: Number(docSnap.data().id ?? docSnap.id),
+};
+```
+
+**Rule:** When combining Firestore `doc.data()` with a canonical `id` from `doc.id`, always spread `doc.data()` first and set `id` last so partial/legacy payloads cannot overwrite the ID.
+
+**Detection:**
+```bash
+rg -n -U "id:\\s*[^\\n]+,\\n\\s*\\.\\.\\.\\(.*doc.*data\\(" src --glob "*.ts" --glob "*.vue"
+```
+
+---
+
+### CP-023: Use Category-Scoped Match Identity in Multi-Category Views
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Match Control command center showed Vue duplicate-key warnings and unscheduled wrong match doc (`match_scores/<id>` NOT_FOUND) when different categories shared the same match ID |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<template v-for="match in matches" :key="match.id">
+  <v-list-item @click="emit('assign', match.id)" />
+</template>
+```
+```typescript
+const match = matches.value.find((m) => m.id === matchId);
+await matchStore.unscheduleMatch(tournamentId, matchId, match?.categoryId);
+```
+
+**Correct Pattern (✅):**
+```vue
+<template v-for="match in matches" :key="`${match.categoryId}-${match.id}`">
+  <v-list-item @click="emit('assign', { matchId: match.id, categoryId: match.categoryId })" />
+</template>
+```
+```typescript
+const match = matches.value.find((m) => m.id === ref.matchId && m.categoryId === ref.categoryId);
+await matchStore.unscheduleMatch(tournamentId, ref.matchId, ref.categoryId, releaseCourtId);
+```
+
+**Rule:** Any list/action operating on matches aggregated from multiple categories MUST use a composite identity (`categoryId + match.id`) for both render keys and event payloads.
+
+**Detection:**
+```bash
+rg -n ":key=\"match.id\"|emit\\('(select|assign|unschedule)',\\s*match.id\\)|find\\(m => m.id === .*\\)" src/features/tournaments --glob "*.vue" --glob "*.ts"
+```
+
+---
+
+### CP-024: Hide/Lock Provisional Pool Rankings Until Pool Completion
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Create Levels dialog displayed misleading Pool/Global ranks before pool stage completion |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-data-table :items="assignmentRows">
+  <template #item.poolRank="{ item }">{{ item.poolRank }}</template>
+  <template #item.globalRank="{ item }">{{ item.globalRank }}</template>
+  <template #item.finalLevelIndex="{ item }">
+    <v-select :model-value="item.finalLevelIndex" />
+  </template>
+</v-data-table>
+```
+
+**Correct Pattern (✅):**
+```vue
+<v-alert v-if="pendingMatches > 0" type="warning">
+  Pool Rank and Global Rank are provisional until all pool matches are completed.
+</v-alert>
+<template #item.poolRank="{ item }">
+  <span v-if="isPoolStageComplete">{{ item.poolRank }}</span>
+  <span v-else>--</span>
+</template>
+<template #item.globalRank="{ item }">
+  <span v-if="isPoolStageComplete">{{ item.globalRank }}</span>
+  <span v-else>--</span>
+</template>
+<v-select :disabled="!isPoolStageComplete" />
+```
+
+**Rule:** Any level-splitting UI that depends on pool standings must not present standings as final (or allow manual level overrides) until all required pool matches are complete.
+
+**Detection:**
+```bash
+rg -n "Create Levels from Pool Results|item.poolRank|item.globalRank|isPoolStageComplete|finalLevelIndex" src/features/tournaments/components/CreateLevelsDialog.vue
+```
+
+---
+
+### CP-025: Add Explicit Rules for Every New Firestore Subcollection Path
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Level generation failed with `FirebaseError: No matching allow statements` |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await setDoc(doc(db, `tournaments/${tId}/categories/${cId}/levels/${levelId}`), data);
+await setDoc(doc(db, `tournaments/${tId}/categories/${cId}/level_assignments/${regId}`), data);
+await setDoc(doc(db, `tournaments/${tId}/categories/${cId}/level_generation/config`), data);
+```
+```rules
+match /categories/{categoryId} {
+  allow read, write: if isAuthenticated();
+  // Missing: /levels, /level_assignments, /level_generation subcollection rules
+}
+```
+
+**Correct Pattern (✅):**
+```rules
+match /categories/{categoryId} {
+  allow read: if true;
+  allow write: if isAuthenticated();
+
+  match /levels/{levelId} { allow read: if true; allow write: if isAuthenticated(); }
+  match /level_assignments/{assignmentId} { allow read: if true; allow write: if isAuthenticated(); }
+  match /level_generation/{configId} { allow read: if true; allow write: if isAuthenticated(); }
+}
+```
+
+**Rule:** Firestore rules are not inherited to subcollections. Every newly introduced subcollection path must be explicitly matched in `firestore.rules` before shipping.
+
+**Detection:**
+```bash
+rg -n "categories/.*/(levels|level_assignments|level_generation)|/levels/\\$\\{levelId\\}" src --glob "*.ts" --glob "*.vue"
+rg -n "match /levels/\\{levelId\\}|match /level_assignments/\\{assignmentId\\}|match /level_generation/\\{configId\\}" firestore.rules
+```
+
+---
+
+### CP-026: Never Use Truthy Checks for Numeric IDs
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Seed flow failed to detect generated pool stage because valid `stageId = 0` was treated as false |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+let poolStageId = 0;
+if (!poolStageId) {
+  throw new Error('Pool stage not found');
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+let poolStageId: number | null = null;
+if (poolStageId === null) {
+  throw new Error('Pool stage not found');
+}
+```
+
+**Rule:** IDs can be `0` in brackets-manager tables (`stage`, `group`, `round`, `match`). Use explicit `null/undefined` checks, never generic truthy checks.
+
+**Detection:**
+```bash
+rg -n "if\\s*\\(\\s*!.*(stageId|groupId|roundId|matchId|id)\\s*\\)" scripts src --glob "*.ts" --glob "*.vue"
+```
+
+---
+
+### CP-027: Seed Team Names Must Use Full Player Names
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Seeded registrations in `seed-simple`/`seed-production` showed repeated team labels (`Davis / Anderson`, `Carter / Carter`) even when teams were different |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+teamName: `${p1.last} / ${p2.last}`;
+```
+
+**Correct Pattern (✅):**
+```typescript
+const formatTeamName = (p1: PlayerName, p2: PlayerName): string =>
+  `${p1.first} ${p1.last} / ${p2.first} ${p2.last}`;
+
+teamName: formatTeamName(p1, p2);
+```
+
+**Rule:** Seed data must use full-name team labels and deterministic unique name generation so registration lists are human-readable and not collision-prone.
+
+**Detection:**
+```bash
+rg -n "teamName:\\s*`\\$\\{\\w+\\.last\\}\\s*/\\s*\\$\\{\\w+\\.last\\}`" scripts --glob "seed*.ts"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

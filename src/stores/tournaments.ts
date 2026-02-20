@@ -18,13 +18,16 @@ import {
   limit,
   onSnapshot,
   serverTimestamp,
+  increment,
   Timestamp,
   httpsCallable,
   functions,
   type DocumentReference,
 } from '@/services/firebase';
+import { convertTimestamps } from '@/utils/firestore';
 import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import { useBracketGenerator } from '@/composables/useBracketGenerator';
+import { useAuditStore } from '@/stores/audit';
 
 const USE_CLOUD_FUNCTION_FOR_BRACKETS = false;
 const USE_CLOUD_FUNCTION_FOR_SCHEDULE = false;
@@ -34,6 +37,9 @@ import type {
   Category,
   Court,
   Match,
+  LevelDefinition,
+  LevelEliminationFormat,
+  LevelingMode,
 } from '@/types';
 
 export const useTournamentStore = defineStore('tournaments', () => {
@@ -226,6 +232,14 @@ export const useTournamentStore = defineStore('tournaments', () => {
       });
 
       const docRef = await Promise.race([addDocPromise, timeoutPromise]) as DocumentReference;
+      
+      const auditStore = useAuditStore();
+      await auditStore.logTournamentCreated(docRef.id, tournamentData.name, {
+        sport: tournamentData.sport,
+        startDate: tournamentData.startDate.toISOString(),
+        location: tournamentData.location,
+      });
+      
       return docRef.id;
     } catch (err) {
       console.error('Error creating tournament:', err);
@@ -276,7 +290,11 @@ export const useTournamentStore = defineStore('tournaments', () => {
     tournamentId: string,
     status: TournamentStatus
   ): Promise<void> {
+    const oldStatus = currentTournament.value?.status;
+    const tournamentName = currentTournament.value?.name || tournamentId;
     await updateTournament(tournamentId, { status });
+    const auditStore = useAuditStore();
+    await auditStore.logTournamentStatusChanged(tournamentId, tournamentName, oldStatus || 'unknown', status);
   }
 
   // Delete tournament
@@ -285,7 +303,12 @@ export const useTournamentStore = defineStore('tournaments', () => {
     error.value = null;
 
     try {
+      const tournamentName = currentTournament.value?.name || tournamentId;
       await deleteDoc(doc(db, 'tournaments', tournamentId));
+      
+      const auditStore = useAuditStore();
+      await auditStore.logTournamentDeleted(tournamentId, tournamentName);
+      
       tournaments.value = tournaments.value.filter((t) => t.id !== tournamentId);
       if (currentTournament.value?.id === tournamentId) {
         currentTournament.value = null;
@@ -314,6 +337,10 @@ export const useTournamentStore = defineStore('tournaments', () => {
           updatedAt: serverTimestamp(),
         }
       );
+      const auditStore = useAuditStore();
+      await auditStore.logCategoryCreated(tournamentId, docRef.id, categoryData.name, {
+        format: categoryData.format,
+      });
       return docRef.id;
     } catch (err) {
       console.error('Error adding category:', err);
@@ -342,7 +369,10 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
   async function deleteCategory(tournamentId: string, categoryId: string): Promise<void> {
     try {
+      const category = categories.value.find((c) => c.id === categoryId);
       await deleteDoc(doc(db, `tournaments/${tournamentId}/categories`, categoryId));
+      const auditStore = useAuditStore();
+      await auditStore.logCategoryDeleted(tournamentId, categoryId, category?.name || categoryId);
       categories.value = categories.value.filter((c) => c.id !== categoryId);
     } catch (err) {
       console.error('Error deleting category:', err);
@@ -366,6 +396,8 @@ export const useTournamentStore = defineStore('tournaments', () => {
           updatedAt: serverTimestamp(),
         }
       );
+      const auditStore = useAuditStore();
+      await auditStore.logCourtCreated(tournamentId, docRef.id, courtData.name);
       return docRef.id;
     } catch (err) {
       console.error('Error adding court:', err);
@@ -664,7 +696,10 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
   async function deleteCourt(tournamentId: string, courtId: string): Promise<void> {
     try {
+      const court = courts.value.find((c) => c.id === courtId);
       await deleteDoc(doc(db, `tournaments/${tournamentId}/courts`, courtId));
+      const auditStore = useAuditStore();
+      await auditStore.logCourtDeleted(tournamentId, courtId, court?.name || courtId);
       courts.value = courts.value.filter((c) => c.id !== courtId);
     } catch (err) {
       console.error('Error deleting court:', err);
@@ -716,7 +751,277 @@ export const useTournamentStore = defineStore('tournaments', () => {
       consolationFinal?: boolean;
     } = {}
   ): Promise<{ success: boolean; matchCount: number }> {
-    return executeBracketOperation(tournamentId, categoryId, options);
+    const result = await executeBracketOperation(tournamentId, categoryId, options);
+    if (result.success) {
+      const category = categories.value.find((c) => c.id === categoryId);
+      const auditStore = useAuditStore();
+      await auditStore.logBracketGenerated(tournamentId, categoryId, category?.name || categoryId);
+    }
+    return result;
+  }
+
+  async function generatePoolEliminationBracket(
+    tournamentId: string,
+    categoryId: string,
+    options: {
+      consolationFinal?: boolean;
+    } = {}
+  ): Promise<{ success: boolean; matchCount: number }> {
+    const bracketGen = useBracketGenerator();
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const result = await bracketGen.generateEliminationFromPool(tournamentId, categoryId, options);
+      const category = categories.value.find((c) => c.id === categoryId);
+      const auditStore = useAuditStore();
+      await auditStore.logBracketGenerated(
+        tournamentId,
+        categoryId,
+        `${category?.name || categoryId} (Elimination Stage)`
+      );
+      return result;
+    } catch (err) {
+      console.error('Error generating elimination from pool:', err);
+      error.value = err instanceof Error ? err.message : 'Failed to generate elimination stage';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function fetchCategoryLevels(
+    tournamentId: string,
+    categoryId: string
+  ): Promise<LevelDefinition[]> {
+    const snapshot = await getDocs(
+      query(
+        collection(db, `tournaments/${tournamentId}/categories/${categoryId}/levels`),
+        orderBy('order', 'asc')
+      )
+    );
+
+    return snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...convertTimestamps(docSnap.data()),
+    })) as LevelDefinition[];
+  }
+
+  async function generateCategoryLevels(
+    tournamentId: string,
+    categoryId: string,
+    payload: {
+      mode: LevelingMode;
+      recommendedMode: LevelingMode;
+      levelNames: string[];
+      eliminationFormats: LevelEliminationFormat[];
+      assignments: Array<{
+        registrationId: string;
+        levelIndex: number;
+        participantName: string;
+        poolId: string;
+        poolLabel: string;
+        poolRank: number;
+        globalRank: number;
+        overridden: boolean;
+      }>;
+      globalBands?: number[];
+      poolMappings?: Array<{
+        poolId: string;
+        rank1LevelId: string;
+        rank2LevelId: string;
+        rank3PlusLevelId: string;
+      }>;
+    }
+  ): Promise<{ success: boolean; levelsGenerated: number }> {
+    const bracketGen = useBracketGenerator();
+    const auditStore = useAuditStore();
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const levelNames = payload.levelNames
+        .map((name) => name.trim())
+        .filter((name) => name.length > 0);
+
+      if (levelNames.length < 2 || levelNames.length > 5) {
+        throw new Error('Level count must be between 2 and 5');
+      }
+
+      const levelDocs = levelNames.map((name, index) => ({
+        id: `level-${index + 1}`,
+        name,
+        order: index + 1,
+        eliminationFormat: payload.eliminationFormats[index] || 'single_elimination',
+      }));
+
+      const levelByIndex = new Map(levelDocs.map((level, index) => [index, level]));
+      const assignmentRows = payload.assignments
+        .map((assignment) => {
+          const level = levelByIndex.get(assignment.levelIndex);
+          if (!level) return null;
+          return {
+            ...assignment,
+            levelId: level.id,
+            levelName: level.name,
+          };
+        })
+        .filter((assignment): assignment is NonNullable<typeof assignment> => assignment !== null);
+
+      if (assignmentRows.length === 0) {
+        throw new Error('No assignments available to generate levels');
+      }
+
+      const existingLevelSnap = await getDocs(
+        collection(db, `tournaments/${tournamentId}/categories/${categoryId}/levels`)
+      );
+      const existingAssignmentSnap = await getDocs(
+        collection(db, `tournaments/${tournamentId}/categories/${categoryId}/level_assignments`)
+      );
+
+      const resetBatch = writeBatch(db);
+      existingLevelSnap.docs.forEach((docSnap) => resetBatch.delete(docSnap.ref));
+      existingAssignmentSnap.docs.forEach((docSnap) => resetBatch.delete(docSnap.ref));
+      await resetBatch.commit();
+
+      const now = serverTimestamp();
+      const configBatch = writeBatch(db);
+
+      for (const level of levelDocs) {
+        configBatch.set(
+          doc(db, `tournaments/${tournamentId}/categories/${categoryId}/levels`, level.id),
+          {
+            name: level.name,
+            order: level.order,
+            eliminationFormat: level.eliminationFormat,
+            participantCount: assignmentRows.filter((row) => row.levelId === level.id).length,
+            stageId: null,
+            createdAt: now,
+            updatedAt: now,
+          }
+        );
+      }
+
+      for (const assignment of assignmentRows) {
+        configBatch.set(
+          doc(db, `tournaments/${tournamentId}/categories/${categoryId}/level_assignments`, assignment.registrationId),
+          {
+            registrationId: assignment.registrationId,
+            levelId: assignment.levelId,
+            levelName: assignment.levelName,
+            sourceMode: payload.mode,
+            poolId: assignment.poolId,
+            poolLabel: assignment.poolLabel,
+            poolRank: assignment.poolRank,
+            globalRank: assignment.globalRank,
+            levelSeed: null,
+            overridden: assignment.overridden,
+            createdAt: now,
+            updatedAt: now,
+          }
+        );
+      }
+
+      configBatch.set(
+        doc(db, `tournaments/${tournamentId}/categories/${categoryId}/level_generation`, 'config'),
+        {
+          mode: payload.mode,
+          levelCount: levelDocs.length,
+          levelNames: levelDocs.map((level) => level.name),
+          recommendedMode: payload.recommendedMode,
+          poolMappings: payload.poolMappings || [],
+          globalBands: payload.globalBands || [],
+          createdBy: 'admin',
+          createdAt: now,
+          updatedAt: now,
+        }
+      );
+
+      configBatch.set(
+        doc(db, 'tournaments', tournamentId, 'categories', categoryId),
+        {
+          levelingEnabled: true,
+          levelingStatus: 'configured',
+          selectedLevelMode: payload.mode,
+          recommendedLevelMode: payload.recommendedMode,
+          levelCount: levelDocs.length,
+          levelsVersion: increment(1),
+          poolPhase: 'elimination',
+          updatedAt: now,
+        },
+        { merge: true }
+      );
+
+      await configBatch.commit();
+
+      for (const level of levelDocs) {
+        const levelParticipants = assignmentRows
+          .filter((assignment) => assignment.levelId === level.id)
+          .sort((a, b) => a.globalRank - b.globalRank)
+          .map((assignment) => assignment.registrationId);
+
+        if (levelParticipants.length < 2) {
+          continue;
+        }
+
+        const levelResult = await bracketGen.generateLevelBracket(
+          tournamentId,
+          categoryId,
+          level.id,
+          level.name,
+          levelParticipants,
+          level.eliminationFormat
+        );
+
+        await setDoc(
+          doc(db, `tournaments/${tournamentId}/categories/${categoryId}/levels`, level.id),
+          {
+            stageId: levelResult.stageId,
+            participantCount: levelParticipants.length,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        await auditStore.logBracketGenerated(
+          tournamentId,
+          categoryId,
+          `${level.name} (${level.eliminationFormat})`
+        );
+      }
+
+      for (const assignment of assignmentRows.filter((item) => item.overridden)) {
+        await auditStore.logAudit(
+          tournamentId,
+          'seeding_updated',
+          {
+            categoryId,
+            registrationId: assignment.registrationId,
+            participantName: assignment.participantName,
+            levelName: assignment.levelName,
+            note: 'Manual level override',
+          },
+          { targetId: assignment.registrationId, targetType: 'registration' }
+        );
+      }
+
+      await setDoc(
+        doc(db, 'tournaments', tournamentId, 'categories', categoryId),
+        {
+          levelingStatus: 'generated',
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return { success: true, levelsGenerated: levelDocs.length };
+    } catch (err) {
+      console.error('Error generating category levels:', err);
+      error.value = err instanceof Error ? err.message : 'Failed to generate levels';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
   }
 
   async function regenerateBracket(
@@ -728,9 +1033,15 @@ export const useTournamentStore = defineStore('tournaments', () => {
     } = {}
   ): Promise<{ success: boolean; matchCount: number }> {
     const bracketGen = useBracketGenerator();
-    return executeBracketOperation(tournamentId, categoryId, options, async () => {
+    const result = await executeBracketOperation(tournamentId, categoryId, options, async () => {
       await bracketGen.deleteBracket(tournamentId, categoryId);
     });
+    if (result.success) {
+      const category = categories.value.find((c) => c.id === categoryId);
+      const auditStore = useAuditStore();
+      await auditStore.logBracketRegenerated(tournamentId, categoryId, category?.name || categoryId);
+    }
+    return result;
   }
 
   async function generateSchedule(
@@ -846,23 +1157,6 @@ export const useTournamentStore = defineStore('tournaments', () => {
     unsubscribeAll();
   }
 
-  // Helper to convert Firestore Timestamps to Dates
-  function convertTimestamps(data: Record<string, unknown>): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(data)) {
-      if (value instanceof Timestamp) {
-        result[key] = value.toDate();
-      } else if (value && typeof value === 'object' && 'toDate' in value) {
-        result[key] = (value as Timestamp).toDate();
-      } else {
-        result[key] = value;
-      }
-    }
-
-    return result;
-  }
-
   return {
     // State
     tournaments,
@@ -898,6 +1192,9 @@ export const useTournamentStore = defineStore('tournaments', () => {
     releaseCourtManual,
     getNextQueuedMatch,
     generateBracket,
+    generatePoolEliminationBracket,
+    fetchCategoryLevels,
+    generateCategoryLevels,
     regenerateBracket,
     generateSchedule,
     clearSchedule,

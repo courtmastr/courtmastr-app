@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { GameScore } from '@/types';
-import { BADMINTON_CONFIG } from '@/types';
+import type { GameScore, ScoringConfig } from '@/types';
+import { validateCompletedGameScore } from '../utils/validation';
 
 interface Props {
   modelValue: GameScore[];
@@ -9,6 +9,7 @@ interface Props {
   participant2Id?: string;
   participant1Name: string;
   participant2Name: string;
+  scoringConfig: ScoringConfig;
 }
 
 const props = defineProps<Props>();
@@ -53,16 +54,9 @@ function updateScore(gameIndex: number, player: 'score1' | 'score2', value: numb
   
   game[player] = Math.max(0, value);
   
-  // Auto-detect game completion
-  const maxScore = Math.max(game.score1, game.score2);
-  const minScore = Math.min(game.score1, game.score2);
-  const scoreDiff = maxScore - minScore;
-  
-  const hasWinningScore = maxScore >= BADMINTON_CONFIG.pointsToWin;
-  const hasWinningMargin = scoreDiff >= BADMINTON_CONFIG.mustWinBy;
-  const hasMaxPoints = maxScore >= BADMINTON_CONFIG.maxPoints;
-  
-  if (hasWinningScore && (hasWinningMargin || hasMaxPoints)) {
+  const validation = validateCompletedGameScore(game.score1, game.score2, props.scoringConfig);
+
+  if (validation.isValid) {
     game.isComplete = true;
     game.winnerId = game.score1 > game.score2 ? props.participant1Id : props.participant2Id;
     emit('game-complete', game);
@@ -87,7 +81,7 @@ function canRemoveGame(index: number): boolean {
 
 function canAddGame(): boolean {
   const completedGames = games.value.filter(g => g.isComplete).length;
-  return completedGames < BADMINTON_CONFIG.gamesPerMatch;
+  return completedGames < props.scoringConfig.gamesPerMatch;
 }
 </script>
 
@@ -98,8 +92,14 @@ function canAddGame(): boolean {
       :key="index"
       class="game-row mb-3"
     >
-      <v-row align="center" no-gutters>
-        <v-col cols="2" class="text-center">
+      <v-row
+        align="center"
+        no-gutters
+      >
+        <v-col
+          cols="2"
+          class="text-center"
+        >
           <span class="text-subtitle-2">Game {{ game.gameNumber }}</span>
         </v-col>
 
@@ -115,7 +115,10 @@ function canAddGame(): boolean {
           />
         </v-col>
 
-        <v-col cols="1" class="text-center">
+        <v-col
+          cols="1"
+          class="text-center"
+        >
           <span class="text-h6">-</span>
         </v-col>
 
@@ -131,7 +134,10 @@ function canAddGame(): boolean {
           />
         </v-col>
 
-        <v-col cols="2" class="text-center">
+        <v-col
+          cols="2"
+          class="text-center"
+        >
           <v-chip
             v-if="game.isComplete"
             color="success"
@@ -151,7 +157,10 @@ function canAddGame(): boolean {
           </v-chip>
         </v-col>
 
-        <v-col cols="1" class="text-right">
+        <v-col
+          cols="1"
+          class="text-right"
+        >
           <v-btn
             v-if="canRemoveGame(index)"
             icon="mdi-delete"

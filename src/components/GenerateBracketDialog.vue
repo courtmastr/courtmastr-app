@@ -2,13 +2,14 @@
 import { ref, computed } from 'vue';
 import { useTournamentSetup } from '@/composables/useTournamentSetup';
 import { useTournamentStore } from '@/stores/tournaments';
+import BaseDialog from '@/components/common/BaseDialog.vue';
 
 const props = defineProps<{
   modelValue: boolean;
   tournamentId: string;
   categoryId: string;
   categoryName: string;
-  categoryFormat: 'single_elimination' | 'double_elimination' | 'round_robin';
+  categoryFormat: 'single_elimination' | 'double_elimination' | 'round_robin' | 'pool_to_elimination';
 }>();
 
 const emit = defineEmits<{
@@ -106,180 +107,177 @@ function close() {
 </script>
 
 <template>
-  <v-dialog
-    :model-value="modelValue"
-    @update:model-value="$emit('update:modelValue', $event)"
+  <BaseDialog
+    v-model="modelValue"
+    :title="`Generate Bracket - ${categoryName}`"
     max-width="600"
     persistent
+    :loading="setup.loading.value"
+    @cancel="close"
   >
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon icon="mdi-trophy" class="mr-2" color="primary" />
-        Generate Bracket
-        <v-spacer />
-        <v-btn
-          icon="mdi-close"
-          variant="text"
-          size="small"
-          @click="close"
-          :disabled="setup.loading.value"
-        />
-      </v-card-title>
-
-      <v-card-subtitle>
-        {{ categoryName }}
-        <v-chip size="x-small" class="ml-2" variant="tonal">
-          {{ categoryFormat.replace('_', ' ') }}
-        </v-chip>
-      </v-card-subtitle>
-
-      <v-divider />
-
-      <v-card-text class="pt-4">
-        <!-- Progress overlay -->
-        <v-overlay
-          :model-value="setup.loading.value"
-          class="align-center justify-center"
-          contained
-        >
-          <v-card class="pa-4 text-center" width="300">
-            <v-progress-circular
-              :model-value="setup.progress.value"
-              size="64"
-              width="6"
-              color="primary"
-              class="mb-4"
-            >
-              {{ setup.progress.value }}%
-            </v-progress-circular>
-            <div class="text-h6">{{ setup.step.value === 'generating' ? 'Generating Bracket...' : 'Scheduling Matches...' }}</div>
-            <div class="text-caption text-grey mt-2">
-              {{ setup.step.value === 'generating' ? 'Creating matches and pairings' : 'Assigning courts and times' }}
-            </div>
-          </v-card>
-        </v-overlay>
-
-        <!-- Error alert -->
-        <v-alert
-          v-if="setup.error.value"
-          type="error"
-          variant="tonal"
+    <template #subtitle>
+      <v-chip
+        size="x-small"
+        class="ml-2"
+        variant="tonal"
+      >
+        {{ categoryFormat.replace('_', ' ') }}
+      </v-chip>
+    </template>
+    <!-- Progress overlay -->
+    <v-overlay
+      :model-value="setup.loading.value"
+      class="align-center justify-center"
+      contained
+    >
+      <v-card
+        class="pa-4 text-center"
+        width="300"
+      >
+        <v-progress-circular
+          :model-value="setup.progress.value"
+          size="64"
+          width="6"
+          color="primary"
           class="mb-4"
-          closable
-          @click:close="setup.error.value = null"
         >
-          {{ setup.error.value }}
-        </v-alert>
-
-        <!-- Bracket Options -->
-        <div class="mb-4">
-          <div class="text-subtitle-2 font-weight-medium mb-2">Bracket Options</div>
-          
-          <v-switch
-            v-if="categoryFormat === 'double_elimination'"
-            v-model="grandFinalReset"
-            label="Grand Final Reset (if losers bracket winner wins first match)"
-            hide-details
-            density="compact"
-          />
-          
-          <v-switch
-            v-if="categoryFormat !== 'round_robin'"
-            v-model="thirdPlaceMatch"
-            label="Include Third Place Match"
-            hide-details
-            density="compact"
-          />
+          {{ setup.progress.value }}%
+        </v-progress-circular>
+        <div class="text-h6">
+          {{ setup.step.value === 'generating' ? 'Generating Bracket...' : 'Scheduling Matches...' }}
         </div>
+        <div class="text-caption text-grey mt-2">
+          {{ setup.step.value === 'generating' ? 'Creating matches and pairings' : 'Assigning courts and times' }}
+        </div>
+      </v-card>
+    </v-overlay>
 
-        <v-divider class="my-4" />
+    <!-- Error alert -->
+    <v-alert
+      v-if="setup.error.value"
+      type="error"
+      variant="tonal"
+      class="mb-4"
+      closable
+      @click:close="setup.error.value = null"
+    >
+      {{ setup.error.value }}
+    </v-alert>
 
-        <!-- Scheduling Options -->
-        <div>
+    <!-- Bracket Options -->
+    <div class="mb-4">
+      <div class="text-subtitle-2 font-weight-medium mb-2">
+        Bracket Options
+      </div>
+      
+      <v-switch
+        v-if="categoryFormat === 'double_elimination'"
+        v-model="grandFinalReset"
+        label="Grand Final Reset (if losers bracket winner wins first match)"
+        hide-details
+        density="compact"
+      />
+      
+      <v-switch
+        v-if="categoryFormat === 'single_elimination' || categoryFormat === 'double_elimination'"
+        v-model="thirdPlaceMatch"
+        label="Include Third Place Match"
+        hide-details
+        density="compact"
+      />
+    </div>
+
+    <v-divider class="my-4" />
+
+    <!-- Scheduling Options -->
+    <div>
+      <div class="d-flex align-center mb-2">
+        <v-switch
+          v-model="options.autoSchedule"
+          label="Auto-schedule matches"
+          hide-details
+          density="compact"
+        />
+      </div>
+
+      <template v-if="options.autoSchedule">
+        <!-- Court Selection -->
+        <div class="mb-4">
           <div class="d-flex align-center mb-2">
-            <v-switch
-              v-model="options.autoSchedule"
-              label="Auto-schedule matches"
+            <span class="text-subtitle-2 font-weight-medium">Courts</span>
+            <v-spacer />
+            <v-checkbox
+              v-model="allCourtsSelected"
+              label="All"
               hide-details
               density="compact"
             />
           </div>
-
-          <template v-if="options.autoSchedule">
-            <!-- Court Selection -->
-            <div class="mb-4">
-              <div class="d-flex align-center mb-2">
-                <span class="text-subtitle-2 font-weight-medium">Courts</span>
-                <v-spacer />
-                <v-checkbox
-                  v-model="allCourtsSelected"
-                  label="All"
-                  hide-details
-                  density="compact"
-                />
-              </div>
-              
-              <v-chip-group
-                v-model="options.selectedCourts"
-                multiple
-                column
-              >
-                <v-chip
-                  v-for="court in courts"
-                  :key="court.id"
-                  :value="court.id"
-                  filter
-                  variant="outlined"
-                  color="primary"
-                >
-                  <v-icon start icon="mdi-badminton" size="small" />
-                  {{ court.name }}
-                </v-chip>
-              </v-chip-group>
-              
-              <div v-if="options.selectedCourts.length === 0" class="text-caption text-error mt-1">
-                Select at least one court
-              </div>
-            </div>
-
-            <!-- Start Time -->
-            <v-text-field
-              v-model="options.startTime"
-              label="Start Time"
-              type="datetime-local"
+          
+          <v-chip-group
+            v-model="options.selectedCourts"
+            multiple
+            column
+          >
+            <v-chip
+              v-for="court in courts"
+              :key="court.id"
+              :value="court.id"
+              filter
               variant="outlined"
-              density="compact"
-              hide-details
-              class="mb-2"
-            />
-          </template>
+              color="primary"
+            >
+              <v-icon
+                start
+                icon="mdi-badminton"
+                size="small"
+              />
+              {{ court.name }}
+            </v-chip>
+          </v-chip-group>
+          
+          <div
+            v-if="options.selectedCourts.length === 0"
+            class="text-caption text-error mt-1"
+          >
+            Select at least one court
+          </div>
         </div>
-      </v-card-text>
 
-      <v-divider />
+        <!-- Start Time -->
+        <v-text-field
+          v-model="options.startTime"
+          label="Start Time"
+          type="datetime-local"
+          variant="outlined"
+          density="compact"
+          hide-details
+          class="mb-2"
+        />
+      </template>
+    </div>
 
-      <v-card-actions class="pa-4">
-        <v-btn
-          variant="text"
-          @click="close"
-          :disabled="setup.loading.value"
-        >
-          Cancel
-        </v-btn>
-        <v-spacer />
-        <v-btn
-          color="primary"
-          variant="elevated"
-          :loading="setup.loading.value"
-          :disabled="!canSubmit"
-          @click="onSubmit"
-          prepend-icon="mdi-trophy"
-        >
-          Generate & Schedule
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+    <template #actions>
+      <v-btn
+        variant="text"
+        :disabled="setup.loading.value"
+        @click="close"
+      >
+        Cancel
+      </v-btn>
+      <v-spacer />
+      <v-btn
+        color="primary"
+        variant="elevated"
+        :loading="setup.loading.value"
+        :disabled="!canSubmit"
+        prepend-icon="mdi-trophy"
+        @click="onSubmit"
+      >
+        Generate & Schedule
+      </v-btn>
+    </template>
+  </BaseDialog>
 </template>
 
 <style scoped>

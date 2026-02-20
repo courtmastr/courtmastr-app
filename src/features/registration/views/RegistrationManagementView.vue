@@ -5,7 +5,12 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
-import { FORMAT_LABELS } from '@/types';
+import BaseDialog from '@/components/common/BaseDialog.vue';
+import FilterBar from '@/components/common/FilterBar.vue';
+
+import StateBanner from '@/features/tournaments/components/StateBanner.vue';
+import { FORMAT_LABELS, type Category } from '@/types';
+import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
 
 const route = useRoute();
 const router = useRouter();
@@ -13,6 +18,38 @@ const tournamentStore = useTournamentStore();
 const registrationStore = useRegistrationStore();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
+
+const PLAYER_FLOW_TIPS = {
+  import: 'Step 1: Import players from CSV/TXT or paste rows',
+  addPlayer: 'Step 1: Add player profiles first',
+  addRegistration: 'Step 2: Register added players into a category',
+};
+
+interface PlayerNameSource {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  displayName?: string;
+  fullName?: string;
+}
+
+interface ImportPreviewRow {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  skillLevel: number;
+  categoryName: string;
+  categoryId: string | null;
+  participantType: 'player' | 'team';
+  partnerFirstName: string;
+  partnerLastName: string;
+  partnerEmail: string;
+  partnerPhone: string;
+  partnerSkillLevel: number | null;
+  valid: boolean;
+}
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -28,6 +65,7 @@ const tab = ref('registrations');
 const filterCategory = ref<string | null>(null);
 const filterStatus = ref<string | null>(null);
 const searchQuery = ref('');
+const filterSort = ref<string | null>('default');
 
 // Dialog states
 const showAddPlayerDialog = ref(false);
@@ -51,9 +89,20 @@ const editingPayment = ref<{
 
 // Import state
 const importFile = ref<File | null>(null);
-const importPreview = ref<any[]>([]);
+const importSourceLabel = ref('');
+const pastedImportText = ref('');
+const importMode = ref<'upload' | 'paste'>('upload');
+const importPreview = ref<ImportPreviewRow[]>([]);
 const importErrors = ref<string[]>([]);
 const importing = ref(false);
+
+const IMPORT_HEADER =
+  'First Name,Last Name,Email,Phone,Skill Level (1-10),Category,Partner First Name,Partner Last Name,Partner Email,Partner Phone,Partner Skill Level (1-10)';
+const IMPORT_SINGLES_EXAMPLE =
+  "John,Doe,john@example.com,555-1234,7,Men's Singles,,,,,";
+const IMPORT_DOUBLES_EXAMPLE =
+  "Priya,Shah,priya@example.com,555-2001,8,Mixed Doubles,Arjun,Patel,arjun@example.com,555-2002,8";
+const IMPORT_PLACEHOLDER = `${IMPORT_HEADER}\n${IMPORT_SINGLES_EXAMPLE}\n${IMPORT_DOUBLES_EXAMPLE}`;
 
 // Edit player state
 const editingPlayer = ref<{
@@ -92,6 +141,18 @@ const isDoublesCategory = computed(() => {
   return selectedCategory.value?.type === 'doubles' || selectedCategory.value?.type === 'mixed_doubles';
 });
 
+const categoryFilterOptions = computed(() => [
+  { title: 'All Categories', value: null },
+  ...categories.value.map((category) => ({ title: category.name, value: category.id })),
+]);
+
+const hasActiveRegistrationFilters = computed(() => (
+  Boolean(filterCategory.value) ||
+  Boolean(filterStatus.value) ||
+  Boolean(searchQuery.value.trim()) ||
+  (filterSort.value !== null && filterSort.value !== 'default')
+));
+
 // Filtered registrations
 const filteredRegistrations = computed(() => {
   let result = registrations.value;
@@ -122,7 +183,23 @@ const filteredRegistrations = computed(() => {
     });
   }
 
-  return result;
+  const sorted = [...result];
+  switch (filterSort.value) {
+    case 'name_asc':
+      sorted.sort((a, b) => getParticipantDisplay(a).localeCompare(getParticipantDisplay(b)));
+      return sorted;
+    case 'name_desc':
+      sorted.sort((a, b) => getParticipantDisplay(b).localeCompare(getParticipantDisplay(a)));
+      return sorted;
+    case 'category_asc':
+      sorted.sort((a, b) => getCategoryName(a.categoryId).localeCompare(getCategoryName(b.categoryId)));
+      return sorted;
+    case 'status_asc':
+      sorted.sort((a, b) => a.status.localeCompare(b.status));
+      return sorted;
+    default:
+      return result;
+  }
 });
 
 // Stats - now category-aware when filtered
@@ -200,10 +277,27 @@ watch(filterCategory, (newVal) => {
   });
 });
 
+function getPlayerDisplayName(player: PlayerNameSource | undefined): string {
+  if (!player) return 'Unknown';
+
+  const firstLast = `${player.firstName || ''} ${player.lastName || ''}`.trim();
+  if (firstLast) return firstLast;
+
+  if (player.displayName?.trim()) return player.displayName.trim();
+  if (player.name?.trim()) return player.name.trim();
+  if (player.fullName?.trim()) return player.fullName.trim();
+
+  return player.id ? `Player ${player.id}` : 'Unknown';
+}
+
+function getPlayerItemTitle(player: unknown): string {
+  return getPlayerDisplayName(player as PlayerNameSource | undefined);
+}
+
 function getPlayerName(playerId: string | undefined): string {
   if (!playerId) return 'Unknown';
-  const player = players.value.find((p) => p.id === playerId);
-  return player ? `${player.firstName} ${player.lastName}` : 'Unknown';
+  const player = players.value.find((p) => p.id === playerId) as PlayerNameSource | undefined;
+  return getPlayerDisplayName(player);
 }
 
 function getParticipantDisplay(registration: any): string {
@@ -246,10 +340,29 @@ async function addPlayer() {
 
 async function addRegistration() {
   try {
+    if (!newRegistration.value.categoryId || !newRegistration.value.playerId) {
+      notificationStore.showToast('error', 'Please select category and player');
+      return;
+    }
+
+    if (isDoublesCategory.value && !newRegistration.value.partnerPlayerId) {
+      notificationStore.showToast('error', 'Please select a partner for doubles registration');
+      return;
+    }
+
+    if (
+      isDoublesCategory.value &&
+      newRegistration.value.playerId &&
+      newRegistration.value.partnerPlayerId === newRegistration.value.playerId
+    ) {
+      notificationStore.showToast('error', 'Player and partner must be different');
+      return;
+    }
+
     const playerName = getPlayerName(newRegistration.value.playerId);
     const partnerName = isDoublesCategory.value ? getPlayerName(newRegistration.value.partnerPlayerId) : '';
     const teamName = isDoublesCategory.value
-      ? `${playerName.split(' ').pop()} / ${partnerName.split(' ').pop()}`
+      ? `${playerName} / ${partnerName}`
       : null;
 
     await registrationStore.createRegistration(tournamentId.value, {
@@ -266,7 +379,9 @@ async function addRegistration() {
     showAddRegistrationDialog.value = false;
     resetRegistrationForm();
   } catch (error) {
-    notificationStore.showToast('error', 'Failed to add registration');
+    console.error('Error adding registration:', error);
+    const message = error instanceof Error ? error.message : 'Failed to add registration';
+    notificationStore.showToast('error', message);
   }
 }
 
@@ -334,6 +449,15 @@ async function reinstateRegistration(registrationId: string) {
   } catch (error) {
     notificationStore.showToast('error', 'Failed to reinstate registration');
   }
+}
+
+function formatDate(value?: Date): string {
+  if (!value) return 'N/A';
+  return value.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 async function bulkCheckIn() {
@@ -493,13 +617,12 @@ function getPaymentIcon(status: string | undefined): string {
   return icons[status || 'unpaid'] || 'mdi-close-circle';
 }
 
-// CSV Import Functions
+// File Import Functions (.csv and .txt)
 function downloadTemplate() {
   const categoryNames = categories.value.map((c) => c.name).join(' | ');
-  const csvContent = `First Name,Last Name,Email,Phone,Skill Level (1-10),Category
-John,Doe,john@example.com,555-1234,7,Mens Singles
-Jane,Smith,jane@example.com,555-5678,8,Womens Singles
-Mike,Johnson,mike@example.com,555-9012,6,Mens Singles
+  const csvContent = `${IMPORT_HEADER}
+${IMPORT_SINGLES_EXAMPLE}
+${IMPORT_DOUBLES_EXAMPLE}
 
 # Instructions:
 # - First Name and Last Name are required
@@ -508,7 +631,7 @@ Mike,Johnson,mike@example.com,555-9012,6,Mens Singles
 # - Skill Level should be 1-10 (defaults to 5 if empty)
 # - Category must match one of your tournament categories exactly:
 #   ${categoryNames}
-# - For doubles, create separate rows for each player with the same category
+# - For doubles/mixed doubles, provide partner columns in the same row
 # - Delete these instruction lines before importing
 `;
 
@@ -527,55 +650,203 @@ function handleFileUpload(event: Event) {
   if (!file) return;
 
   importFile.value = file;
+  importSourceLabel.value = '';
+  importMode.value = 'upload';
   importErrors.value = [];
   importPreview.value = [];
 
   const reader = new FileReader();
   reader.onload = (e) => {
     const text = e.target?.result as string;
-    parseCSV(text);
+    parseImportText(text);
   };
   reader.readAsText(file);
 }
 
-function parseCSV(text: string) {
-  const lines = text.split('\n').filter((line) => line.trim() && !line.startsWith('#'));
-  const errors: string[] = [];
-  const preview: any[] = [];
+function normalizeEmail(email?: string): string {
+  return (email || '').trim().toLowerCase();
+}
 
-  // Skip header row
-  const dataLines = lines.slice(1);
+function buildPlayerNameKey(firstName: string, lastName: string, phone?: string): string {
+  return `${firstName.trim().toLowerCase()}|${lastName.trim().toLowerCase()}|${(phone || '').trim().toLowerCase()}`;
+}
+
+function getCategoryById(categoryId: string | null): Category | undefined {
+  if (!categoryId) return undefined;
+  return categories.value.find((category) => category.id === categoryId);
+}
+
+function normalizeCategoryName(categoryName: string): string {
+  return categoryName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function findCategoryByName(categoryName: string): Category | undefined {
+  const trimmedName = categoryName.trim();
+  if (!trimmedName) return undefined;
+
+  const exact = categories.value.find(
+    (category) => category.name.toLowerCase() === trimmedName.toLowerCase()
+  );
+  if (exact) return exact;
+
+  const normalizedInput = normalizeCategoryName(trimmedName);
+  return categories.value.find(
+    (category) => normalizeCategoryName(category.name) === normalizedInput
+  );
+}
+
+function buildRegistrationKey(
+  categoryId: string,
+  playerId: string,
+  partnerPlayerId?: string
+): string {
+  if (!partnerPlayerId) {
+    return `${categoryId}|player|${playerId}`;
+  }
+
+  const sortedPair = [playerId, partnerPlayerId].sort().join('|');
+  return `${categoryId}|team|${sortedPair}`;
+}
+
+function parseSkillLevel(raw: string, lineNumber: number, fieldName: string, errors: string[]): number | null {
+  if (!raw.trim()) return null;
+  const parsed = parseInt(raw.trim(), 10);
+  if (isNaN(parsed) || parsed < 1 || parsed > 10) {
+    errors.push(`Row ${lineNumber}: ${fieldName} must be 1-10`);
+    return null;
+  }
+  return parsed;
+}
+
+function parseImportColumns(line: string): string[] {
+  if (line.includes(',')) {
+    return line.split(',').map((value) => value.trim());
+  }
+
+  if (line.includes('|')) {
+    return line.split('|').map((value) => value.trim());
+  }
+
+  return [];
+}
+
+function parseImportText(text: string) {
+  const lines = text
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#') && !line.startsWith('//'));
+
+  const errors: string[] = [];
+  const preview: ImportPreviewRow[] = [];
+
+  if (lines.length === 0) {
+    importErrors.value = ['No data found. Upload a file or paste rows to continue'];
+    importPreview.value = [];
+    return;
+  }
+
+  const firstLine = lines[0].toLowerCase();
+  const hasHeader = (
+    firstLine.includes('first name') ||
+    firstLine.includes('last name') ||
+    firstLine.includes('email') ||
+    firstLine.includes('category')
+  );
+
+  const dataLines = hasHeader ? lines.slice(1) : lines;
 
   for (let i = 0; i < dataLines.length; i++) {
     const line = dataLines[i];
-    const values = line.split(',').map((v) => v.trim());
+    const lineNumber = hasHeader ? i + 2 : i + 1;
+    let firstName = '';
+    let lastName = '';
+    let email = '';
+    let phone = '';
+    let skillLevel = 5;
+    let categoryName = '';
+    let partnerFirstName = '';
+    let partnerLastName = '';
+    let partnerEmail = '';
+    let partnerPhone = '';
+    let partnerSkillLevel: number | null = null;
 
-    if (values.length < 2) {
-      errors.push(`Row ${i + 2}: Missing required fields (First Name, Last Name)`);
-      continue;
+    const values = parseImportColumns(line);
+    if (values.length > 0) {
+      const skillLevelRaw = values[4] || '';
+      const partnerSkillLevelRaw = values[10] || '';
+      [
+        firstName,
+        lastName,
+        email = '',
+        phone = '',
+        ,
+        categoryName = '',
+        partnerFirstName = '',
+        partnerLastName = '',
+        partnerEmail = '',
+        partnerPhone = '',
+      ] = values;
+
+      const parsedSkill = parseSkillLevel(skillLevelRaw, lineNumber, 'Skill Level', errors);
+      if (parsedSkill === null && skillLevelRaw.trim()) continue;
+      skillLevel = parsedSkill ?? 5;
+
+      const parsedPartnerSkill = parseSkillLevel(partnerSkillLevelRaw, lineNumber, 'Partner Skill Level', errors);
+      if (parsedPartnerSkill === null && partnerSkillLevelRaw.trim()) continue;
+      partnerSkillLevel = parsedPartnerSkill;
+    } else {
+      const nameParts = line.split(/\s+/).filter(Boolean);
+      if (nameParts.length < 2) {
+        errors.push(`Row ${lineNumber}: For TXT import, provide at least first and last name`);
+        continue;
+      }
+      firstName = nameParts[0];
+      lastName = nameParts.slice(1).join(' ');
     }
-
-    const [firstName, lastName, email, phone, skillLevelStr, categoryName] = values;
 
     if (!firstName || !lastName) {
-      errors.push(`Row ${i + 2}: First Name and Last Name are required`);
+      errors.push(`Row ${lineNumber}: First Name and Last Name are required`);
       continue;
     }
 
-    const skillLevel = skillLevelStr ? parseInt(skillLevelStr, 10) : 5;
-    if (isNaN(skillLevel) || skillLevel < 1 || skillLevel > 10) {
-      errors.push(`Row ${i + 2}: Skill Level must be 1-10`);
+    const hasAnyPartnerField = Boolean(
+      partnerFirstName || partnerLastName || partnerEmail || partnerPhone || partnerSkillLevel !== null
+    );
+    const hasPartnerName = Boolean(partnerFirstName && partnerLastName);
+
+    if (hasAnyPartnerField && !hasPartnerName) {
+      errors.push(`Row ${lineNumber}: Partner First Name and Partner Last Name are both required for doubles`);
       continue;
     }
 
-    // Find matching category
-    let matchedCategory = null;
+    if (
+      hasPartnerName &&
+      normalizeEmail(email) &&
+      normalizeEmail(email) === normalizeEmail(partnerEmail)
+    ) {
+      errors.push(`Row ${lineNumber}: Player and partner email cannot be the same`);
+      continue;
+    }
+
+    let matchedCategory: Category | undefined;
     if (categoryName) {
-      matchedCategory = categories.value.find(
-        (c) => c.name.toLowerCase() === categoryName.toLowerCase()
-      );
+      matchedCategory = findCategoryByName(categoryName);
       if (!matchedCategory) {
-        errors.push(`Row ${i + 2}: Category "${categoryName}" not found`);
+        errors.push(`Row ${lineNumber}: Category "${categoryName}" not found`);
+        continue;
+      }
+
+      const isCategoryDoubles = matchedCategory.type === 'doubles' || matchedCategory.type === 'mixed_doubles';
+      if (isCategoryDoubles && !hasPartnerName) {
+        errors.push(`Row ${lineNumber}: ${matchedCategory.name} requires partner columns in the same row`);
+        continue;
+      }
+      if (!isCategoryDoubles && hasPartnerName) {
+        errors.push(`Row ${lineNumber}: Partner columns are only allowed for doubles/mixed doubles categories`);
+        continue;
       }
     }
 
@@ -587,7 +858,13 @@ function parseCSV(text: string) {
       skillLevel,
       categoryName: categoryName || '',
       categoryId: matchedCategory?.id || null,
-      valid: !categoryName || !!matchedCategory,
+      participantType: hasPartnerName ? 'team' : 'player',
+      partnerFirstName,
+      partnerLastName,
+      partnerEmail: partnerEmail || '',
+      partnerPhone: partnerPhone || '',
+      partnerSkillLevel: hasPartnerName ? (partnerSkillLevel ?? skillLevel) : null,
+      valid: true,
     });
   }
 
@@ -595,38 +872,158 @@ function parseCSV(text: string) {
   importPreview.value = preview;
 }
 
+function previewPastedData(): void {
+  const text = pastedImportText.value.trim();
+  if (!text) {
+    notificationStore.showToast('error', 'Paste data first');
+    return;
+  }
+
+  importFile.value = null;
+  importSourceLabel.value = 'Pasted data';
+  importMode.value = 'paste';
+  importErrors.value = [];
+  importPreview.value = [];
+  parseImportText(text);
+}
+
+interface ImportPlayerPayload {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  skillLevel?: number;
+}
+
+async function resolveOrCreateImportPlayer(
+  player: ImportPlayerPayload,
+  emailCache: Map<string, string>,
+  nameCache: Map<string, string>,
+): Promise<string> {
+  const normalizedEmail = normalizeEmail(player.email);
+  const nameKey = buildPlayerNameKey(player.firstName, player.lastName, player.phone);
+
+  if (normalizedEmail && emailCache.has(normalizedEmail)) {
+    return emailCache.get(normalizedEmail)!;
+  }
+  if (nameCache.has(nameKey)) {
+    return nameCache.get(nameKey)!;
+  }
+
+  if (normalizedEmail) {
+    const existingByEmail = players.value.find(
+      (existingPlayer) => normalizeEmail(existingPlayer.email) === normalizedEmail
+    );
+    if (existingByEmail) {
+      emailCache.set(normalizedEmail, existingByEmail.id);
+      nameCache.set(nameKey, existingByEmail.id);
+      return existingByEmail.id;
+    }
+  }
+
+  const existingByName = players.value.find((existingPlayer) =>
+    existingPlayer.firstName.trim().toLowerCase() === player.firstName.trim().toLowerCase() &&
+    existingPlayer.lastName.trim().toLowerCase() === player.lastName.trim().toLowerCase() &&
+    (player.phone ? (existingPlayer.phone || '').trim().toLowerCase() === player.phone.trim().toLowerCase() : true)
+  );
+  if (existingByName) {
+    if (normalizedEmail) emailCache.set(normalizedEmail, existingByName.id);
+    nameCache.set(nameKey, existingByName.id);
+    return existingByName.id;
+  }
+
+  const playerId = await registrationStore.addPlayer(tournamentId.value, {
+    firstName: player.firstName.trim(),
+    lastName: player.lastName.trim(),
+    email: player.email?.trim() || '',
+    phone: player.phone?.trim() || '',
+    skillLevel: player.skillLevel ?? 5,
+  });
+
+  if (normalizedEmail) emailCache.set(normalizedEmail, playerId);
+  nameCache.set(nameKey, playerId);
+  return playerId;
+}
+
 async function executeImport() {
   if (importPreview.value.length === 0) return;
 
   importing.value = true;
-  let successCount = 0;
+  let processedRowCount = 0;
+  let registrationCount = 0;
   let errorCount = 0;
+  const emailCache = new Map<string, string>();
+  const nameCache = new Map<string, string>();
+  const existingRegistrationKeys = new Set<string>();
+
+  for (const registration of registrations.value) {
+    if (
+      !registration.categoryId ||
+      !registration.playerId ||
+      registration.status === 'rejected' ||
+      registration.status === 'withdrawn'
+    ) {
+      continue;
+    }
+    existingRegistrationKeys.add(
+      buildRegistrationKey(registration.categoryId, registration.playerId, registration.partnerPlayerId)
+    );
+  }
 
   try {
     for (const row of importPreview.value) {
       try {
-        // Create player
-        const playerId = await registrationStore.addPlayer(tournamentId.value, {
+        const playerId = await resolveOrCreateImportPlayer({
           firstName: row.firstName,
           lastName: row.lastName,
           email: row.email,
           phone: row.phone,
           skillLevel: row.skillLevel,
-        });
+        }, emailCache, nameCache);
+
+        let partnerPlayerId: string | undefined;
+        if (row.participantType === 'team') {
+          partnerPlayerId = await resolveOrCreateImportPlayer({
+            firstName: row.partnerFirstName,
+            lastName: row.partnerLastName,
+            email: row.partnerEmail,
+            phone: row.partnerPhone,
+            skillLevel: row.partnerSkillLevel ?? row.skillLevel,
+          }, emailCache, nameCache);
+        }
 
         // Create registration if category specified
         if (row.categoryId) {
+          const category = getCategoryById(row.categoryId);
+          const categoryIsDoubles = category?.type === 'doubles' || category?.type === 'mixed_doubles';
+          const registrationKey = buildRegistrationKey(row.categoryId, playerId, partnerPlayerId);
+
+          if (existingRegistrationKeys.has(registrationKey)) {
+            errorCount++;
+            continue;
+          }
+
+          const participantType: 'player' | 'team' = categoryIsDoubles ? 'team' : 'player';
+          if (participantType === 'team' && !partnerPlayerId) {
+            errorCount++;
+            continue;
+          }
+
           await registrationStore.createRegistration(tournamentId.value, {
             tournamentId: tournamentId.value,
             categoryId: row.categoryId,
-            participantType: 'player',
+            participantType,
             playerId: playerId,
+            partnerPlayerId: participantType === 'team' ? partnerPlayerId : undefined,
+            teamName: participantType === 'team' ? `${row.lastName} / ${row.partnerLastName}` : undefined,
             status: 'approved',
             registeredBy: authStore.currentUser?.id || '',
           });
+          existingRegistrationKeys.add(registrationKey);
+          registrationCount++;
         }
 
-        successCount++;
+        processedRowCount++;
       } catch (err) {
         console.error('Error importing row:', row, err);
         errorCount++;
@@ -635,14 +1032,11 @@ async function executeImport() {
 
     notificationStore.showToast(
       'success',
-      `Imported ${successCount} players${errorCount > 0 ? ` (${errorCount} failed)` : ''}`
+      `Processed ${processedRowCount} row(s), created ${registrationCount} registration(s)${errorCount > 0 ? ` (${errorCount} failed)` : ''}`
     );
 
-    // Reset import state
     showImportDialog.value = false;
-    importFile.value = null;
-    importPreview.value = [];
-    importErrors.value = [];
+    resetImport();
   } catch (error) {
     notificationStore.showToast('error', 'Import failed');
   } finally {
@@ -652,6 +1046,9 @@ async function executeImport() {
 
 function resetImport() {
   importFile.value = null;
+  importSourceLabel.value = '';
+  pastedImportText.value = '';
+  importMode.value = 'upload';
   importPreview.value = [];
   importErrors.value = [];
 }
@@ -663,6 +1060,7 @@ function getStatusColor(status: string): string {
     rejected: 'error',
     withdrawn: 'grey',
     checked_in: 'info',
+    no_show: 'error',
   };
   return colors[status] || 'grey';
 }
@@ -674,6 +1072,7 @@ function getStatusIcon(status: string): string {
     rejected: 'mdi-close',
     withdrawn: 'mdi-account-remove',
     checked_in: 'mdi-check-decagram',
+    no_show: 'mdi-account-cancel',
   };
   return icons[status] || 'mdi-help';
 }
@@ -682,6 +1081,7 @@ function clearFilters() {
   filterCategory.value = null;
   filterStatus.value = null;
   searchQuery.value = '';
+  filterSort.value = 'default';
 }
 
 const statusOptions = [
@@ -690,8 +1090,17 @@ const statusOptions = [
   { title: 'Pending', value: 'pending' },
   { title: 'Approved', value: 'approved' },
   { title: 'Checked In', value: 'checked_in' },
+  { title: 'No Show', value: 'no_show' },
   { title: 'Withdrawn', value: 'withdrawn' },
   { title: 'Rejected', value: 'rejected' },
+];
+
+const sortOptions = [
+  { title: 'Default', value: 'default' },
+  { title: 'Name (A-Z)', value: 'name_asc' },
+  { title: 'Name (Z-A)', value: 'name_desc' },
+  { title: 'Category (A-Z)', value: 'category_asc' },
+  { title: 'Status (A-Z)', value: 'status_asc' },
 ];
 
 const canCheckIn = computed(() => {
@@ -707,19 +1116,65 @@ const canApprove = computed(() => {
     return reg?.status === 'pending';
   });
 });
+
+const isAdmin = computed(() => authStore.isAdmin);
+const showUnlockDialog = ref(false);
+
+function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
+  if (!currentState) return 'REG_OPEN';
+  return getNextTournamentState(currentState);
+}
+
+async function advanceState(): Promise<void> {
+  if (!tournament.value?.state) return;
+  const nextState = getNextTournamentState(tournament.value.state);
+  if (nextState) {
+    try {
+      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
+      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
+    } catch (error) {
+      notificationStore.showToast('error', 'Failed to advance tournament state');
+    }
+  }
+}
 </script>
 
 <template>
   <v-container fluid>
+    <!-- State Banner -->
+    <StateBanner
+      v-if="tournament"
+      :state="tournament.state || 'DRAFT'"
+      :next-state="getNextState(tournament.state || 'DRAFT')"
+      :is-admin="isAdmin"
+      @advance="advanceState"
+      @unlock="showUnlockDialog = true"
+    />
+
     <!-- Header -->
     <!-- Compact Header -->
     <div class="compact-header mb-6">
       <div class="d-flex align-center justify-space-between flex-wrap gap-4">
         <div>
           <div class="d-flex align-center text-grey-darken-1 text-caption mb-1">
-            <v-icon size="small" class="mr-1">mdi-home</v-icon>
-            Home <v-icon size="small" class="mx-1">mdi-chevron-right</v-icon>
-            Tournaments <v-icon size="small" class="mx-1">mdi-chevron-right</v-icon>
+            <v-icon
+              size="small"
+              class="mr-1"
+            >
+              mdi-home
+            </v-icon>
+            Home <v-icon
+              size="small"
+              class="mx-1"
+            >
+              mdi-chevron-right
+            </v-icon>
+            Tournaments <v-icon
+              size="small"
+              class="mx-1"
+            >
+              mdi-chevron-right
+            </v-icon>
             {{ tournament?.name }}
           </div>
           <div class="d-flex align-center">
@@ -730,43 +1185,81 @@ const canApprove = computed(() => {
               class="mr-2"
               @click="router.back()"
             />
-            <h1 class="text-h4 font-weight-bold text-gradient mb-0">Registration</h1>
+            <h1 class="text-h4 font-weight-bold text-gradient mb-0">
+              Registration
+            </h1>
           </div>
         </div>
         <div class="d-flex flex-column flex-sm-row gap-2">
-          <v-btn
-            variant="outlined"
-            prepend-icon="mdi-upload"
-            @click="showImportDialog = true"
+          <v-tooltip
+            :text="PLAYER_FLOW_TIPS.import"
+            location="bottom"
           >
-            Import CSV
-          </v-btn>
-          <v-btn
-            variant="outlined"
-            prepend-icon="mdi-account-plus"
-            @click="showAddPlayerDialog = true"
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                variant="outlined"
+                prepend-icon="mdi-upload"
+                @click="showImportDialog = true"
+              >
+                Import File
+              </v-btn>
+            </template>
+          </v-tooltip>
+          <v-tooltip
+            :text="PLAYER_FLOW_TIPS.addPlayer"
+            location="bottom"
           >
-            Add Player
-          </v-btn>
-          <v-btn
-            color="primary"
-            prepend-icon="mdi-plus"
-            @click="showAddRegistrationDialog = true"
-            elevation="2"
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                variant="outlined"
+                prepend-icon="mdi-account-plus"
+                @click="showAddPlayerDialog = true"
+              >
+                Add Player
+              </v-btn>
+            </template>
+          </v-tooltip>
+          <v-tooltip
+            :text="PLAYER_FLOW_TIPS.addRegistration"
+            location="bottom"
           >
-            Add Registration
-          </v-btn>
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                color="primary"
+                prepend-icon="mdi-plus"
+                elevation="2"
+                @click="showAddRegistrationDialog = true"
+              >
+                Add Registration
+              </v-btn>
+            </template>
+          </v-tooltip>
         </div>
       </div>
     </div>
 
     <!-- Category Header when filtered -->
-    <v-card v-if="selectedCategoryDetails" class="mb-4" variant="outlined" color="primary">
+    <v-card
+      v-if="selectedCategoryDetails"
+      class="mb-4"
+      variant="outlined"
+      color="primary"
+    >
       <v-card-text>
         <div class="d-flex align-center mb-3">
-          <v-icon size="24" class="mr-2">mdi-tournament</v-icon>
+          <v-icon
+            size="24"
+            class="mr-2"
+          >
+            mdi-tournament
+          </v-icon>
           <div>
-            <h2 class="text-h6 font-weight-bold">{{ selectedCategoryDetails.name }}</h2>
+            <h2 class="text-h6 font-weight-bold">
+              {{ selectedCategoryDetails.name }}
+            </h2>
             <div class="text-caption text-grey">
               {{ FORMAT_LABELS[selectedCategoryDetails.format] || selectedCategoryDetails.format }}
               <span v-if="selectedCategoryDetails.seedingEnabled"> | Seeding enabled</span>
@@ -795,22 +1288,61 @@ const canApprove = computed(() => {
               <strong class="text-h5">{{ registrationStats.bracketReady }}</strong>
               <span class="text-body-2 ml-1">players in bracket</span>
             </div>
-            <v-divider vertical class="mx-2" />
-            <div v-if="registrationStats.pending > 0" class="text-warning">
-              <v-icon size="16" class="mr-1">mdi-clock-outline</v-icon>
+            <v-divider
+              vertical
+              class="mx-2"
+            />
+            <div
+              v-if="registrationStats.pending > 0"
+              class="text-warning"
+            >
+              <v-icon
+                size="16"
+                class="mr-1"
+              >
+                mdi-clock-outline
+              </v-icon>
               <strong>{{ registrationStats.pending }}</strong> pending (won't be in bracket)
             </div>
-            <div v-if="registrationStats.withdrawn > 0" class="text-grey">
-              <v-icon size="16" class="mr-1">mdi-account-remove</v-icon>
+            <div
+              v-if="registrationStats.withdrawn > 0"
+              class="text-grey"
+            >
+              <v-icon
+                size="16"
+                class="mr-1"
+              >
+                mdi-account-remove
+              </v-icon>
               <strong>{{ registrationStats.withdrawn }}</strong> withdrawn
             </div>
-            <v-divider vertical class="mx-2" v-if="bracketInfo.byes > 0" />
-            <div v-if="bracketInfo.byes > 0" class="text-info">
-              <v-icon size="16" class="mr-1">mdi-arrow-right-bold</v-icon>
+            <v-divider
+              v-if="bracketInfo.byes > 0"
+              vertical
+              class="mx-2"
+            />
+            <div
+              v-if="bracketInfo.byes > 0"
+              class="text-info"
+            >
+              <v-icon
+                size="16"
+                class="mr-1"
+              >
+                mdi-arrow-right-bold
+              </v-icon>
               Bracket of {{ bracketInfo.size }} with <strong>{{ bracketInfo.byes }}</strong> bye{{ bracketInfo.byes > 1 ? 's' : '' }}
             </div>
-            <div v-if="selectedCategoryDetails.seedingEnabled" class="text-primary">
-              <v-icon size="16" class="mr-1">mdi-seed</v-icon>
+            <div
+              v-if="selectedCategoryDetails.seedingEnabled"
+              class="text-primary"
+            >
+              <v-icon
+                size="16"
+                class="mr-1"
+              >
+                mdi-seed
+              </v-icon>
               <strong>{{ registrationStats.seeded }}</strong> seeded
             </div>
           </div>
@@ -820,84 +1352,178 @@ const canApprove = computed(() => {
 
     <!-- Stats Grid -->
     <v-row class="mb-6">
-      <v-col cols="6" sm="4" md="2">
-        <div class="stat-card pa-4 rounded-lg bg-surface cursor-pointer" @click="filterStatus = null">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <div
+          class="stat-card pa-4 rounded-lg bg-surface cursor-pointer"
+          @click="filterStatus = null"
+        >
           <div class="stat-icon-wrapper bg-grey-lighten-4 text-grey-darken-1">
             <v-icon>mdi-account-group</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.total }}</div>
-          <div class="text-caption font-weight-medium text-grey text-uppercase">Total</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.total }}
+          </div>
+          <div class="text-caption font-weight-medium text-grey text-uppercase">
+            Total
+          </div>
         </div>
       </v-col>
       
-      <v-col cols="6" sm="4" md="2">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
         <div class="stat-card stat-success pa-4 rounded-lg bg-surface">
           <div class="stat-icon-wrapper">
-             <v-icon>mdi-check-decagram</v-icon>
+            <v-icon>mdi-check-decagram</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.bracketReady }}</div>
-          <div class="text-caption font-weight-medium text-success text-uppercase">Bracket Ready</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.bracketReady }}
+          </div>
+          <div class="text-caption font-weight-medium text-success text-uppercase">
+            Bracket Ready
+          </div>
         </div>
       </v-col>
 
-      <v-col cols="6" sm="4" md="2">
-        <div class="stat-card stat-warning pa-4 rounded-lg bg-surface cursor-pointer" @click="filterStatus = filterStatus === 'pending' ? null : 'pending'">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <div
+          class="stat-card stat-warning pa-4 rounded-lg bg-surface cursor-pointer"
+          @click="filterStatus = filterStatus === 'pending' ? null : 'pending'"
+        >
           <div class="stat-icon-wrapper">
             <v-icon>mdi-clock-outline</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.pending }}</div>
-          <div class="text-caption font-weight-medium text-warning text-uppercase">Pending</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.pending }}
+          </div>
+          <div class="text-caption font-weight-medium text-warning text-uppercase">
+            Pending
+          </div>
         </div>
       </v-col>
 
-      <v-col cols="6" sm="4" md="2">
-        <div class="stat-card stat-info pa-4 rounded-lg bg-surface cursor-pointer" @click="filterStatus = filterStatus === 'approved' ? null : 'approved'">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <div
+          class="stat-card stat-info pa-4 rounded-lg bg-surface cursor-pointer"
+          @click="filterStatus = filterStatus === 'approved' ? null : 'approved'"
+        >
           <div class="stat-icon-wrapper">
             <v-icon>mdi-check</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.approved }}</div>
-          <div class="text-caption font-weight-medium text-info text-uppercase">Approved</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.approved }}
+          </div>
+          <div class="text-caption font-weight-medium text-info text-uppercase">
+            Approved
+          </div>
         </div>
       </v-col>
 
-      <v-col cols="6" sm="4" md="2">
-        <div class="stat-card stat-primary pa-4 rounded-lg bg-surface cursor-pointer" @click="filterStatus = filterStatus === 'checked_in' ? null : 'checked_in'">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <div
+          class="stat-card stat-primary pa-4 rounded-lg bg-surface cursor-pointer"
+          @click="filterStatus = filterStatus === 'checked_in' ? null : 'checked_in'"
+        >
           <div class="stat-icon-wrapper">
             <v-icon>mdi-ticket-account</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.checkedIn }}</div>
-          <div class="text-caption font-weight-medium text-primary text-uppercase">Checked In</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.checkedIn }}
+          </div>
+          <div class="text-caption font-weight-medium text-primary text-uppercase">
+            Checked In
+          </div>
         </div>
       </v-col>
 
-      <v-col cols="6" sm="4" md="2">
-        <div class="stat-card stat-secondary pa-4 rounded-lg bg-surface cursor-pointer" @click="filterStatus = filterStatus === 'withdrawn' ? null : 'withdrawn'">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <div
+          class="stat-card stat-secondary pa-4 rounded-lg bg-surface cursor-pointer"
+          @click="filterStatus = filterStatus === 'withdrawn' ? null : 'withdrawn'"
+        >
           <div class="stat-icon-wrapper">
             <v-icon>mdi-account-off</v-icon>
           </div>
-          <div class="text-h4 font-weight-bold mb-1">{{ registrationStats.withdrawn }}</div>
-          <div class="text-caption font-weight-medium text-secondary text-uppercase">Withdrawn</div>
+          <div class="text-h4 font-weight-bold mb-1">
+            {{ registrationStats.withdrawn }}
+          </div>
+          <div class="text-caption font-weight-medium text-secondary text-uppercase">
+            Withdrawn
+          </div>
         </div>
       </v-col>
     </v-row>
 
     <!-- Tabs -->
-    <v-tabs v-model="tab" color="primary">
+    <v-tabs
+      v-model="tab"
+      color="primary"
+    >
       <v-tab value="registrations">
-        <v-icon start>mdi-account-multiple</v-icon>
+        <v-icon start>
+          mdi-account-multiple
+        </v-icon>
         Registrations
-        <v-chip size="x-small" class="ml-2">{{ filteredRegistrations.length }}</v-chip>
-      </v-tab>
-      <v-tab value="players">
-        <v-icon start>mdi-account</v-icon>
-        Players
-        <v-chip size="x-small" class="ml-2">{{ players.length }}</v-chip>
+        <v-chip
+          size="x-small"
+          class="ml-2"
+        >
+          {{ filteredRegistrations.length }}
+        </v-chip>
       </v-tab>
       <v-tab value="check-in">
-        <v-icon start>mdi-check-decagram</v-icon>
+        <v-icon start>
+          mdi-check-decagram
+        </v-icon>
         Check-In
       </v-tab>
     </v-tabs>
+
+    <!-- Link to Participants Page -->
+    <v-alert
+      v-if="tab === 'registrations'"
+      type="info"
+      variant="tonal"
+      density="compact"
+      class="mt-4"
+    >
+      <div class="d-flex align-center justify-space-between">
+        <span>View and manage your tournament participants</span>
+        <v-btn
+          variant="text"
+          color="primary"
+          size="small"
+          :to="`/tournaments/${tournamentId}/participants`"
+        >
+          Go to Participants
+          <v-icon end>
+            mdi-arrow-right
+          </v-icon>
+        </v-btn>
+      </div>
+    </v-alert>
 
     <v-tabs-window v-model="tab">
       <!-- Registrations Tab -->
@@ -905,59 +1531,33 @@ const canApprove = computed(() => {
         <v-card class="mt-4">
           <!-- Filters -->
           <v-card-text class="pb-0">
-            <v-row>
-               <v-col cols="12" sm="4">
-                 <v-text-field
-                   v-model="searchQuery"
-                   data-testid="search-participant-input"
-                   prepend-inner-icon="mdi-magnify"
-                   label="Search by name"
-                   density="compact"
-                   variant="outlined"
-                   clearable
-                   hide-details
-                 />
-               </v-col>
-               <v-col cols="6" sm="3">
-                 <v-select
-                   v-model="filterCategory"
-                   data-testid="filter-category-select"
-                   :items="[{ name: 'All Categories', id: null }, ...categories]"
-                   item-title="name"
-                   item-value="id"
-                   label="Category"
-                   density="compact"
-                   variant="outlined"
-                   hide-details
-                 />
-               </v-col>
-              <v-col cols="6" sm="3">
-                <v-select
-                  v-model="filterStatus"
-                  :items="statusOptions"
-                  item-title="title"
-                  item-value="value"
-                  label="Status"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                />
-              </v-col>
-              <v-col cols="12" sm="2" class="d-flex align-center">
-                <v-btn
-                  v-if="filterCategory || filterStatus || searchQuery"
-                  variant="text"
-                  size="small"
-                  @click="clearFilters"
-                >
-                  Clear Filters
-                </v-btn>
-              </v-col>
-            </v-row>
+            <filter-bar
+              :search="searchQuery"
+              :category="filterCategory"
+              :status="filterStatus"
+              :sort="filterSort"
+              :enable-category="true"
+              :enable-status="true"
+              :enable-court="false"
+              :category-options="categoryFilterOptions"
+              :status-options="statusOptions"
+              :sort-options="sortOptions"
+              search-label="Search"
+              search-placeholder="Search participant name"
+              :has-active-filters="hasActiveRegistrationFilters"
+              @update:search="searchQuery = $event"
+              @update:category="filterCategory = $event"
+              @update:status="filterStatus = $event"
+              @update:sort="filterSort = $event"
+              @clear="clearFilters"
+            />
 
             <!-- Bulk Actions -->
             <v-slide-y-transition>
-              <div v-if="selectedRegistrations.length > 0" class="mt-3 pa-3 bg-surface-variant rounded">
+              <div
+                v-if="selectedRegistrations.length > 0"
+                class="mt-3 pa-3 bg-surface-variant rounded"
+              >
                 <div class="d-flex align-center">
                   <span class="text-body-2 mr-4">
                     {{ selectedRegistrations.length }} selected
@@ -997,215 +1597,173 @@ const canApprove = computed(() => {
             </v-slide-y-transition>
           </v-card-text>
 
-          <v-data-table
-            v-model="selectedRegistrations"
-            :headers="[
-              { title: '', key: 'data-table-select', width: '48px' },
-              { title: 'Participant', key: 'participant' },
-              { title: 'Category', key: 'category' },
-              { title: 'Status', key: 'status' },
-              { title: 'Payment', key: 'payment', align: 'center' },
-              { title: 'Seed', key: 'seed', align: 'center' },
-              { title: 'Actions', key: 'actions', sortable: false, align: 'end' },
-            ]"
-            :items="filteredRegistrations"
-            :loading="loading"
-            item-value="id"
-            show-select
-            hover
-          >
-            <template #item.participant="{ item }">
-              <div class="d-flex align-center py-2">
-                <v-avatar size="36" color="primary" class="mr-3">
-                  <span class="text-caption">{{ getPlayerName(item.playerId).charAt(0) }}</span>
-                </v-avatar>
-                <div>
-                  <div class="font-weight-medium">{{ getParticipantDisplay(item) }}</div>
-                  <div class="text-caption text-grey">
-                    {{ item.partnerPlayerId ? 'Doubles' : 'Singles' }}
-                  </div>
-                </div>
-              </div>
-            </template>
-            <template #item.category="{ item }">
-              <v-chip size="small" variant="outlined">
-                {{ getCategoryName(item.categoryId) }}
-              </v-chip>
-              <div class="text-caption text-grey">
-                {{ getCategory(item.categoryId)?.format ? FORMAT_LABELS[getCategory(item.categoryId)!.format] : '' }}
-              </div>
-            </template>
-            <template #item.status="{ item }">
-              <v-chip
-                :color="getStatusColor(item.status)"
-                :prepend-icon="getStatusIcon(item.status)"
-                size="small"
-              >
-                {{ item.status }}
-              </v-chip>
-            </template>
-            <template #item.payment="{ item }">
-              <v-tooltip :text="item.paymentNote || 'Click to toggle payment'">
-                <template #activator="{ props }">
-                  <v-chip
-                    v-bind="props"
-                    :color="getPaymentColor(item.paymentStatus)"
-                    :prepend-icon="getPaymentIcon(item.paymentStatus)"
-                    size="small"
-                    class="cursor-pointer"
-                    @click="togglePaymentStatus(item)"
-                    @click.right.prevent="openPaymentDialog(item)"
-                  >
-                    {{ item.paymentStatus || 'unpaid' }}
-                  </v-chip>
-                </template>
-              </v-tooltip>
-            </template>
-            <template #item.seed="{ item }">
-              <v-chip v-if="item.seed" size="small" color="primary" variant="tonal">
-                #{{ item.seed }}
-              </v-chip>
-              <span v-else class="text-grey">-</span>
-            </template>
-            <template #item.actions="{ item }">
-              <div class="d-flex justify-end">
-                <!-- Pending actions -->
-                <template v-if="item.status === 'pending'">
-                  <v-btn
-                    icon="mdi-check"
-                    size="small"
-                    color="success"
-                    variant="text"
-                    title="Approve"
-                    @click="approveRegistration(item.id)"
-                  />
-                  <v-btn
-                    icon="mdi-close"
-                    size="small"
-                    color="error"
-                    variant="text"
-                    title="Reject"
-                    @click="rejectRegistration(item.id)"
-                  />
-                </template>
+           <v-data-table
+             v-model:selected="selectedRegistrations"
+             :items="filteredRegistrations"
+             :headers="[
+               { title: 'Participant', key: 'participant', sortable: true },
+               { title: 'Category', key: 'category', sortable: true },
+               { title: 'Status', key: 'status', sortable: true },
+               { title: 'Actions', key: 'actions', sortable: false },
+             ]"
+             :loading="loading"
+             class="elevation-1"
+             show-expand
+             item-value="id"
+             show-select
+           >
+             <template #item.participant="{ item }">
+               <div class="d-flex align-center py-2">
+                 <v-avatar
+                   size="36"
+                   color="primary"
+                   class="mr-3"
+                 >
+                   <span class="text-caption">{{ getPlayerName(item.playerId).charAt(0) }}</span>
+                 </v-avatar>
+                 <div>
+                   <div class="font-weight-medium">
+                     {{ getParticipantDisplay(item) }}
+                   </div>
+                   <div class="text-caption text-grey">
+                     {{ item.partnerPlayerId ? 'Doubles' : 'Singles' }}
+                   </div>
+                 </div>
+               </div>
+             </template>
+             <template #item.category="{ item }">
+               <v-chip
+                 size="small"
+                 variant="outlined"
+               >
+                 {{ getCategoryName(item.categoryId) }}
+               </v-chip>
+               <div class="text-caption text-grey">
+                 {{ getCategory(item.categoryId)?.format ? FORMAT_LABELS[getCategory(item.categoryId)!.format] : '' }}
+               </div>
+             </template>
+             <template #item.status="{ item }">
+               <v-chip
+                 :color="getStatusColor(item.status)"
+                 :prepend-icon="getStatusIcon(item.status)"
+                 size="small"
+               >
+                 {{ item.status }}
+               </v-chip>
+             </template>
+             <template #item.actions="{ item }">
+               <div class="d-flex justify-end">
+                 <!-- Pending actions -->
+                 <template v-if="item.status === 'pending'">
+                   <v-btn
+                     icon="mdi-check"
+                     size="small"
+                     color="success"
+                     variant="text"
+                     title="Approve"
+                     @click="approveRegistration(item.id)"
+                   />
+                   <v-btn
+                     icon="mdi-close"
+                     size="small"
+                     color="error"
+                     variant="text"
+                     title="Reject"
+                     @click="rejectRegistration(item.id)"
+                   />
+                 </template>
 
-                <!-- Approved actions -->
-                <template v-if="item.status === 'approved'">
-                  <v-btn
-                    icon="mdi-check-decagram"
-                    size="small"
-                    color="info"
-                    variant="text"
-                    title="Check In"
-                    @click="checkInRegistration(item.id)"
-                  />
-                  <v-btn
-                    icon="mdi-account-remove"
-                    size="small"
-                    color="grey"
-                    variant="text"
-                    title="Withdraw"
-                    @click="withdrawRegistration(item.id)"
-                  />
-                </template>
+                 <!-- Approved actions -->
+                 <template v-if="item.status === 'approved'">
+                   <v-btn
+                     icon="mdi-check-decagram"
+                     size="small"
+                     color="info"
+                     variant="text"
+                     title="Check In"
+                     @click="checkInRegistration(item.id)"
+                   />
+                   <v-btn
+                     icon="mdi-account-remove"
+                     size="small"
+                     color="grey"
+                     variant="text"
+                     title="Withdraw"
+                     @click="withdrawRegistration(item.id)"
+                   />
+                 </template>
 
-                <!-- Checked in - can only withdraw -->
-                <template v-if="item.status === 'checked_in'">
-                  <v-chip size="x-small" color="success" variant="tonal" class="mr-2">
-                    <v-icon start size="12">mdi-check</v-icon>
-                    Ready
-                  </v-chip>
-                  <v-btn
-                    icon="mdi-undo-variant"
-                    size="small"
-                    color="warning"
-                    variant="text"
-                    title="Undo Check-In"
-                    @click="undoCheckInRegistration(item.id)"
-                  />
-                  <v-btn
-                    icon="mdi-account-remove"
-                    size="small"
-                    color="grey"
-                    variant="text"
-                    title="Withdraw"
-                    @click="withdrawRegistration(item.id)"
-                  />
-                </template>
+                 <!-- Checked in - can only withdraw -->
+                 <template v-if="item.status === 'checked_in'">
+                   <v-chip
+                     size="x-small"
+                     color="success"
+                     variant="tonal"
+                     class="mr-2"
+                   >
+                     <v-icon
+                       start
+                       size="12"
+                     >
+                       mdi-check
+                     </v-icon>
+                     Ready
+                   </v-chip>
+                   <v-btn
+                     icon="mdi-undo-variant"
+                     size="small"
+                     color="warning"
+                     variant="text"
+                     title="Undo Check-In"
+                     @click="undoCheckInRegistration(item.id)"
+                   />
+                   <v-btn
+                     icon="mdi-account-remove"
+                     size="small"
+                     color="grey"
+                     variant="text"
+                     title="Withdraw"
+                     @click="withdrawRegistration(item.id)"
+                   />
+                 </template>
 
-                <!-- Withdrawn actions -->
-                <template v-if="item.status === 'withdrawn'">
-                  <v-btn
-                    icon="mdi-account-plus"
-                    size="small"
-                    color="success"
-                    variant="text"
-                    title="Reinstate"
-                    @click="reinstateRegistration(item.id)"
-                  />
-                </template>
-              </div>
-            </template>
-          </v-data-table>
-        </v-card>
-      </v-tabs-window-item>
-
-      <!-- Players Tab -->
-      <v-tabs-window-item value="players">
-        <v-card class="mt-4">
-          <v-data-table
-            :headers="[
-              { title: 'Name', key: 'name' },
-              { title: 'Email', key: 'email' },
-              { title: 'Phone', key: 'phone' },
-              { title: 'Skill Level', key: 'skillLevel' },
-              { title: 'Actions', key: 'actions', sortable: false, align: 'end' },
-            ]"
-            :items="players"
-            :loading="loading"
-            hover
-          >
-            <template #item.name="{ item }">
-              <div class="d-flex align-center py-2">
-                <v-avatar size="36" color="primary" class="mr-3">
-                  <span class="text-caption">{{ item.firstName.charAt(0) }}</span>
-                </v-avatar>
-                <span class="font-weight-medium">{{ item.firstName }} {{ item.lastName }}</span>
-              </div>
-            </template>
-            <template #item.skillLevel="{ item }">
-              <div class="d-flex align-center">
-                <v-chip size="small" color="primary" variant="tonal" class="mr-2">
-                  {{ item.skillLevel || 5 }} / 10
-                </v-chip>
-                <v-progress-linear
-                  :model-value="((item.skillLevel || 5) / 10) * 100"
-                  color="primary"
-                  height="8"
-                  rounded
-                  style="width: 80px;"
-                />
-              </div>
-            </template>
-            <template #item.actions="{ item }">
-              <v-btn
-                icon="mdi-pencil"
-                size="small"
-                variant="text"
-                color="primary"
-                title="Edit Player"
-                @click="openEditPlayerDialog(item)"
-              />
-              <v-btn
-                icon="mdi-delete"
-                size="small"
-                variant="text"
-                color="error"
-                title="Delete Player"
-                @click="requestDeletePlayer(item.id)"
-              />
-            </template>
-          </v-data-table>
+                 <!-- Withdrawn actions -->
+                 <template v-if="item.status === 'withdrawn'">
+                   <v-btn
+                     icon="mdi-account-plus"
+                     size="small"
+                     color="success"
+                     variant="text"
+                     title="Reinstate"
+                     @click="reinstateRegistration(item.id)"
+                   />
+                 </template>
+               </div>
+             </template>
+             <template #expanded-row="{ columns, item }">
+               <tr>
+                 <td :colspan="columns.length" class="bg-grey-lighten-5 pa-4">
+                   <div class="d-flex flex-wrap gap-4 text-body-2">
+                     <div>
+                       <strong>Payment:</strong> 
+                       <v-chip
+                         :color="getPaymentColor(item.paymentStatus)"
+                         size="small"
+                         class="cursor-pointer"
+                         @click="togglePaymentStatus(item)"
+                       >
+                         {{ item.paymentStatus || 'unpaid' }}
+                       </v-chip>
+                     </div>
+                     <div v-if="item.seed">
+                       <strong>Seed:</strong> #{{ item.seed }}
+                     </div>
+                     <div><strong>Registered:</strong> {{ formatDate(item.createdAt) }}</div>
+                   </div>
+                 </td>
+               </tr>
+             </template>
+           </v-data-table>
         </v-card>
       </v-tabs-window-item>
 
@@ -1213,10 +1771,15 @@ const canApprove = computed(() => {
       <v-tabs-window-item value="check-in">
         <v-card class="mt-4">
           <v-card-title class="d-flex align-center">
-            <v-icon start>mdi-check-decagram</v-icon>
+            <v-icon start>
+              mdi-check-decagram
+            </v-icon>
             Quick Check-In
             <v-spacer />
-            <v-chip color="success" variant="tonal">
+            <v-chip
+              color="success"
+              variant="tonal"
+            >
               {{ registrationStats.checkedIn }} / {{ registrationStats.approved + registrationStats.checkedIn }} checked in
             </v-chip>
           </v-card-title>
@@ -1233,14 +1796,28 @@ const canApprove = computed(() => {
           </v-card-text>
 
           <v-list>
-            <template v-for="reg in filteredRegistrations.filter(r => r.status === 'approved' || r.status === 'checked_in')" :key="reg.id">
+            <template
+              v-for="reg in filteredRegistrations.filter(r => r.status === 'approved' || r.status === 'checked_in')"
+              :key="reg.id"
+            >
               <v-list-item
                 :class="{ 'bg-success-lighten-5': reg.status === 'checked_in' }"
               >
                 <template #prepend>
-                  <v-avatar :color="reg.status === 'checked_in' ? 'success' : 'grey'" size="40">
-                    <v-icon v-if="reg.status === 'checked_in'" color="white">mdi-check</v-icon>
-                    <span v-else class="text-caption">{{ getPlayerName(reg.playerId).charAt(0) }}</span>
+                  <v-avatar
+                    :color="reg.status === 'checked_in' ? 'success' : 'grey'"
+                    size="40"
+                  >
+                    <v-icon
+                      v-if="reg.status === 'checked_in'"
+                      color="white"
+                    >
+                      mdi-check
+                    </v-icon>
+                    <span
+                      v-else
+                      class="text-caption"
+                    >{{ getPlayerName(reg.playerId).charAt(0) }}</span>
                   </v-avatar>
                 </template>
 
@@ -1261,8 +1838,14 @@ const canApprove = computed(() => {
                   >
                     Check In
                   </v-btn>
-                  <v-chip v-else color="success" variant="tonal">
-                    <v-icon start>mdi-check</v-icon>
+                  <v-chip
+                    v-else
+                    color="success"
+                    variant="tonal"
+                  >
+                    <v-icon start>
+                      mdi-check
+                    </v-icon>
                     Checked In
                   </v-chip>
                   <v-btn
@@ -1282,8 +1865,12 @@ const canApprove = computed(() => {
 
           <v-card-text v-if="filteredRegistrations.filter(r => r.status === 'approved' || r.status === 'checked_in').length === 0">
             <div class="text-center py-8 text-grey">
-              <v-icon size="64">mdi-account-search</v-icon>
-              <p class="mt-4">No approved registrations found</p>
+              <v-icon size="64">
+                mdi-account-search
+              </v-icon>
+              <p class="mt-4">
+                No approved registrations found
+              </p>
             </div>
           </v-card-text>
         </v-card>
@@ -1291,262 +1878,412 @@ const canApprove = computed(() => {
     </v-tabs-window>
 
     <!-- Add Player Dialog -->
-    <v-dialog v-model="showAddPlayerDialog" max-width="500">
-      <v-card>
-        <v-card-title>Add Player</v-card-title>
-        <v-card-text>
-          <v-row>
-            <v-col cols="6">
-              <v-text-field
-                v-model="newPlayer.firstName"
-                label="First Name"
-                required
-              />
-            </v-col>
-            <v-col cols="6">
-              <v-text-field
-                v-model="newPlayer.lastName"
-                label="Last Name"
-                required
-              />
-            </v-col>
-          </v-row>
+    <BaseDialog
+      v-model="showAddPlayerDialog"
+      title="Add Player"
+      max-width="500"
+      @confirm="addPlayer"
+      @cancel="showAddPlayerDialog = false"
+    >
+      <v-row>
+        <v-col cols="6">
           <v-text-field
-            v-model="newPlayer.email"
-            label="Email"
-            type="email"
+            v-model="newPlayer.firstName"
+            label="First Name"
+            required
           />
+        </v-col>
+        <v-col cols="6">
           <v-text-field
-            v-model="newPlayer.phone"
-            label="Phone"
+            v-model="newPlayer.lastName"
+            label="Last Name"
+            required
           />
-          <v-slider
-            v-model="newPlayer.skillLevel"
-            label="Skill Level"
-            min="1"
-            max="10"
-            step="1"
-            thumb-label
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showAddPlayerDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="addPlayer">Add Player</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+        </v-col>
+      </v-row>
+      <v-text-field
+        v-model="newPlayer.email"
+        label="Email"
+        type="email"
+      />
+      <v-text-field
+        v-model="newPlayer.phone"
+        label="Phone"
+      />
+      <v-slider
+        v-model="newPlayer.skillLevel"
+        label="Skill Level"
+        min="1"
+        max="10"
+        step="1"
+        thumb-label
+      />
+    </BaseDialog>
 
     <!-- Add Registration Dialog -->
-    <v-dialog v-model="showAddRegistrationDialog" max-width="500">
-      <v-card>
-        <v-card-title>Add Registration</v-card-title>
-        <v-card-text>
-          <v-select
-            v-model="newRegistration.categoryId"
-            :items="categories"
-            item-title="name"
-            item-value="id"
-            label="Category"
-            required
-          />
-          <v-select
-            v-model="newRegistration.playerId"
-            :items="players"
-            :item-title="(p: any) => `${p.firstName} ${p.lastName}`"
-            item-value="id"
-            label="Player"
-            required
-          />
-          <v-select
-            v-if="isDoublesCategory"
-            v-model="newRegistration.partnerPlayerId"
-            :items="players.filter((p) => p.id !== newRegistration.playerId)"
-            :item-title="(p: any) => `${p.firstName} ${p.lastName}`"
-            item-value="id"
-            label="Partner"
-            required
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showAddRegistrationDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="addRegistration">Add Registration</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog
+      v-model="showAddRegistrationDialog"
+      title="Add Registration"
+      max-width="500"
+      @confirm="addRegistration"
+      @cancel="showAddRegistrationDialog = false"
+    >
+      <v-alert
+        type="info"
+        variant="tonal"
+        density="compact"
+        class="mb-3"
+      >
+        Flow: Step 1 add/import player, Step 2 register the player into a category.
+      </v-alert>
+      <v-select
+        v-model="newRegistration.categoryId"
+        :items="categories"
+        item-title="name"
+        item-value="id"
+        label="Category"
+        required
+      />
+      <v-select
+        v-model="newRegistration.playerId"
+        :items="players"
+        :item-title="getPlayerItemTitle"
+        item-value="id"
+        label="Player"
+        required
+      />
+      <v-select
+        v-if="isDoublesCategory"
+        v-model="newRegistration.partnerPlayerId"
+        :items="players.filter((p) => p.id !== newRegistration.playerId)"
+        :item-title="getPlayerItemTitle"
+        item-value="id"
+        label="Partner"
+        required
+      />
+    </BaseDialog>
 
     <!-- Bulk Check-In Confirmation Dialog -->
-    <v-dialog v-model="showBulkCheckInDialog" max-width="400">
-      <v-card>
-        <v-card-title>Confirm Bulk Check-In</v-card-title>
-        <v-card-text>
-          Are you sure you want to check in {{ selectedRegistrations.length }} participants?
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showBulkCheckInDialog = false">Cancel</v-btn>
-          <v-btn color="info" @click="bulkCheckIn">Check In All</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog
+      v-model="showBulkCheckInDialog"
+      title="Confirm Bulk Check-In"
+      max-width="400"
+      @confirm="bulkCheckIn"
+      @cancel="showBulkCheckInDialog = false"
+    >
+      <p>Are you sure you want to check in {{ selectedRegistrations.length }} participants?</p>
+    </BaseDialog>
 
     <!-- Edit Player Dialog -->
-    <v-dialog v-model="showEditPlayerDialog" max-width="500">
-      <v-card v-if="editingPlayer">
-        <v-card-title>
-          <v-icon start>mdi-account-edit</v-icon>
-          Edit Player
-        </v-card-title>
-        <v-card-text>
-          <v-row>
-            <v-col cols="6">
-              <v-text-field
-                v-model="editingPlayer.firstName"
-                label="First Name"
-                required
-                variant="outlined"
-              />
-            </v-col>
-            <v-col cols="6">
-              <v-text-field
-                v-model="editingPlayer.lastName"
-                label="Last Name"
-                required
-                variant="outlined"
-              />
-            </v-col>
-          </v-row>
+    <BaseDialog
+      v-model="showEditPlayerDialog"
+      title="Edit Player"
+      max-width="500"
+      @confirm="savePlayer"
+      @cancel="showEditPlayerDialog = false"
+    >
+      <v-row v-if="editingPlayer">
+        <v-col cols="6">
           <v-text-field
-            v-model="editingPlayer.email"
-            label="Email"
-            type="email"
+            v-model="editingPlayer.firstName"
+            label="First Name"
+            required
             variant="outlined"
-            prepend-inner-icon="mdi-email"
           />
+        </v-col>
+        <v-col cols="6">
           <v-text-field
-            v-model="editingPlayer.phone"
-            label="Phone"
+            v-model="editingPlayer.lastName"
+            label="Last Name"
+            required
             variant="outlined"
-            prepend-inner-icon="mdi-phone"
           />
-          <div class="mt-4">
-            <div class="d-flex align-center justify-space-between mb-2">
-              <span class="text-body-1">Skill Level</span>
-              <v-chip color="primary" variant="tonal">
-                {{ editingPlayer.skillLevel }} / 10
-              </v-chip>
-            </div>
-            <v-slider
-              v-model="editingPlayer.skillLevel"
-              min="1"
-              max="10"
-              step="1"
-              thumb-label="always"
-              color="primary"
-              track-color="grey-lighten-2"
-            >
-              <template #prepend>
-                <span class="text-caption text-grey">Beginner</span>
-              </template>
-              <template #append>
-                <span class="text-caption text-grey">Expert</span>
-              </template>
-            </v-slider>
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showEditPlayerDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="savePlayer">Save Changes</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+        </v-col>
+      </v-row>
+      <v-text-field
+        v-if="editingPlayer"
+        v-model="editingPlayer.email"
+        label="Email"
+        type="email"
+        variant="outlined"
+        prepend-inner-icon="mdi-email"
+      />
+      <v-text-field
+        v-if="editingPlayer"
+        v-model="editingPlayer.phone"
+        label="Phone"
+        variant="outlined"
+        prepend-inner-icon="mdi-phone"
+      />
+      <div
+        v-if="editingPlayer"
+        class="mt-4"
+      >
+        <div class="d-flex align-center justify-space-between mb-2">
+          <span class="text-body-1">Skill Level</span>
+          <v-chip
+            color="primary"
+            variant="tonal"
+          >
+            {{ editingPlayer.skillLevel }} / 10
+          </v-chip>
+        </div>
+        <v-slider
+          v-model="editingPlayer.skillLevel"
+          min="1"
+          max="10"
+          step="1"
+          thumb-label="always"
+          color="primary"
+          track-color="grey-lighten-2"
+        >
+          <template #prepend>
+            <span class="text-caption text-grey">Beginner</span>
+          </template>
+          <template #append>
+            <span class="text-caption text-grey">Expert</span>
+          </template>
+        </v-slider>
+      </div>
+    </BaseDialog>
 
-    <!-- Import CSV Dialog -->
-    <v-dialog v-model="showImportDialog" max-width="800" persistent>
+    <!-- Import Dialog -->
+    <v-dialog
+      v-model="showImportDialog"
+      max-width="800"
+      persistent
+    >
       <v-card>
         <v-card-title class="d-flex align-center">
-          <v-icon start>mdi-upload</v-icon>
-          Import Players from CSV
+          <v-icon start>
+            mdi-upload
+          </v-icon>
+          Import Participants
+          <v-tooltip
+            text="Use same format for Upload and Paste. Doubles require partner columns."
+            location="bottom"
+          >
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                icon="mdi-information-outline"
+                variant="text"
+                size="small"
+                class="ml-1"
+              />
+            </template>
+          </v-tooltip>
           <v-spacer />
-          <v-btn icon="mdi-close" variant="text" @click="showImportDialog = false; resetImport();" />
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            @click="showImportDialog = false; resetImport();"
+          />
         </v-card-title>
 
         <v-card-text>
           <!-- Step 1: Download Template & Upload -->
-          <div v-if="!importFile">
-            <v-alert type="info" variant="tonal" class="mb-4">
-              <div class="font-weight-medium mb-2">CSV Format Instructions:</div>
-              <ul class="text-body-2">
-                <li>Columns: First Name, Last Name, Email, Phone, Skill Level (1-10), Category</li>
-                <li>First Name and Last Name are required</li>
-                <li>Category must match exactly one of your tournament categories</li>
-                <li>Players will be auto-registered to the specified category</li>
-              </ul>
+          <div v-if="!importFile && !importSourceLabel">
+            <v-alert
+              type="info"
+              variant="tonal"
+              class="mb-4"
+            >
+              <div class="text-body-2">
+                Use one format for Upload and Paste. Existing players are matched by email first, then by name + phone; the same player can register in Singles, Doubles, and Mixed Doubles.
+              </div>
             </v-alert>
 
-            <div class="text-center py-4">
-              <v-btn
-                color="primary"
-                variant="outlined"
-                prepend-icon="mdi-download"
-                class="mb-4"
-                @click="downloadTemplate"
-              >
-                Download CSV Template
-              </v-btn>
+            <v-tabs
+              v-model="importMode"
+              color="primary"
+              grow
+              class="mb-4"
+            >
+              <v-tab value="upload">
+                <v-icon start>
+                  mdi-file-upload-outline
+                </v-icon>
+                Upload File
+              </v-tab>
+              <v-tab value="paste">
+                <v-icon start>
+                  mdi-content-paste
+                </v-icon>
+                Paste Data
+              </v-tab>
+            </v-tabs>
 
-              <div class="text-body-2 text-grey mb-4">Your tournament categories:</div>
-              <div class="d-flex flex-wrap justify-center gap-2 mb-6">
-                <v-chip
-                  v-for="cat in categories"
-                  :key="cat.id"
-                  size="small"
-                  color="primary"
-                  variant="tonal"
+            <v-window v-model="importMode">
+              <v-window-item value="upload">
+                <v-card
+                  variant="outlined"
+                  class="pa-4"
                 >
-                  {{ cat.name }}
-                </v-chip>
-              </div>
+                  <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-4">
+                    <div>
+                      <div class="text-subtitle-2">
+                        CSV/TXT Upload
+                      </div>
+                      <div class="text-caption text-grey">
+                        Same format as paste mode
+                      </div>
+                    </div>
+                    <v-btn
+                      color="primary"
+                      variant="outlined"
+                      prepend-icon="mdi-download"
+                      @click="downloadTemplate"
+                    >
+                      Download Template
+                    </v-btn>
+                  </div>
 
-              <v-divider class="my-4" />
+                  <v-file-input
+                    label="Upload CSV or TXT File"
+                    accept=".csv,.txt"
+                    prepend-icon="mdi-file-document-outline"
+                    variant="outlined"
+                    @change="handleFileUpload"
+                  />
 
-              <v-file-input
-                label="Upload CSV File"
-                accept=".csv"
-                prepend-icon="mdi-file-delimited"
-                variant="outlined"
-                @change="handleFileUpload"
-              />
-            </div>
+                  <div class="text-caption text-grey mb-2">
+                    Available categories
+                  </div>
+                  <div class="d-flex flex-wrap gap-2">
+                    <v-chip
+                      v-for="cat in categories"
+                      :key="cat.id"
+                      size="small"
+                      color="primary"
+                      variant="tonal"
+                    >
+                      {{ cat.name }}
+                    </v-chip>
+                  </div>
+                </v-card>
+              </v-window-item>
+
+              <v-window-item value="paste">
+                <v-card
+                  variant="outlined"
+                  class="pa-4 mb-4"
+                >
+                  <div class="text-subtitle-2 mb-2">
+                    Format + Examples
+                  </div>
+                  <v-sheet
+                    rounded="lg"
+                    color="grey-lighten-4"
+                    class="pa-3 mb-3"
+                  >
+                    <div class="text-caption font-weight-medium mb-1">
+                      Header
+                    </div>
+                    <div class="text-caption import-code">
+                      {{ IMPORT_HEADER }}
+                    </div>
+                  </v-sheet>
+
+                  <v-sheet
+                    rounded="lg"
+                    color="grey-lighten-4"
+                    class="pa-3 mb-3"
+                  >
+                    <div class="text-caption font-weight-medium mb-1">
+                      Singles (one row)
+                    </div>
+                    <div class="text-caption import-code">
+                      {{ IMPORT_SINGLES_EXAMPLE }}
+                    </div>
+                  </v-sheet>
+
+                  <v-sheet
+                    rounded="lg"
+                    color="grey-lighten-4"
+                    class="pa-3"
+                  >
+                    <div class="text-caption font-weight-medium mb-1">
+                      Doubles (one row with partner columns)
+                    </div>
+                    <div class="text-caption import-code">
+                      {{ IMPORT_DOUBLES_EXAMPLE }}
+                    </div>
+                  </v-sheet>
+                </v-card>
+
+                <v-textarea
+                  v-model="pastedImportText"
+                  label="Paste rows"
+                  variant="outlined"
+                  rows="8"
+                  auto-grow
+                  :placeholder="IMPORT_PLACEHOLDER"
+                />
+                <div class="d-flex justify-end">
+                  <v-btn
+                    color="primary"
+                    prepend-icon="mdi-magnify"
+                    @click="previewPastedData"
+                  >
+                    Preview Rows
+                  </v-btn>
+                </div>
+              </v-window-item>
+            </v-window>
           </div>
 
           <!-- Step 2: Preview -->
           <div v-else>
             <div class="d-flex align-center mb-4">
-              <v-icon color="success" class="mr-2">mdi-file-check</v-icon>
-              <span class="font-weight-medium">{{ importFile.name }}</span>
+              <v-icon
+                color="success"
+                class="mr-2"
+              >
+                mdi-file-check
+              </v-icon>
+              <span class="font-weight-medium">{{ importFile?.name || importSourceLabel }}</span>
               <v-spacer />
-              <v-btn size="small" variant="text" @click="resetImport">
-                Choose Different File
+              <v-btn
+                size="small"
+                variant="text"
+                @click="resetImport"
+              >
+                Start Over
               </v-btn>
             </div>
 
             <!-- Errors -->
-            <v-alert v-if="importErrors.length > 0" type="warning" variant="tonal" class="mb-4">
-              <div class="font-weight-medium mb-2">Issues found ({{ importErrors.length }}):</div>
+            <v-alert
+              v-if="importErrors.length > 0"
+              type="warning"
+              variant="tonal"
+              class="mb-4"
+            >
+              <div class="font-weight-medium mb-2">
+                Issues found ({{ importErrors.length }}):
+              </div>
               <ul class="text-body-2">
-                <li v-for="(error, idx) in importErrors.slice(0, 5)" :key="idx">{{ error }}</li>
-                <li v-if="importErrors.length > 5">... and {{ importErrors.length - 5 }} more</li>
+                <li
+                  v-for="(error, idx) in importErrors.slice(0, 5)"
+                  :key="idx"
+                >
+                  {{ error }}
+                </li>
+                <li v-if="importErrors.length > 5">
+                  ... and {{ importErrors.length - 5 }} more
+                </li>
               </ul>
             </v-alert>
 
             <!-- Preview Table -->
             <div class="text-subtitle-2 mb-2">
-              Preview ({{ importPreview.length }} players to import)
+              Preview ({{ importPreview.length }} row{{ importPreview.length === 1 ? '' : 's' }})
             </div>
-            <v-table density="compact" class="border rounded">
+            <v-table
+              density="compact"
+              class="border rounded"
+            >
               <thead>
                 <tr>
                   <th>Name</th>
@@ -1558,72 +2295,125 @@ const canApprove = computed(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(row, idx) in importPreview.slice(0, 10)" :key="idx">
-                  <td>{{ row.firstName }} {{ row.lastName }}</td>
+                <tr
+                  v-for="(row, idx) in importPreview.slice(0, 10)"
+                  :key="idx"
+                >
+                  <td>
+                    {{
+                      row.participantType === 'team'
+                        ? `${row.firstName} ${row.lastName} / ${row.partnerFirstName} ${row.partnerLastName}`
+                        : `${row.firstName} ${row.lastName}`
+                    }}
+                  </td>
                   <td>{{ row.email || '-' }}</td>
                   <td>{{ row.phone || '-' }}</td>
                   <td>
-                    <v-chip size="x-small" color="primary" variant="tonal">
+                    <v-chip
+                      size="x-small"
+                      color="primary"
+                      variant="tonal"
+                    >
                       {{ row.skillLevel }}
                     </v-chip>
                   </td>
                   <td>{{ row.categoryName || '-' }}</td>
                   <td>
-                    <v-icon v-if="row.valid" color="success" size="small">mdi-check-circle</v-icon>
-                    <v-icon v-else color="warning" size="small">mdi-alert-circle</v-icon>
+                    <v-icon
+                      v-if="row.valid"
+                      color="success"
+                      size="small"
+                    >
+                      mdi-check-circle
+                    </v-icon>
+                    <v-icon
+                      v-else
+                      color="warning"
+                      size="small"
+                    >
+                      mdi-alert-circle
+                    </v-icon>
                   </td>
                 </tr>
                 <tr v-if="importPreview.length > 10">
-                  <td colspan="6" class="text-center text-grey">
+                  <td
+                    colspan="6"
+                    class="text-center text-grey"
+                  >
                     ... and {{ importPreview.length - 10 }} more rows
                   </td>
                 </tr>
               </tbody>
             </v-table>
 
-            <v-alert v-if="importPreview.length === 0" type="error" variant="tonal" class="mt-4">
-              No valid rows found in the CSV file. Please check the format.
+            <v-alert
+              v-if="importPreview.length === 0"
+              type="error"
+              variant="tonal"
+              class="mt-4"
+            >
+              No valid rows found. Please check the format.
             </v-alert>
           </div>
         </v-card-text>
 
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showImportDialog = false; resetImport();">
+          <v-btn
+            variant="text"
+            @click="showImportDialog = false; resetImport();"
+          >
             Cancel
           </v-btn>
           <v-btn
-            v-if="importFile && importPreview.length > 0"
+            v-if="(importFile || importSourceLabel) && importPreview.length > 0"
             color="primary"
             :loading="importing"
             @click="executeImport"
           >
-            Import {{ importPreview.length }} Players
+            Import {{ importPreview.length }} Rows
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Delete Player Confirmation Dialog -->
-    <v-dialog v-model="showDeletePlayerDialog" max-width="400" persistent>
-      <v-card>
-        <v-card-title>Delete Player?</v-card-title>
-        <v-card-text>
-          Are you sure? This will also affect any registrations for this player.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showDeletePlayerDialog = false">Cancel</v-btn>
-          <v-btn color="error" @click="confirmDeletePlayer">Delete</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog
+      v-model="showDeletePlayerDialog"
+      title="Delete Player?"
+      max-width="400"
+      :persistent="true"
+      @confirm="confirmDeletePlayer"
+      @cancel="showDeletePlayerDialog = false"
+    >
+      <p>Are you sure? This will also affect any registrations for this player.</p>
+      <template #actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="showDeletePlayerDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="error"
+          @click="confirmDeletePlayer"
+        >
+          Delete
+        </v-btn>
+      </template>
+    </BaseDialog>
 
     <!-- Payment Status Dialog -->
-    <v-dialog v-model="showPaymentDialog" max-width="400">
+    <v-dialog
+      v-model="showPaymentDialog"
+      max-width="400"
+    >
       <v-card v-if="editingPayment">
         <v-card-title>
-          <v-icon start>mdi-cash</v-icon>
+          <v-icon start>
+            mdi-cash
+          </v-icon>
           Payment Status
         </v-card-title>
         <v-card-text>
@@ -1656,8 +2446,18 @@ const canApprove = computed(() => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showPaymentDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="savePaymentStatus">Save</v-btn>
+          <v-btn
+            variant="text"
+            @click="showPaymentDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="savePaymentStatus"
+          >
+            Save
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -1671,5 +2471,10 @@ const canApprove = computed(() => {
 
 .bg-success-lighten-5 {
   background-color: rgba(var(--v-theme-success), 0.05);
+}
+
+.import-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  line-break: anywhere;
 }
 </style>

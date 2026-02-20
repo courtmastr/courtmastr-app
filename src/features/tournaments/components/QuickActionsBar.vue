@@ -66,96 +66,118 @@ const pendingMatchesCount = computed(() =>
 </script>
 
 <template>
-  <v-card class="quick-actions-bar mb-4" elevation="2">
+  <v-card
+    class="quick-actions-bar mb-4"
+    elevation="2"
+  >
     <v-card-text class="pa-4">
       <div class="d-flex flex-wrap align-center ga-4">
-         <!-- Left Section: Stats -->
-         <div class="stats-section d-flex flex-wrap ga-3 flex-grow-1">
-           <!-- Courts Stats -->
-           <v-chip
-             color="success"
-             variant="tonal"
-             size="default"
-             class="stat-chip"
-           >
-             <v-icon start>mdi-check-circle</v-icon>
-             <span class="font-weight-medium">{{ availableCourtsCount }} Courts Free</span>
-           </v-chip>
+        <!-- Left Section: Stats -->
+        <div class="stats-section d-flex flex-wrap ga-3 flex-grow-1">
+          <!-- Courts Stats -->
+          <v-chip
+            color="success"
+            variant="tonal"
+            size="default"
+            class="stat-chip"
+          >
+            <v-icon start>
+              mdi-check-circle
+            </v-icon>
+            <span class="font-weight-medium">{{ availableCourtsCount }} Courts Free</span>
+          </v-chip>
 
-           <v-chip
-             color="info"
-             variant="tonal"
-             size="default"
-             class="stat-chip"
-           >
-             <v-icon start>mdi-play-circle</v-icon>
-             <span class="font-weight-medium">{{ activeCourtsCount }} Active</span>
-           </v-chip>
+          <v-chip
+            color="info"
+            variant="tonal"
+            size="default"
+            class="stat-chip"
+          >
+            <v-icon start>
+              mdi-play-circle
+            </v-icon>
+            <span class="font-weight-medium">{{ activeCourtsCount }} Active</span>
+          </v-chip>
 
-           <v-chip
-             v-if="maintenanceCourtsCount > 0"
-             color="warning"
-             variant="tonal"
-             size="default"
-             class="stat-chip"
-           >
-             <v-icon start>mdi-wrench</v-icon>
-             <span class="font-weight-medium">{{ maintenanceCourtsCount }} Maintenance</span>
-           </v-chip>
+          <v-chip
+            v-if="maintenanceCourtsCount > 0"
+            color="warning"
+            variant="tonal"
+            size="default"
+            class="stat-chip"
+          >
+            <v-icon start>
+              mdi-wrench
+            </v-icon>
+            <span class="font-weight-medium">{{ maintenanceCourtsCount }} Maintenance</span>
+          </v-chip>
 
-           <v-divider vertical class="mx-2" />
+          <v-divider
+            vertical
+            class="mx-2"
+          />
 
-           <!-- Match Status Pills - Following feedback spec -->
-           <v-chip
-             :color="needsCourtMatchesCount > 0 ? 'error' : 'grey'"
-             variant="tonal"
-             size="default"
-             class="stat-chip"
-           >
-             <v-icon start>mdi-help-circle</v-icon>
-             <span class="font-weight-medium">{{ needsCourtMatchesCount }} Needs Court</span>
-           </v-chip>
+          <!-- Match Status Pills - Following feedback spec -->
+          <v-chip
+            :color="needsCourtMatchesCount > 0 ? 'error' : 'grey'"
+            variant="tonal"
+            size="default"
+            class="stat-chip"
+          >
+            <v-icon start>
+              mdi-help-circle
+            </v-icon>
+            <span class="font-weight-medium">{{ needsCourtMatchesCount }} Needs Court</span>
+          </v-chip>
 
-           <v-chip
-             :color="scheduledMatchesCount > 0 ? 'info' : 'grey'"
-             variant="tonal"
-             size="default"
-             class="stat-chip"
-           >
-             <v-icon start>mdi-timer-sand</v-icon>
-             <span class="font-weight-medium">{{ scheduledMatchesCount }} Scheduled</span>
-           </v-chip>
+          <v-chip
+            :color="scheduledMatchesCount > 0 ? 'info' : 'grey'"
+            variant="tonal"
+            size="default"
+            class="stat-chip"
+          >
+            <v-icon start>
+              mdi-timer-sand
+            </v-icon>
+            <span class="font-weight-medium">{{ scheduledMatchesCount }} Scheduled</span>
+          </v-chip>
 
-           <v-chip
-             :color="readyMatchesCount > 0 ? 'warning' : 'grey'"
-             variant="tonal"
-             size="default"
-             class="stat-chip"
-           >
-             <v-icon start>mdi-check</v-icon>
-             <span class="font-weight-medium">{{ readyMatchesCount }} Ready</span>
-           </v-chip>
+          <v-chip
+            :color="readyMatchesCount > 0 ? 'warning' : 'grey'"
+            variant="tonal"
+            size="default"
+            class="stat-chip"
+          >
+            <v-icon start>
+              mdi-check
+            </v-icon>
+            <span class="font-weight-medium">{{ readyMatchesCount }} Ready</span>
+          </v-chip>
 
-           <v-chip
-             :color="inProgressMatchesCount > 0 ? 'primary' : 'grey'"
-             variant="tonal"
-             size="default"
-             class="stat-chip"
-           >
-             <v-icon start>mdi-tennis</v-icon>
-             <span class="font-weight-medium">{{ inProgressMatchesCount }} Playing</span>
-           </v-chip>
+          <v-chip
+            :color="inProgressMatchesCount > 0 ? 'primary' : 'grey'"
+            variant="tonal"
+            size="default"
+            class="stat-chip"
+          >
+            <v-icon start>
+              mdi-tennis
+            </v-icon>
+            <span class="font-weight-medium">{{ inProgressMatchesCount }} Playing</span>
+          </v-chip>
 
-           <v-chip
-             :color="completedMatchesCount > 0 ? 'success' : 'grey'"
-             variant="tonal"
-             size="default"
-             class="stat-chip"
-           >
-             <v-icon start>mdi-check-all</v-icon>
-             <span class="font-weight-medium">{{ completedMatchesCount }} Done</span>
-           </v-chip>
-         </div>
+          <v-chip
+            :color="completedMatchesCount > 0 ? 'success' : 'grey'"
+            variant="tonal"
+            size="default"
+            class="stat-chip"
+          >
+            <v-icon start>
+              mdi-check-all
+            </v-icon>
+            <span class="font-weight-medium">{{ completedMatchesCount }} Done</span>
+          </v-chip>
+        </div>
 
         <!-- Right Section: Actions -->
         <div class="actions-section d-flex flex-wrap ga-2">
@@ -163,8 +185,8 @@ const pendingMatchesCount = computed(() =>
           <v-btn
             :color="autoAssignEnabled ? 'success' : 'grey'"
             :variant="autoAssignEnabled ? 'elevated' : 'tonal'"
-            @click="emit('toggleAutoAssign', !autoAssignEnabled)"
             class="action-btn"
+            @click="emit('toggleAutoAssign', !autoAssignEnabled)"
           >
             <v-icon start>
               {{ autoAssignEnabled ? 'mdi-robot' : 'mdi-robot-off' }}
@@ -177,21 +199,25 @@ const pendingMatchesCount = computed(() =>
             <v-btn
               color="primary"
               variant="elevated"
-              @click="emit('batchAssign')"
               class="action-btn"
               :disabled="availableCourtsCount === 0"
+              @click="emit('batchAssign')"
             >
-              <v-icon start>mdi-court-sport</v-icon>
+              <v-icon start>
+                mdi-court-sport
+              </v-icon>
               Assign {{ selectedMatchCount }} Match{{ selectedMatchCount > 1 ? 'es' : '' }}
             </v-btn>
 
             <v-btn
               color="success"
               variant="tonal"
-              @click="emit('batchComplete')"
               class="action-btn"
+              @click="emit('batchComplete')"
             >
-              <v-icon start>mdi-check-circle</v-icon>
+              <v-icon start>
+                mdi-check-circle
+              </v-icon>
               Complete Selected
             </v-btn>
           </template>
@@ -200,8 +226,8 @@ const pendingMatchesCount = computed(() =>
           <v-btn
             variant="text"
             icon
-            @click="emit('refreshData')"
             class="action-btn-icon"
+            @click="emit('refreshData')"
           >
             <v-icon>mdi-refresh</v-icon>
           </v-btn>

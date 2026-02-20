@@ -1,8 +1,14 @@
 <template>
   <div class="contextual-nav-container">
-    <v-card variant="tonal" :color="statusColor" class="mb-4">
+    <v-card
+      variant="tonal"
+      :color="statusColor"
+      class="mb-4"
+    >
       <v-card-title class="d-flex align-center">
-        <v-icon start>mdi-information</v-icon>
+        <v-icon start>
+          mdi-information
+        </v-icon>
         Tournament Status: {{ tournamentStatus }}
       </v-card-title>
       <v-card-text>

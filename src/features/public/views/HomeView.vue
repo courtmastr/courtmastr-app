@@ -33,8 +33,15 @@ const features = [
   <div class="home-view">
     <v-container>
       <!-- Hero Section -->
-      <v-row class="hero-section py-16" align="center">
-        <v-col cols="12" md="6" class="hero-content fade-in">
+      <v-row
+        class="hero-section py-16"
+        align="center"
+      >
+        <v-col
+          cols="12"
+          md="6"
+          class="hero-content fade-in"
+        >
           <h1 class="hero-title mb-4">
             Tournament Management
             <span class="text-gradient">Made Simple</span>
@@ -53,7 +60,9 @@ const features = [
               to="/register"
             >
               Get Started
-              <v-icon end>mdi-arrow-right</v-icon>
+              <v-icon end>
+                mdi-arrow-right
+              </v-icon>
             </v-btn>
             <v-btn
               v-if="!isAuthenticated"
@@ -73,21 +82,38 @@ const features = [
               to="/tournaments"
             >
               View Tournaments
-              <v-icon end>mdi-arrow-right</v-icon>
+              <v-icon end>
+                mdi-arrow-right
+              </v-icon>
             </v-btn>
           </div>
         </v-col>
-        <v-col cols="12" md="6" class="text-center hero-icon-col slide-up">
+        <v-col
+          cols="12"
+          md="6"
+          class="text-center hero-icon-col slide-up"
+        >
           <div class="hero-icon-wrapper">
-            <v-icon size="280" color="primary" class="hero-icon">mdi-trophy</v-icon>
+            <v-icon
+              size="280"
+              color="primary"
+              class="hero-icon"
+            >
+              mdi-trophy
+            </v-icon>
           </div>
         </v-col>
       </v-row>
 
       <!-- Features Section -->
       <v-row class="features-section py-16">
-        <v-col cols="12" class="text-center mb-12">
-          <h2 class="section-title">Everything You Need</h2>
+        <v-col
+          cols="12"
+          class="text-center mb-12"
+        >
+          <h2 class="section-title">
+            Everything You Need
+          </h2>
           <p class="section-subtitle mt-3">
             Powerful features to make your tournament a success
           </p>
@@ -107,11 +133,23 @@ const features = [
             :style="{ animationDelay: `${index * 0.1}s` }"
             elevation="0"
           >
-            <div :class="`icon-wrapper icon-${index}`" class="mb-4">
-              <v-icon size="42" color="white">{{ feature.icon }}</v-icon>
+            <div
+              :class="`icon-wrapper icon-${index}`"
+              class="mb-4"
+            >
+              <v-icon
+                size="42"
+                color="white"
+              >
+                {{ feature.icon }}
+              </v-icon>
             </div>
-            <h3 class="feature-title mb-3">{{ feature.title }}</h3>
-            <p class="feature-description">{{ feature.description }}</p>
+            <h3 class="feature-title mb-3">
+              {{ feature.title }}
+            </h3>
+            <p class="feature-description">
+              {{ feature.description }}
+            </p>
           </v-card>
         </v-col>
       </v-row>
@@ -119,7 +157,10 @@ const features = [
       <!-- CTA Section -->
       <v-row class="cta-section py-16">
         <v-col cols="12">
-          <v-card class="cta-card pa-12 text-center" elevation="0">
+          <v-card
+            class="cta-card pa-12 text-center"
+            elevation="0"
+          >
             <h2 class="cta-title mb-4">
               Ready to run your tournament?
             </h2>
@@ -135,7 +176,9 @@ const features = [
               to="/register"
             >
               Create Free Account
-              <v-icon end>mdi-arrow-right</v-icon>
+              <v-icon end>
+                mdi-arrow-right
+              </v-icon>
             </v-btn>
             <v-btn
               v-else
@@ -146,7 +189,9 @@ const features = [
               to="/tournaments/create"
             >
               Create Tournament
-              <v-icon end>mdi-plus-circle</v-icon>
+              <v-icon end>
+                mdi-plus-circle
+              </v-icon>
             </v-btn>
           </v-card>
         </v-col>

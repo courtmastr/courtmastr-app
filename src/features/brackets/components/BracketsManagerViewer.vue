@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import type { Stage, Match, MatchGame, Participant } from 'brackets-model';
-import { db, onSnapshot, collection } from '@/services/firebase';
+import { db, onSnapshot, collection, doc, getDoc } from '@/services/firebase';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
 import { query, where, getDocs } from 'firebase/firestore';
 
@@ -20,6 +20,7 @@ async function loadBracketsViewer() {
 const props = defineProps<{
   tournamentId: string;
   categoryId: string;
+  levelId?: string;
 }>();
 
 const loading = ref(true);
@@ -119,7 +120,9 @@ async function fetchBracketData() {
 
     console.log('🔍 Fetching bracket data for:', props.tournamentId, props.categoryId);
 
-    const categoryPath = `tournaments/${props.tournamentId}/categories/${props.categoryId}`;
+    const categoryPath = props.levelId
+      ? `tournaments/${props.tournamentId}/categories/${props.categoryId}/levels/${props.levelId}`
+      : `tournaments/${props.tournamentId}/categories/${props.categoryId}`;
     const storage = new ClientFirestoreStorage(db, categoryPath);
 
     const stageData = await storage.select('stage') as Stage[] | null;
@@ -134,7 +137,26 @@ async function fetchBracketData() {
       return;
     }
 
-    const stage = stageData[0];
+    let stage = stageData[0];
+    try {
+      const preferredStageDocRef = props.levelId
+        ? doc(db, 'tournaments', props.tournamentId, 'categories', props.categoryId, 'levels', props.levelId)
+        : doc(db, 'tournaments', props.tournamentId, 'categories', props.categoryId);
+      const preferredStageDoc = await getDoc(preferredStageDocRef);
+      const preferredStageId = preferredStageDoc.exists() ? preferredStageDoc.data()?.stageId : null;
+
+      if (preferredStageId !== null && preferredStageId !== undefined) {
+        const matchingStage = stageData.find(
+          (candidate) => String(candidate.id) === String(preferredStageId)
+        );
+        if (matchingStage) {
+          stage = matchingStage;
+        }
+      }
+    } catch (stageResolveError) {
+      console.warn('Unable to resolve preferred stageId for category:', stageResolveError);
+    }
+
     stages.value = [stage];
     console.log('📊 Found stage:', stage);
 
@@ -177,7 +199,9 @@ function setupRealtimeListeners() {
   cleanupRealtimeListeners();
   console.log(`🔄 [BracketsViewer] Setting up real-time listeners for category ${props.categoryId}`);
 
-  const basePath = `tournaments/${props.tournamentId}/categories/${props.categoryId}`;
+  const basePath = props.levelId
+    ? `tournaments/${props.tournamentId}/categories/${props.categoryId}/levels/${props.levelId}`
+    : `tournaments/${props.tournamentId}/categories/${props.categoryId}`;
   const unsubscribers: (() => void)[] = [];
 
   // Listener 1: /match collection
@@ -301,7 +325,7 @@ onMounted(async () => {
   setupRealtimeListeners();
 });
 
-watch(() => props.categoryId, async () => {
+watch(() => `${props.categoryId}:${props.levelId || ''}`, async () => {
   cleanupRealtimeListeners();
   await fetchBracketData();
   setupRealtimeListeners();
@@ -312,34 +336,68 @@ onUnmounted(() => {
 });
 </script>
 
- <template>
-   <div class="brackets-manager-viewer">
-     <div v-if="loading" class="loading">
-       <v-progress-circular indeterminate color="primary" />
-       <span>Loading bracket...</span>
-     </div>
+<template>
+  <div class="brackets-manager-viewer">
+    <div
+      v-if="loading"
+      class="loading"
+    >
+      <v-progress-circular
+        indeterminate
+        color="primary"
+      />
+      <span>Loading bracket...</span>
+    </div>
      
-     <div v-else-if="error" class="error">
-       <v-alert type="error" :text="error" />
-     </div>
+    <div
+      v-else-if="error"
+      class="error"
+    >
+      <v-alert
+        type="error"
+        :text="error"
+      />
+    </div>
      
-     <div v-else-if="stages.length === 0" class="no-bracket">
-       <v-alert type="info" text="No bracket generated yet for this category" />
-     </div>
+    <div
+      v-else-if="stages.length === 0"
+      class="no-bracket"
+    >
+      <v-alert
+        type="info"
+        text="No bracket generated yet for this category"
+      />
+    </div>
      
-     <div v-else>
-       <!-- Add live indicator as per feedback -->
-       <div class="bracket-header d-flex align-center mb-2">
-         <h3 class="text-h6 font-weight-bold">Bracket</h3>
-         <v-chip size="small" color="success" variant="elevated" class="ml-2">
-           <v-icon start size="x-small">mdi-sync</v-icon>
-           Live
-         </v-chip>
-       </div>
-       <div :id="containerId" ref="bracketContainer" class="bracket-container brackets-viewer" />
-     </div>
-   </div>
- </template>
+    <div v-else>
+      <!-- Add live indicator as per feedback -->
+      <div class="bracket-header d-flex align-center mb-2">
+        <h3 class="text-h6 font-weight-bold">
+          Bracket
+        </h3>
+        <v-chip
+          size="small"
+          color="success"
+          variant="elevated"
+          class="ml-2"
+        >
+          <v-icon
+            start
+            size="x-small"
+          >
+            mdi-sync
+          </v-icon>
+          Live
+        </v-chip>
+      </div>
+      <div
+        :id="containerId"
+        ref="bracketContainer"
+        class="bracket-container brackets-viewer"
+      />
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .brackets-manager-viewer {

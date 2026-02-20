@@ -1,16 +1,30 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="500" persistent>
+  <v-dialog
+    :model-value="modelValue"
+    max-width="500"
+    persistent
+    @update:model-value="$emit('update:modelValue', $event)"
+  >
     <v-card>
       <v-card-title>Record Walkover</v-card-title>
 
       <v-card-text v-if="match">
-        <v-alert type="info" variant="tonal" class="mb-4">
+        <v-alert
+          type="info"
+          variant="tonal"
+          class="mb-4"
+        >
           Records 21-0 score and advances winner. Court will be freed immediately.
         </v-alert>
 
-        <div class="text-subtitle-1 mb-2">Select Winner:</div>
+        <div class="text-subtitle-1 mb-2">
+          Select Winner:
+        </div>
 
-        <v-radio-group v-model="selectedWinner" class="mb-4">
+        <v-radio-group
+          v-model="selectedWinner"
+          class="mb-4"
+        >
           <v-radio :value="match.participant1Id">
             <template #label>
               {{ getParticipantName(match.participant1Id) }}
@@ -34,7 +48,12 @@
 
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="$emit('update:modelValue', false)">Cancel</v-btn>
+        <v-btn
+          variant="text"
+          @click="$emit('update:modelValue', false)"
+        >
+          Cancel
+        </v-btn>
         <v-btn
           color="primary"
           variant="elevated"

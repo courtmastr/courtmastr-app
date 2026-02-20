@@ -50,9 +50,11 @@ export {
   // Auth
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   onAuthStateChanged,
   updateProfile,
+  GoogleAuthProvider,
   type User as FirebaseUser,
 } from 'firebase/auth';
 

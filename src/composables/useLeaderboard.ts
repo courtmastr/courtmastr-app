@@ -29,6 +29,7 @@ import type {
   LeaderboardEntry,
   LeaderboardOptions,
   LeaderboardStage,
+  CategorySummary,
   TiebreakerResolution,
   TieBreakerStep,
   ExportFormat,
@@ -256,11 +257,27 @@ export function resolveParticipantName(
   reg: Registration,
   players: Player[]
 ): string {
-  if (reg.teamName) return reg.teamName;
-  if (reg.playerId) {
-    const player = players.find((p) => p.id === reg.playerId);
-    if (player) return `${player.firstName} ${player.lastName}`;
+  const formatPlayerName = (playerId?: string): string | null => {
+    if (!playerId) return null;
+    const player = players.find((p) => p.id === playerId);
+    if (!player) return null;
+    return `${player.firstName} ${player.lastName}`.trim();
+  };
+
+  // For doubles/mixed registrations, prefer full player names when both are available.
+  if (reg.partnerPlayerId) {
+    const playerOne = formatPlayerName(reg.playerId);
+    const playerTwo = formatPlayerName(reg.partnerPlayerId);
+    if (playerOne && playerTwo) {
+      return `${playerOne} / ${playerTwo}`;
+    }
   }
+
+  if (reg.teamName) return reg.teamName;
+
+  const playerName = formatPlayerName(reg.playerId);
+  if (playerName) return playerName;
+
   return 'Unknown';
 }
 
@@ -490,6 +507,41 @@ export function groupByDescending<T>(arr: T[], keyFn: (item: T) => number): T[][
   return keys.map((k) => arr.filter((item) => keyFn(item) === k));
 }
 
+/**
+ * Build per-category summary cards/metadata for tournament-wide leaderboard pages.
+ */
+export function buildCategorySummaries(
+  categoryIds: string[],
+  categoryMap: Map<string, Category>,
+  entries: LeaderboardEntry[],
+  matches: ResolvedMatch[]
+): CategorySummary[] {
+  return categoryIds.map((catId) => {
+    const category = categoryMap.get(catId);
+    const categoryEntries = entries.filter((entry) => entry.categoryId === catId);
+    const categoryMatches = matches.filter((match) => match.categoryId === catId);
+
+    // Clone entries so local re-ranking does not mutate the main leaderboard rows.
+    const clonedEntries = categoryEntries.map((entry) => ({ ...entry }));
+    const { sorted } = sortWithBWFTiebreaker(clonedEntries, categoryMatches);
+
+    return {
+      categoryId: catId,
+      categoryName: category?.name ?? 'Unknown',
+      format: category?.format ?? 'unknown',
+      totalParticipants: categoryEntries.length,
+      matchesCompleted: categoryMatches.length,
+      matchesTotal: categoryMatches.length,
+      topThree: sorted.slice(0, 3).map((entry) => ({
+        rank: entry.rank,
+        participantName: entry.participantName,
+        matchesWon: entry.matchesWon,
+        matchPoints: entry.matchPoints,
+      })),
+    };
+  });
+}
+
 // ============================================
 // Firestore Fetch Functions (internal)
 // ============================================
@@ -663,7 +715,8 @@ export async function generateLeaderboard(
   }
 
   // Apply option filters
-  let entries = [...statsMap.values()];
+  const allEntries = [...statsMap.values()];
+  let entries = allEntries;
   if (options?.includeEliminated === false) {
     entries = entries.filter((e) => !e.eliminated);
   }
@@ -672,6 +725,9 @@ export async function generateLeaderboard(
   }
 
   const { sorted, resolutions } = sortWithBWFTiebreaker(entries, allMatches);
+  const categories = categoryId
+    ? undefined
+    : buildCategorySummaries(targetCategoryIds, categoryMap, allEntries, allMatches);
 
   return {
     scope: categoryId ? 'category' : 'tournament',
@@ -684,6 +740,7 @@ export async function generateLeaderboard(
     totalParticipants: sorted.length,
     activeParticipants: sorted.filter((e) => !e.eliminated).length,
     eliminatedParticipants: sorted.filter((e) => e.eliminated).length,
+    categories,
     tiebreakerResolutions: resolutions,
   };
 }

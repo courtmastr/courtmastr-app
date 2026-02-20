@@ -1,8 +1,15 @@
 <template>
-  <v-card variant="tonal" :color="isPaused ? 'warning' : 'primary'" class="mb-4">
+  <v-card
+    variant="tonal"
+    :color="isPaused ? 'warning' : 'primary'"
+    class="mb-4"
+  >
     <v-card-text class="d-flex align-center justify-space-between">
       <div class="d-flex align-center">
-        <v-icon size="large" class="mr-3">
+        <v-icon
+          size="large"
+          class="mr-3"
+        >
           {{ isPaused ? 'mdi-pause-circle' : 'mdi-play-circle' }}
         </v-icon>
         <div>
@@ -11,7 +18,12 @@
           </div>
           <div class="text-caption">
             <template v-if="processing">
-              <v-progress-circular size="12" width="2" indeterminate class="mr-1" />
+              <v-progress-circular
+                size="12"
+                width="2"
+                indeterminate
+                class="mr-1"
+              />
               Assigning...
             </template>
             <template v-else-if="lastAssignment">
@@ -29,7 +41,9 @@
         variant="elevated"
         @click="isPaused ? $emit('resume') : $emit('pause')"
       >
-        <v-icon start>{{ isPaused ? 'mdi-play' : 'mdi-pause' }}</v-icon>
+        <v-icon start>
+          {{ isPaused ? 'mdi-play' : 'mdi-pause' }}
+        </v-icon>
         {{ isPaused ? 'Resume' : 'Pause' }}
       </v-btn>
     </v-card-text>

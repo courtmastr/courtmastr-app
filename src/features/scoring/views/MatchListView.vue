@@ -4,33 +4,42 @@ import { useRoute, useRouter } from 'vue-router';
 import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
+import { useNotificationStore } from '@/stores/notifications';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import FilterBar from '@/components/common/FilterBar.vue';
+import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.vue';
+import type { Match } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
 const matchStore = useMatchStore();
 const tournamentStore = useTournamentStore();
 const registrationStore = useRegistrationStore();
+const notificationStore = useNotificationStore();
 const { getParticipantName } = useParticipantResolver();
 
 // Search and filter state
 const searchQuery = ref('');
 const selectedRound = ref<number | null>(null);
-const selectedCategory = ref<string | null>(null);
+const selectedCategory = ref<string>('all');
+const selectedStatus = ref<string>('all');
+const selectedCourt = ref<string>('all');
+const selectedSort = ref<string>('round_asc');
+const selectedMatch = ref<Match | null>(null);
+const showManualScoreDialog = ref(false);
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
-const readyMatches = computed(() => matchStore.readyMatches);
-const inProgressMatches = computed(() => matchStore.inProgressMatches);
-const scheduledMatches = computed(() => matchStore.scheduledMatches);
-const completedMatches = computed(() => matchStore.completedMatches);
 const courts = computed(() => tournamentStore.courts);
+const allMatches = computed(() => matchStore.matches);
+const totalCompletedMatches = computed(() => allMatches.value.filter((match) => (
+  match.status === 'completed' || match.status === 'walkover'
+)));
 
 onMounted(async () => {
   if (!tournament.value) {
     await tournamentStore.fetchTournament(tournamentId.value);
   }
-  // Subscribe to tournament data (includes categories via real-time listeners)
   tournamentStore.subscribeTournament(tournamentId.value);
   matchStore.subscribeMatches(tournamentId.value);
   await registrationStore.fetchRegistrations(tournamentId.value);
@@ -58,58 +67,149 @@ function truncateId(id: string): string {
   return id.slice(0, 8) + '...';
 }
 
-function goToScoring(matchId: string, categoryId?: string) {
-  router.push({
-    path: `/tournaments/${tournamentId.value}/matches/${matchId}/score`,
-    query: categoryId ? { category: categoryId } : undefined
-  });
+function openScoreDialog(match: Match): void {
+  if (!match.participant1Id || !match.participant2Id) {
+    notificationStore.showToast('error', 'Cannot score this match until both participants are assigned');
+    return;
+  }
+
+  selectedMatch.value = match;
+  showManualScoreDialog.value = true;
 }
 
-// Get unique rounds from all matches
-const availableRounds = computed(() => {
+const roundOptions = computed(() => {
   const rounds = new Set<number>();
   matchStore.matches.forEach((m) => rounds.add(m.round));
-  return Array.from(rounds).sort((a, b) => a - b);
+  return [
+    { title: 'All Rounds', value: null },
+    ...Array.from(rounds).sort((a, b) => a - b).map((round) => ({ title: `Round ${round}`, value: round })),
+  ];
 });
 
-// Get unique categories
-const availableCategories = computed(() => {
-  return tournamentStore.categories;
-});
+const categoryOptions = computed(() => [
+  { title: 'All Categories', value: 'all' },
+  ...tournamentStore.categories.map((category) => ({ title: category.name, value: category.id })),
+]);
 
-// Filter function
-function matchFilter(match: any): boolean {
-  // Search by match ID
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    const matchIdMatch = match.id.toLowerCase().includes(query);
-    const matchNumberMatch = match.matchNumber.toString().includes(query);
-    if (!matchIdMatch && !matchNumberMatch) return false;
+const statusOptions = [
+  { title: 'All Statuses', value: 'all' },
+  { title: 'Scheduled', value: 'scheduled' },
+  { title: 'Ready', value: 'ready' },
+  { title: 'In Progress', value: 'in_progress' },
+  { title: 'Completed', value: 'completed' },
+  { title: 'Walkover', value: 'walkover' },
+  { title: 'Cancelled', value: 'cancelled' },
+];
+
+const courtOptions = computed(() => [
+  { title: 'All Courts', value: 'all' },
+  ...courts.value.map((court) => ({ title: court.name, value: court.id })),
+]);
+
+const sortOptions = [
+  { title: 'Round (Asc)', value: 'round_asc' },
+  { title: 'Round (Desc)', value: 'round_desc' },
+  { title: 'Match Number (Asc)', value: 'match_number_asc' },
+  { title: 'Match Number (Desc)', value: 'match_number_desc' },
+  { title: 'Category (A-Z)', value: 'category_asc' },
+  { title: 'Court (A-Z)', value: 'court_asc' },
+  { title: 'Status (A-Z)', value: 'status_asc' },
+];
+
+const hasActiveFilters = computed(() => (
+  Boolean(searchQuery.value.trim()) ||
+  selectedRound.value !== null ||
+  selectedCategory.value !== 'all' ||
+  selectedStatus.value !== 'all' ||
+  selectedCourt.value !== 'all' ||
+  selectedSort.value !== 'round_asc'
+));
+
+function compareMatches(a: Match, b: Match): number {
+  switch (selectedSort.value) {
+    case 'round_desc':
+      return b.round - a.round || b.matchNumber - a.matchNumber;
+    case 'match_number_asc':
+      return a.matchNumber - b.matchNumber || a.round - b.round;
+    case 'match_number_desc':
+      return b.matchNumber - a.matchNumber || b.round - a.round;
+    case 'category_asc':
+      return getCategoryName(a.categoryId).localeCompare(getCategoryName(b.categoryId));
+    case 'court_asc':
+      return getCourtName(a.courtId).localeCompare(getCourtName(b.courtId));
+    case 'status_asc':
+      return a.status.localeCompare(b.status);
+    case 'round_asc':
+    default:
+      return a.round - b.round || a.matchNumber - b.matchNumber;
   }
-
-  // Filter by round
-  if (selectedRound.value !== null && match.round !== selectedRound.value) {
-    return false;
-  }
-
-  // Filter by category
-  if (selectedCategory.value && match.categoryId !== selectedCategory.value) {
-    return false;
-  }
-
-  return true;
 }
 
-// Filtered match lists
-const filteredCompletedMatches = computed(() => {
-  return completedMatches.value.filter(matchFilter);
+const filteredMatches = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  const filtered = allMatches.value.filter((match) => {
+    if (query) {
+      const matchIdMatch = match.id.toLowerCase().includes(query);
+      const matchNumberMatch = match.matchNumber.toString().includes(query);
+      const participant1Match = getParticipantName(match.participant1Id).toLowerCase().includes(query);
+      const participant2Match = getParticipantName(match.participant2Id).toLowerCase().includes(query);
+      if (!matchIdMatch && !matchNumberMatch && !participant1Match && !participant2Match) {
+        return false;
+      }
+    }
+
+    if (selectedRound.value !== null && match.round !== selectedRound.value) {
+      return false;
+    }
+
+    if (selectedCategory.value !== 'all' && match.categoryId !== selectedCategory.value) {
+      return false;
+    }
+
+    if (selectedStatus.value !== 'all' && match.status !== selectedStatus.value) {
+      return false;
+    }
+
+    if (selectedCourt.value !== 'all' && match.courtId !== selectedCourt.value) {
+      return false;
+    }
+
+    return true;
+  });
+
+  return filtered.sort(compareMatches);
 });
 
-// Clear all filters
+const filteredInProgressMatches = computed(() =>
+  filteredMatches.value.filter((match) => match.status === 'in_progress')
+);
+
+const filteredReadyMatches = computed(() =>
+  filteredMatches.value.filter((match) => match.status === 'ready')
+);
+
+const filteredScheduledMatches = computed(() =>
+  filteredMatches.value.filter((match) => match.status === 'scheduled')
+);
+
+const filteredCompletedMatches = computed(() =>
+  filteredMatches.value.filter((match) => match.status === 'completed' || match.status === 'walkover')
+);
+
+const hasFilteredResults = computed(() => (
+  filteredInProgressMatches.value.length > 0 ||
+  filteredReadyMatches.value.length > 0 ||
+  filteredScheduledMatches.value.length > 0 ||
+  filteredCompletedMatches.value.length > 0
+));
+
 function clearFilters() {
   searchQuery.value = '';
   selectedRound.value = null;
-  selectedCategory.value = null;
+  selectedCategory.value = 'all';
+  selectedStatus.value = 'all';
+  selectedCourt.value = 'all';
+  selectedSort.value = 'round_asc';
 }
 </script>
 
@@ -117,82 +217,97 @@ function clearFilters() {
   <v-container>
     <!-- Header -->
     <div class="d-flex align-center mb-6">
-      <v-btn icon="mdi-arrow-left" variant="text" @click="router.back()" />
+      <v-btn
+        icon="mdi-arrow-left"
+        variant="text"
+        @click="router.back()"
+      />
       <div class="ml-2">
-        <h1 class="text-h5 font-weight-bold">Matches</h1>
-        <p class="text-body-2 text-grey">{{ tournament?.name }}</p>
+        <h1 class="text-h5 font-weight-bold">
+          Matches
+        </h1>
+        <p class="text-body-2 text-grey">
+          {{ tournament?.name }}
+        </p>
       </div>
     </div>
 
-    <!-- Search & Filter Bar -->
-    <v-card class="mb-4" variant="outlined">
-      <v-card-text>
-        <v-row align="center">
-          <v-col cols="12" md="4">
-            <v-text-field
-              v-model="searchQuery"
-              label="Search by Match ID or Number"
-              prepend-inner-icon="mdi-magnify"
-              clearable
-              hide-details
-              density="compact"
-              placeholder="e.g., abc123 or 42"
-            />
-          </v-col>
-          <v-col cols="12" md="3">
-            <v-select
-              v-model="selectedRound"
-              :items="availableRounds"
-              label="Filter by Round"
-              clearable
-              hide-details
-              density="compact"
-              placeholder="All Rounds"
-            />
-          </v-col>
-          <v-col cols="12" md="3">
-            <v-select
-              v-model="selectedCategory"
-              :items="availableCategories"
-              item-title="name"
-              item-value="id"
-              label="Filter by Category"
-              clearable
-              hide-details
-              density="compact"
-              placeholder="All Categories"
-            />
-          </v-col>
-          <v-col cols="12" md="2" class="text-right">
-            <v-btn
-              v-if="searchQuery || selectedRound !== null || selectedCategory"
-              variant="text"
-              size="small"
-              @click="clearFilters"
-            >
-              Clear Filters
-            </v-btn>
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
+    <filter-bar
+      :search="searchQuery"
+      :category="selectedCategory"
+      :status="selectedStatus"
+      :court="selectedCourt"
+      :sort="selectedSort"
+      :enable-category="true"
+      :enable-status="true"
+      :enable-court="true"
+      :category-options="categoryOptions"
+      :status-options="statusOptions"
+      :court-options="courtOptions"
+      :sort-options="sortOptions"
+      search-label="Search"
+      search-placeholder="Search by match ID, number, or participant"
+      :has-active-filters="hasActiveFilters"
+      @update:search="searchQuery = $event"
+      @update:category="selectedCategory = $event || 'all'"
+      @update:status="selectedStatus = $event || 'all'"
+      @update:court="selectedCourt = $event || 'all'"
+      @update:sort="selectedSort = $event || 'round_asc'"
+      @clear="clearFilters"
+    >
+      <template #extra>
+        <v-col
+          cols="12"
+          sm="6"
+          md="2"
+        >
+          <v-select
+            v-model="selectedRound"
+            :items="roundOptions"
+            item-title="title"
+            item-value="value"
+            label="Round"
+            density="compact"
+            variant="outlined"
+            hide-details
+          />
+        </v-col>
+      </template>
+    </filter-bar>
 
     <!-- In Progress Matches -->
-    <v-card class="mb-4" v-if="inProgressMatches.length > 0">
+    <v-card
+      v-if="filteredInProgressMatches.length > 0"
+      class="mb-4"
+    >
       <v-card-title>
-        <v-icon start color="success">mdi-play-circle</v-icon>
+        <v-icon
+          start
+          color="success"
+        >
+          mdi-play-circle
+        </v-icon>
         In Progress
-        <v-chip size="small" color="success" class="ml-2">{{ inProgressMatches.length }}</v-chip>
+        <v-chip
+          size="small"
+          color="success"
+          class="ml-2"
+        >
+          {{ filteredInProgressMatches.length }}
+        </v-chip>
       </v-card-title>
       <v-list>
         <v-list-item
-          v-for="match in inProgressMatches"
+          v-for="match in filteredInProgressMatches"
           :key="match.id"
-          @click="goToScoring(match.id, match.categoryId)"
           class="match-item"
+          @click="openScoreDialog(match)"
         >
           <template #prepend>
-            <v-avatar color="success" size="40">
+            <v-avatar
+              color="success"
+              size="40"
+            >
               <span class="text-body-2">{{ match.matchNumber }}</span>
             </v-avatar>
           </template>
@@ -205,13 +320,21 @@ function clearFilters() {
 
           <v-list-item-subtitle>
             {{ getCourtName(match.courtId) }} | Round {{ match.round }}
-            <span v-if="match.scores.length > 0" class="ml-2">
+            <span
+              v-if="match.scores.length > 0"
+              class="ml-2"
+            >
               Score: {{ match.scores.map((s: any) => `${s.score1}-${s.score2}`).join(', ') }}
             </span>
           </v-list-item-subtitle>
 
           <template #append>
-            <v-btn color="success" variant="tonal" size="small">
+            <v-btn
+              color="success"
+              variant="tonal"
+              size="small"
+              @click.stop="openScoreDialog(match)"
+            >
               Score
             </v-btn>
           </template>
@@ -220,21 +343,38 @@ function clearFilters() {
     </v-card>
 
     <!-- Ready Matches -->
-    <v-card class="mb-4" v-if="readyMatches.length > 0">
+    <v-card
+      v-if="filteredReadyMatches.length > 0"
+      class="mb-4"
+    >
       <v-card-title>
-        <v-icon start color="warning">mdi-clock-outline</v-icon>
+        <v-icon
+          start
+          color="warning"
+        >
+          mdi-clock-outline
+        </v-icon>
         Ready to Play
-        <v-chip size="small" color="warning" class="ml-2">{{ readyMatches.length }}</v-chip>
+        <v-chip
+          size="small"
+          color="warning"
+          class="ml-2"
+        >
+          {{ filteredReadyMatches.length }}
+        </v-chip>
       </v-card-title>
       <v-list>
         <v-list-item
-          v-for="match in readyMatches"
+          v-for="match in filteredReadyMatches"
           :key="match.id"
-          @click="goToScoring(match.id, match.categoryId)"
           class="match-item"
+          @click="openScoreDialog(match)"
         >
           <template #prepend>
-            <v-avatar color="warning" size="40">
+            <v-avatar
+              color="warning"
+              size="40"
+            >
               <span class="text-body-2">{{ match.matchNumber }}</span>
             </v-avatar>
           </template>
@@ -250,8 +390,13 @@ function clearFilters() {
           </v-list-item-subtitle>
 
           <template #append>
-            <v-btn color="warning" variant="tonal" size="small">
-              Start
+            <v-btn
+              color="warning"
+              variant="tonal"
+              size="small"
+              @click.stop="openScoreDialog(match)"
+            >
+              Score
             </v-btn>
           </template>
         </v-list-item>
@@ -259,20 +404,37 @@ function clearFilters() {
     </v-card>
 
     <!-- Scheduled Matches -->
-    <v-card class="mb-4" v-if="scheduledMatches.length > 0">
+    <v-card
+      v-if="filteredScheduledMatches.length > 0"
+      class="mb-4"
+    >
       <v-card-title>
-        <v-icon start color="info">mdi-calendar-clock</v-icon>
+        <v-icon
+          start
+          color="info"
+        >
+          mdi-calendar-clock
+        </v-icon>
         Scheduled
-        <v-chip size="small" color="info" class="ml-2">{{ scheduledMatches.length }}</v-chip>
+        <v-chip
+          size="small"
+          color="info"
+          class="ml-2"
+        >
+          {{ filteredScheduledMatches.length }}
+        </v-chip>
       </v-card-title>
       <v-list>
         <v-list-item
-          v-for="match in scheduledMatches"
+          v-for="match in filteredScheduledMatches"
           :key="match.id"
           class="match-item"
         >
           <template #prepend>
-            <v-avatar color="info" size="40">
+            <v-avatar
+              color="info"
+              size="40"
+            >
               <span class="text-body-2">{{ match.matchNumber }}</span>
             </v-avatar>
           </template>
@@ -285,8 +447,11 @@ function clearFilters() {
 
           <v-list-item-subtitle>
             Round {{ match.round }}
-            <span v-if="match.scheduledTime" class="ml-2">
-               | {{ new Date(match.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+            <span
+              v-if="match.scheduledTime"
+              class="ml-2"
+            >
+              | {{ new Date(match.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
             </span>
           </v-list-item-subtitle>
         </v-list-item>
@@ -294,24 +459,44 @@ function clearFilters() {
     </v-card>
 
     <!-- Completed Matches -->
-    <v-card class="mb-4" v-if="completedMatches.length > 0">
+    <v-card
+      v-if="filteredCompletedMatches.length > 0"
+      class="mb-4"
+    >
       <v-card-title>
-        <v-icon start color="grey">mdi-check-circle</v-icon>
+        <v-icon
+          start
+          color="grey"
+        >
+          mdi-check-circle
+        </v-icon>
         Completed
-        <v-chip size="small" color="grey" class="ml-2">{{ filteredCompletedMatches.length }}</v-chip>
-        <span v-if="filteredCompletedMatches.length !== completedMatches.length" class="text-caption text-grey ml-2">
-          (filtered from {{ completedMatches.length }})
+        <v-chip
+          size="small"
+          color="grey"
+          class="ml-2"
+        >
+          {{ filteredCompletedMatches.length }}
+        </v-chip>
+        <span
+          v-if="filteredCompletedMatches.length !== totalCompletedMatches.length"
+          class="text-caption text-grey ml-2"
+        >
+          (filtered from {{ totalCompletedMatches.length }})
         </span>
       </v-card-title>
       <v-list>
         <v-list-item
           v-for="match in filteredCompletedMatches"
           :key="match.id"
-          @click="goToScoring(match.id, match.categoryId)"
           class="match-item"
+          @click="openScoreDialog(match)"
         >
           <template #prepend>
-            <v-avatar color="grey" size="48">
+            <v-avatar
+              color="grey"
+              size="48"
+            >
               <span class="text-caption font-weight-bold">#{{ match.matchNumber }}</span>
             </v-avatar>
           </template>
@@ -324,13 +509,25 @@ function clearFilters() {
 
           <v-list-item-subtitle class="mt-1">
             <div class="d-flex align-center flex-wrap gap-2">
-              <v-chip size="x-small" color="primary" variant="tonal">
+              <v-chip
+                size="x-small"
+                color="primary"
+                variant="tonal"
+              >
                 ID: {{ truncateId(match.id) }}
               </v-chip>
-              <v-chip size="x-small" color="info" variant="tonal">
+              <v-chip
+                size="x-small"
+                color="info"
+                variant="tonal"
+              >
                 {{ getCategoryName(match.categoryId) }}
               </v-chip>
-              <v-chip size="x-small" color="secondary" variant="tonal">
+              <v-chip
+                size="x-small"
+                color="secondary"
+                variant="tonal"
+              >
                 Round {{ match.round }}
               </v-chip>
             </div>
@@ -338,14 +535,23 @@ function clearFilters() {
               <span class="text-success font-weight-medium">
                 Winner: {{ match.winnerId === match.participant1Id ? getParticipantName(match.participant1Id) : getParticipantName(match.participant2Id) }}
               </span>
-              <span v-if="match.scores.length > 0" class="ml-3 text-grey">
+              <span
+                v-if="match.scores.length > 0"
+                class="ml-3 text-grey"
+              >
                 Score: {{ match.scores.map((s: any) => `${s.score1}-${s.score2}`).join(', ') }}
               </span>
             </div>
           </v-list-item-subtitle>
 
           <template #append>
-            <v-btn color="warning" variant="tonal" size="small" prepend-icon="mdi-pencil">
+            <v-btn
+              color="warning"
+              variant="tonal"
+              size="small"
+              prepend-icon="mdi-pencil"
+              @click.stop="openScoreDialog(match)"
+            >
               Correct
             </v-btn>
           </template>
@@ -354,25 +560,59 @@ function clearFilters() {
     </v-card>
 
     <!-- No Filtered Results -->
-    <v-card v-if="completedMatches.length > 0 && filteredCompletedMatches.length === 0" class="text-center py-8">
-      <v-icon size="48" color="grey-lighten-1">mdi-filter-off</v-icon>
-      <h3 class="text-h6 mt-4">No matches match your filters</h3>
+    <v-card
+      v-if="allMatches.length > 0 && !hasFilteredResults"
+      class="text-center py-8"
+    >
+      <v-icon
+        size="48"
+        color="grey-lighten-1"
+      >
+        mdi-filter-off
+      </v-icon>
+      <h3 class="text-h6 mt-4">
+        No matches match your filters
+      </h3>
       <p class="text-body-2 text-grey mt-2">
-        Try adjusting your search or filters to find completed matches.
+        Try adjusting your search or filters.
       </p>
-      <v-btn color="primary" class="mt-4" @click="clearFilters">
+      <v-btn
+        color="primary"
+        class="mt-4"
+        @click="clearFilters"
+      >
         Clear Filters
       </v-btn>
     </v-card>
 
     <!-- Empty State -->
-    <v-card v-if="inProgressMatches.length === 0 && readyMatches.length === 0 && scheduledMatches.length === 0 && completedMatches.length === 0" class="text-center py-12">
-      <v-icon size="64" color="grey-lighten-1">mdi-tournament</v-icon>
-      <h3 class="text-h6 mt-4">No matches available</h3>
+    <v-card
+      v-if="allMatches.length === 0"
+      class="text-center py-12"
+    >
+      <v-icon
+        size="64"
+        color="grey-lighten-1"
+      >
+        mdi-tournament
+      </v-icon>
+      <h3 class="text-h6 mt-4">
+        No matches available
+      </h3>
       <p class="text-body-2 text-grey mt-2">
         There are no matches ready to be scored at this time.
       </p>
     </v-card>
+
+    <ManualScoreDialog
+      v-if="tournament"
+      v-model="showManualScoreDialog"
+      :match="selectedMatch"
+      :tournament-id="tournamentId"
+      :tournament="tournament"
+      :categories="tournamentStore.categories"
+      @saved="showManualScoreDialog = false"
+    />
   </v-container>
 </template>
 

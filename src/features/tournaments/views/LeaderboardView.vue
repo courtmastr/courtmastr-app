@@ -86,7 +86,10 @@ onMounted(() => {
         <h1 class="text-h5 font-weight-bold">
           {{ isTournamentWide ? 'Tournament Leaderboard' : 'Category Leaderboard' }}
         </h1>
-        <div v-if="leaderboard" class="text-caption text-medium-emphasis">
+        <div
+          v-if="leaderboard"
+          class="text-caption text-medium-emphasis"
+        >
           Generated {{ leaderboard.generatedAt.toLocaleTimeString() }}
         </div>
       </div>
@@ -141,7 +144,10 @@ onMounted(() => {
     </div>
 
     <!-- Summary cards -->
-    <LeaderboardSummary v-if="leaderboard && stage === 'done'" :leaderboard="leaderboard" />
+    <LeaderboardSummary
+      v-if="leaderboard && stage === 'done'"
+      :leaderboard="leaderboard"
+    />
 
     <!-- Filters -->
     <LeaderboardFilters
@@ -151,7 +157,11 @@ onMounted(() => {
     />
 
     <!-- Loading skeleton -->
-    <v-skeleton-loader v-if="isLoading" type="table-row@8" class="rounded-lg" />
+    <v-skeleton-loader
+      v-if="isLoading"
+      type="table-row@8"
+      class="rounded-lg"
+    />
 
     <!-- Error -->
     <v-alert
@@ -199,10 +209,17 @@ onMounted(() => {
         v-if="stage === 'done' && leaderboard?.tiebreakerResolutions.length"
         class="mt-4"
       >
-        <v-expansion-panels variant="accordion" elevation="0">
+        <v-expansion-panels
+          variant="accordion"
+          elevation="0"
+        >
           <v-expansion-panel>
             <v-expansion-panel-title class="text-caption">
-              <v-icon icon="mdi-scale-balance" size="16" class="mr-2" />
+              <v-icon
+                icon="mdi-scale-balance"
+                size="16"
+                class="mr-2"
+              />
               Tiebreaker resolutions ({{ leaderboard!.tiebreakerResolutions.length }})
             </v-expansion-panel-title>
             <v-expansion-panel-text>
@@ -221,7 +238,9 @@ onMounted(() => {
                   >
                     <td>#{{ r.tiedRank }}</td>
                     <td>{{ r.step.replace(/_/g, ' ') }}</td>
-                    <td class="text-caption">{{ r.description }}</td>
+                    <td class="text-caption">
+                      {{ r.description }}
+                    </td>
                   </tr>
                 </tbody>
               </v-table>
@@ -232,63 +251,136 @@ onMounted(() => {
     </v-expand-transition>
 
     <!-- BWF Tiebreaker Info Dialog -->
-    <v-dialog v-model="showBwfDialog" max-width="600">
+    <v-dialog
+      v-model="showBwfDialog"
+      max-width="600"
+    >
       <v-card>
         <v-card-title class="text-h6 pa-4 d-flex align-center">
-          <v-icon icon="mdi-scale-balance" class="mr-2" />
+          <v-icon
+            icon="mdi-scale-balance"
+            class="mr-2"
+          />
           BWF Tiebreaker Rules
           <v-spacer />
-          <v-btn icon="mdi-close" variant="text" size="small" @click="showBwfDialog = false" />
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            @click="showBwfDialog = false"
+          />
         </v-card-title>
         <v-card-text class="pa-4">
           <p class="text-body-2 mb-4">
             Rankings are determined using <strong>BWF Article 16.2</strong> tiebreaker procedures:
           </p>
           
-          <v-list density="compact" class="bg-surface-light rounded mb-4">
+          <v-list
+            density="compact"
+            class="bg-surface-light rounded mb-4"
+          >
             <v-list-item>
               <template #prepend>
-                <v-avatar size="24" color="primary" class="text-caption">1</v-avatar>
+                <v-avatar
+                  size="24"
+                  color="primary"
+                  class="text-caption"
+                >
+                  1
+                </v-avatar>
               </template>
-              <v-list-item-title class="text-body-2 font-weight-medium">Match Points</v-list-item-title>
-              <v-list-item-subtitle class="text-caption">2 points for a win, 1 point for a loss</v-list-item-subtitle>
+              <v-list-item-title class="text-body-2 font-weight-medium">
+                Match Points
+              </v-list-item-title>
+              <v-list-item-subtitle class="text-caption">
+                2 points for a win, 1 point for a loss
+              </v-list-item-subtitle>
             </v-list-item>
             <v-divider class="my-1" />
             <v-list-item>
               <template #prepend>
-                <v-avatar size="24" color="primary" class="text-caption">2</v-avatar>
+                <v-avatar
+                  size="24"
+                  color="primary"
+                  class="text-caption"
+                >
+                  2
+                </v-avatar>
               </template>
-              <v-list-item-title class="text-body-2 font-weight-medium">Head-to-Head</v-list-item-title>
-              <v-list-item-subtitle class="text-caption">For 2-way ties: winner of direct match ranks higher</v-list-item-subtitle>
+              <v-list-item-title class="text-body-2 font-weight-medium">
+                Head-to-Head
+              </v-list-item-title>
+              <v-list-item-subtitle class="text-caption">
+                For 2-way ties: winner of direct match ranks higher
+              </v-list-item-subtitle>
             </v-list-item>
             <v-divider class="my-1" />
             <v-list-item>
               <template #prepend>
-                <v-avatar size="24" color="primary" class="text-caption">3</v-avatar>
+                <v-avatar
+                  size="24"
+                  color="primary"
+                  class="text-caption"
+                >
+                  3
+                </v-avatar>
               </template>
-              <v-list-item-title class="text-body-2 font-weight-medium">Game Difference</v-list-item-title>
-              <v-list-item-subtitle class="text-caption">For 3+ way ties: games won minus games lost</v-list-item-subtitle>
+              <v-list-item-title class="text-body-2 font-weight-medium">
+                Game Difference
+              </v-list-item-title>
+              <v-list-item-subtitle class="text-caption">
+                For 3+ way ties: games won minus games lost
+              </v-list-item-subtitle>
             </v-list-item>
             <v-divider class="my-1" />
             <v-list-item>
               <template #prepend>
-                <v-avatar size="24" color="primary" class="text-caption">4</v-avatar>
+                <v-avatar
+                  size="24"
+                  color="primary"
+                  class="text-caption"
+                >
+                  4
+                </v-avatar>
               </template>
-              <v-list-item-title class="text-body-2 font-weight-medium">Point Difference</v-list-item-title>
-              <v-list-item-subtitle class="text-caption">If still tied: total points scored minus points against</v-list-item-subtitle>
+              <v-list-item-title class="text-body-2 font-weight-medium">
+                Point Difference
+              </v-list-item-title>
+              <v-list-item-subtitle class="text-caption">
+                If still tied: total points scored minus points against
+              </v-list-item-subtitle>
             </v-list-item>
             <v-divider class="my-1" />
             <v-list-item>
               <template #prepend>
-                <v-avatar size="24" color="primary" class="text-caption">5</v-avatar>
+                <v-avatar
+                  size="24"
+                  color="primary"
+                  class="text-caption"
+                >
+                  5
+                </v-avatar>
               </template>
-              <v-list-item-title class="text-body-2 font-weight-medium">Equal Standing</v-list-item-title>
-              <v-list-item-subtitle class="text-caption">If all tiebreakers exhausted: players share the same rank</v-list-item-subtitle>
+              <v-list-item-title class="text-body-2 font-weight-medium">
+                Equal Standing
+              </v-list-item-title>
+              <v-list-item-subtitle class="text-caption">
+                If all tiebreakers exhausted: players share the same rank
+              </v-list-item-subtitle>
             </v-list-item>
           </v-list>
 
-          <v-alert type="info" variant="tonal" density="compact" class="text-caption">
-            <v-icon icon="mdi-information" size="16" class="mr-1" />
+          <v-alert
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="text-caption"
+          >
+            <v-icon
+              icon="mdi-information"
+              size="16"
+              class="mr-1"
+            />
             Hover over column headers in the table to see what each statistic means.
           </v-alert>
         </v-card-text>

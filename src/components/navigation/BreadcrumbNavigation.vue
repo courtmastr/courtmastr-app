@@ -1,6 +1,9 @@
 <template>
   <div class="breadcrumb-container pa-4">
-    <v-breadcrumbs :items="breadcrumbItems" divider="/">
+    <v-breadcrumbs
+      :items="breadcrumbItems"
+      divider="/"
+    >
       <template #item="{ item }">
         <v-breadcrumbs-item
           :to="item.to"
@@ -17,6 +20,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { useTournamentStore } from '@/stores/tournaments';
 
 interface BreadcrumbItem {
   title: string;
@@ -24,6 +28,7 @@ interface BreadcrumbItem {
 }
 
 const route = useRoute();
+const tournamentStore = useTournamentStore();
 
 const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
   const pathArray = route.path.split('/').filter(x => x);
@@ -38,57 +43,81 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
       to: '/tournaments'
     });
 
-    if (pathArray[1]) {
+    // Handle /tournaments/create
+    if (pathArray[1] === 'create') {
       breadcrumbs.push({
-        title: 'Tournament',
-        to: `/tournaments/${pathArray[1]}`
+        title: 'Create Tournament',
+        to: '/tournaments/create'
+      });
+      return breadcrumbs;
+    }
+
+    if (pathArray[1]) {
+      const tournamentId = pathArray[1];
+      const tournamentName = tournamentStore.currentTournament?.id === tournamentId 
+        ? tournamentStore.currentTournament.name 
+        : 'Tournament';
+      
+      breadcrumbs.push({
+        title: tournamentName,
+        to: `/tournaments/${tournamentId}`
       });
 
       if (pathArray[2]) {
         if (pathArray[2] === 'match-control') {
           breadcrumbs.push({
             title: 'Match Control',
-            to: `/tournaments/${pathArray[1]}/match-control`
+            to: `/tournaments/${tournamentId}/match-control`
           });
         } else if (pathArray[2] === 'brackets') {
           breadcrumbs.push({
             title: 'Brackets',
-            to: `/tournaments/${pathArray[1]}/brackets`
+            to: `/tournaments/${tournamentId}/brackets`
           });
         } else if (pathArray[2] === 'registrations') {
           breadcrumbs.push({
             title: 'Registrations',
-            to: `/tournaments/${pathArray[1]}/registrations`
+            to: `/tournaments/${tournamentId}/registrations`
+          });
+        } else if (pathArray[2] === 'participants') {
+          breadcrumbs.push({
+            title: 'Participants',
+            to: `/tournaments/${tournamentId}/participants`
           });
         } else if (pathArray[2] === 'courts') {
           breadcrumbs.push({
             title: 'Court Management',
-            to: `/tournaments/${pathArray[1]}/courts`
+            to: `/tournaments/${tournamentId}/courts`
           });
         } else if (pathArray[2] === 'matches') {
           breadcrumbs.push({
             title: 'Matches',
-            to: `/tournaments/${pathArray[1]}/matches`
+            to: `/tournaments/${tournamentId}/matches`
           });
         } else if (pathArray[2] === 'settings') {
           breadcrumbs.push({
             title: 'Settings',
-            to: `/tournaments/${pathArray[1]}/settings`
+            to: `/tournaments/${tournamentId}/settings`
           });
         } else if (pathArray[2] === 'leaderboard') {
           breadcrumbs.push({
             title: 'Leaderboard',
-            to: `/tournaments/${pathArray[1]}/leaderboard`
+            to: `/tournaments/${tournamentId}/leaderboard`
           });
         } else if (pathArray[2] === 'categories' && pathArray[4] === 'leaderboard') {
           breadcrumbs.push({
             title: 'Category Leaderboard',
-            to: `/tournaments/${pathArray[1]}/categories/${pathArray[3]}/leaderboard`
+            to: `/tournaments/${tournamentId}/categories/${pathArray[3]}/leaderboard`
           });
         } else if (pathArray[2] === 'scoring') {
           breadcrumbs.push({
             title: 'Score Matches',
-            to: `/tournaments/${pathArray[1]}/matches`
+            to: `/tournaments/${tournamentId}/matches`
+          });
+        } else if (pathArray[2] === 'audit') {
+          breadcrumbs.push({
+            title: 'Audit Trail',
+            to: `/tournaments/${tournamentId}/audit`
           });
         }
       }

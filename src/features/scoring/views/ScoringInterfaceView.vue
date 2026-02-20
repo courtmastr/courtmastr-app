@@ -321,17 +321,38 @@ function onScoreCorrected() {
 </script>
 
 <template>
-  <v-container v-if="pageError" class="fill-height">
-    <v-row justify="center" align="center">
-      <v-col cols="12" md="8" lg="6">
+  <v-container
+    v-if="pageError"
+    class="fill-height"
+  >
+    <v-row
+      justify="center"
+      align="center"
+    >
+      <v-col
+        cols="12"
+        md="8"
+        lg="6"
+      >
         <v-card>
           <v-card-text class="text-center py-8">
-            <v-icon size="64" color="grey-lighten-1">mdi-alert-circle-outline</v-icon>
-            <h2 class="text-h6 mt-4">{{ pageError }}</h2>
+            <v-icon
+              size="64"
+              color="grey-lighten-1"
+            >
+              mdi-alert-circle-outline
+            </v-icon>
+            <h2 class="text-h6 mt-4">
+              {{ pageError }}
+            </h2>
             <p class="text-body-2 text-grey mt-2">
               The scoring page could not be opened for this route.
             </p>
-            <v-btn class="mt-4" color="primary" @click="router.back()">
+            <v-btn
+              class="mt-4"
+              color="primary"
+              @click="router.back()"
+            >
               Go Back
             </v-btn>
           </v-card-text>
@@ -340,15 +361,33 @@ function onScoreCorrected() {
     </v-row>
   </v-container>
 
-  <v-container class="fill-height" v-else-if="match">
-    <v-row justify="center" align="center">
-      <v-col cols="12" md="10" lg="8">
+  <v-container
+    v-else-if="match"
+    class="fill-height"
+  >
+    <v-row
+      justify="center"
+      align="center"
+    >
+      <v-col
+        cols="12"
+        md="10"
+        lg="8"
+      >
         <!-- Header -->
         <div class="d-flex align-center mb-4">
-          <v-btn icon="mdi-arrow-left" variant="text" @click="router.back()" />
+          <v-btn
+            icon="mdi-arrow-left"
+            variant="text"
+            @click="router.back()"
+          />
           <div class="ml-2">
-            <h1 class="text-h6 font-weight-bold">Match #{{ match.matchNumber }}</h1>
-            <p class="text-body-2 text-grey">Round {{ match.round }}</p>
+            <h1 class="text-h6 font-weight-bold">
+              Match #{{ match.matchNumber }}
+            </h1>
+            <p class="text-body-2 text-grey">
+              Round {{ match.round }}
+            </p>
           </div>
           <v-spacer />
           <v-btn
@@ -358,27 +397,42 @@ function onScoreCorrected() {
             class="mr-2"
             @click="openManualScoreDialog"
           >
-            <v-icon start>mdi-clipboard-edit</v-icon>
+            <v-icon start>
+              mdi-clipboard-edit
+            </v-icon>
             Manual Entry
           </v-btn>
-          <v-chip :color="match.status === 'in_progress' ? 'success' : 'grey'" size="small">
+          <v-chip
+            :color="match.status === 'in_progress' ? 'success' : 'grey'"
+            size="small"
+          >
             {{ match.status }}
           </v-chip>
         </div>
 
         <!-- Game Score Summary -->
-        <v-card class="mb-4" v-if="match.scores.length > 0">
+        <v-card
+          v-if="match.scores.length > 0"
+          class="mb-4"
+        >
           <v-card-text class="text-center">
             <div class="text-h2 font-weight-bold">
               {{ gamesWon.p1 }} - {{ gamesWon.p2 }}
             </div>
-            <p class="text-body-2 text-grey">Games</p>
+            <p class="text-body-2 text-grey">
+              Games
+            </p>
           </v-card-text>
         </v-card>
 
         <!-- Previous Games -->
-        <v-card class="mb-4" v-if="match.scores.filter((s: any) => s.isComplete).length > 0">
-          <v-card-title class="text-subtitle-1">Previous Games</v-card-title>
+        <v-card
+          v-if="match.scores.filter((s: any) => s.isComplete).length > 0"
+          class="mb-4"
+        >
+          <v-card-title class="text-subtitle-1">
+            Previous Games
+          </v-card-title>
           <v-card-text>
             <v-row justify="center">
               <v-col
@@ -398,16 +452,23 @@ function onScoreCorrected() {
         </v-card>
 
         <!-- Start Match Button -->
-        <v-card v-if="canStartMatch" class="mb-4 text-center">
+        <v-card
+          v-if="canStartMatch"
+          class="mb-4 text-center"
+        >
           <v-card-text>
-            <p class="text-body-1 mb-4">Match is ready to begin</p>
+            <p class="text-body-1 mb-4">
+              Match is ready to begin
+            </p>
             <v-btn
               color="success"
               size="x-large"
               :loading="loading"
               @click="startMatch"
             >
-              <v-icon start>mdi-play</v-icon>
+              <v-icon start>
+                mdi-play
+              </v-icon>
               Start Match
             </v-btn>
           </v-card-text>
@@ -418,28 +479,38 @@ function onScoreCorrected() {
           <v-card-text>
             <!-- Current Game Score -->
             <div class="text-center mb-4">
-              <p class="text-overline text-grey">Game {{ currentGame.gameNumber }}</p>
+              <p class="text-overline text-grey">
+                Game {{ currentGame.gameNumber }}
+              </p>
             </div>
 
             <v-row>
               <!-- Player 1 -->
-              <v-col cols="5" class="text-center">
+              <v-col
+                cols="5"
+                class="text-center"
+              >
                 <v-card
                   variant="outlined"
                   class="pa-4 score-card"
                   :class="{ 'score-leading': currentGame.score1 > currentGame.score2 }"
                   @click="addPoint('participant1')"
                 >
-                  <h3 class="text-subtitle-1 font-weight-bold mb-2">{{ participant1Name }}</h3>
-                  <div class="text-h1 font-weight-bold" :class="getScoreColor(currentGame.score1, currentGame.score2, true)">
+                  <h3 class="text-subtitle-1 font-weight-bold mb-2">
+                    {{ participant1Name }}
+                  </h3>
+                  <div
+                    class="text-h1 font-weight-bold"
+                    :class="getScoreColor(currentGame.score1, currentGame.score2, true)"
+                  >
                     {{ currentGame.score1 }}
                   </div>
                   <v-btn
                     variant="text"
                     size="small"
                     class="mt-2"
-                    @click.stop="removePoint('participant1')"
                     :disabled="currentGame.score1 === 0"
+                    @click.stop="removePoint('participant1')"
                   >
                     <v-icon>mdi-minus</v-icon>
                   </v-btn>
@@ -447,28 +518,39 @@ function onScoreCorrected() {
               </v-col>
 
               <!-- VS -->
-              <v-col cols="2" class="d-flex align-center justify-center">
+              <v-col
+                cols="2"
+                class="d-flex align-center justify-center"
+              >
                 <span class="text-h5 text-grey">vs</span>
               </v-col>
 
               <!-- Player 2 -->
-              <v-col cols="5" class="text-center">
+              <v-col
+                cols="5"
+                class="text-center"
+              >
                 <v-card
                   variant="outlined"
                   class="pa-4 score-card"
                   :class="{ 'score-leading': currentGame.score2 > currentGame.score1 }"
                   @click="addPoint('participant2')"
                 >
-                  <h3 class="text-subtitle-1 font-weight-bold mb-2">{{ participant2Name }}</h3>
-                  <div class="text-h1 font-weight-bold" :class="getScoreColor(currentGame.score1, currentGame.score2, false)">
+                  <h3 class="text-subtitle-1 font-weight-bold mb-2">
+                    {{ participant2Name }}
+                  </h3>
+                  <div
+                    class="text-h1 font-weight-bold"
+                    :class="getScoreColor(currentGame.score1, currentGame.score2, false)"
+                  >
                     {{ currentGame.score2 }}
                   </div>
                   <v-btn
                     variant="text"
                     size="small"
                     class="mt-2"
-                    @click.stop="removePoint('participant2')"
                     :disabled="currentGame.score2 === 0"
+                    @click.stop="removePoint('participant2')"
                   >
                     <v-icon>mdi-minus</v-icon>
                   </v-btn>
@@ -488,8 +570,14 @@ function onScoreCorrected() {
           <v-card-actions class="justify-center">
             <v-menu>
               <template #activator="{ props }">
-                <v-btn v-bind="props" variant="text" color="warning">
-                  <v-icon start>mdi-flag</v-icon>
+                <v-btn
+                  v-bind="props"
+                  variant="text"
+                  color="warning"
+                >
+                  <v-icon start>
+                    mdi-flag
+                  </v-icon>
                   Walkover
                 </v-btn>
               </template>
@@ -506,10 +594,21 @@ function onScoreCorrected() {
         </v-card>
 
         <!-- Match Complete -->
-        <v-card v-else-if="isMatchComplete" class="text-center">
+        <v-card
+          v-else-if="isMatchComplete"
+          class="text-center"
+        >
           <v-card-text>
-            <v-icon size="64" color="success" class="mb-4">mdi-trophy</v-icon>
-            <h2 class="text-h5 font-weight-bold">Match Complete</h2>
+            <v-icon
+              size="64"
+              color="success"
+              class="mb-4"
+            >
+              mdi-trophy
+            </v-icon>
+            <h2 class="text-h5 font-weight-bold">
+              Match Complete
+            </h2>
             <p class="text-body-1 mt-2">
               Winner: {{ match.winnerId === match.participant1Id ? participant1Name : participant2Name }}
             </p>
@@ -541,33 +640,68 @@ function onScoreCorrected() {
   </v-container>
 
   <!-- Loading -->
-  <v-container v-else class="fill-height">
-    <v-row align="center" justify="center">
-      <v-progress-circular v-if="!initialized" indeterminate size="64" color="primary" />
-      <v-alert v-else type="error" variant="tonal">
+  <v-container
+    v-else
+    class="fill-height"
+  >
+    <v-row
+      align="center"
+      justify="center"
+    >
+      <v-progress-circular
+        v-if="!initialized"
+        indeterminate
+        size="64"
+        color="primary"
+      />
+      <v-alert
+        v-else
+        type="error"
+        variant="tonal"
+      >
         Failed to load match details.
       </v-alert>
     </v-row>
   </v-container>
 
   <!-- Walkover Confirmation Dialog -->
-  <v-dialog v-model="showWalkoverConfirm" max-width="400" persistent>
+  <v-dialog
+    v-model="showWalkoverConfirm"
+    max-width="400"
+    persistent
+  >
     <v-card>
       <v-card-title>Record Walkover?</v-card-title>
       <v-card-text>This will end the match immediately. Are you sure?</v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="showWalkoverConfirm = false">Cancel</v-btn>
-        <v-btn color="warning" @click="confirmWalkover">Confirm Walkover</v-btn>
+        <v-btn
+          variant="text"
+          @click="showWalkoverConfirm = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="warning"
+          @click="confirmWalkover"
+        >
+          Confirm Walkover
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
 
   <!-- Manual Score Entry Dialog -->
-  <v-dialog v-model="showManualScoreDialog" max-width="500" persistent>
+  <v-dialog
+    v-model="showManualScoreDialog"
+    max-width="500"
+    persistent
+  >
     <v-card v-if="match">
       <v-card-title class="d-flex align-center">
-        <v-icon start>mdi-clipboard-edit</v-icon>
+        <v-icon start>
+          mdi-clipboard-edit
+        </v-icon>
         Manual Score Entry
       </v-card-title>
       <v-card-text>
@@ -577,17 +711,26 @@ function onScoreCorrected() {
 
         <!-- Player Names Header -->
         <v-row class="text-center mb-2">
-          <v-col cols="4"></v-col>
-          <v-col cols="4" class="font-weight-medium text-body-2">
+          <v-col cols="4" />
+          <v-col
+            cols="4"
+            class="font-weight-medium text-body-2"
+          >
             {{ participant1Name }}
           </v-col>
-          <v-col cols="4" class="font-weight-medium text-body-2">
+          <v-col
+            cols="4"
+            class="font-weight-medium text-body-2"
+          >
             {{ participant2Name }}
           </v-col>
         </v-row>
 
         <!-- Game 1 -->
-        <v-row align="center" class="mb-2">
+        <v-row
+          align="center"
+          class="mb-2"
+        >
           <v-col cols="4">
             <span class="font-weight-medium">Game 1</span>
           </v-col>
@@ -618,7 +761,10 @@ function onScoreCorrected() {
         </v-row>
 
         <!-- Game 2 -->
-        <v-row align="center" class="mb-2">
+        <v-row
+          align="center"
+          class="mb-2"
+        >
           <v-col cols="4">
             <span class="font-weight-medium">Game 2</span>
           </v-col>
@@ -680,7 +826,12 @@ function onScoreCorrected() {
           </v-col>
         </v-row>
 
-        <v-alert type="info" variant="tonal" class="mt-4" density="compact">
+        <v-alert
+          type="info"
+          variant="tonal"
+          class="mt-4"
+          density="compact"
+        >
           <div class="text-caption">
             Enter complete game scores. The match winner will be determined automatically (best of 3).
           </div>
@@ -688,8 +839,17 @@ function onScoreCorrected() {
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="showManualScoreDialog = false">Cancel</v-btn>
-        <v-btn color="primary" :loading="loading" @click="submitManualScores">
+        <v-btn
+          variant="text"
+          @click="showManualScoreDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="primary"
+          :loading="loading"
+          @click="submitManualScores"
+        >
           Submit Scores
         </v-btn>
       </v-card-actions>

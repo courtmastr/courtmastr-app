@@ -181,6 +181,58 @@ service cloud.firestore {
             allow update, delete: if false; // Immutable history
           }
         }
+
+        // Level split configuration + generated level brackets
+        match /levels/{levelId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+
+          // Bracket subcollections under each level
+          match /stage/{stageId} {
+            allow read: if true;
+            allow write: if isAuthenticated();
+          }
+
+          match /match/{matchId} {
+            allow read: if true;
+            allow write: if isAuthenticated();
+          }
+
+          match /participant/{participantId} {
+            allow read: if true;
+            allow write: if isAuthenticated();
+          }
+
+          match /group/{groupId} {
+            allow read: if true;
+            allow write: if isAuthenticated();
+          }
+
+          match /round/{roundId} {
+            allow read: if true;
+            allow write: if isAuthenticated();
+          }
+
+          match /match_game/{gameId} {
+            allow read: if true;
+            allow write: if isAuthenticated();
+          }
+
+          match /match_scores/{matchId} {
+            allow read: if true;
+            allow write: if isAuthenticated();
+          }
+        }
+
+        match /level_assignments/{assignmentId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+
+        match /level_generation/{configId} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
       }
 
     }

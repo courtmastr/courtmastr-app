@@ -14,9 +14,11 @@ import {
   orderBy,
   onSnapshot,
   serverTimestamp,
-  Timestamp,
 } from '@/services/firebase';
+import { convertTimestamps } from '@/utils/firestore';
 import type { Registration, RegistrationStatus, Player } from '@/types';
+import { useAuditStore } from '@/stores/audit';
+import { useAuthStore } from '@/stores/auth';
 
 export const useRegistrationStore = defineStore('registrations', () => {
   // State
@@ -332,7 +334,22 @@ export const useRegistrationStore = defineStore('registrations', () => {
     tournamentId: string,
     registrationId: string
   ): Promise<void> {
+    const registration = registrations.value.find(r => r.id === registrationId);
+    const participantName = registration?.teamName || registration?.playerId || registrationId;
+
     await updateRegistrationStatus(tournamentId, registrationId, 'checked_in');
+
+    const auditStore = useAuditStore();
+    const authStore = useAuthStore();
+    const actor = authStore.currentUser;
+
+    if (actor) {
+      await auditStore.logRegistrationCheckedIn(
+        tournamentId,
+        registrationId,
+        participantName
+      );
+    }
   }
 
   // Undo check-in (return to approved)
@@ -341,7 +358,22 @@ export const useRegistrationStore = defineStore('registrations', () => {
     registrationId: string,
     approvedBy?: string
   ): Promise<void> {
+    const registration = registrations.value.find(r => r.id === registrationId);
+    const participantName = registration?.teamName || registration?.playerId || registrationId;
+
     await updateRegistrationStatus(tournamentId, registrationId, 'approved', approvedBy);
+
+    const auditStore = useAuditStore();
+    const authStore = useAuthStore();
+    const actor = authStore.currentUser;
+
+    if (actor) {
+      await auditStore.logRegistrationCheckedInUndo(
+        tournamentId,
+        registrationId,
+        participantName
+      );
+    }
   }
 
   // Withdraw registration
@@ -359,6 +391,74 @@ export const useRegistrationStore = defineStore('registrations', () => {
     approvedBy?: string
   ): Promise<void> {
     await updateRegistrationStatus(tournamentId, registrationId, 'approved', approvedBy);
+  }
+  
+  // Mark registration as no-show
+  async function markNoShowRegistration(
+    tournamentId: string,
+    registrationId: string,
+    markedBy?: string
+  ): Promise<void> {
+    const registration = registrations.value.find(r => r.id === registrationId);
+    const participantName = registration?.teamName || registration?.playerId || registrationId;
+    
+    await updateRegistrationStatus(tournamentId, registrationId, 'no_show', markedBy);
+    
+    const auditStore = useAuditStore();
+    const authStore = useAuthStore();
+    const actor = authStore.currentUser;
+    
+    if (actor) {
+      await auditStore.logRegistrationNoShow(
+        tournamentId,
+        registrationId,
+        participantName
+      );
+    }
+  }
+  
+  // Undo no-show (return to approved)
+  async function undoNoShowRegistration(
+    tournamentId: string,
+    registrationId: string,
+    approvedBy?: string
+  ): Promise<void> {
+    const registration = registrations.value.find(r => r.id === registrationId);
+    const participantName = registration?.teamName || registration?.playerId || registrationId;
+    
+    await updateRegistrationStatus(tournamentId, registrationId, 'approved', approvedBy);
+    
+    const auditStore = useAuditStore();
+    const authStore = useAuthStore();
+    const actor = authStore.currentUser;
+    
+    if (actor) {
+      await auditStore.logRegistrationNoShow(
+        tournamentId,
+        registrationId,
+        participantName
+      );
+    }
+  }
+  
+  // Assign bib number to registration
+  async function assignBibNumber(
+    tournamentId: string,
+    registrationId: string,
+    bibNumber: number
+  ): Promise<void> {
+    try {
+      await updateDoc(
+        doc(db, `tournaments/${tournamentId}/registrations`, registrationId),
+        {
+          bibNumber,
+          updatedAt: serverTimestamp(),
+        }
+      );
+    } catch (err) {
+      console.error('Error assigning bib number:', err);
+      throw err;
+    }
   }
 
   // Set seed for registration
@@ -445,23 +545,6 @@ export const useRegistrationStore = defineStore('registrations', () => {
     return players.value.find((p) => p.id === playerId);
   }
 
-  // Helper: Convert Firestore Timestamps to Dates
-  function convertTimestamps(data: Record<string, unknown>): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(data)) {
-      if (value instanceof Timestamp) {
-        result[key] = value.toDate();
-      } else if (value && typeof value === 'object' && 'toDate' in value) {
-        result[key] = (value as Timestamp).toDate();
-      } else {
-        result[key] = value;
-      }
-    }
-
-    return result;
-  }
-
   // Cleanup subscriptions
   function unsubscribeAll(): void {
     if (registrationsUnsubscribe) {
@@ -507,6 +590,9 @@ export const useRegistrationStore = defineStore('registrations', () => {
     updatePaymentStatus,
     deleteRegistration,
     getPlayerById,
+    markNoShowRegistration,
+    undoNoShowRegistration,
+    assignBibNumber,
     unsubscribeAll,
   };
 });

@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import { FORMAT_LABELS, AGE_GROUP_LABELS } from '@/types';
-import type { Category, Registration } from '@/types';
 
 const props = defineProps<{
   tournamentId: string;
@@ -67,17 +66,6 @@ const overallStats = computed(() => {
   };
 });
 
-function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    pending: 'warning',
-    approved: 'success',
-    checked_in: 'info',
-    withdrawn: 'grey',
-    rejected: 'error',
-  };
-  return colors[status] || 'grey';
-}
-
 function getCategoryTypeIcon(type: string): string {
   const icons: Record<string, string> = {
     singles: 'mdi-account',
@@ -93,6 +81,7 @@ function canGenerateBracket(stats: typeof categoryStats.value[0]): boolean {
 
 const emit = defineEmits<{
   (e: 'generate-bracket', categoryId: string): void;
+  (e: 'create-levels', categoryId: string): void;
   (e: 'regenerate-bracket', categoryId: string): void;
   (e: 'manage-registrations', categoryId: string): void;
   (e: 'manage-seeds', categoryId: string): void;
@@ -116,63 +105,120 @@ function getBracketInfo(stats: typeof categoryStats.value[0]): { size: number; b
   const byes = bracketSize - ready;
   return { size: bracketSize, byes };
 }
-
-function hasCompletedMatches(categoryId: string): boolean {
-  // Check if there are any completed matches for this category
-  // We'll rely on the parent component to track this via matchStore
-  return false; // Default - parent will provide actual logic
-}
 </script>
 
 <template>
   <div class="category-stats">
     <!-- Overall Summary -->
     <v-row class="mb-4">
-      <v-col cols="6" sm="4" md="2">
-        <v-card variant="tonal" color="primary">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <v-card
+          variant="tonal"
+          color="primary"
+        >
           <v-card-text class="text-center pa-3">
-            <div class="text-h4 font-weight-bold">{{ overallStats.categories }}</div>
-            <div class="text-caption">Categories</div>
+            <div class="text-h4 font-weight-bold">
+              {{ overallStats.categories }}
+            </div>
+            <div class="text-caption">
+              Categories
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="6" sm="4" md="2">
-        <v-card variant="tonal" color="info">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <v-card
+          variant="tonal"
+          color="info"
+        >
           <v-card-text class="text-center pa-3">
-            <div class="text-h4 font-weight-bold">{{ overallStats.total }}</div>
-            <div class="text-caption">Total Registrations</div>
+            <div class="text-h4 font-weight-bold">
+              {{ overallStats.total }}
+            </div>
+            <div class="text-caption">
+              Total Registrations
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="6" sm="4" md="2">
-        <v-card variant="tonal" color="success">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <v-card
+          variant="tonal"
+          color="success"
+        >
           <v-card-text class="text-center pa-3">
-            <div class="text-h4 font-weight-bold">{{ overallStats.ready }}</div>
-            <div class="text-caption">Ready to Play</div>
+            <div class="text-h4 font-weight-bold">
+              {{ overallStats.ready }}
+            </div>
+            <div class="text-caption">
+              Ready to Play
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="6" sm="4" md="2">
-        <v-card variant="tonal" color="warning">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <v-card
+          variant="tonal"
+          color="warning"
+        >
           <v-card-text class="text-center pa-3">
-            <div class="text-h4 font-weight-bold">{{ overallStats.pending }}</div>
-            <div class="text-caption">Pending Approval</div>
+            <div class="text-h4 font-weight-bold">
+              {{ overallStats.pending }}
+            </div>
+            <div class="text-caption">
+              Pending Approval
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="6" sm="4" md="2">
-        <v-card variant="tonal" color="secondary">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
+        <v-card
+          variant="tonal"
+          color="secondary"
+        >
           <v-card-text class="text-center pa-3">
-            <div class="text-h4 font-weight-bold">{{ overallStats.checkedIn }}</div>
-            <div class="text-caption">Checked In</div>
+            <div class="text-h4 font-weight-bold">
+              {{ overallStats.checkedIn }}
+            </div>
+            <div class="text-caption">
+              Checked In
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="6" sm="4" md="2">
+      <v-col
+        cols="6"
+        sm="4"
+        md="2"
+      >
         <v-card variant="tonal">
           <v-card-text class="text-center pa-3">
-            <div class="text-h4 font-weight-bold">{{ overallStats.players }}</div>
-            <div class="text-caption">Total Players</div>
+            <div class="text-h4 font-weight-bold">
+              {{ overallStats.players }}
+            </div>
+            <div class="text-caption">
+              Total Players
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -189,7 +235,10 @@ function hasCompletedMatches(categoryId: string): boolean {
       >
         <v-card class="h-100">
           <v-card-title class="d-flex align-center">
-            <v-icon :icon="getCategoryTypeIcon(stats.category.type)" class="mr-2" />
+            <v-icon
+              :icon="getCategoryTypeIcon(stats.category.type)"
+              class="mr-2"
+            />
             <span class="flex-grow-1">{{ stats.category.name }}</span>
             <v-chip
               :color="stats.category.status === 'active' ? 'success' : 'grey'"
@@ -200,7 +249,11 @@ function hasCompletedMatches(categoryId: string): boolean {
           </v-card-title>
 
           <v-card-subtitle class="pb-0">
-            <v-chip size="x-small" variant="outlined" class="mr-1">
+            <v-chip
+              size="x-small"
+              variant="outlined"
+              class="mr-1"
+            >
               {{ FORMAT_LABELS[stats.category.format] || stats.category.format }}
             </v-chip>
             <v-chip
@@ -291,37 +344,99 @@ function hasCompletedMatches(categoryId: string): boolean {
               <!-- Status breakdown -->
               <div class="status-breakdown">
                 <div class="status-row d-flex align-center mb-1">
-                  <v-icon size="16" color="success" class="mr-2">mdi-check-circle</v-icon>
+                  <v-icon
+                    size="16"
+                    color="success"
+                    class="mr-2"
+                  >
+                    mdi-check-circle
+                  </v-icon>
                   <span class="text-body-2 flex-grow-1">Ready to play</span>
-                  <v-chip size="x-small" color="success" variant="tonal">
+                  <v-chip
+                    size="x-small"
+                    color="success"
+                    variant="tonal"
+                  >
                     {{ stats.ready }}
                   </v-chip>
                 </div>
-                <div v-if="stats.pending > 0" class="status-row d-flex align-center mb-1">
-                  <v-icon size="16" color="warning" class="mr-2">mdi-clock-outline</v-icon>
+                <div
+                  v-if="stats.pending > 0"
+                  class="status-row d-flex align-center mb-1"
+                >
+                  <v-icon
+                    size="16"
+                    color="warning"
+                    class="mr-2"
+                  >
+                    mdi-clock-outline
+                  </v-icon>
                   <span class="text-body-2 flex-grow-1">Pending approval</span>
-                  <v-chip size="x-small" color="warning" variant="tonal">
+                  <v-chip
+                    size="x-small"
+                    color="warning"
+                    variant="tonal"
+                  >
                     {{ stats.pending }}
                   </v-chip>
                 </div>
-                <div v-if="stats.checkedIn > 0" class="status-row d-flex align-center mb-1">
-                  <v-icon size="16" color="info" class="mr-2">mdi-check-decagram</v-icon>
+                <div
+                  v-if="stats.checkedIn > 0"
+                  class="status-row d-flex align-center mb-1"
+                >
+                  <v-icon
+                    size="16"
+                    color="info"
+                    class="mr-2"
+                  >
+                    mdi-check-decagram
+                  </v-icon>
                   <span class="text-body-2 flex-grow-1">Checked in</span>
-                  <v-chip size="x-small" color="info" variant="tonal">
+                  <v-chip
+                    size="x-small"
+                    color="info"
+                    variant="tonal"
+                  >
                     {{ stats.checkedIn }}
                   </v-chip>
                 </div>
-                <div v-if="stats.seeded > 0" class="status-row d-flex align-center mb-1">
-                  <v-icon size="16" color="primary" class="mr-2">mdi-seed</v-icon>
+                <div
+                  v-if="stats.seeded > 0"
+                  class="status-row d-flex align-center mb-1"
+                >
+                  <v-icon
+                    size="16"
+                    color="primary"
+                    class="mr-2"
+                  >
+                    mdi-seed
+                  </v-icon>
                   <span class="text-body-2 flex-grow-1">Seeded</span>
-                  <v-chip size="x-small" color="primary" variant="tonal">
+                  <v-chip
+                    size="x-small"
+                    color="primary"
+                    variant="tonal"
+                  >
                     {{ stats.seeded }}
                   </v-chip>
                 </div>
-                <div v-if="stats.withdrawn > 0" class="status-row d-flex align-center mb-1">
-                  <v-icon size="16" color="grey" class="mr-2">mdi-account-remove</v-icon>
+                <div
+                  v-if="stats.withdrawn > 0"
+                  class="status-row d-flex align-center mb-1"
+                >
+                  <v-icon
+                    size="16"
+                    color="grey"
+                    class="mr-2"
+                  >
+                    mdi-account-remove
+                  </v-icon>
                   <span class="text-body-2 flex-grow-1">Withdrawn</span>
-                  <v-chip size="x-small" color="grey" variant="tonal">
+                  <v-chip
+                    size="x-small"
+                    color="grey"
+                    variant="tonal"
+                  >
                     {{ stats.withdrawn }}
                   </v-chip>
                 </div>
@@ -383,12 +498,35 @@ function hasCompletedMatches(categoryId: string): boolean {
                   color="success"
                   variant="tonal"
                 >
-                  <v-icon start size="16">mdi-check</v-icon>
+                  <v-icon
+                    start
+                    size="16"
+                  >
+                    mdi-check
+                  </v-icon>
                   Bracket Ready
-                  <v-icon end size="16">mdi-chevron-down</v-icon>
+                  <v-icon
+                    end
+                    size="16"
+                  >
+                    mdi-chevron-down
+                  </v-icon>
                 </v-btn>
               </template>
               <v-list density="compact">
+                <v-list-item
+                  v-if="
+                    stats.category.format === 'pool_to_elimination' &&
+                    stats.category.poolPhase !== 'elimination' &&
+                    stats.category.poolStageId !== null &&
+                    stats.category.poolStageId !== undefined
+                  "
+                  prepend-icon="mdi-layers-triple"
+                  @click="emit('create-levels', stats.category.id)"
+                >
+                  <v-list-item-title>Create Levels</v-list-item-title>
+                  <v-list-item-subtitle>Split pools into Advanced / Intermediate / Beginner</v-list-item-subtitle>
+                </v-list-item>
                 <v-list-item
                   prepend-icon="mdi-refresh"
                   @click="emit('regenerate-bracket', stats.category.id)"
@@ -415,9 +553,18 @@ function hasCompletedMatches(categoryId: string): boolean {
     <v-row v-if="categoryStats.length === 0">
       <v-col cols="12">
         <v-card class="text-center pa-8">
-          <v-icon size="64" color="grey-lighten-1">mdi-folder-open</v-icon>
-          <p class="text-h6 mt-4">No categories created yet</p>
-          <p class="text-body-2 text-grey">Add categories to start accepting registrations</p>
+          <v-icon
+            size="64"
+            color="grey-lighten-1"
+          >
+            mdi-folder-open
+          </v-icon>
+          <p class="text-h6 mt-4">
+            No categories created yet
+          </p>
+          <p class="text-body-2 text-grey">
+            Add categories to start accepting registrations
+          </p>
         </v-card>
       </v-col>
     </v-row>

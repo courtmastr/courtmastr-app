@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import type { Match, GameScore } from '@/types';
+import type { Match, GameScore, ScoringConfig } from '@/types';
 import { useMatchStore } from '@/stores/matches';
 import { useNotificationStore } from '@/stores/notifications';
-import { BADMINTON_CONFIG } from '@/types';
 import GameScoreEditor from './GameScoreEditor.vue';
+import { getGamesNeeded, validateCompletedGameScore } from '../utils/validation';
 
 interface Props {
   modelValue: boolean;
   match: Match | null;
   tournamentId: string;
   categoryId?: string;
+  scoringConfig: ScoringConfig;
 }
 
 const props = defineProps<Props>();
@@ -75,7 +76,7 @@ watch(editedScores, () => {
 function determineWinnerFromScores() {
   if (!props.match) return;
 
-  const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+  const gamesNeeded = getGamesNeeded(props.scoringConfig);
   let p1Wins = 0;
   let p2Wins = 0;
 
@@ -107,27 +108,15 @@ function validateScores() {
       continue;
     }
 
-    const maxScore = Math.max(game.score1, game.score2);
-    const minScore = Math.min(game.score1, game.score2);
-
     if (game.isComplete) {
-      if (maxScore < BADMINTON_CONFIG.pointsToWin) {
-        errors.push(`Game ${game.gameNumber}: Winner must reach ${BADMINTON_CONFIG.pointsToWin} points`);
-      }
-
-      if (maxScore > BADMINTON_CONFIG.maxPoints) {
-        errors.push(`Game ${game.gameNumber}: Cannot exceed ${BADMINTON_CONFIG.maxPoints} points`);
-      }
-
-      if (maxScore >= BADMINTON_CONFIG.pointsToWin && 
-          maxScore < BADMINTON_CONFIG.maxPoints &&
-          maxScore - minScore < BADMINTON_CONFIG.mustWinBy) {
-        errors.push(`Game ${game.gameNumber}: Must win by ${BADMINTON_CONFIG.mustWinBy} points`);
+      const validation = validateCompletedGameScore(game.score1, game.score2, props.scoringConfig);
+      if (!validation.isValid) {
+        errors.push(`Game ${game.gameNumber}: ${validation.message}`);
       }
     }
   }
 
-  const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+  const gamesNeeded = getGamesNeeded(props.scoringConfig);
   const completedGames = editedScores.value.filter(g => g.isComplete).length;
   
   if (completedGames > 0 && completedGames < gamesNeeded) {
@@ -139,15 +128,8 @@ function validateScores() {
 }
 
 function handleGameComplete(game: GameScore) {
-  const maxScore = Math.max(game.score1, game.score2);
-  const minScore = Math.min(game.score1, game.score2);
-  const scoreDiff = maxScore - minScore;
-
-  const hasWinningScore = maxScore >= BADMINTON_CONFIG.pointsToWin;
-  const hasWinningMargin = scoreDiff >= BADMINTON_CONFIG.mustWinBy;
-  const hasMaxPoints = maxScore >= BADMINTON_CONFIG.maxPoints;
-
-  if (hasWinningScore && (hasWinningMargin || hasMaxPoints)) {
+  const validation = validateCompletedGameScore(game.score1, game.score2, props.scoringConfig);
+  if (validation.isValid) {
     game.isComplete = true;
     game.winnerId = game.score1 > game.score2 
       ? props.match?.participant1Id 
@@ -200,23 +182,38 @@ function onGameComplete(game: GameScore) {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="700" persistent>
+  <v-dialog
+    v-model="showDialog"
+    max-width="700"
+    persistent
+  >
     <v-card>
       <v-card-title class="text-h5">
         Correct Match Score
         <v-spacer />
-        <v-btn icon variant="text" @click="cancelCorrection">
+        <v-btn
+          icon
+          variant="text"
+          @click="cancelCorrection"
+        >
           <v-icon>mdi-close</v-icon>
         </v-btn>
       </v-card-title>
 
       <v-card-text v-if="match">
-        <v-alert v-if="match.corrected" type="info" density="compact" class="mb-4">
+        <v-alert
+          v-if="match.corrected"
+          type="info"
+          density="compact"
+          class="mb-4"
+        >
           This match has been corrected {{ match.correctionCount }} time(s) previously
         </v-alert>
 
         <div class="mb-4">
-          <div class="text-subtitle-1 font-weight-bold">{{ participant1Name }} vs {{ participant2Name }}</div>
+          <div class="text-subtitle-1 font-weight-bold">
+            {{ participant1Name }} vs {{ participant2Name }}
+          </div>
           <div class="text-caption text-grey">
             Category: {{ categoryId || 'Main' }} · Match #{{ match.matchNumber }}
           </div>
@@ -224,7 +221,9 @@ function onGameComplete(game: GameScore) {
 
         <v-divider class="mb-4" />
 
-        <div class="text-subtitle-2 mb-2">Edit Scores</div>
+        <div class="text-subtitle-2 mb-2">
+          Edit Scores
+        </div>
 
         <game-score-editor
           v-model="editedScores"
@@ -232,6 +231,7 @@ function onGameComplete(game: GameScore) {
           :participant2-id="match.participant2Id"
           :participant1-name="participant1Name"
           :participant2-name="participant2Name"
+          :scoring-config="scoringConfig"
           @change="onScoreChange"
           @game-complete="onGameComplete"
         />
@@ -262,7 +262,12 @@ function onGameComplete(game: GameScore) {
           density="compact"
           class="mt-4"
         >
-          <div v-for="error in validationErrors" :key="error">{{ error }}</div>
+          <div
+            v-for="error in validationErrors"
+            :key="error"
+          >
+            {{ error }}
+          </div>
         </v-alert>
 
         <v-alert
@@ -271,10 +276,19 @@ function onGameComplete(game: GameScore) {
           density="compact"
           class="mt-4"
         >
-          <div v-for="warning in validationWarnings" :key="warning">{{ warning }}</div>
+          <div
+            v-for="warning in validationWarnings"
+            :key="warning"
+          >
+            {{ warning }}
+          </div>
         </v-alert>
 
-        <v-alert type="info" density="compact" class="mt-4">
+        <v-alert
+          type="info"
+          density="compact"
+          class="mt-4"
+        >
           <div class="text-caption">
             This will update the match score and may change the bracket progression.
             {{ match.winnerId !== selectedWinnerId ? 'Winner will be changed!' : '' }}
@@ -284,7 +298,12 @@ function onGameComplete(game: GameScore) {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="cancelCorrection">Cancel</v-btn>
+        <v-btn
+          variant="text"
+          @click="cancelCorrection"
+        >
+          Cancel
+        </v-btn>
         <v-btn
           color="warning"
           :disabled="!canSubmit"

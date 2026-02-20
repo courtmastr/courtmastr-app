@@ -17,6 +17,15 @@ export interface User {
 // Tournament Types
 export type TournamentStatus = 'draft' | 'registration' | 'active' | 'completed' | 'cancelled';
 export type TournamentFormat = 'single_elimination' | 'double_elimination' | 'round_robin' | 'pool_to_elimination';
+export type TournamentLifecycleState =
+  | 'DRAFT'
+  | 'REG_OPEN'
+  | 'REG_CLOSED'
+  | 'SEEDING'
+  | 'BRACKET_GENERATED'
+  | 'BRACKET_LOCKED'
+  | 'LIVE'
+  | 'COMPLETED';
 
 export interface Tournament {
   id: string;
@@ -25,6 +34,7 @@ export interface Tournament {
   sport: 'badminton'; // Starting with badminton only
   format: TournamentFormat;
   status: TournamentStatus;
+  state?: TournamentLifecycleState;
   startDate: Date;
   endDate: Date;
   registrationDeadline?: Date;
@@ -45,13 +55,17 @@ export interface TournamentSettings {
   gamesPerMatch: number; // Best of 1, 3, or 5
   pointsToWin: number; // Points needed to win a game
   mustWinBy: number; // Win by margin
-  maxPoints: number; // Max points cap
+  maxPoints: number | null; // Max points cap (null = no cap)
 }
 
 // Category Types
 export type CategoryType = 'singles' | 'doubles' | 'mixed_doubles';
 export type CategoryGender = 'men' | 'women' | 'mixed' | 'open';
 export type AgeGroup = 'open' | 'u10' | 'u12' | 'u15' | 'u18' | 'u21' | 'senior' | '35+' | '45+' | '55+';
+export type PoolPhase = 'pool' | 'elimination';
+export type LevelingMode = 'pool_position' | 'global_bands';
+export type LevelEliminationFormat = 'single_elimination' | 'double_elimination' | 'playoff_8';
+export type LevelingStatus = 'not_started' | 'configured' | 'generated';
 
 export interface Category {
   id: string;
@@ -65,7 +79,78 @@ export interface Category {
   minParticipants?: number;
   minGamesGuaranteed?: number; // For round robin - minimum games each participant plays
   seedingEnabled: boolean;
+  scoringOverrideEnabled?: boolean;
+  scoringConfig?: {
+    gamesPerMatch?: number;
+    pointsToWin?: number;
+    mustWinBy?: number;
+    maxPoints?: number | null;
+  } | null;
+  gamesPerMatch?: number;
+  pointsToWin?: number;
+  mustWinBy?: number;
+  maxPoints?: number | null;
   status: 'setup' | 'registration' | 'active' | 'completed';
+  stageId?: number | null;
+  poolStageId?: number | null;
+  eliminationStageId?: number | null;
+  poolPhase?: PoolPhase | null;
+  poolGroupCount?: number | null;
+  poolQualifiersPerGroup?: number | null;
+  poolQualifiedRegistrationIds?: string[];
+  levelingEnabled?: boolean | null;
+  levelingStatus?: LevelingStatus | null;
+  recommendedLevelMode?: LevelingMode | null;
+  selectedLevelMode?: LevelingMode | null;
+  levelCount?: number | null;
+  levelsVersion?: number | null;
+  poolCompletedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LevelDefinition {
+  id: string;
+  name: string;
+  order: number;
+  eliminationFormat: LevelEliminationFormat;
+  participantCount: number;
+  stageId?: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LevelAssignment {
+  id: string; // registrationId
+  registrationId: string;
+  levelId: string;
+  levelName: string;
+  sourceMode: LevelingMode;
+  poolId?: string;
+  poolLabel?: string;
+  poolRank?: number;
+  globalRank?: number;
+  levelSeed?: number | null;
+  overridden: boolean;
+  overriddenBy?: string;
+  overriddenAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LevelGenerationConfig {
+  mode: LevelingMode;
+  levelCount: number;
+  levelNames: string[];
+  recommendedMode: LevelingMode;
+  poolMappings?: Array<{
+    poolId: string;
+    rank1LevelId: string;
+    rank2LevelId: string;
+    rank3PlusLevelId: string;
+  }>;
+  globalBands?: number[];
+  createdBy: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -123,7 +208,7 @@ export interface Team {
 }
 
 // Registration Types
-export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'checked_in';
+export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'checked_in' | 'no_show';
 export type PaymentStatus = 'unpaid' | 'paid' | 'partial' | 'refunded';
 
 export interface Registration {
@@ -139,6 +224,7 @@ export interface Registration {
   paymentStatus?: PaymentStatus; // Payment tracking
   paymentNote?: string; // e.g., "Paid via Venmo", "Cash collected"
   seed?: number;
+  bibNumber?: number | null; // Bib number assigned to participant
   registeredBy: string; // User ID who created the registration
   registeredAt: Date;
   approvedAt?: Date;
@@ -178,12 +264,16 @@ export interface Match {
   startedAt?: Date;
   completedAt?: Date;
   scores: GameScore[];
+  scoringConfig?: ScoringConfig;
   nextMatchId?: string; // Where winner advances to
   nextMatchSlot?: 'participant1' | 'participant2'; // Which slot in next match
   // For double elimination
   isLosersBracket?: boolean;
   loserNextMatchId?: string; // Where loser goes (double elim)
   loserNextMatchSlot?: 'participant1' | 'participant2';
+  // Score correction tracking
+  corrected?: boolean; // Whether this match has been corrected
+  correctionCount?: number; // How many times the score has been corrected
   createdAt: Date;
   updatedAt: Date;
 }
@@ -208,7 +298,7 @@ export interface ScoringConfig {
   gamesPerMatch: number; // Best of 1, 3, or 5
   pointsToWin: number; // Points needed to win a game (e.g., 21, 15, 11)
   mustWinBy: number; // Win by margin (e.g., 2)
-  maxPoints: number; // Cap on points (e.g., 30 - at 29-29, first to 30 wins)
+  maxPoints: number | null; // Cap on points (null = no cap)
 }
 
 // Default badminton config
@@ -283,6 +373,53 @@ export interface Notification {
   data?: Record<string, unknown>;
   read: boolean;
   createdAt: Date;
+}
+
+// Audit Log Types
+export type AuditAction =
+  | 'score_submit'
+  | 'score_edit'
+  | 'match_complete'
+  | 'check_in'
+  | 'check_in_undo'
+  | 'no_show_mark'
+  | 'no_show_restore'
+  | 'court_assign'
+  | 'court_release'
+  | 'tournament_state_change'
+  | 'tournament_state_unlock'
+  | 'registration_approve'
+  | 'registration_reject'
+  | 'bracket_generate'
+  | 'bracket_delete';
+
+export type AuditEntityType = 'match' | 'registration' | 'court' | 'tournament' | 'bracket';
+
+export interface AuditLog {
+  id: string;
+  tournamentId: string;
+  actorId: string;
+  actorName: string;
+  actorRole: UserRole;
+  action: AuditAction;
+  entityType: AuditEntityType;
+  entityId: string;
+  entityName?: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  description: string;
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+}
+
+export interface AuditLogFilter {
+  action?: AuditAction;
+  entityType?: AuditEntityType;
+  entityId?: string;
+  actorId?: string;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
 }
 
 // API Response Types

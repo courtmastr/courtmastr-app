@@ -5,9 +5,11 @@ import {
   auth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   updateProfile,
+  GoogleAuthProvider,
   type FirebaseUser,
   db,
   doc,
@@ -33,6 +35,32 @@ export const useAuthStore = defineStore('auth', () => {
   const isViewer = computed(() => !!currentUser.value);
   const userRole = computed(() => currentUser.value?.role || 'viewer');
 
+  function buildFallbackUser(user: FirebaseUser, role: UserRole = 'viewer'): User {
+    const createdAt = user.metadata.creationTime ? new Date(user.metadata.creationTime) : new Date();
+    return {
+      id: user.uid,
+      email: user.email || '',
+      displayName: user.displayName || user.email?.split('@')[0] || 'User',
+      role,
+      createdAt,
+      updatedAt: new Date(),
+    };
+  }
+
+  function setCurrentUserFromFirestore(user: FirebaseUser, userData: Record<string, unknown>): void {
+    const createdAtValue = userData.createdAt as { toDate?: () => Date } | undefined;
+    const updatedAtValue = userData.updatedAt as { toDate?: () => Date } | undefined;
+
+    currentUser.value = {
+      id: user.uid,
+      email: user.email || '',
+      displayName: user.displayName || String(userData.displayName || user.email?.split('@')[0] || ''),
+      role: (userData.role as UserRole) || 'viewer',
+      createdAt: createdAtValue?.toDate?.() || (user.metadata.creationTime ? new Date(user.metadata.creationTime) : new Date()),
+      updatedAt: updatedAtValue?.toDate?.() || new Date(),
+    };
+  }
+
   // Initialize auth state listener
   function initAuth(): Promise<void> {
     return new Promise((resolve) => {
@@ -44,22 +72,23 @@ export const useAuthStore = defineStore('auth', () => {
           try {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
-              const userData = userDoc.data();
-              currentUser.value = {
-                id: user.uid,
-                email: user.email || '',
-                displayName: user.displayName || userData.displayName || '',
-                role: userData.role as UserRole || 'viewer',
-                createdAt: userData.createdAt?.toDate() || new Date(),
-                updatedAt: userData.updatedAt?.toDate() || new Date(),
-              };
+              setCurrentUserFromFirestore(user, userDoc.data() as Record<string, unknown>);
+              error.value = null;
             } else {
-              // Create default user profile if doesn't exist
-              await createUserProfile(user, 'viewer');
+              try {
+                // Create default user profile if doesn't exist
+                await createUserProfile(user, 'viewer');
+                error.value = null;
+              } catch (profileError) {
+                console.error('Error creating user profile during auth init:', profileError);
+                currentUser.value = buildFallbackUser(user, 'viewer');
+                error.value = 'Signed in with limited access. Profile setup failed.';
+              }
             }
           } catch (err) {
             console.error('Error fetching user profile:', err);
-            error.value = 'Failed to load user profile';
+            currentUser.value = buildFallbackUser(user, 'viewer');
+            error.value = 'Signed in with limited access. Failed to load user profile.';
           }
         } else {
           currentUser.value = null;
@@ -139,9 +168,46 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(user, { displayName });
-      await createUserProfile(user, role);
+      try {
+        await createUserProfile(user, role);
+      } catch (profileError) {
+        console.error('Error creating user profile during registration:', profileError);
+        currentUser.value = buildFallbackUser(user, 'viewer');
+        error.value = 'Account created, but profile setup failed. Signed in with limited access.';
+      }
     } catch (err: unknown) {
       handleAuthError(err);
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // Sign in with Google
+  async function signInWithGoogle(): Promise<void> {
+    loading.value = true;
+    error.value = null;
+    let signedInUser: FirebaseUser | null = null;
+
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      const { user } = await signInWithPopup(auth, provider);
+      signedInUser = user;
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+
+      if (userDoc.exists()) {
+        setCurrentUserFromFirestore(user, userDoc.data() as Record<string, unknown>);
+      } else {
+        await createUserProfile(user, 'viewer');
+      }
+    } catch (err: unknown) {
+      if (signedInUser) {
+        currentUser.value = buildFallbackUser(signedInUser, 'viewer');
+        error.value = 'Signed in with limited access. Profile sync failed.';
+      } else {
+        handleAuthError(err);
+      }
     } finally {
       loading.value = false;
     }
@@ -198,9 +264,16 @@ export const useAuthStore = defineStore('auth', () => {
       'auth/wrong-password': 'Incorrect password',
       'auth/invalid-credential': 'Invalid email or password',
       'auth/too-many-requests': 'Too many failed attempts. Please try again later',
+      'auth/network-request-failed': 'Network error. Please check your internet connection and try again',
+      'auth/configuration-not-found': 'Firebase Auth is not configured for this project',
+      'auth/unauthorized-domain': 'This domain is not authorized for Firebase Auth',
+      'auth/popup-closed-by-user': 'Google sign-in was cancelled',
+      'auth/popup-blocked': 'Popup blocked by browser. Allow popups and try again',
+      'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Invalid Firebase API key in deployment configuration',
+      'permission-denied': 'Authentication succeeded but profile access is blocked by Firestore rules',
     };
 
-    return errorMessages[code] || 'An authentication error occurred';
+    return errorMessages[code] || `Authentication failed (${code})`;
   }
 
   // Helper to handle auth errors consistently across signIn, register, and signOut
@@ -228,6 +301,7 @@ export const useAuthStore = defineStore('auth', () => {
     initAuth,
     signIn,
     register,
+    signInWithGoogle,
     signOut,
     updateUserRole,
     clearError,

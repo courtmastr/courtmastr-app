@@ -11,8 +11,8 @@ import {
   limit,
   onSnapshot,
   serverTimestamp,
-  Timestamp,
 } from '@/services/firebase';
+import { convertTimestamps } from '@/utils/firestore';
 
 export type ActivityType =
   | 'match_completed'
@@ -272,23 +272,6 @@ export const useActivityStore = defineStore('activities', () => {
     message: string
   ): Promise<void> {
     await logActivity(tournamentId, 'announcement', message);
-  }
-
-  // Helper: Convert Firestore Timestamps to Dates
-  function convertTimestamps(data: Record<string, unknown>): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(data)) {
-      if (value instanceof Timestamp) {
-        result[key] = value.toDate();
-      } else if (value && typeof value === 'object' && 'toDate' in value) {
-        result[key] = (value as Timestamp).toDate();
-      } else {
-        result[key] = value;
-      }
-    }
-
-    return result;
   }
 
   // Cleanup subscription

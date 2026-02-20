@@ -16,9 +16,13 @@ const TournamentSettings = () => import('@/features/tournaments/views/Tournament
 // Registration views
 const RegistrationManagement = () => import('@/features/registration/views/RegistrationManagementView.vue');
 const SelfRegistration = () => import('@/features/registration/views/SelfRegistrationView.vue');
+const Participants = () => import('@/features/registration/views/ParticipantsView.vue');
 
 // Leaderboard view
 const Leaderboard = () => import('@/features/tournaments/views/LeaderboardView.vue');
+
+// Admin views
+const AuditLogView = () => import('@/features/admin/views/AuditLogView.vue');
 
 // Scoring views
 const ScoringInterface = () => import('@/features/scoring/views/ScoringInterfaceView.vue');
@@ -113,16 +117,20 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true },
   },
 
-  // Participants alias
+  // Participants (canonical route - active roster view)
   {
     path: '/tournaments/:tournamentId/participants',
-    redirect: to => `/tournaments/${to.params.tournamentId}/registrations`
+    name: 'participants',
+    component: Participants,
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
 
-  // Courts redirect
+  // Courts — standalone page
   {
     path: '/tournaments/:tournamentId/courts',
-    redirect: to => `/tournaments/${to.params.tournamentId}/match-control`
+    name: 'tournament-courts',
+    component: () => import('@/features/tournaments/views/CourtsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
 
   // Match control (for organizers)
@@ -136,13 +144,23 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/scoring',
     redirect: to => `/tournaments/${to.params.tournamentId}/matches`,
   },
+
+  // Categories — standalone page
+  {
+    path: '/tournaments/:tournamentId/categories',
+    name: 'tournament-categories',
+    component: () => import('@/features/tournaments/views/CategoriesView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+
+  // Brackets — standalone page with category/level selector
   {
     path: '/tournaments/:tournamentId/brackets',
-    redirect: to => ({
-      path: `/tournaments/${to.params.tournamentId}`,
-      query: { tab: 'brackets' },
-    }),
+    name: 'tournament-brackets',
+    component: () => import('@/features/tournaments/views/BracketsView.vue'),
+    meta: { requiresAuth: true },
   },
+
   {
     path: '/tournaments/:tournamentId/results',
     redirect: to => `/tournaments/${to.params.tournamentId}/leaderboard`,
@@ -162,6 +180,14 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresScorekeeper: true },
   },
 
+  // Audit log route (admin only)
+  {
+    path: '/tournaments/:tournamentId/audit',
+    name: 'tournament-audit',
+    component: AuditLogView,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+
   // Leaderboard routes
   {
     path: '/tournaments/:tournamentId/leaderboard',
@@ -174,6 +200,12 @@ const routes: RouteRecordRaw[] = [
     name: 'category-leaderboard',
     component: Leaderboard,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/tournaments/:tournamentId/reports',
+    name: 'tournament-reports',
+    component: () => import('@/features/reports/views/TournamentSummaryView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
     path: '/profile',

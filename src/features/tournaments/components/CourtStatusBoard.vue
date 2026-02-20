@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { differenceInMinutes, format } from 'date-fns';
+import { differenceInMinutes } from 'date-fns';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import CourtSummary from './CourtSummary.vue';
 
 interface Court {
   id: string;
@@ -26,12 +28,17 @@ const props = defineProps<{
   nextQueuedMatch: Match | null;
 }>();
 
+const busyCourts = computed(() => props.courts.filter(c => c.status === 'in_use').length);
+const idleCourts = computed(() => props.availableCourts.length);
+
 const emit = defineEmits<{
   assignNext: [courtId: string];
   releaseCourt: [courtId: string];
   setMaintenance: [courtId: string];
   restoreCourt: [courtId: string];
 }>();
+
+const { getMatchupString } = useParticipantResolver();
 
 function getCourtColor(court: Court): string {
   if (!court.status || court.status === 'available') return 'success';
@@ -50,23 +57,21 @@ function getMatchDuration(match: Match): string {
   const minutes = differenceInMinutes(new Date(), match.startedAt);
   return `${minutes} min`;
 }
-
-function getParticipantNames(match: Match): string {
-  const p1 = match.participant1Name || 'Player 1';
-  const p2 = match.participant2Name || 'Player 2';
-  return `${p1} vs ${p2}`;
-}
 </script>
 
 <template>
   <v-card>
     <v-card-title class="d-flex align-center">
-      <v-icon start>mdi-court-sport</v-icon>
+      <v-icon start>
+        mdi-court-sport
+      </v-icon>
       Court Status
       <v-spacer />
-      <v-chip size="small" color="success" variant="tonal">
-        {{ availableCourts.length }}/{{ courts.length }} Available
-      </v-chip>
+      <CourtSummary
+        :busy-courts="busyCourts"
+        :total-courts="courts.length"
+        :idle-courts="idleCourts"
+      />
     </v-card-title>
 
     <v-divider />
@@ -87,57 +92,75 @@ function getParticipantNames(match: Match): string {
             elevation="2"
           >
             <v-card-title class="text-subtitle-1 d-flex align-center">
-              <v-icon start size="small">
+              <v-icon
+                start
+                size="small"
+              >
                 {{
                   court.status === 'available'
                     ? 'mdi-check-circle'
                     : court.status === 'in_use'
-                    ? 'mdi-circle-slice-8'
-                    : 'mdi-alert-circle'
+                      ? 'mdi-circle-slice-8'
+                      : 'mdi-alert-circle'
                 }}
               </v-icon>
               {{ court.name }}
               <v-spacer />
-               <v-menu>
-                 <template #activator="{ props }">
-                   <v-btn
-                     v-bind="props"
-                     icon="mdi-dots-vertical"
-                     size="default"
-                     variant="text"
-                     min-width="44"
-                     min-height="44"
-                   />
-                 </template>
-                 <v-list density="comfortable">
-                   <v-list-item
-                     v-if="court.status === 'in_use'"
-                     @click="emit('releaseCourt', court.id)"
-                   >
-                     <v-list-item-title>
-                       <v-icon start size="default">mdi-close-circle</v-icon>
-                       Release Court
-                     </v-list-item-title>
-                   </v-list-item>
-                   <v-list-item
-                     v-if="court.status !== 'maintenance'"
-                     @click="emit('setMaintenance', court.id)"
-                   >
-                     <v-list-item-title>
-                       <v-icon start size="default">mdi-wrench</v-icon>
-                       Set Maintenance
-                     </v-list-item-title>
-                   </v-list-item>
-                   <v-list-item
-                     v-if="court.status === 'maintenance'"
-                     @click="emit('restoreCourt', court.id)"
-                   >
-                     <v-list-item-title>
-                       <v-icon start size="default">mdi-check</v-icon>
-                       Restore Court
-                     </v-list-item-title>
-                   </v-list-item>
-                 </v-list>
+              <v-menu>
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    icon="mdi-dots-vertical"
+                    size="default"
+                    variant="text"
+                    min-width="44"
+                    min-height="44"
+                  />
+                </template>
+                <v-list density="comfortable">
+                  <v-list-item
+                    v-if="court.status === 'in_use'"
+                    @click="emit('releaseCourt', court.id)"
+                  >
+                    <v-list-item-title>
+                      <v-icon
+                        start
+                        size="default"
+                      >
+                        mdi-close-circle
+                      </v-icon>
+                      Release Court
+                    </v-list-item-title>
+                  </v-list-item>
+                  <v-list-item
+                    v-if="court.status !== 'maintenance'"
+                    @click="emit('setMaintenance', court.id)"
+                  >
+                    <v-list-item-title>
+                      <v-icon
+                        start
+                        size="default"
+                      >
+                        mdi-wrench
+                      </v-icon>
+                      Set Maintenance
+                    </v-list-item-title>
+                  </v-list-item>
+                  <v-list-item
+                    v-if="court.status === 'maintenance'"
+                    @click="emit('restoreCourt', court.id)"
+                  >
+                    <v-list-item-title>
+                      <v-icon
+                        start
+                        size="default"
+                      >
+                        mdi-check
+                      </v-icon>
+                      Restore Court
+                    </v-list-item-title>
+                  </v-list-item>
+                </v-list>
               </v-menu>
             </v-card-title>
 
@@ -147,8 +170,15 @@ function getParticipantNames(match: Match): string {
               <!-- Available -->
               <div v-if="court.status === 'available' || !court.status">
                 <div class="text-center py-2">
-                  <v-icon size="48" color="success">mdi-check-circle-outline</v-icon>
-                  <div class="text-caption mt-2">Ready for match</div>
+                  <v-icon
+                    size="48"
+                    color="success"
+                  >
+                    mdi-check-circle-outline
+                  </v-icon>
+                  <div class="text-caption mt-2">
+                    Ready for match
+                  </div>
                 </div>
 
                 <v-btn
@@ -176,14 +206,22 @@ function getParticipantNames(match: Match): string {
               <div v-else-if="court.status === 'in_use'">
                 <template v-if="getCurrentMatch(court)">
                   <div class="text-body-2 font-weight-medium mb-2">
-                    {{ getParticipantNames(getCurrentMatch(court)!) }}
+                    {{ getMatchupString(getCurrentMatch(court)!) }}
                   </div>
                   <div class="text-caption d-flex align-center">
-                    <v-icon start size="small">mdi-clock-outline</v-icon>
+                    <v-icon
+                      start
+                      size="small"
+                    >
+                      mdi-clock-outline
+                    </v-icon>
                     Duration: {{ getMatchDuration(getCurrentMatch(court)!) }}
                   </div>
                 </template>
-                <div v-else class="text-caption text-center py-2">
+                <div
+                  v-else
+                  class="text-caption text-center py-2"
+                >
                   Match in progress
                 </div>
               </div>
@@ -191,8 +229,15 @@ function getParticipantNames(match: Match): string {
               <!-- Maintenance -->
               <div v-else-if="court.status === 'maintenance'">
                 <div class="text-center py-2">
-                  <v-icon size="48" color="warning">mdi-wrench</v-icon>
-                  <div class="text-caption mt-2">Under maintenance</div>
+                  <v-icon
+                    size="48"
+                    color="warning"
+                  >
+                    mdi-wrench
+                  </v-icon>
+                  <div class="text-caption mt-2">
+                    Under maintenance
+                  </div>
                 </div>
               </div>
             </v-card-text>

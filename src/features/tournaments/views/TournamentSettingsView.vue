@@ -3,18 +3,64 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
+import type { Category, ScoringConfig } from '@/types';
 import { SCORING_PRESETS } from '@/types';
+import {
+  getTournamentStateLabel,
+  normalizeTournamentState,
+  assertCanEditScoring,
+  isScoringLocked,
+  getNextTournamentState,
+  type TournamentLifecycleState,
+} from '@/guards/tournamentState';
+import { sanitizeScoringConfig } from '@/features/scoring/utils/validation';
+import StateBanner from '@/features/tournaments/components/StateBanner.vue';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
 const router = useRouter();
 const tournamentStore = useTournamentStore();
 const notificationStore = useNotificationStore();
+const authStore = useAuthStore();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
+const isAdmin = computed(() => authStore.isAdmin);
+const showUnlockDialog = ref(false);
+
+function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
+  if (!currentState) return 'REG_OPEN';
+  return getNextTournamentState(currentState);
+}
+
+async function advanceState(): Promise<void> {
+  if (!tournament.value?.state) return;
+  const nextState = getNextTournamentState(tournament.value.state);
+  if (nextState) {
+    try {
+      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
+      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
+    } catch (error) {
+      notificationStore.showToast('error', 'Failed to advance tournament state');
+    }
+  }
+}
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const courts = computed(() => tournamentStore.courts);
 const loading = ref(false);
+
+interface CategoryScoringOverrideForm {
+  enabled: boolean;
+  preset: string;
+  config: ScoringConfig;
+}
+
+const cloneScoringConfig = (config: ScoringConfig): ScoringConfig => ({
+  gamesPerMatch: config.gamesPerMatch,
+  pointsToWin: config.pointsToWin,
+  mustWinBy: config.mustWinBy,
+  maxPoints: config.maxPoints,
+});
 
 // Form state
 const name = ref('');
@@ -32,16 +78,18 @@ const settings = ref({
   gamesPerMatch: 3,
   pointsToWin: 21,
   mustWinBy: 2,
-  maxPoints: 30,
+  maxPoints: 30 as number | null,
 });
+
+const initialScoringConfig = ref<ScoringConfig>(sanitizeScoringConfig(settings.value));
+const categoryScoringOverrides = ref<Record<string, CategoryScoringOverrideForm>>({});
+const initialCategoryScoringOverrides = ref<Record<string, CategoryScoringOverrideForm>>({});
 
 // Scoring preset options
 const scoringPresets = [
-  { title: 'Badminton Standard (21 pts, best of 3)', value: 'badminton_standard' },
-  { title: 'Badminton Short (15 pts, best of 3)', value: 'badminton_short' },
-  { title: 'Badminton Single Game (21 pts, 1 game)', value: 'badminton_single_game' },
-  { title: 'Pickleball (11 pts, best of 3)', value: 'pickleball' },
-  { title: 'Table Tennis (11 pts, best of 5)', value: 'table_tennis' },
+  { title: '21x3 (Best of 3, first to 21)', value: 'badminton_standard' },
+  { title: '21x1 (Single game, first to 21)', value: 'badminton_single_game' },
+  { title: '15x3 (Best of 3, first to 15)', value: 'badminton_short' },
   { title: 'Custom', value: 'custom' },
 ];
 
@@ -53,6 +101,21 @@ const gamesOptions = [
   { title: 'Best of 3', value: 3 },
   { title: 'Best of 5', value: 5 },
 ];
+
+const maxPointsInput = computed({
+  get: () => settings.value.maxPoints == null ? '' : String(settings.value.maxPoints),
+  set: (value: string | number | null) => {
+    if (value == null || value === '') {
+      settings.value.maxPoints = null;
+      selectedPreset.value = 'custom';
+      return;
+    }
+
+    const parsed = Number(value);
+    settings.value.maxPoints = Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+    selectedPreset.value = 'custom';
+  },
+});
 
 function applyPreset(presetKey: string) {
   if (presetKey === 'custom') return;
@@ -67,13 +130,15 @@ function applyPreset(presetKey: string) {
 }
 
 // Detect which preset matches current settings
-function detectPreset() {
-  for (const [key, preset] of Object.entries(SCORING_PRESETS)) {
+function detectPreset(config: ScoringConfig): string {
+  const presetKeys = ['badminton_standard', 'badminton_single_game', 'badminton_short'];
+  for (const key of presetKeys) {
+    const preset = SCORING_PRESETS[key];
     if (
-      settings.value.gamesPerMatch === preset.gamesPerMatch &&
-      settings.value.pointsToWin === preset.pointsToWin &&
-      settings.value.mustWinBy === preset.mustWinBy &&
-      settings.value.maxPoints === preset.maxPoints
+      config.gamesPerMatch === preset.gamesPerMatch &&
+      config.pointsToWin === preset.pointsToWin &&
+      config.mustWinBy === preset.mustWinBy &&
+      config.maxPoints === preset.maxPoints
     ) {
       return key;
     }
@@ -81,8 +146,75 @@ function detectPreset() {
   return 'custom';
 }
 
-// Populate form when tournament loads
-watch(tournament, (t) => {
+const tournamentState = computed(() => normalizeTournamentState(tournament.value));
+const scoringLocked = computed(() => tournament.value ? isScoringLocked(tournamentState.value) : false);
+const scoringLockLabel = computed(() => getTournamentStateLabel(tournamentState.value));
+const hasCategories = computed(() => categories.value.length > 0);
+
+const cloneOverrideRecord = (
+  source: Record<string, CategoryScoringOverrideForm>
+): Record<string, CategoryScoringOverrideForm> => {
+  const cloned: Record<string, CategoryScoringOverrideForm> = {};
+  Object.entries(source).forEach(([categoryId, override]) => {
+    cloned[categoryId] = {
+      enabled: override.enabled,
+      preset: override.preset,
+      config: cloneScoringConfig(override.config),
+    };
+  });
+  return cloned;
+};
+
+const buildCategoryScoringForm = (category: Category, fallbackConfig: ScoringConfig): CategoryScoringOverrideForm => {
+  const effectiveConfig = category.scoringOverrideEnabled
+    ? sanitizeScoringConfig(
+      category.scoringConfig ?? {
+        gamesPerMatch: category.gamesPerMatch,
+        pointsToWin: category.pointsToWin,
+        mustWinBy: category.mustWinBy,
+        maxPoints: category.maxPoints,
+      },
+      fallbackConfig
+    )
+    : fallbackConfig;
+
+  return {
+    enabled: Boolean(category.scoringOverrideEnabled),
+    preset: detectPreset(effectiveConfig),
+    config: cloneScoringConfig(effectiveConfig),
+  };
+};
+
+function applyCategoryPreset(categoryId: string, presetKey: string): void {
+  if (presetKey === 'custom') return;
+
+  const preset = SCORING_PRESETS[presetKey];
+  const form = categoryScoringOverrides.value[categoryId];
+  if (!preset || !form) return;
+
+  form.config = sanitizeScoringConfig(preset, sanitizeScoringConfig(settings.value));
+}
+
+const hasTournamentScoringChanged = (): boolean => {
+  const current = sanitizeScoringConfig(settings.value);
+  const baseline = initialScoringConfig.value;
+
+  return (
+    current.gamesPerMatch !== baseline.gamesPerMatch
+    || current.pointsToWin !== baseline.pointsToWin
+    || current.mustWinBy !== baseline.mustWinBy
+    || current.maxPoints !== baseline.maxPoints
+  );
+};
+
+const hasCategoryScoringChanged = (): boolean => {
+  const current = JSON.stringify(cloneOverrideRecord(categoryScoringOverrides.value));
+  const baseline = JSON.stringify(cloneOverrideRecord(initialCategoryScoringOverrides.value));
+  return current !== baseline;
+};
+
+// Populate form when tournament/category data loads
+watch([tournament, categories], ([t, nextCategories]) => {
   if (t) {
     name.value = t.name;
     description.value = t.description || '';
@@ -92,18 +224,29 @@ watch(tournament, (t) => {
     registrationDeadline.value = t.registrationDeadline
       ? t.registrationDeadline.toISOString().split('T')[0]
       : '';
-    // Merge with defaults for scoring settings
+
+    const normalizedScoringConfig = sanitizeScoringConfig(t.settings);
+
     settings.value = {
       minRestTimeMinutes: t.settings.minRestTimeMinutes || 15,
       matchDurationMinutes: t.settings.matchDurationMinutes || 30,
       allowSelfRegistration: t.settings.allowSelfRegistration ?? true,
       requireApproval: t.settings.requireApproval ?? true,
-      gamesPerMatch: t.settings.gamesPerMatch || 3,
-      pointsToWin: t.settings.pointsToWin || 21,
-      mustWinBy: t.settings.mustWinBy || 2,
-      maxPoints: t.settings.maxPoints || 30,
+      gamesPerMatch: normalizedScoringConfig.gamesPerMatch,
+      pointsToWin: normalizedScoringConfig.pointsToWin,
+      mustWinBy: normalizedScoringConfig.mustWinBy,
+      maxPoints: normalizedScoringConfig.maxPoints,
     };
-    selectedPreset.value = detectPreset();
+
+    selectedPreset.value = detectPreset(normalizedScoringConfig);
+    initialScoringConfig.value = cloneScoringConfig(normalizedScoringConfig);
+
+    const categoryOverrides: Record<string, CategoryScoringOverrideForm> = {};
+    nextCategories.forEach((category) => {
+      categoryOverrides[category.id] = buildCategoryScoringForm(category, normalizedScoringConfig);
+    });
+    categoryScoringOverrides.value = categoryOverrides;
+    initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryOverrides);
   }
 }, { immediate: true });
 
@@ -116,6 +259,10 @@ onMounted(async () => {
 async function saveSettings() {
   loading.value = true;
   try {
+    if ((hasTournamentScoringChanged() || hasCategoryScoringChanged()) && tournament.value) {
+      assertCanEditScoring(tournamentState.value);
+    }
+
     await tournamentStore.updateTournament(tournamentId.value, {
       name: name.value,
       description: description.value,
@@ -127,9 +274,26 @@ async function saveSettings() {
         : undefined,
       settings: settings.value,
     });
+
+    await Promise.all(
+      categories.value.map(async (category) => {
+        const override = categoryScoringOverrides.value[category.id];
+        if (!override) return;
+
+        const overrideConfig = sanitizeScoringConfig(override.config, sanitizeScoringConfig(settings.value));
+        await tournamentStore.updateCategory(tournamentId.value, category.id, {
+          scoringOverrideEnabled: override.enabled,
+          scoringConfig: override.enabled ? overrideConfig : null,
+        });
+      })
+    );
+
+    initialScoringConfig.value = sanitizeScoringConfig(settings.value);
+    initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryScoringOverrides.value);
     notificationStore.showToast('success', 'Settings saved successfully!');
   } catch (error) {
-    notificationStore.showToast('error', 'Failed to save settings');
+    const message = error instanceof Error ? error.message : 'Failed to save settings';
+    notificationStore.showToast('error', message);
   } finally {
     loading.value = false;
   }
@@ -159,15 +323,36 @@ async function confirmDelete() {
 <template>
   <v-container v-if="tournament">
     <v-row justify="center">
-      <v-col cols="12" lg="8">
+      <v-col
+        cols="12"
+        lg="8"
+      >
         <!-- Header -->
         <div class="d-flex align-center mb-6">
-          <v-btn icon="mdi-arrow-left" variant="text" @click="router.back()" />
+          <v-btn
+            icon="mdi-arrow-left"
+            variant="text"
+            @click="router.back()"
+          />
           <div class="ml-2">
-            <h1 class="text-h5 font-weight-bold">Tournament Settings</h1>
-            <p class="text-body-2 text-grey">{{ tournament.name }}</p>
+            <h1 class="text-h5 font-weight-bold">
+              Tournament Settings
+            </h1>
+            <p class="text-body-2 text-grey">
+              {{ tournament.name }}
+            </p>
           </div>
         </div>
+
+        <!-- State Banner -->
+        <StateBanner
+          v-if="tournament"
+          :state="tournament.state || 'DRAFT'"
+          :next-state="getNextState(tournament.state || 'DRAFT')"
+          :is-admin="isAdmin"
+          @advance="advanceState"
+          @unlock="showUnlockDialog = true"
+        />
 
         <!-- Basic Info -->
         <v-card class="mb-4">
@@ -192,7 +377,10 @@ async function confirmDelete() {
               prepend-inner-icon="mdi-map-marker"
             />
             <v-row>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-text-field
                   v-model="startDate"
                   label="Start Date"
@@ -201,7 +389,10 @@ async function confirmDelete() {
                   required
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-text-field
                   v-model="endDate"
                   label="End Date"
@@ -210,7 +401,10 @@ async function confirmDelete() {
                   required
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-text-field
                   v-model="registrationDeadline"
                   label="Registration Deadline"
@@ -226,7 +420,10 @@ async function confirmDelete() {
           <v-card-title>Scheduling Settings</v-card-title>
           <v-card-text>
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model.number="settings.minRestTimeMinutes"
                   label="Minimum Rest Time (minutes)"
@@ -237,7 +434,10 @@ async function confirmDelete() {
                   persistent-hint
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model.number="settings.matchDurationMinutes"
                   label="Estimated Match Duration (minutes)"
@@ -255,12 +455,28 @@ async function confirmDelete() {
         <!-- Scoring Settings -->
         <v-card class="mb-4">
           <v-card-title>
-            <v-icon start>mdi-scoreboard</v-icon>
+            <v-icon start>
+              mdi-scoreboard
+            </v-icon>
             Scoring Settings
           </v-card-title>
           <v-card-text>
-            <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            <v-alert
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="mb-4"
+            >
               These settings apply to all matches in this tournament.
+            </v-alert>
+            <v-alert
+              v-if="scoringLocked"
+              type="warning"
+              variant="tonal"
+              density="compact"
+              class="mb-4"
+            >
+              Scoring format is locked while tournament state is <strong>{{ scoringLockLabel }}</strong>.
             </v-alert>
 
             <v-select
@@ -270,13 +486,17 @@ async function confirmDelete() {
               item-value="value"
               label="Scoring Preset"
               variant="outlined"
+              :disabled="scoringLocked"
               @update:model-value="applyPreset"
             />
 
             <v-divider class="my-4" />
 
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-select
                   v-model="settings.gamesPerMatch"
                   :items="gamesOptions"
@@ -284,10 +504,14 @@ async function confirmDelete() {
                   item-value="value"
                   label="Games Per Match"
                   variant="outlined"
+                  :disabled="scoringLocked"
                   @update:model-value="selectedPreset = 'custom'"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model.number="settings.pointsToWin"
                   label="Points to Win Game"
@@ -297,13 +521,17 @@ async function confirmDelete() {
                   variant="outlined"
                   hint="e.g., 21 for badminton, 11 for pickleball"
                   persistent-hint
+                  :disabled="scoringLocked"
                   @update:model-value="selectedPreset = 'custom'"
                 />
               </v-col>
             </v-row>
 
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model.number="settings.mustWinBy"
                   label="Win By Margin"
@@ -313,39 +541,203 @@ async function confirmDelete() {
                   variant="outlined"
                   hint="Must win by this many points (typically 2)"
                   persistent-hint
+                  :disabled="scoringLocked"
                   @update:model-value="selectedPreset = 'custom'"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
-                  v-model.number="settings.maxPoints"
+                  v-model="maxPointsInput"
                   label="Max Points Cap"
                   type="number"
-                  min="15"
                   max="50"
                   variant="outlined"
-                  hint="At deuce, first to this score wins (e.g., 30)"
+                  hint="Optional. Leave blank to disable cap."
                   persistent-hint
-                  @update:model-value="selectedPreset = 'custom'"
+                  clearable
+                  :disabled="scoringLocked"
                 />
               </v-col>
             </v-row>
 
             <!-- Preview -->
-            <v-card variant="outlined" class="mt-4 pa-3 bg-grey-lighten-5">
-              <div class="text-subtitle-2 mb-2">Match Format Preview</div>
+            <v-card
+              variant="outlined"
+              class="mt-4 pa-3 bg-grey-lighten-5"
+            >
+              <div class="text-subtitle-2 mb-2">
+                Match Format Preview
+              </div>
               <div class="text-body-2">
-                <v-icon size="small" class="mr-1">mdi-information</v-icon>
+                <v-icon
+                  size="small"
+                  class="mr-1"
+                >
+                  mdi-information
+                </v-icon>
                 {{ settings.gamesPerMatch === 1 ? 'Single game' : `Best of ${settings.gamesPerMatch} games` }},
                 first to <strong>{{ settings.pointsToWin }}</strong> points,
                 win by <strong>{{ settings.mustWinBy }}</strong>,
-                max <strong>{{ settings.maxPoints }}</strong> points.
+                <template v-if="settings.maxPoints == null">
+                  with <strong>no points cap</strong>.
+                </template>
+                <template v-else>
+                  max <strong>{{ settings.maxPoints }}</strong> points.
+                </template>
               </div>
               <div class="text-caption text-grey mt-1">
                 Example: At {{ settings.pointsToWin - 1 }}-{{ settings.pointsToWin - 1 }},
-                play continues until someone leads by {{ settings.mustWinBy }} or reaches {{ settings.maxPoints }}.
+                <template v-if="settings.maxPoints == null">
+                  play continues until someone leads by {{ settings.mustWinBy }}.
+                </template>
+                <template v-else>
+                  play continues until someone leads by {{ settings.mustWinBy }} or reaches {{ settings.maxPoints }}.
+                </template>
               </div>
             </v-card>
+
+            <v-divider class="my-4" />
+
+            <div class="d-flex align-center justify-space-between mb-3">
+              <div class="text-subtitle-2">
+                Category Overrides (Optional)
+              </div>
+              <v-chip
+                size="small"
+                color="info"
+                variant="tonal"
+              >
+                Uses tournament defaults when disabled
+              </v-chip>
+            </div>
+
+            <v-alert
+              v-if="!hasCategories"
+              type="info"
+              variant="tonal"
+              density="compact"
+            >
+              No categories found for this tournament.
+            </v-alert>
+
+            <v-expansion-panels
+              v-else
+              variant="accordion"
+            >
+              <v-expansion-panel
+                v-for="category in categories"
+                :key="category.id"
+              >
+                <v-expansion-panel-title>
+                  <div class="d-flex align-center w-100">
+                    <span>{{ category.name }}</span>
+                    <v-chip
+                      class="ml-3"
+                      size="x-small"
+                      :color="categoryScoringOverrides[category.id]?.enabled ? 'info' : 'grey'"
+                      variant="tonal"
+                    >
+                      {{ categoryScoringOverrides[category.id]?.enabled ? 'Override enabled' : 'Tournament default' }}
+                    </v-chip>
+                  </div>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text v-if="categoryScoringOverrides[category.id]">
+                  <v-switch
+                    v-model="categoryScoringOverrides[category.id].enabled"
+                    label="Use category-specific scoring"
+                    color="primary"
+                    :disabled="scoringLocked"
+                  />
+
+                  <template v-if="categoryScoringOverrides[category.id].enabled">
+                    <v-select
+                      v-model="categoryScoringOverrides[category.id].preset"
+                      :items="scoringPresets"
+                      item-title="title"
+                      item-value="value"
+                      label="Category Scoring Preset"
+                      variant="outlined"
+                      density="compact"
+                      :disabled="scoringLocked"
+                      @update:model-value="(value) => applyCategoryPreset(category.id, String(value))"
+                    />
+
+                    <v-row>
+                      <v-col
+                        cols="12"
+                        md="6"
+                      >
+                        <v-select
+                          v-model="categoryScoringOverrides[category.id].config.gamesPerMatch"
+                          :items="gamesOptions"
+                          item-title="title"
+                          item-value="value"
+                          label="Games Per Match"
+                          variant="outlined"
+                          density="compact"
+                          :disabled="scoringLocked"
+                          @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
+                        />
+                      </v-col>
+                      <v-col
+                        cols="12"
+                        md="6"
+                      >
+                        <v-text-field
+                          v-model.number="categoryScoringOverrides[category.id].config.pointsToWin"
+                          label="Points to Win"
+                          type="number"
+                          min="1"
+                          variant="outlined"
+                          density="compact"
+                          :disabled="scoringLocked"
+                          @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
+                        />
+                      </v-col>
+                    </v-row>
+
+                    <v-row>
+                      <v-col
+                        cols="12"
+                        md="6"
+                      >
+                        <v-text-field
+                          v-model.number="categoryScoringOverrides[category.id].config.mustWinBy"
+                          label="Win By"
+                          type="number"
+                          min="1"
+                          variant="outlined"
+                          density="compact"
+                          :disabled="scoringLocked"
+                          @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
+                        />
+                      </v-col>
+                      <v-col
+                        cols="12"
+                        md="6"
+                      >
+                        <v-text-field
+                          :model-value="categoryScoringOverrides[category.id].config.maxPoints ?? ''"
+                          label="Max Points Cap"
+                          type="number"
+                          variant="outlined"
+                          density="compact"
+                          clearable
+                          :disabled="scoringLocked"
+                          @update:model-value="(value) => {
+                            categoryScoringOverrides[category.id].config.maxPoints = value === '' || value == null ? null : Number(value);
+                            categoryScoringOverrides[category.id].preset = 'custom';
+                          }"
+                        />
+                      </v-col>
+                    </v-row>
+                  </template>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
           </v-card-text>
         </v-card>
 
@@ -395,10 +787,18 @@ async function confirmDelete() {
     </v-row>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="showDeleteDialog" data-testid="delete-tournament-dialog" max-width="500">
+    <v-dialog
+      v-model="showDeleteDialog"
+      data-testid="delete-tournament-dialog"
+      max-width="500"
+    >
       <v-card>
         <v-card-title class="text-h5 text-error">
-          <v-icon start icon="mdi-alert" color="error" />
+          <v-icon
+            start
+            icon="mdi-alert"
+            color="error"
+          />
           Delete Tournament?
         </v-card-title>
         
@@ -420,16 +820,16 @@ async function confirmDelete() {
           <v-spacer />
           <v-btn
             variant="text"
-            @click="showDeleteDialog = false"
             :disabled="loading"
+            @click="showDeleteDialog = false"
           >
             Cancel
           </v-btn>
           <v-btn
             color="error"
             variant="elevated"
-            @click="confirmDelete"
             :loading="loading"
+            @click="confirmDelete"
           >
             Delete Permanently
           </v-btn>

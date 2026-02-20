@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match } from '@/types';
 import html2canvas from 'html2canvas';
 
@@ -14,6 +15,7 @@ const props = defineProps<{
 const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
 const { getParticipantName: resolveParticipantName } = useParticipantResolver();
+const { getMatchStatusColor } = useMatchDisplay();
 
 const loading = ref(true);
 const activeTab = ref('winners');
@@ -139,15 +141,7 @@ function isBye(match: Match, participantId: string | undefined): boolean {
   return !!(otherParticipant && (match.status === 'completed' || match.winnerId));
 }
 
-function getMatchStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    completed: 'success',
-    in_progress: 'info',
-    ready: 'warning',
-    scheduled: 'grey',
-  };
-  return colors[status] || 'grey';
-}
+
 
 function isWinner(match: Match, participantId: string | undefined): boolean {
   return match.winnerId === participantId && !!participantId;
@@ -188,14 +182,30 @@ async function downloadBracket() {
 <template>
   <div class="double-elimination-bracket">
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-8">
-      <v-progress-circular indeterminate color="primary" />
+    <div
+      v-if="loading"
+      class="text-center py-8"
+    >
+      <v-progress-circular
+        indeterminate
+        color="primary"
+      />
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="allMatches.length === 0" class="text-center py-8">
-      <v-icon size="64" color="grey-lighten-1">mdi-tournament</v-icon>
-      <p class="text-body-1 text-grey mt-4">No bracket generated yet</p>
+    <div
+      v-else-if="allMatches.length === 0"
+      class="text-center py-8"
+    >
+      <v-icon
+        size="64"
+        color="grey-lighten-1"
+      >
+        mdi-tournament
+      </v-icon>
+      <p class="text-body-1 text-grey mt-4">
+        No bracket generated yet
+      </p>
     </div>
 
     <template v-else>
@@ -212,14 +222,24 @@ async function downloadBracket() {
       </div>
 
       <!-- Bracket Stats -->
-      <v-card class="mb-4" variant="outlined">
+      <v-card
+        class="mb-4"
+        variant="outlined"
+      >
         <v-card-text>
           <v-row align="center">
-            <v-col cols="12" md="6">
+            <v-col
+              cols="12"
+              md="6"
+            >
               <div class="d-flex align-center">
                 <div class="mr-6">
-                  <div class="text-h4 font-weight-bold text-primary">{{ bracketStats.progress }}%</div>
-                  <div class="text-caption">Complete</div>
+                  <div class="text-h4 font-weight-bold text-primary">
+                    {{ bracketStats.progress }}%
+                  </div>
+                  <div class="text-caption">
+                    Complete
+                  </div>
                 </div>
                 <v-progress-linear
                   :model-value="bracketStats.progress"
@@ -230,31 +250,58 @@ async function downloadBracket() {
                 />
               </div>
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col
+              cols="12"
+              md="6"
+            >
               <div class="d-flex justify-space-around text-center">
                 <div>
-                  <v-chip color="success" size="small" variant="tonal">
+                  <v-chip
+                    color="success"
+                    size="small"
+                    variant="tonal"
+                  >
                     {{ bracketStats.completed }}
                   </v-chip>
-                  <div class="text-caption mt-1">Completed</div>
+                  <div class="text-caption mt-1">
+                    Completed
+                  </div>
                 </div>
                 <div>
-                  <v-chip color="info" size="small" variant="tonal">
+                  <v-chip
+                    color="info"
+                    size="small"
+                    variant="tonal"
+                  >
                     {{ bracketStats.inProgress }}
                   </v-chip>
-                  <div class="text-caption mt-1">In Progress</div>
+                  <div class="text-caption mt-1">
+                    In Progress
+                  </div>
                 </div>
                 <div>
-                  <v-chip color="warning" size="small" variant="tonal">
+                  <v-chip
+                    color="warning"
+                    size="small"
+                    variant="tonal"
+                  >
                     {{ bracketStats.ready }}
                   </v-chip>
-                  <div class="text-caption mt-1">Ready</div>
+                  <div class="text-caption mt-1">
+                    Ready
+                  </div>
                 </div>
                 <div>
-                  <v-chip color="grey" size="small" variant="tonal">
+                  <v-chip
+                    color="grey"
+                    size="small"
+                    variant="tonal"
+                  >
                     {{ bracketStats.scheduled }}
                   </v-chip>
-                  <div class="text-caption mt-1">Waiting</div>
+                  <div class="text-caption mt-1">
+                    Waiting
+                  </div>
                 </div>
               </div>
             </v-col>
@@ -263,25 +310,47 @@ async function downloadBracket() {
       </v-card>
 
       <!-- Bracket Tabs -->
-      <v-tabs v-model="activeTab" color="primary" class="mb-4">
+      <v-tabs
+        v-model="activeTab"
+        color="primary"
+        class="mb-4"
+      >
         <v-tab value="winners">
-          <v-icon start>mdi-trophy</v-icon>
+          <v-icon start>
+            mdi-trophy
+          </v-icon>
           Winners Bracket
-          <v-chip size="x-small" class="ml-2" variant="tonal">
+          <v-chip
+            size="x-small"
+            class="ml-2"
+            variant="tonal"
+          >
             {{ bracketStats.winnersMatches }}
           </v-chip>
         </v-tab>
         <v-tab value="losers">
-          <v-icon start>mdi-trophy-broken</v-icon>
+          <v-icon start>
+            mdi-trophy-broken
+          </v-icon>
           Losers Bracket
-          <v-chip size="x-small" class="ml-2" variant="tonal">
+          <v-chip
+            size="x-small"
+            class="ml-2"
+            variant="tonal"
+          >
             {{ bracketStats.losersMatches }}
           </v-chip>
         </v-tab>
         <v-tab value="finals">
-          <v-icon start>mdi-trophy-award</v-icon>
+          <v-icon start>
+            mdi-trophy-award
+          </v-icon>
           Grand Finals
-          <v-chip size="x-small" class="ml-2" variant="tonal">
+          <v-chip
+            size="x-small"
+            class="ml-2"
+            variant="tonal"
+          >
             {{ bracketStats.finalsMatches }}
           </v-chip>
         </v-tab>
@@ -359,10 +428,16 @@ async function downloadBracket() {
         <!-- Losers Bracket -->
         <v-tabs-window-item value="losers">
           <div class="bracket-container">
-            <div v-if="losersRounds.length === 0" class="text-center py-8 text-grey">
+            <div
+              v-if="losersRounds.length === 0"
+              class="text-center py-8 text-grey"
+            >
               No losers bracket matches yet
             </div>
-            <div v-else class="bracket">
+            <div
+              v-else
+              class="bracket"
+            >
               <div
                 v-for="round in losersRounds"
                 :key="`losers-${round}`"
@@ -444,7 +519,9 @@ async function downloadBracket() {
                   class="finals-match"
                 >
                   <v-card-title class="text-center">
-                    <v-icon start>mdi-trophy-award</v-icon>
+                    <v-icon start>
+                      mdi-trophy-award
+                    </v-icon>
                     {{ match.bracketPosition?.round === 1 ? 'Grand Finals' : 'Grand Finals Reset' }}
                   </v-card-title>
                   <v-card-text>
@@ -462,24 +539,44 @@ async function downloadBracket() {
                       class="participant finals-participant"
                       :class="{ winner: isWinner(match, match.participant1Id), tbd: !match.participant1Id }"
                     >
-                      <v-icon v-if="isWinner(match, match.participant1Id)" color="warning" start>
+                      <v-icon
+                        v-if="isWinner(match, match.participant1Id)"
+                        color="warning"
+                        start
+                      >
                         mdi-crown
                       </v-icon>
                       <span>{{ getParticipantName(match.participant1Id, match) }}</span>
-                      <v-chip size="x-small" variant="tonal" color="success" class="ml-2">
+                      <v-chip
+                        size="x-small"
+                        variant="tonal"
+                        color="success"
+                        class="ml-2"
+                      >
                         Winners
                       </v-chip>
                     </div>
-                    <div class="text-center my-2 text-grey">VS</div>
+                    <div class="text-center my-2 text-grey">
+                      VS
+                    </div>
                     <div
                       class="participant finals-participant"
                       :class="{ winner: isWinner(match, match.participant2Id), tbd: !match.participant2Id }"
                     >
-                      <v-icon v-if="isWinner(match, match.participant2Id)" color="warning" start>
+                      <v-icon
+                        v-if="isWinner(match, match.participant2Id)"
+                        color="warning"
+                        start
+                      >
                         mdi-crown
                       </v-icon>
                       <span>{{ getParticipantName(match.participant2Id, match) }}</span>
-                      <v-chip size="x-small" variant="tonal" color="error" class="ml-2">
+                      <v-chip
+                        size="x-small"
+                        variant="tonal"
+                        color="error"
+                        class="ml-2"
+                      >
                         Losers
                       </v-chip>
                     </div>

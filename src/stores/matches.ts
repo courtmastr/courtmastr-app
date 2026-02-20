@@ -21,8 +21,14 @@ import {
   functions,
   increment,
 } from '@/services/firebase';
-import type { Match, GameScore, Registration } from '@/types';
+import type { Match, GameScore, Registration, ScoringConfig } from '@/types';
 import { BADMINTON_CONFIG } from '@/types';
+import {
+  getGamesNeeded,
+  resolveScoringConfig,
+  validateCompletedGameScore,
+  type CategoryScoringSource,
+} from '@/features/scoring/utils/validation';
 import {
   adaptBracketsMatchToLegacyMatch,
   buildMatchStructureMaps,
@@ -31,6 +37,7 @@ import {
 } from './bracketMatchAdapter';
 import { useAdvanceWinner } from '@/composables/useAdvanceWinner';
 import { useAuthStore } from '@/stores/auth';
+import { useAuditStore } from '@/stores/audit';
 import type { ScoreCorrectionRecord } from '@/types/scoring';
 
 const USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER = false;
@@ -55,6 +62,36 @@ export const useMatchStore = defineStore('matches', () => {
     return categoryId
       ? `tournaments/${tournamentId}/categories/${categoryId}/match`
       : `tournaments/${tournamentId}/match`;
+  }
+
+  async function getScoringConfigForMatch(
+    tournamentId: string,
+    categoryId?: string
+  ): Promise<ScoringConfig> {
+    try {
+      const tournamentDoc = await getDoc(doc(db, 'tournaments', tournamentId));
+      if (!tournamentDoc.exists()) {
+        return BADMINTON_CONFIG;
+      }
+
+      const tournamentSettings = tournamentDoc.data()?.settings as Partial<ScoringConfig> | undefined;
+      let categoryData: CategoryScoringSource | undefined;
+
+      if (categoryId) {
+        const categoryDoc = await getDoc(doc(db, `tournaments/${tournamentId}/categories`, categoryId));
+        if (categoryDoc.exists()) {
+          categoryData = categoryDoc.data() as CategoryScoringSource;
+        }
+      }
+
+      return resolveScoringConfig(
+        { settings: tournamentSettings ?? BADMINTON_CONFIG },
+        categoryData
+      );
+    } catch (err) {
+      console.error('Error resolving scoring config:', err);
+      return BADMINTON_CONFIG;
+    }
   }
 
   const scheduledMatches = computed(() =>
@@ -430,6 +467,8 @@ export const useMatchStore = defineStore('matches', () => {
       );
 
       if (adapted) {
+        adapted.scoringConfig = await getScoringConfigForMatch(tournamentId, categoryId);
+
         const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);
         const scoreDoc = await getDoc(doc(db, matchScoresPath, matchId));
         if (scoreDoc.exists()) {
@@ -540,6 +579,7 @@ export const useMatchStore = defineStore('matches', () => {
   ): Promise<void> {
     const match = currentMatch.value;
     if (!match) throw new Error('No match selected');
+    const config = match.scoringConfig ?? await getScoringConfigForMatch(tournamentId, categoryId);
 
     const scores = [...match.scores];
     const currentGame = scores[scores.length - 1];
@@ -555,15 +595,11 @@ export const useMatchStore = defineStore('matches', () => {
       if (participant === 'participant1') currentGame.score1++;
       else currentGame.score2++;
 
-      const config = BADMINTON_CONFIG;
       const score1 = currentGame.score1;
       const score2 = currentGame.score2;
+      const validation = validateCompletedGameScore(score1, score2, config);
 
-      const hasWinningScore = score1 >= config.pointsToWin || score2 >= config.pointsToWin;
-      const hasWinningMargin = Math.abs(score1 - score2) >= config.mustWinBy;
-      const hasMaxPoints = score1 >= config.maxPoints || score2 >= config.maxPoints;
-
-      if (hasWinningScore && (hasWinningMargin || hasMaxPoints)) {
+      if (validation.isValid) {
         currentGame.isComplete = true;
         currentGame.winnerId = score1 > score2 ? match.participant1Id : match.participant2Id;
 
@@ -574,7 +610,7 @@ export const useMatchStore = defineStore('matches', () => {
       }
     }
 
-    const matchResult = checkMatchComplete(scores, match.participant1Id!, match.participant2Id!);
+    const matchResult = checkMatchComplete(scores, match.participant1Id!, match.participant2Id!, config);
     if (matchResult.isComplete) {
       await completeMatch(tournamentId, matchId, scores, matchResult.winnerId!, categoryId);
       return;
@@ -768,14 +804,16 @@ export const useMatchStore = defineStore('matches', () => {
     categoryId?: string
   ): Promise<void> {
     try {
+      const scoringConfig = currentMatch.value?.scoringConfig
+        ?? await getScoringConfigForMatch(tournamentId, categoryId);
       const matchScoresPath = categoryId
         ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
         : `tournaments/${tournamentId}/match_scores`;
 
       const walkoverScores: GameScore[] = [{
         gameNumber: 1,
-        score1: winnerId === currentMatch.value?.participant1Id ? 21 : 0,
-        score2: winnerId === currentMatch.value?.participant2Id ? 21 : 0,
+        score1: winnerId === currentMatch.value?.participant1Id ? scoringConfig.pointsToWin : 0,
+        score2: winnerId === currentMatch.value?.participant2Id ? scoringConfig.pointsToWin : 0,
         winnerId,
         isComplete: true,
       }];
@@ -927,8 +965,10 @@ export const useMatchStore = defineStore('matches', () => {
         throw new Error('Match is missing participants');
       }
 
+      const scoringConfig = matchData.scoringConfig
+        ?? await getScoringConfigForMatch(tournamentId, categoryId);
       const games = matchData.scores;
-      const gamesNeeded = Math.ceil(games.length / 2);
+      const gamesNeeded = getGamesNeeded(scoringConfig);
 
       let p1Wins = 0;
       let p2Wins = 0;
@@ -969,6 +1009,9 @@ export const useMatchStore = defineStore('matches', () => {
         throw new Error('Match is missing participants');
       }
 
+      const scoringConfig = matchData.scoringConfig
+        ?? await getScoringConfigForMatch(tournamentId, categoryId);
+
       let p1Wins = 0;
       let p2Wins = 0;
       for (const game of games) {
@@ -976,13 +1019,13 @@ export const useMatchStore = defineStore('matches', () => {
         else if (game.winnerId === participant2Id) p2Wins++;
       }
 
-      const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+      const gamesNeeded = getGamesNeeded(scoringConfig);
 
       console.log('[submitManualScores] Win calculation:', {
         p1Wins,
         p2Wins,
         gamesNeeded,
-        gamesPerMatch: BADMINTON_CONFIG.gamesPerMatch,
+        gamesPerMatch: scoringConfig.gamesPerMatch,
         totalGames: games.length,
         games: games.map(g => ({ w: g.winnerId, s1: g.score1, s2: g.score2 }))
       });
@@ -1002,6 +1045,23 @@ export const useMatchStore = defineStore('matches', () => {
             updatedAt: serverTimestamp(),
           },
           { merge: true }
+        );
+      }
+
+      const auditStore = useAuditStore();
+      const participant1Name = matchData.participant1Id || 'Unknown';
+      const participant2Name = matchData.participant2Id || 'Unknown';
+      const scoreString = games.map(g => `${g.score1}-${g.score2}`).join(', ');
+
+      if (isMatchComplete && winnerId) {
+        const winnerName = winnerId === participant1Id ? participant1Name : participant2Name;
+        await auditStore.logMatchCompleted(
+          tournamentId,
+          matchId,
+          participant1Name,
+          participant2Name,
+          winnerName,
+          scoreString
         );
       }
     } catch (err) {
@@ -1038,9 +1098,10 @@ export const useMatchStore = defineStore('matches', () => {
   function checkMatchComplete(
     games: GameScore[],
     participant1Id: string,
-    participant2Id: string
+    participant2Id: string,
+    scoringConfig: ScoringConfig
   ): { isComplete: boolean; winnerId?: string } {
-    const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+    const gamesNeeded = getGamesNeeded(scoringConfig);
 
     let p1Wins = 0;
     let p2Wins = 0;
@@ -1194,7 +1255,8 @@ export const useMatchStore = defineStore('matches', () => {
   async function unscheduleMatch(
     tournamentId: string,
     matchId: string,
-    categoryId?: string
+    categoryId?: string,
+    releaseCourtId?: string
   ): Promise<void> {
     try {
       const matchScoresPath = categoryId
@@ -1210,8 +1272,13 @@ export const useMatchStore = defineStore('matches', () => {
         updatedAt: serverTimestamp(),
       });
 
-      if (match?.courtId) {
-        batch.update(doc(db, `tournaments/${tournamentId}/courts`, match.courtId), {
+      // Determine correct court to release:
+      // 1. Explicitly passed courtId (most reliable for "zombie" fixes)
+      // 2. Court currently assigned to match in store
+      const courtIdToRelease = releaseCourtId || match?.courtId;
+
+      if (courtIdToRelease) {
+        batch.update(doc(db, `tournaments/${tournamentId}/courts`, courtIdToRelease), {
           status: 'available',
           currentMatchId: null,
           updatedAt: serverTimestamp(),
@@ -1337,41 +1404,41 @@ export const useMatchStore = defineStore('matches', () => {
 
   async function checkAndFixConsistency(tournamentId: string): Promise<void> {
     console.log('[checkAndFixConsistency] Starting consistency check for tournament:', tournamentId);
-    
+
     try {
       // Fetch all courts for this tournament
       const courtsSnap = await getDocs(collection(db, `tournaments/${tournamentId}/courts`));
       const courts = courtsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      
+
       // Fetch all match_scores for this tournament
       const matchScoresSnap = await getDocs(collection(db, `tournaments/${tournamentId}/match_scores`));
       const matchScores = new Map(matchScoresSnap.docs.map(d => [d.id, d.data()]));
-      
+
       let fixesApplied = 0;
-      
+
       for (const court of courts) {
         const courtData = court as any;
         const currentMatchId = courtData.currentMatchId;
-        
+
         if (currentMatchId) {
           const matchScore = matchScores.get(currentMatchId);
-          
+
           // Check if match is completed but court still shows it as active
           if (matchScore?.status === 'completed' || matchScore?.status === 'walkover') {
             console.log(`[checkAndFixConsistency] Found zombie court: ${court.id} has completed match ${currentMatchId}`);
-            
+
             // Release the court
             await updateDoc(doc(db, `tournaments/${tournamentId}/courts`, court.id), {
               status: 'available',
               currentMatchId: null,
               updatedAt: serverTimestamp(),
             });
-            
+
             fixesApplied++;
           }
         }
       }
-      
+
       console.log(`[checkAndFixConsistency] Completed. Applied ${fixesApplied} fixes.`);
     } catch (err) {
       console.error('[checkAndFixConsistency] Error during consistency check:', err);
