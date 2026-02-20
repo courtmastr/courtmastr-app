@@ -52,16 +52,22 @@ export const useMatchStore = defineStore('matches', () => {
   let matchesUnsubscribe: (() => void) | null = null;
   let currentMatchUnsubscribe: (() => void) | null = null;
 
-  function getMatchScoresPath(tournamentId: string, categoryId?: string): string {
-    return categoryId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-      : `tournaments/${tournamentId}/match_scores`;
+  function getBracketBasePath(tournamentId: string, categoryId?: string, levelId?: string): string {
+    if (categoryId && levelId) {
+      return `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}`;
+    }
+    if (categoryId) {
+      return `tournaments/${tournamentId}/categories/${categoryId}`;
+    }
+    return `tournaments/${tournamentId}`;
   }
 
-  function getMatchPath(tournamentId: string, categoryId?: string): string {
-    return categoryId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/match`
-      : `tournaments/${tournamentId}/match`;
+  function getMatchScoresPath(tournamentId: string, categoryId?: string, levelId?: string): string {
+    return `${getBracketBasePath(tournamentId, categoryId, levelId)}/match_scores`;
+  }
+
+  function getMatchPath(tournamentId: string, categoryId?: string, levelId?: string): string {
+    return `${getBracketBasePath(tournamentId, categoryId, levelId)}/match`;
   }
 
   async function getScoringConfigForMatch(
@@ -132,28 +138,61 @@ export const useMatchStore = defineStore('matches', () => {
     return grouped;
   });
 
-  async function fetchMatches(tournamentId: string, categoryId?: string): Promise<void> {
+  async function fetchMatches(
+    tournamentId: string,
+    categoryId?: string,
+    levelId?: string
+  ): Promise<void> {
     loading.value = true;
     error.value = null;
 
     try {
-      // Determine which categories to fetch
-      let targetCategories: string[] = [];
-      if (categoryId) {
-        targetCategories = [categoryId];
-      } else {
-        // If no category specified, fetch ALL categories for the tournament
-        const catSnap = await getDocs(collection(db, `tournaments/${tournamentId}/categories`));
-        targetCategories = catSnap.docs.map(d => d.id);
+      if (levelId && !categoryId) {
+        throw new Error('categoryId is required when levelId is provided');
+      }
 
-        if (targetCategories.length === 0) {
+      // Determine which scopes to fetch
+      let targetScopes: Array<{ categoryId: string; levelId?: string }> = [];
+      if (categoryId) {
+        if (levelId) {
+          targetScopes = [{ categoryId, levelId }];
+        } else {
+          // If category has levels, treat level scopes as authoritative and
+          // avoid mixing stale base-category bracket docs with level brackets.
+          const levelsSnap = await getDocs(
+            collection(db, `tournaments/${tournamentId}/categories/${categoryId}/levels`)
+          );
+          const levelScopes = levelsSnap.docs.map((levelDoc) => ({
+            categoryId,
+            levelId: levelDoc.id,
+          }));
+          targetScopes = levelScopes.length > 0 ? levelScopes : [{ categoryId }];
+        }
+      } else {
+        // If no category specified, fetch ALL categories and level scopes for the tournament
+        const catSnap = await getDocs(collection(db, `tournaments/${tournamentId}/categories`));
+        const categoryIds = catSnap.docs.map((d) => d.id);
+        const levelSnapshots = await Promise.all(
+          categoryIds.map((cid) =>
+            getDocs(collection(db, `tournaments/${tournamentId}/categories/${cid}/levels`))
+          )
+        );
+        targetScopes = categoryIds.flatMap((cid, index) => {
+          const levelScopes = levelSnapshots[index].docs.map((levelDoc) => ({
+            categoryId: cid,
+            levelId: levelDoc.id,
+          }));
+          return levelScopes.length > 0 ? levelScopes : [{ categoryId: cid }];
+        });
+
+        if (targetScopes.length === 0) {
           console.warn('[fetchMatches] No categories found for tournament.');
           matches.value = [];
           return;
         }
       }
 
-      console.log(`[fetchMatches] Fetching matches for ${targetCategories.length} categories:`, targetCategories);
+      console.log(`[fetchMatches] Fetching matches for ${targetScopes.length} scope(s):`, targetScopes);
 
       // Fetch global registrations (once)
       const registrationSnap = await getDocs(collection(db, `tournaments/${tournamentId}/registrations`));
@@ -162,16 +201,15 @@ export const useMatchStore = defineStore('matches', () => {
       // Fetch category-specific data in parallel
       const allAdaptedMatches: Match[] = [];
 
-      await Promise.all(targetCategories.map(async (catId) => {
-        const stagePath = `tournaments/${tournamentId}/categories/${catId}/stage`;
-        const matchPath = `tournaments/${tournamentId}/categories/${catId}/match`;
-        const matchScoresPath = `tournaments/${tournamentId}/categories/${catId}/match_scores`;
-        const participantPath = `tournaments/${tournamentId}/categories/${catId}/participant`;
-        const roundPath = `tournaments/${tournamentId}/categories/${catId}/round`;
-        const groupPath = `tournaments/${tournamentId}/categories/${catId}/group`;
+      await Promise.all(targetScopes.map(async (scope) => {
+        const basePath = getBracketBasePath(tournamentId, scope.categoryId, scope.levelId);
+        const matchPath = `${basePath}/match`;
+        const matchScoresPath = `${basePath}/match_scores`;
+        const participantPath = `${basePath}/participant`;
+        const roundPath = `${basePath}/round`;
+        const groupPath = `${basePath}/group`;
 
-        const [stageSnap, matchSnap, matchScoresSnap, participantSnap, roundSnap, groupSnap] = await Promise.all([
-          getDocs(collection(db, stagePath)),
+        const [matchSnap, matchScoresSnap, participantSnap, roundSnap, groupSnap] = await Promise.all([
           getDocs(collection(db, matchPath)),
           getDocs(collection(db, matchScoresPath)),
           getDocs(collection(db, participantPath)),
@@ -179,7 +217,6 @@ export const useMatchStore = defineStore('matches', () => {
           getDocs(collection(db, groupPath)),
         ]);
 
-        const stages = stageSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const bracketsMatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id })) as BracketsMatch[];
         const matchScoresMap = new Map(matchScoresSnap.docs.map(d => [d.id, d.data()]));
         const participants = participantSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Participant[];
@@ -187,21 +224,19 @@ export const useMatchStore = defineStore('matches', () => {
         const groups = groupSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const structureMaps = buildMatchStructureMaps(rounds, groups);
 
-        // Adapt matches for this category
+        // Adapt matches for this scope
         for (const bMatch of bracketsMatches) {
-          const stage = stages.find(s => String(s.id) === String(bMatch.stage_id));
-          const matchCategoryId = stage ? (stage as any).tournament_id : catId;
-
           const adapted = adaptBracketsMatchToLegacyMatch(
             bMatch,
             registrations,
             participants,
-            matchCategoryId,
+            scope.categoryId,
             tournamentId,
             structureMaps
           );
 
           if (adapted) {
+            adapted.levelId = scope.levelId;
             const scoreData = matchScoresMap.get(adapted.id);
             if (scoreData) {
               if (scoreData.status) {
@@ -240,8 +275,20 @@ export const useMatchStore = defineStore('matches', () => {
       });
 
       if (categoryId) {
-        const otherMatches = matches.value.filter(m => m.categoryId !== categoryId);
-        const createKey = (m: Match) => `${m.categoryId}-${m.id}`;
+        const otherMatches = matches.value.filter((match) => {
+          if (match.categoryId !== categoryId) return true;
+
+          // When fetching a single level scope, keep other scopes from same category.
+          if (levelId) {
+            const matchLevelId = match.levelId ?? null;
+            return matchLevelId !== levelId;
+          }
+
+          // When fetching category without levelId, replace the entire category
+          // snapshot (base + levels) with fresh scoped data.
+          return false;
+        });
+        const createKey = (m: Match) => `${m.categoryId}-${m.levelId || 'base'}-${m.id}`;
         const seenKeys = new Set<string>();
         const uniqueAdapted = allAdaptedMatches.filter(m => {
           const key = createKey(m);
@@ -264,7 +311,7 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  function subscribeMatches(tournamentId: string, categoryId?: string): void {
+  function subscribeMatches(tournamentId: string, categoryId?: string, levelId?: string): void {
     if (matchesUnsubscribe) {
       matchesUnsubscribe();
       matchesUnsubscribe = null;
@@ -273,16 +320,11 @@ export const useMatchStore = defineStore('matches', () => {
     const unsubscibers: (() => void)[] = [];
 
     const refresh = async () => {
-      await fetchMatches(tournamentId, categoryId);
+      await fetchMatches(tournamentId, categoryId, levelId);
     };
 
-    // Build category-level paths for subscriptions
-    const matchPath = categoryId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/match`
-      : `tournaments/${tournamentId}/match`;
-    const matchScoresPath = categoryId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-      : `tournaments/${tournamentId}/match_scores`;
+    const matchPath = getMatchPath(tournamentId, categoryId, levelId);
+    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
     // Subscribe to /match collection (bracket structure changes)
     const qMatch = collection(db, matchPath);
@@ -340,24 +382,30 @@ export const useMatchStore = defineStore('matches', () => {
     }
 
     const categorySubscriptions = new Map<string, { match: () => void; scores: () => void }>();
+    const levelCollectionSubscriptions = new Map<string, () => void>();
+    const levelSubscriptions = new Map<string, { match: () => void; scores: () => void }>();
     let categoriesUnsubscribe: (() => void) | null = null;
 
     const debouncedFetches = new Map<string, ReturnType<typeof setTimeout>>();
 
-    const debouncedFetch = (categoryId: string) => {
-      const existing = debouncedFetches.get(categoryId);
+    const getScopeKey = (categoryId: string, levelId?: string) =>
+      `${categoryId}:${levelId || 'base'}`;
+
+    const debouncedFetch = (categoryId: string, levelId?: string) => {
+      const scopeKey = getScopeKey(categoryId, levelId);
+      const existing = debouncedFetches.get(scopeKey);
       if (existing) clearTimeout(existing);
-      debouncedFetches.set(categoryId, setTimeout(() => {
-        fetchMatches(tournamentId, categoryId);
-        debouncedFetches.delete(categoryId);
+      debouncedFetches.set(scopeKey, setTimeout(() => {
+        fetchMatches(tournamentId, categoryId, levelId);
+        debouncedFetches.delete(scopeKey);
       }, 300));
     };
 
     const subscribeToCategory = (categoryId: string) => {
       if (categorySubscriptions.has(categoryId)) return;
 
-      const matchPath = `tournaments/${tournamentId}/categories/${categoryId}/match`;
-      const matchScoresPath = `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
+      const matchPath = getMatchPath(tournamentId, categoryId);
+      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);
 
       const unsubMatch = onSnapshot(collection(db, matchPath), () => {
         debouncedFetch(categoryId);
@@ -370,12 +418,86 @@ export const useMatchStore = defineStore('matches', () => {
       categorySubscriptions.set(categoryId, { match: unsubMatch, scores: unsubScores });
     };
 
+    const subscribeToLevel = (categoryId: string, levelId: string) => {
+      const levelKey = getScopeKey(categoryId, levelId);
+      if (levelSubscriptions.has(levelKey)) return;
+
+      const matchPath = getMatchPath(tournamentId, categoryId, levelId);
+      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
+
+      const unsubMatch = onSnapshot(collection(db, matchPath), () => {
+        debouncedFetch(categoryId, levelId);
+      });
+
+      const unsubScores = onSnapshot(collection(db, matchScoresPath), () => {
+        debouncedFetch(categoryId, levelId);
+      });
+
+      levelSubscriptions.set(levelKey, { match: unsubMatch, scores: unsubScores });
+    };
+
+    const unsubscribeLevel = (categoryId: string, levelId: string) => {
+      const levelKey = getScopeKey(categoryId, levelId);
+      const subs = levelSubscriptions.get(levelKey);
+      if (!subs) return;
+
+      subs.match();
+      subs.scores();
+      levelSubscriptions.delete(levelKey);
+
+      matches.value = matches.value.filter(
+        (match) => !(match.categoryId === categoryId && match.levelId === levelId)
+      );
+    };
+
+    const subscribeToCategoryLevels = (categoryId: string) => {
+      if (levelCollectionSubscriptions.has(categoryId)) return;
+
+      const unsubLevels = onSnapshot(
+        collection(db, `tournaments/${tournamentId}/categories/${categoryId}/levels`),
+        (snapshot) => {
+          const currentLevelIds = new Set(snapshot.docs.map(d => d.id));
+
+          for (const levelId of currentLevelIds) {
+            if (!levelSubscriptions.has(getScopeKey(categoryId, levelId))) {
+              subscribeToLevel(categoryId, levelId);
+            }
+          }
+
+          for (const levelKey of Array.from(levelSubscriptions.keys())) {
+            const [levelCategoryId, levelId] = levelKey.split(':');
+            if (levelCategoryId === categoryId && levelId !== 'base' && !currentLevelIds.has(levelId)) {
+              unsubscribeLevel(categoryId, levelId);
+            }
+          }
+        },
+        (err) => {
+          console.error(`Error in levels subscription for category ${categoryId}:`, err);
+        }
+      );
+
+      levelCollectionSubscriptions.set(categoryId, unsubLevels);
+    };
+
     const unsubscribeFromCategory = (categoryId: string) => {
       const subs = categorySubscriptions.get(categoryId);
       if (subs) {
         subs.match();
         subs.scores();
         categorySubscriptions.delete(categoryId);
+      }
+
+      const levelsUnsub = levelCollectionSubscriptions.get(categoryId);
+      if (levelsUnsub) {
+        levelsUnsub();
+        levelCollectionSubscriptions.delete(categoryId);
+      }
+
+      for (const levelKey of Array.from(levelSubscriptions.keys())) {
+        const [levelCategoryId, levelId] = levelKey.split(':');
+        if (levelCategoryId === categoryId && levelId !== 'base') {
+          unsubscribeLevel(categoryId, levelId);
+        }
       }
     };
 
@@ -387,6 +509,7 @@ export const useMatchStore = defineStore('matches', () => {
         for (const categoryId of currentCategoryIds) {
           if (!categorySubscriptions.has(categoryId)) {
             subscribeToCategory(categoryId);
+            subscribeToCategoryLevels(categoryId);
             // Note: No immediate fetch needed - the onSnapshot listeners in subscribeToCategory will fire and fetch
           }
         }
@@ -411,6 +534,15 @@ export const useMatchStore = defineStore('matches', () => {
         subs.scores();
       }
       categorySubscriptions.clear();
+      for (const unsubLevels of levelCollectionSubscriptions.values()) {
+        unsubLevels();
+      }
+      levelCollectionSubscriptions.clear();
+      for (const [_, subs] of levelSubscriptions) {
+        subs.match();
+        subs.scores();
+      }
+      levelSubscriptions.clear();
       for (const timeout of debouncedFetches.values()) {
         clearTimeout(timeout);
       }
@@ -418,29 +550,26 @@ export const useMatchStore = defineStore('matches', () => {
     };
   }
 
-  async function fetchMatch(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
+  async function fetchMatch(
+    tournamentId: string,
+    matchId: string,
+    categoryId?: string,
+    levelId?: string
+  ): Promise<void> {
     loading.value = true;
     error.value = null;
 
     try {
-      const matchPath = getMatchPath(tournamentId, categoryId);
+      const matchPath = getMatchPath(tournamentId, categoryId, levelId);
       const matchDoc = await getDoc(doc(db, matchPath, matchId));
       if (!matchDoc.exists()) throw new Error('Match not found');
 
       const bMatch = { ...matchDoc.data(), id: matchDoc.id } as BracketsMatch;
-
-      const stagePath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/stage`
-        : `tournaments/${tournamentId}/stage`;
-      const participantPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/participant`
-        : `tournaments/${tournamentId}/participant`;
-      const roundPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/round`
-        : `tournaments/${tournamentId}/round`;
-      const groupPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/group`
-        : `tournaments/${tournamentId}/group`;
+      const basePath = getBracketBasePath(tournamentId, categoryId, levelId);
+      const stagePath = `${basePath}/stage`;
+      const participantPath = `${basePath}/participant`;
+      const roundPath = `${basePath}/round`;
+      const groupPath = `${basePath}/group`;
       const stageDoc = await getDoc(doc(db, stagePath, String(bMatch.stage_id)));
       const [registrationSnap, participantSnap, roundSnap, groupSnap] = await Promise.all([
         getDocs(collection(db, `tournaments/${tournamentId}/registrations`)),
@@ -455,7 +584,7 @@ export const useMatchStore = defineStore('matches', () => {
       const structureMaps = buildMatchStructureMaps(rounds, groups);
 
       const stage = stageDoc.data() as any;
-      const matchCategoryId = stage ? stage.tournament_id : categoryId || '';
+      const matchCategoryId = categoryId || (stage ? stage.tournament_id : '');
 
       const adapted = adaptBracketsMatchToLegacyMatch(
         bMatch,
@@ -467,9 +596,10 @@ export const useMatchStore = defineStore('matches', () => {
       );
 
       if (adapted) {
+        adapted.levelId = levelId;
         adapted.scoringConfig = await getScoringConfigForMatch(tournamentId, categoryId);
 
-        const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);
+        const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
         const scoreDoc = await getDoc(doc(db, matchScoresPath, matchId));
         if (scoreDoc.exists()) {
           const scoreData = scoreDoc.data();
@@ -491,7 +621,7 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  function subscribeMatch(tournamentId: string, matchId: string, categoryId?: string): void {
+  function subscribeMatch(tournamentId: string, matchId: string, categoryId?: string, levelId?: string): void {
     if (currentMatchUnsubscribe) {
       currentMatchUnsubscribe();
       currentMatchUnsubscribe = null;
@@ -500,10 +630,10 @@ export const useMatchStore = defineStore('matches', () => {
     const unsubscribers: (() => void)[] = [];
 
     const refresh = async () => {
-      await fetchMatch(tournamentId, matchId, categoryId);
+      await fetchMatch(tournamentId, matchId, categoryId, levelId);
     };
 
-    const matchPath = getMatchPath(tournamentId, categoryId);
+    const matchPath = getMatchPath(tournamentId, categoryId, levelId);
     const unsubMatch = onSnapshot(
       doc(db, matchPath, matchId),
       () => refresh(),
@@ -514,7 +644,7 @@ export const useMatchStore = defineStore('matches', () => {
     );
     unsubscribers.push(unsubMatch);
 
-    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);
+    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
     const unsubScores = onSnapshot(
       doc(db, matchScoresPath, matchId),
       () => refresh(),
@@ -529,15 +659,19 @@ export const useMatchStore = defineStore('matches', () => {
     };
   }
 
-  async function startMatch(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
-    const matchScoresPath = categoryId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-      : `tournaments/${tournamentId}/match_scores`;
+  async function startMatch(
+    tournamentId: string,
+    matchId: string,
+    categoryId?: string,
+    levelId?: string
+  ): Promise<void> {
+    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
     console.log('[matchStore.startMatch] Starting match', {
       tournamentId,
       matchId,
       categoryId,
+      levelId,
       matchScoresPath,
     });
 
@@ -575,7 +709,8 @@ export const useMatchStore = defineStore('matches', () => {
     tournamentId: string,
     matchId: string,
     participant: 'participant1' | 'participant2',
-    categoryId?: string
+    categoryId?: string,
+    levelId?: string
   ): Promise<void> {
     const match = currentMatch.value;
     if (!match) throw new Error('No match selected');
@@ -612,13 +747,10 @@ export const useMatchStore = defineStore('matches', () => {
 
     const matchResult = checkMatchComplete(scores, match.participant1Id!, match.participant2Id!, config);
     if (matchResult.isComplete) {
-      await completeMatch(tournamentId, matchId, scores, matchResult.winnerId!, categoryId);
+      await completeMatch(tournamentId, matchId, scores, matchResult.winnerId!, categoryId, levelId);
       return;
     }
-
-    const matchScoresPath = categoryId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-      : `tournaments/${tournamentId}/match_scores`;
+    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
     await setDoc(
       doc(db, matchScoresPath, matchId),
@@ -634,7 +766,8 @@ export const useMatchStore = defineStore('matches', () => {
     tournamentId: string,
     matchId: string,
     participant: 'participant1' | 'participant2',
-    categoryId?: string
+    categoryId?: string,
+    levelId?: string
   ): Promise<void> {
     const match = currentMatch.value;
     if (!match) throw new Error('No match selected');
@@ -650,9 +783,7 @@ export const useMatchStore = defineStore('matches', () => {
       currentGame.score2--;
     }
 
-    const matchScoresPath = categoryId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-      : `tournaments/${tournamentId}/match_scores`;
+    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
     await setDoc(
       doc(db, matchScoresPath, matchId),
@@ -669,12 +800,11 @@ export const useMatchStore = defineStore('matches', () => {
     matchId: string,
     scores: GameScore[],
     winnerId: string,
-    categoryId?: string
+    categoryId?: string,
+    levelId?: string
   ): Promise<void> {
     try {
-      const matchScoresPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-        : `tournaments/${tournamentId}/match_scores`;
+      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
       console.log('[completeMatch] Starting completion:', {
         matchId,
@@ -771,7 +901,10 @@ export const useMatchStore = defineStore('matches', () => {
           });
         } else {
           const advancer = useAdvanceWinner();
-          await advancer.advanceWinner(tournamentId, categoryId!, matchId, winnerId);
+          if (!categoryId) {
+            throw new Error('categoryId is required to advance winner');
+          }
+          await advancer.advanceWinner(tournamentId, categoryId, matchId, winnerId, levelId);
         }
         console.log('[completeMatch] Bracket advanced successfully');
       } catch (cloudErr) {
@@ -801,14 +934,13 @@ export const useMatchStore = defineStore('matches', () => {
     tournamentId: string,
     matchId: string,
     winnerId: string,
-    categoryId?: string
+    categoryId?: string,
+    levelId?: string
   ): Promise<void> {
     try {
       const scoringConfig = currentMatch.value?.scoringConfig
         ?? await getScoringConfigForMatch(tournamentId, categoryId);
-      const matchScoresPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-        : `tournaments/${tournamentId}/match_scores`;
+      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
       const walkoverScores: GameScore[] = [{
         gameNumber: 1,
@@ -859,7 +991,10 @@ export const useMatchStore = defineStore('matches', () => {
           });
         } else {
           const advancer = useAdvanceWinner();
-          await advancer.advanceWinner(tournamentId, categoryId!, matchId, winnerId);
+          if (!categoryId) {
+            throw new Error('categoryId is required to advance winner');
+          }
+          await advancer.advanceWinner(tournamentId, categoryId, matchId, winnerId, levelId);
         }
         console.log('[recordWalkover] Bracket advanced successfully');
       } catch (cloudErr) {
@@ -871,11 +1006,14 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  async function resetMatch(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
+  async function resetMatch(
+    tournamentId: string,
+    matchId: string,
+    categoryId?: string,
+    levelId?: string
+  ): Promise<void> {
     try {
-      const matchScoresPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-        : `tournaments/${tournamentId}/match_scores`;
+      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
       await setDoc(
         doc(db, matchScoresPath, matchId),
         {
@@ -898,12 +1036,11 @@ export const useMatchStore = defineStore('matches', () => {
     tournamentId: string,
     matchId: string,
     courtId: string,
-    categoryId?: string
+    categoryId?: string,
+    levelId?: string
   ): Promise<void> {
     try {
-      const matchScoresPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-        : `tournaments/${tournamentId}/match_scores`;
+      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
       await setDoc(
         doc(db, matchScoresPath, matchId),
         {
@@ -925,9 +1062,14 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  async function markMatchReady(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
+  async function markMatchReady(
+    tournamentId: string,
+    matchId: string,
+    categoryId?: string,
+    levelId?: string
+  ): Promise<void> {
     try {
-      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);
+      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
       await setDoc(
         doc(db, matchScoresPath, matchId),
         {
@@ -951,9 +1093,14 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
-  async function calculateWinner(tournamentId: string, matchId: string, categoryId?: string): Promise<void> {
+  async function calculateWinner(
+    tournamentId: string,
+    matchId: string,
+    categoryId?: string,
+    levelId?: string
+  ): Promise<void> {
     try {
-      await fetchMatch(tournamentId, matchId, categoryId);
+      await fetchMatch(tournamentId, matchId, categoryId, levelId);
 
       const matchData = currentMatch.value;
       if (!matchData) throw new Error('Match not found');
@@ -984,7 +1131,7 @@ export const useMatchStore = defineStore('matches', () => {
         throw new Error('Could not determine winner from scores');
       }
 
-      await completeMatch(tournamentId, matchId, games, winnerId, categoryId);
+      await completeMatch(tournamentId, matchId, games, winnerId, categoryId, levelId);
     } catch (err) {
       console.error('Error calculating winner:', err);
       throw err;
@@ -995,10 +1142,11 @@ export const useMatchStore = defineStore('matches', () => {
     tournamentId: string,
     matchId: string,
     games: GameScore[],
-    categoryId?: string
+    categoryId?: string,
+    levelId?: string
   ): Promise<void> {
     try {
-      await fetchMatch(tournamentId, matchId, categoryId);
+      await fetchMatch(tournamentId, matchId, categoryId, levelId);
       if (!currentMatch.value) throw new Error('Match not found');
 
       const matchData = currentMatch.value;
@@ -1035,9 +1183,9 @@ export const useMatchStore = defineStore('matches', () => {
 
       if (isMatchComplete && winnerId) {
         console.log('[submitManualScores] Match complete! Winner:', winnerId);
-        await completeMatch(tournamentId, matchId, games, winnerId, categoryId);
+        await completeMatch(tournamentId, matchId, games, winnerId, categoryId, levelId);
       } else {
-        const matchScoresPath = getMatchScoresPath(tournamentId, categoryId);
+        const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
         await setDoc(
           doc(db, matchScoresPath, matchId),
           {
@@ -1129,7 +1277,8 @@ export const useMatchStore = defineStore('matches', () => {
   async function reorderQueue(
     tournamentId: string,
     matchIds: string[],
-    categoryId?: string
+    categoryId?: string,
+    levelId?: string
   ): Promise<void> {
     const batch = writeBatch(db);
 
@@ -1137,9 +1286,7 @@ export const useMatchStore = defineStore('matches', () => {
       const match = matches.value.find(m => m.id === matchId);
       if (!match) return;
 
-      const path = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-        : `tournaments/${tournamentId}/match_scores`;
+      const path = getMatchScoresPath(tournamentId, categoryId, levelId);
       batch.update(doc(db, path, matchId), {
         queuePosition: index + 1,
         updatedAt: serverTimestamp(),
@@ -1149,10 +1296,12 @@ export const useMatchStore = defineStore('matches', () => {
     await batch.commit();
   }
 
-  async function resetQueueToFIFO(tournamentId: string, categoryId?: string): Promise<void> {
-    const path = categoryId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-      : `tournaments/${tournamentId}/match_scores`;
+  async function resetQueueToFIFO(
+    tournamentId: string,
+    categoryId?: string,
+    levelId?: string
+  ): Promise<void> {
+    const path = getMatchScoresPath(tournamentId, categoryId, levelId);
 
     const matchesQuery = query(
       collection(db, path),
@@ -1174,7 +1323,11 @@ export const useMatchStore = defineStore('matches', () => {
     await batch.commit();
   }
 
-  async function sortQueueByRound(tournamentId: string, categoryId?: string): Promise<void> {
+  async function sortQueueByRound(
+    tournamentId: string,
+    categoryId?: string,
+    levelId?: string
+  ): Promise<void> {
     const matchesInQueue = matches.value.filter(
       m => m.status === 'scheduled' && !m.courtId
     );
@@ -1186,9 +1339,7 @@ export const useMatchStore = defineStore('matches', () => {
 
     const batch = writeBatch(db);
     sorted.forEach((match, index) => {
-      const path = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-        : `tournaments/${tournamentId}/match_scores`;
+      const path = getMatchScoresPath(tournamentId, categoryId, levelId);
       batch.update(doc(db, path, match.id), {
         queuePosition: index + 1,
       });
@@ -1200,11 +1351,10 @@ export const useMatchStore = defineStore('matches', () => {
   async function announceMatch(
     tournamentId: string,
     matchId: string,
-    categoryId?: string
+    categoryId?: string,
+    levelId?: string
   ): Promise<void> {
-    const path = categoryId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-      : `tournaments/${tournamentId}/match_scores`;
+    const path = getMatchScoresPath(tournamentId, categoryId, levelId);
     await updateDoc(doc(db, path, matchId), {
       calledAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -1215,9 +1365,10 @@ export const useMatchStore = defineStore('matches', () => {
     tournamentId: string,
     matchId: string,
     categoryId: string,
-    reason: string
+    reason: string,
+    levelId?: string
   ): Promise<void> {
-    const path = `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
+    const path = getMatchScoresPath(tournamentId, categoryId, levelId);
 
     const queueQuery = query(
       collection(db, path),
@@ -1256,12 +1407,11 @@ export const useMatchStore = defineStore('matches', () => {
     tournamentId: string,
     matchId: string,
     categoryId?: string,
-    releaseCourtId?: string
+    releaseCourtId?: string,
+    levelId?: string
   ): Promise<void> {
     try {
-      const matchScoresPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-        : `tournaments/${tournamentId}/match_scores`;
+      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
       const match = matches.value.find(m => m.id === matchId);
       const batch = writeBatch(db);
@@ -1302,15 +1452,14 @@ export const useMatchStore = defineStore('matches', () => {
       newWinnerId?: string;
       reason: string;
     },
-    categoryId?: string
+    categoryId?: string,
+    levelId?: string
   ): Promise<void> {
     loading.value = true;
     error.value = null;
 
     try {
-      const matchScoresPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores`
-        : `tournaments/${tournamentId}/match_scores`;
+      const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
       const authStore = useAuthStore();
       const correctedBy = authStore.currentUser?.id || 'unknown';
@@ -1355,7 +1504,7 @@ export const useMatchStore = defineStore('matches', () => {
         );
       }
 
-      await fetchMatch(tournamentId, matchId, categoryId);
+      await fetchMatch(tournamentId, matchId, categoryId, levelId);
     } catch (err) {
       console.error('Error correcting match score:', err);
       error.value = 'Failed to correct match score';
@@ -1368,12 +1517,11 @@ export const useMatchStore = defineStore('matches', () => {
   async function fetchCorrectionHistory(
     tournamentId: string,
     matchId: string,
-    categoryId?: string
+    categoryId?: string,
+    levelId?: string
   ): Promise<void> {
     try {
-      const correctionPath = categoryId
-        ? `tournaments/${tournamentId}/categories/${categoryId}/match_scores/${matchId}/corrections`
-        : `tournaments/${tournamentId}/match_scores/${matchId}/corrections`;
+      const correctionPath = `${getMatchScoresPath(tournamentId, categoryId, levelId)}/${matchId}/corrections`;
 
       const q = query(
         collection(db, correctionPath),

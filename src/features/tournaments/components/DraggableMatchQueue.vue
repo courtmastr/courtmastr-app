@@ -91,7 +91,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import draggable from 'vuedraggable';
-import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match, Court } from '@/types';
 
@@ -107,7 +106,6 @@ const emit = defineEmits<{
   sortByRound: [];
 }>();
 
-const { getParticipantName } = useParticipantResolver();
 const { getMatchDisplayName } = useMatchDisplay();
 
 const localMatches = ref<Match[]>([...props.matches]);

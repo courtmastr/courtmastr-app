@@ -45,7 +45,9 @@ async function saveSchedule() {
       await matchStore.assignCourt(
         props.tournamentId,
         props.match.id,
-        selectedCourtId.value
+        selectedCourtId.value,
+        props.match.categoryId,
+        props.match.levelId
       );
     }
 

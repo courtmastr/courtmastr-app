@@ -248,10 +248,10 @@ function getScoreDisplay(match: Match): string {
                   {{ getParticipantDisplayName(match.participant1Id, match) }}
                 </span>
                 <span
-                  v-if="match.scores.length > 0"
+                  v-if="match.scores.some(s => s.isComplete)"
                   class="participant-score"
                 >
-                  {{ match.scores.reduce((sum, s) => sum + s.score1, 0) }}
+                  {{ match.scores.filter(s => s.isComplete && s.winnerId === match.participant1Id).length }}
                 </span>
               </div>
 
@@ -270,10 +270,10 @@ function getScoreDisplay(match: Match): string {
                   {{ getParticipantDisplayName(match.participant2Id, match) }}
                 </span>
                 <span
-                  v-if="match.scores.length > 0"
+                  v-if="match.scores.some(s => s.isComplete)"
                   class="participant-score"
                 >
-                  {{ match.scores.reduce((sum, s) => sum + s.score2, 0) }}
+                  {{ match.scores.filter(s => s.isComplete && s.winnerId === match.participant2Id).length }}
                 </span>
               </div>
 

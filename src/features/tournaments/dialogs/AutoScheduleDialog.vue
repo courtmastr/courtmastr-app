@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useMatchScheduler, type ScheduleResult } from '@/composables/useMatchScheduler';
 import { useNotificationStore } from '@/stores/notifications';
 import BaseDialog from '@/components/common/BaseDialog.vue';
@@ -56,7 +56,7 @@ async function runAutoSchedule() {
   loading.value = true;
   try {
     let totalScheduled = 0;
-    let totalUnscheduled: any[] = [];
+    let totalUnscheduled: ScheduleResult['unscheduled'] = [];
     const startDate = new Date(startTime.value);
 
     // Schedule each category separately

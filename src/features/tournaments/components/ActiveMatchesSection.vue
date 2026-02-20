@@ -11,18 +11,20 @@ type Match = TournamentMatch & {
   courtName?: string;
 };
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   matches: Match[];
   showActions?: boolean;
-}>();
+}>(), {
+  showActions: true,
+});
 
-const shouldShowActions = computed(() => props.showActions !== false);
+const shouldShowActions = computed(() => props.showActions);
 
 const emit = defineEmits<{
   completeMatch: [matchId: string];
   enterScore: [matchId: string];
   viewDetails: [matchId: string];
-  unschedule: [ref: { matchId: string; categoryId: string }];
+  unschedule: [ref: { matchId: string; categoryId: string; levelId?: string }];
 }>();
 
 const { getMatchDuration, getDurationColor } = useMatchDuration();
@@ -168,7 +170,7 @@ function getCurrentScore(match: Match): string {
                 color="warning"
                 density="comfortable"
                 title="Unschedule / Release"
-                @click="emit('unschedule', { matchId: match.id, categoryId: match.categoryId })"
+                @click="emit('unschedule', { matchId: match.id, categoryId: match.categoryId, levelId: match.levelId })"
               />
               <v-btn
                 icon="mdi-check"

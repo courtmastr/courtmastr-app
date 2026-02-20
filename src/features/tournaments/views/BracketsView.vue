@@ -24,7 +24,8 @@
           :items="selectedCategoryLevels"
           item-title="name"
           item-value="id"
-          label="Select Level Bracket"
+          label="Select Level Bracket (Optional)"
+          placeholder="Category bracket (default)"
           clearable
           hide-details
           hint="Choose a level bracket or clear to view the category-level bracket"
@@ -86,9 +87,6 @@ watch(selectedCategory, async (categoryId) => {
   try {
     const levels = await tournamentStore.fetchCategoryLevels(tournamentId.value, categoryId);
     categoryLevels.value = { ...categoryLevels.value, [categoryId]: levels };
-    if (levels.length > 0) {
-      selectedLevelId.value = levels[0].id;
-    }
   } catch (error) {
     console.error('Failed to fetch category levels:', error);
   }

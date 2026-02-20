@@ -84,10 +84,6 @@ function confirmNoShow() {
   emit('markNoShow');
 }
 
-function onBibChange(value: number | null) {
-  bibInput.value = value;
-}
-
 function saveBib() {
   if (bibInput.value !== props.bibNumber) {
     emit('updateBib', bibInput.value);

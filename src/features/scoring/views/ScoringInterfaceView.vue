@@ -170,7 +170,12 @@ const categoryName = computed(() => {
 async function startMatch() {
   loading.value = true;
   try {
-    await matchStore.startMatch(tournamentId.value, matchId.value, match.value?.categoryId);
+    await matchStore.startMatch(
+      tournamentId.value,
+      matchId.value,
+      match.value?.categoryId,
+      match.value?.levelId
+    );
     notificationStore.showToast('success', 'Match started!');
 
     // Log activity (non-blocking - don't fail if logging fails)
@@ -193,7 +198,13 @@ async function addPoint(participant: 'participant1' | 'participant2') {
   if (isMatchComplete.value || !match.value) return;
 
   try {
-    await matchStore.updateScore(tournamentId.value, matchId.value, participant, match.value.categoryId);
+    await matchStore.updateScore(
+      tournamentId.value,
+      matchId.value,
+      participant,
+      match.value.categoryId,
+      match.value.levelId
+    );
   } catch (error) {
     notificationStore.showToast('error', 'Failed to update score');
   }
@@ -203,7 +214,13 @@ async function removePoint(participant: 'participant1' | 'participant2') {
   if (isMatchComplete.value || !match.value) return;
 
   try {
-    await matchStore.decrementScore(tournamentId.value, matchId.value, participant, match.value.categoryId);
+    await matchStore.decrementScore(
+      tournamentId.value,
+      matchId.value,
+      participant,
+      match.value.categoryId,
+      match.value.levelId
+    );
   } catch (error) {
     notificationStore.showToast('error', 'Failed to update score');
   }
@@ -219,7 +236,13 @@ async function confirmWalkover() {
   showWalkoverConfirm.value = false;
   loading.value = true;
   try {
-    await matchStore.recordWalkover(tournamentId.value, matchId.value, walkoverWinnerId.value);
+    await matchStore.recordWalkover(
+      tournamentId.value,
+      matchId.value,
+      walkoverWinnerId.value,
+      match.value?.categoryId,
+      match.value?.levelId
+    );
     notificationStore.showToast('success', 'Walkover recorded');
     router.back();
   } catch (error) {
@@ -297,7 +320,8 @@ async function submitManualScores() {
         winnerId: g.winner,
         isComplete: true,
       })),
-      match.value.categoryId
+      match.value.categoryId,
+      match.value.levelId
     );
 
     showManualScoreDialog.value = false;
@@ -862,6 +886,7 @@ function onScoreCorrected() {
     :match="match"
     :tournament-id="tournamentId"
     :category-id="match?.categoryId"
+    :scoring-config="match?.scoringConfig || BADMINTON_CONFIG"
     @corrected="onScoreCorrected"
   />
 </template>

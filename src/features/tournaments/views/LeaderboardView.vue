@@ -16,7 +16,7 @@ const categoryId = computed(() => route.params.categoryId as string | undefined)
 const isTournamentWide = computed(() => !categoryId.value);
 const showBwfDialog = ref(false);
 
-const { leaderboard, stage, error, generate, refresh, exportData } = useLeaderboard();
+const { leaderboard, stage, error, generate, exportData } = useLeaderboard();
 
 // Local filter state (applied client-side after generation)
 const activeFilters = ref<LeaderboardOptions & { search?: string }>({});

@@ -136,23 +136,6 @@ function toggleCurrentSelection() {
   }
 }
 
-function handleRowAction(registrationId: string, action: string) {
-  switch (action) {
-    case 'checkIn':
-      emit('checkIn', registrationId);
-      break;
-    case 'undo':
-      emit('undo', registrationId);
-      break;
-    case 'restore':
-      emit('restore', registrationId);
-      break;
-    case 'markNoShow':
-      emit('markNoShow', registrationId);
-      break;
-  }
-}
-
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown);
 });

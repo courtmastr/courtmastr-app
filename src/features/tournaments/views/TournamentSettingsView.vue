@@ -46,7 +46,6 @@ async function advanceState(): Promise<void> {
 }
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
-const courts = computed(() => tournamentStore.courts);
 const loading = ref(false);
 
 interface CategoryScoringOverrideForm {
@@ -300,8 +299,13 @@ async function saveSettings() {
 }
 
 const showDeleteDialog = ref(false);
+const typedDeleteName = ref('');
+const deleteConfirmEnabled = computed(
+  () => typedDeleteName.value === tournament.value?.name
+);
 
 function deleteTournament() {
+  typedDeleteName.value = '';
   showDeleteDialog.value = true;
 }
 
@@ -332,6 +336,7 @@ async function confirmDelete() {
           <v-btn
             icon="mdi-arrow-left"
             variant="text"
+            aria-label="Go back"
             @click="router.back()"
           />
           <div class="ml-2">
@@ -764,17 +769,7 @@ async function confirmDelete() {
         </v-card>
 
         <!-- Actions -->
-        <div class="d-flex justify-space-between">
-          <v-btn
-            color="error"
-            variant="outlined"
-            prepend-icon="mdi-delete"
-            data-testid="delete-tournament-btn"
-            :loading="loading"
-            @click="deleteTournament"
-          >
-            Delete Tournament
-          </v-btn>
+        <div class="d-flex justify-end">
           <v-btn
             color="primary"
             :loading="loading"
@@ -783,6 +778,44 @@ async function confirmDelete() {
             Save Changes
           </v-btn>
         </div>
+
+        <!-- Danger Zone -->
+        <v-card
+          class="mt-6"
+          variant="outlined"
+          color="error"
+        >
+          <v-card-title class="d-flex align-center text-error pa-4 pb-2">
+            <v-icon
+              start
+              icon="mdi-alert"
+              color="error"
+            />
+            Danger Zone
+          </v-card-title>
+          <v-card-text>
+            <div class="d-flex flex-column flex-sm-row align-sm-center justify-space-between gap-3">
+              <div>
+                <div class="text-subtitle-2 font-weight-medium">
+                  Delete this tournament
+                </div>
+                <div class="text-body-2 text-medium-emphasis">
+                  Permanently remove this tournament and all its data. This cannot be undone.
+                </div>
+              </div>
+              <v-btn
+                color="error"
+                variant="elevated"
+                prepend-icon="mdi-delete"
+                data-testid="delete-tournament-btn"
+                :loading="loading"
+                @click="deleteTournament"
+              >
+                Delete Tournament
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
       </v-col>
     </v-row>
 
@@ -803,19 +836,28 @@ async function confirmDelete() {
         </v-card-title>
         
         <v-card-text>
-          <p class="mb-4">
-            Are you sure you want to delete <strong>{{ tournament.name }}</strong>?
-          </p>
           <v-alert
             type="error"
             variant="tonal"
             border="start"
-            class="mb-0"
+            class="mb-4"
           >
             <strong>Warning:</strong> This action cannot be undone. All matches, players, and data associated with this tournament will be permanently removed.
           </v-alert>
+          <p class="text-body-2 mb-2">
+            Type <strong>{{ tournament.name }}</strong> to confirm:
+          </p>
+          <v-text-field
+            v-model="typedDeleteName"
+            variant="outlined"
+            density="compact"
+            placeholder="Tournament name"
+            :error="typedDeleteName.length > 0 && !deleteConfirmEnabled"
+            hide-details
+            autofocus
+          />
         </v-card-text>
-        
+
         <v-card-actions>
           <v-spacer />
           <v-btn
@@ -829,6 +871,7 @@ async function confirmDelete() {
             color="error"
             variant="elevated"
             :loading="loading"
+            :disabled="!deleteConfirmEnabled"
             @click="confirmDelete"
           >
             Delete Permanently

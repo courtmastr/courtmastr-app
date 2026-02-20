@@ -14,7 +14,6 @@ import {
   writeBatch,
   query,
   where,
-  orderBy,
   Timestamp,
   serverTimestamp,
 } from '@/services/firebase';
@@ -81,6 +80,7 @@ export function useMatchScheduler() {
     tournamentId: string,
     options: {
       categoryId: string;
+      levelId?: string;
       courtIds?: string[];
       startTime?: Date;
       respectDependencies?: boolean;
@@ -132,11 +132,14 @@ export function useMatchScheduler() {
       progress.value = 20;
 
       // Query matches directly without complex filters to avoid index issues
-      const matchPath = `tournaments/${tournamentId}/categories/${options.categoryId}/match`;
-      const participantPath = `tournaments/${tournamentId}/categories/${options.categoryId}/participant`;
-      const matchScoresPath = `tournaments/${tournamentId}/categories/${options.categoryId}/match_scores`;
-      const roundPath = `tournaments/${tournamentId}/categories/${options.categoryId}/round`;
-      const groupPath = `tournaments/${tournamentId}/categories/${options.categoryId}/group`;
+      const basePath = options.levelId
+        ? `tournaments/${tournamentId}/categories/${options.categoryId}/levels/${options.levelId}`
+        : `tournaments/${tournamentId}/categories/${options.categoryId}`;
+      const matchPath = `${basePath}/match`;
+      const participantPath = `${basePath}/participant`;
+      const matchScoresPath = `${basePath}/match_scores`;
+      const roundPath = `${basePath}/round`;
+      const groupPath = `${basePath}/group`;
 
       console.log('[scheduleMatches] Querying matches from:', {
         matchPath,
@@ -195,6 +198,7 @@ export function useMatchScheduler() {
           );
 
           if (adapted) {
+            (adapted as Match).levelId = options.levelId;
             // Merge with match_scores data if it exists
             const scoreData = matchScoresMap.get(adapted.id);
             if (scoreData) {
@@ -297,8 +301,11 @@ export function useMatchScheduler() {
 
       progress.value = 70;
 
-      await saveSchedule(tournamentId, options.categoryId, schedule.scheduled);
-
+      if (options.levelId) {
+        await saveSchedule(tournamentId, options.categoryId, schedule.scheduled, options.levelId);
+      } else {
+        await saveSchedule(tournamentId, options.categoryId, schedule.scheduled);
+      }
       progress.value = 100;
 
       return schedule;
@@ -320,10 +327,14 @@ export function useMatchScheduler() {
     categoryId: string,
     matchId: string,
     courtId: string,
-    scheduledTime: Date
+    scheduledTime: Date,
+    levelId?: string
   ): Promise<void> {
+    const matchScoresPath = levelId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}/match_scores`
+      : `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
     await setDoc(
-      doc(db, 'tournaments', tournamentId, 'categories', categoryId, 'match_scores', matchId),
+      doc(db, matchScoresPath, matchId),
       {
         courtId,
         scheduledTime: Timestamp.fromDate(scheduledTime),
@@ -345,9 +356,12 @@ export function useMatchScheduler() {
    */
   async function clearSchedule(
     tournamentId: string,
-    categoryId: string
+    categoryId: string,
+    levelId?: string
   ): Promise<{ cleared: number }> {
-    const matchScoresPath = `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
+    const matchScoresPath = levelId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}/match_scores`
+      : `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
     const matchesQuery = query(
       collection(db, matchScoresPath),
       where('courtId', '!=', null)
@@ -607,18 +621,18 @@ function generateSchedule(
 async function saveSchedule(
   tournamentId: string,
   categoryId: string,
-  scheduled: ScheduledMatch[]
+  scheduled: ScheduledMatch[],
+  levelId?: string
 ): Promise<void> {
   const batch = writeBatch(db);
 
   for (const slot of scheduled) {
+    const matchScoresPath = levelId
+      ? `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}/match_scores`
+      : `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
     const scoreRef = doc(
       db,
-      'tournaments',
-      tournamentId,
-      'categories',
-      categoryId,
-      'match_scores',
+      matchScoresPath,
       slot.matchId
     );
     batch.set(

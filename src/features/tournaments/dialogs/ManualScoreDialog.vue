@@ -8,7 +8,6 @@ import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import {
   getGamesNeeded,
-  getScoreInputMax,
   resolveScoringConfig,
   validateCompletedGameScore,
 } from '@/features/scoring/utils/validation';
@@ -36,12 +35,27 @@ const { getParticipantName } = useParticipantResolver();
 const loading = ref(false);
 const manualScores = ref<Array<{ score1: number; score2: number }>>([]);
 
+// Per-game inline validation — only validates games where at least one score > 0
+const gameValidations = computed(() => {
+  const config = scoringConfig.value;
+  return manualScores.value.map((g) => {
+    if (g.score1 === 0 && g.score2 === 0) return { isValid: true, message: undefined, winner: null };
+    const result = validateCompletedGameScore(g.score1, g.score2, config);
+    const winner = result.isValid
+      ? (g.score1 > g.score2 ? 'p1' : 'p2')
+      : null;
+    return { ...result, winner };
+  });
+});
+
+const hasInvalidScores = computed(() =>
+  gameValidations.value.some((v) => !v.isValid)
+);
+
 const scoringConfig = computed<ScoringConfig>(() => {
   const category = props.categories.find(c => c.id === props.match?.categoryId);
   return resolveScoringConfig(props.tournament, category);
 });
-
-const maxScore = computed(() => getScoreInputMax(scoringConfig.value));
 
 function createScoreRows(count: number) {
   return Array.from({ length: count }, () => ({ score1: 0, score2: 0 }));
@@ -95,7 +109,8 @@ async function submitScores() {
       props.tournamentId,
       match.id,
       games,
-      match.categoryId
+      match.categoryId,
+      match.levelId
     );
 
     // Log activity if match completed
@@ -155,29 +170,61 @@ async function submitScores() {
       <div
         v-for="(game, index) in manualScores"
         :key="index"
-        class="d-flex align-center gap-4 mb-2"
+        class="mb-3"
       >
-        <span
-          class="text-caption"
-          style="width: 60px"
-        >Game {{ index + 1 }}</span>
-        <v-text-field
-          v-model.number="game.score1"
-          type="number"
-          variant="outlined"
-          density="compact"
-          hide-details
-          class="centered-input"
-        />
-        <span class="text-h6">-</span>
-        <v-text-field
-          v-model.number="game.score2"
-          type="number"
-          variant="outlined"
-          density="compact"
-          hide-details
-          class="centered-input"
-        />
+        <div class="d-flex align-center gap-4">
+          <span
+            class="text-caption text-medium-emphasis"
+            style="width: 60px; flex-shrink: 0"
+          >Game {{ index + 1 }}</span>
+          <v-text-field
+            v-model.number="game.score1"
+            type="number"
+            min="0"
+            variant="outlined"
+            density="compact"
+            hide-details
+            :aria-label="`Game ${index + 1} score for ${match ? getParticipantName(match.participant1Id) : 'Player 1'}`"
+            class="centered-input"
+          />
+          <span class="text-h6 text-medium-emphasis">–</span>
+          <v-text-field
+            v-model.number="game.score2"
+            type="number"
+            min="0"
+            variant="outlined"
+            density="compact"
+            hide-details
+            :aria-label="`Game ${index + 1} score for ${match ? getParticipantName(match.participant2Id) : 'Player 2'}`"
+            class="centered-input"
+          />
+        </div>
+        <!-- Validation feedback row -->
+        <div
+          v-if="game.score1 > 0 || game.score2 > 0"
+          class="d-flex align-center mt-1 ml-16 gap-2"
+        >
+          <v-chip
+            v-if="gameValidations[index]?.isValid && gameValidations[index]?.winner"
+            size="x-small"
+            :color="gameValidations[index].winner === 'p1' ? 'primary' : 'secondary'"
+            variant="tonal"
+            prepend-icon="mdi-trophy-outline"
+          >
+            {{ gameValidations[index].winner === 'p1'
+              ? (match ? getParticipantName(match.participant1Id) : 'Player 1')
+              : (match ? getParticipantName(match.participant2Id) : 'Player 2') }} wins
+          </v-chip>
+          <span
+            v-else-if="!gameValidations[index]?.isValid"
+            class="text-caption text-error"
+          >
+            <v-icon
+              size="14"
+              class="mr-1"
+            >mdi-alert-circle-outline</v-icon>{{ gameValidations[index]?.message }}
+          </span>
+        </div>
       </div>
     </v-form>
 
@@ -194,6 +241,7 @@ async function submitScores() {
         color="primary"
         variant="flat"
         :loading="loading"
+        :disabled="loading || hasInvalidScores"
         @click="submitScores"
       >
         Save Scores

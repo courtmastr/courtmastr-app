@@ -4,7 +4,10 @@ import { useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
-import { CATEGORY_TEMPLATES, type TournamentFormat, type TournamentSettings } from '@/types';
+import { CATEGORY_TEMPLATES, CATEGORY_TYPE_LABELS, CATEGORY_GENDER_LABELS, type TournamentFormat, type TournamentSettings } from '@/types';
+
+const categoryTypeItems = Object.entries(CATEGORY_TYPE_LABELS).map(([value, title]) => ({ value, title }));
+const categoryGenderItems = Object.entries(CATEGORY_GENDER_LABELS).map(([value, title]) => ({ value, title }));
 
 const router = useRouter();
 const tournamentStore = useTournamentStore();
@@ -336,6 +339,16 @@ async function handleSubmit() {
 }
 </script>
 
+<style scoped>
+.action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: rgb(var(--v-theme-surface));
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+</style>
+
 <template>
   <v-container>
     <v-row justify="center">
@@ -500,7 +513,9 @@ async function handleSubmit() {
                       <v-col cols="3">
                         <v-select
                           v-model="cat.type"
-                          :items="['singles', 'doubles', 'mixed_doubles']"
+                          :items="categoryTypeItems"
+                          item-title="title"
+                          item-value="value"
                           label="Type"
                           density="compact"
                           hide-details
@@ -509,7 +524,9 @@ async function handleSubmit() {
                       <v-col cols="3">
                         <v-select
                           v-model="cat.gender"
-                          :items="['men', 'women', 'mixed', 'open']"
+                          :items="categoryGenderItems"
+                          item-title="title"
+                          item-value="value"
                           label="Gender"
                           density="compact"
                           hide-details
@@ -657,7 +674,7 @@ async function handleSubmit() {
             </v-stepper-window>
 
             <!-- Navigation -->
-            <v-card-actions class="pa-4">
+            <v-card-actions class="pa-4 action-bar">
               <v-btn
                 v-if="currentStep > 1"
                 variant="text"

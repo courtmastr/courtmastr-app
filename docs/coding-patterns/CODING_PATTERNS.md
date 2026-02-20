@@ -1252,6 +1252,319 @@ rg -n "teamName:\\s*`\\$\\{\\w+\\.last\\}\\s*/\\s*\\$\\{\\w+\\.last\\}`" scripts
 
 ---
 
+### CP-028: Dashboard Must Show Upcoming and Remaining Matches (Not Only Live)
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-18 |
+| **Source Bug** | Organizers saw "no matches in progress" even though tournament had many `ready`/`scheduled`/remaining matches |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<div v-if="stats.inProgressMatches > 0">
+  <!-- only active matches -->
+</div>
+```
+
+**Correct Pattern (✅):**
+```vue
+<div>
+  <ActiveMatchesSection :matches="liveMatches" />
+  <ReadyQueue :matches="queueMatches" :enable-assign="false" />
+  <v-table>
+    <!-- remaining by category + next round -->
+  </v-table>
+</div>
+```
+```typescript
+const { categoryStageStatuses, queueMatches } = useCategoryStageStatus(categories, matches, getParticipantName);
+```
+
+**Rule:** Tournament dashboard views must expose live, upcoming (`ready`/`scheduled`), and remaining context with category and round details so organizers can operate without switching pages; stage derivation must live in a shared composable (`useCategoryStageStatus`) instead of per-view duplicated logic.
+
+**Detection:**
+```bash
+rg -n "v-if=\\\"stats\\.inProgressMatches > 0\\\"" src/features/tournaments/views/TournamentDashboardView.vue
+rg -n "ReadyQueue|Remaining Matches by Category|nextRound|Round" src/features/tournaments/views/TournamentDashboardView.vue
+rg -n "useCategoryStageStatus" src/features/tournaments/views/TournamentDashboardView.vue src/features/tournaments/views/MatchControlView.vue
+```
+
+---
+
+### CP-029: Initialize Level Bracket `match_scores` on Generation
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-19 |
+| **Source Bug** | Level brackets were generated under `levels/{levelId}/match` but `levels/{levelId}/match_scores` stayed empty, causing missing operational context for level workflows |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await bracketGen.generateLevelBracket(...);
+// no match_scores initialization for generated level matches
+```
+
+**Correct Pattern (✅):**
+```typescript
+const result = await createStageWithStats(...);
+await initializeLevelMatchScores(
+  tournamentId,
+  categoryId,
+  levelId,
+  storage,
+  result.stageId,
+  registrationIdByParticipantId
+);
+```
+
+**Rule:** Whenever a level bracket is generated, initialize `tournaments/{t}/categories/{c}/levels/{levelId}/match_scores` for playable matches (`ready`/`in_progress`/`completed`) in the same flow, using bracket status and participant mapping.
+
+**Detection:**
+```bash
+rg -n "generateLevelBracket|initializeLevelMatchScores|levels',\\s*levelId,\\s*'match_scores'" src/composables/useBracketGenerator.ts
+```
+
+---
+
+### CP-030: Match Operations Must Resolve Category vs Level Scope Explicitly
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-19 |
+| **Source Bug** | Match Control showed only completed category matches while level matches were ignored, and level actions wrote to category `match_scores` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const matchScoresPath = `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
+await setDoc(doc(db, matchScoresPath, matchId), payload, { merge: true });
+```
+
+**Correct Pattern (✅):**
+```typescript
+function getMatchScoresPath(tournamentId: string, categoryId?: string, levelId?: string): string {
+  if (categoryId && levelId) {
+    return `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}/match_scores`;
+  }
+  if (categoryId) {
+    return `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
+  }
+  return `tournaments/${tournamentId}/match_scores`;
+}
+
+const path = getMatchScoresPath(tournamentId, categoryId, levelId);
+await setDoc(doc(db, path, matchId), payload, { merge: true });
+```
+
+**Rule:** Any match operation (`start`, `ready`, `assign`, `score`, `complete`, `walkover`, `unschedule`, queue updates) must accept optional `levelId` and write/read from the resolved scope path. Categories without levels must pass `undefined` and continue using category paths unchanged.
+
+**Detection:**
+```bash
+rg -n -F 'tournaments/${tournamentId}/categories/${categoryId}/match_scores' src/stores/matches.ts src/stores/tournaments.ts
+rg -n "assignMatchToCourt\\(|startMatch\\(|submitManualScores\\(|recordWalkover\\(|unscheduleMatch\\(" src/features/tournaments/views/MatchControlView.vue src/features/tournaments/dialogs src/features/scoring/views src/features/public/views
+```
+
+---
+
+### CP-031: Critical Action Visibility Must Use Explicit Prop Defaults
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-19 |
+| **Source Bug** | Live View hid unschedule/release actions because Boolean prop default resolved falsy |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const props = defineProps<{
+  matches: Match[];
+  showActions?: boolean;
+}>();
+
+const shouldShowActions = computed(() => props.showActions !== false);
+```
+
+**Correct Pattern (✅):**
+```typescript
+const props = withDefaults(defineProps<{
+  matches: Match[];
+  showActions?: boolean;
+}>(), {
+  showActions: true,
+});
+
+const shouldShowActions = computed(() => props.showActions);
+```
+
+**Rule:** For controls that gate operational actions (`Release`, `Unschedule`, `Assign`, `Score`), optional Boolean props must declare explicit defaults via `withDefaults` so UI access is not accidentally hidden.
+
+**Detection:**
+```bash
+rg -n "showActions\\?: boolean|enableAssign\\?: boolean|show.*Actions\\?: boolean" src/features --glob "*.vue"
+rg -n "defineProps<\\{[\\s\\S]*showActions\\?: boolean[\\s\\S]*\\}\\>" src/features --glob "*.vue" | rg -v "withDefaults"
+```
+
+---
+
+### CP-032: Leveled Categories Must Not Mix Base and Level Match Scopes
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-19 |
+| **Source Bug** | Command Center showed a completed category as active with `vs TBD` from stale base bracket matches |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+targetScopes = categoryIds.flatMap((cid, index) => {
+  const levelScopes = levelSnapshots[index].docs.map((levelDoc) => ({
+    categoryId: cid,
+    levelId: levelDoc.id,
+  }));
+  return [{ categoryId: cid }, ...levelScopes];
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+targetScopes = categoryIds.flatMap((cid, index) => {
+  const levelScopes = levelSnapshots[index].docs.map((levelDoc) => ({
+    categoryId: cid,
+    levelId: levelDoc.id,
+  }));
+  return levelScopes.length > 0 ? levelScopes : [{ categoryId: cid }];
+});
+```
+
+**Rule:** If a category has level brackets, operational reads for match control/status must use only level scopes for that category. Base category scopes are fallback-only for categories without levels.
+
+**Detection:**
+```bash
+rg -n "return \\[\\{ categoryId: cid \\}, \\.\\.\\.levelScopes\\]" src/stores/matches.ts
+rg -n "targetScopes = \\[\\{ categoryId, levelId \\}\\];" src/stores/matches.ts
+```
+
+---
+
+### CP-033: Live View Must Be Read-Only; Operations Belong in Command Center
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-19 |
+| **Source Bug** | Live View exposed auto-schedule/assignment actions, causing accidental operational changes from a view-only screen |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<!-- Live View -->
+<active-matches-section
+  :matches="enrichedInProgressMatches"
+  @complete-match="openCompleteMatchDialog"
+  @enter-score="openScoreDialog"
+  @unschedule="handleUnschedule"
+/>
+
+<match-queue-list
+  :matches="enrichedPendingMatches"
+  :auto-assign-enabled="autoAssignEnabled"
+  :auto-start-enabled="autoStartEnabled"
+  @manual-assign="handleManualAssign"
+/>
+```
+
+**Correct Pattern (✅):**
+```vue
+<!-- Live View (read-only) -->
+<active-matches-section
+  :matches="enrichedInProgressMatches"
+  :show-actions="false"
+/>
+
+<match-queue-list
+  :matches="enrichedPendingMatches"
+  :auto-assign-enabled="autoAssignEnabled"
+  :auto-start-enabled="autoStartEnabled"
+  :read-only="true"
+/>
+
+<!-- Command Center -->
+<v-btn @click="openAutoScheduleDialog">Auto-Schedule</v-btn>
+<v-switch :model-value="autoAssignEnabled" @update:model-value="toggleAutoAssign(!!$event)" />
+<v-switch :model-value="autoStartEnabled" @update:model-value="toggleAutoStart(!!$event)" />
+```
+
+**Rule:** `viewMode === 'queue'` (Live View) must not expose operational controls (assign, release, complete, auto-schedule, auto-start toggles). Operational controls must live in `viewMode === 'command'` only.
+
+**Detection:**
+```bash
+rg -n "viewMode === 'queue'|Live View|show-actions=\"false\"|read-only=\"true\"" src/features/tournaments/views/MatchControlView.vue
+rg -n "@manual-assign|@toggle-auto-assign|@toggle-auto-start|@complete-match|@unschedule" src/features/tournaments/views/MatchControlView.vue
+```
+
+---
+
+### CP-034: App Build Typecheck Must Scope to `src/` and Keep Shared Types in Sync
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-20 |
+| **Source Bug** | Production build blocked by `vue-tsc -b` errors from stale test imports and shared model drift |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```json
+{
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "tests/**/*.ts"]
+}
+```
+```typescript
+// Shared type missing properties used across multiple views
+export interface User {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+}
+```
+
+**Correct Pattern (✅):**
+```json
+{
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+}
+```
+```typescript
+// Shared type matches actual UI/store usage
+export interface User {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  phone?: string;
+  isActive?: boolean;
+  lastLoginAt?: Date;
+}
+```
+
+**Rule:** `tsconfig.app.json` is for application build type-checking only; keep test-only files out of this include list and update central shared types in `src/types/index.ts` whenever new cross-feature fields are introduced.
+
+**Detection:**
+```bash
+rg -n "\"tests/\\*\\*/\\*.ts\"" tsconfig.app.json
+rg -n "isActive|lastLoginAt|autoAssignEnabled|calledAt|categoryName|courtName|MatchEvent" src/types/index.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

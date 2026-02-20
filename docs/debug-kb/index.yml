@@ -1,3 +1,101 @@
+- id: 42109da1
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "✅ fixed"
+  date: "2026-02-20"
+  fingerprint: "42109da1"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-20-14-20-54.vue-tsc-b.log"
+- id: 0a9dffa2
+  title: test:log fails on firebase/testing import in diagnose_data suite
+  status: "❌ unresolved"
+  date: "2026-02-20"
+  fingerprint: "0a9dffa2"
+  command: "npm run test:log -- --run"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-20-14-20-31.vitest-run.log"
+- id: efb03793
+  title: lint:log fails because eslint-plugin-vue is missing
+  status: "❌ unresolved"
+  date: "2026-02-20"
+  fingerprint: "efb03793"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-20-14-19-40.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 9248ae25
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-19"
+  fingerprint: "9248ae25"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-19-19-52-46.vue-tsc-b.log"
+- id: 6b0bf24f
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-19"
+  fingerprint: "6b0bf24f"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-19-18-12-46.vue-tsc-b.log"
+- id: 6a900427
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-19"
+  fingerprint: "6a900427"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-19-18-11-39.vue-tsc-b.log"
+- id: c3b607fd
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-19"
+  fingerprint: "c3b607fd"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-19-18-07-46.vue-tsc-b.log"
+- id: 2e5f150b
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-19"
+  fingerprint: "2e5f150b"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-19-18-06-08.vue-tsc-b.log"
+- id: 8c6a08f5
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-19"
+  fingerprint: "8c6a08f5"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-19-17-22-50.vue-tsc-b.log"
+- id: aae81b7b
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-19"
+  fingerprint: "aae81b7b"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-19-15-59-22.vue-tsc-b.log"
+- id: de0f55eb
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-19"
+  fingerprint: "de0f55eb"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-19-05-58-12.vue-tsc-b.log"
+- id: ac505761
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-19"
+  fingerprint: "ac505761"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-19-05-27-16.vue-tsc-b.log"
+- id: f057263e
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-18"
+  fingerprint: "f057263e"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-18-21-54-44.vue-tsc-b.log"
+- id: 94826621
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "❌ unresolved"
+  date: "2026-02-18"
+  fingerprint: "94826621"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-18-21-54-02.vue-tsc-b.log"
 - id: fe908781
   title: build:log fails with existing workspace TypeScript baseline errors
   status: "❌ unresolved"
@@ -155,10 +253,10 @@
 - id: 6b531036
   title: eslint not found when running lint:log
   status: "❌ unresolved"
-  date: "2026-02-18"
+  date: "2026-02-19"
   fingerprint: "6b531036"
   command: "npm run lint:log"
-  artifact_log: "docs/debug-kb/_artifacts/2026-02-18-21-35-55.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-19-19-52-38.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 17345f1f
   title: Build fails with unused unsubscribe variables
   status: "✅ fixed"

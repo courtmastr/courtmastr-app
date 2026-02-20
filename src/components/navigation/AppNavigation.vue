@@ -21,6 +21,7 @@
           v-if="!rail"
           icon="mdi-chevron-left"
           variant="text"
+          aria-label="Collapse sidebar"
           @click.stop="rail = !rail"
         />
       </template>
@@ -70,6 +71,14 @@
         />
         <v-list-item
           v-if="isOrganizer"
+          :to="`/tournaments/${currentTournamentId}/live-view`"
+          prepend-icon="mdi-monitor-eye"
+          title="Live View"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
           :to="`/tournaments/${currentTournamentId}/categories`"
           prepend-icon="mdi-tag-multiple"
           title="Categories"
@@ -106,6 +115,33 @@
           rounded="lg"
           :ripple="false"
         />
+
+        <!-- Public / Shareable links -->
+        <v-divider class="my-2" />
+        <v-list-subheader v-if="!rail">
+          Public
+        </v-list-subheader>
+        <v-list-item
+          :to="`/tournaments/${currentTournamentId}/live`"
+          prepend-icon="mdi-broadcast"
+          title="Live Scores"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          :to="`/tournaments/${currentTournamentId}/bracket`"
+          prepend-icon="mdi-tournament"
+          title="Public Bracket"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          :to="`/tournaments/${currentTournamentId}/score`"
+          prepend-icon="mdi-scoreboard"
+          title="Score Entry"
+          rounded="lg"
+          :ripple="false"
+        />
       </template>
     </v-list>
 
@@ -125,11 +161,12 @@
           :ripple="false"
         />
         <v-list-item
+          href="/logout"
           prepend-icon="mdi-logout"
           title="Logout"
           rounded="lg"
           :ripple="false"
-          @click="handleLogout"
+          @click.prevent="handleLogout"
         />
       </v-list>
     </template>

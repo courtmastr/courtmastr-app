@@ -34,6 +34,7 @@ const props = defineProps<{
   availableCourts: Court[];
   autoAssignEnabled: boolean;
   autoStartEnabled: boolean;
+  readOnly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -144,7 +145,10 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
 
     <v-card-text>
       <!-- Auto-Assign Toggle -->
-      <div class="mb-4">
+      <div
+        v-if="!readOnly"
+        class="mb-4"
+      >
         <div class="d-flex flex-wrap gap-4">
           <v-switch
             :model-value="autoAssignEnabled"
@@ -176,7 +180,10 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
         </div>
       </div>
 
-      <v-divider class="mb-4" />
+      <v-divider
+        v-if="!readOnly"
+        class="mb-4"
+      />
 
       <!-- Queue List with Urgency Indicators -->
       <v-list
@@ -278,7 +285,13 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
           </div>
 
           <template #append>
-            <v-menu>
+            <div
+              v-if="readOnly"
+              class="text-caption text-medium-emphasis"
+            >
+              View only
+            </div>
+            <v-menu v-else>
               <template #activator="{ props: menuProps }">
                 <v-btn
                   v-bind="menuProps"

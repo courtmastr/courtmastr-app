@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
-import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import FilterBar from '@/components/common/FilterBar.vue';
 
@@ -14,7 +13,6 @@ const route = useRoute();
 const router = useRouter();
 const tournamentStore = useTournamentStore();
 const registrationStore = useRegistrationStore();
-const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
@@ -155,11 +153,6 @@ onMounted(async () => {
   registrationStore.subscribeRegistrations(tournamentId.value);
   registrationStore.subscribePlayers(tournamentId.value);
 });
-
-function getPlayerName(playerId: string): string {
-  const player = players.value.find((p) => p.id === playerId);
-  return player ? `${player.firstName} ${player.lastName}` : 'Unknown';
-}
 
 function getParticipantRegistrations(playerId: string) {
   return activeRegistrations.value.filter((registration) =>
@@ -342,6 +335,7 @@ function clearFilters() {
 
     <StateBanner
       :state="lifecycleState"
+      :next-state="null"
       :is-admin="false"
     />
 
@@ -771,7 +765,7 @@ function clearFilters() {
 </template>
 
 <style scoped lang="scss">
-@import '@/styles/variables.scss';
+@use '@/styles/variables.scss' as *;
 
 .compact-header {
   margin-bottom: $spacing-lg;

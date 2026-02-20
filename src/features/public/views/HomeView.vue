@@ -201,7 +201,7 @@ const features = [
 </template>
 
 <style scoped lang="scss">
-@import '@/styles/variables.scss';
+@use '@/styles/variables.scss' as *;
 
 .home-view {
   min-height: 100vh;

@@ -132,6 +132,7 @@ async function submitBugReport() {
       <v-app-bar-nav-icon
         v-if="isAuthenticated"
         :ripple="false"
+        aria-label="Toggle navigation"
         @click="drawer = !drawer"
       />
 
@@ -165,6 +166,7 @@ async function submitBugReport() {
             class="mr-2"
             v-bind="props"
             :ripple="false"
+            aria-label="Report a bug"
             @click="showBugDialog = true"
           />
         </template>
@@ -176,6 +178,7 @@ async function submitBugReport() {
         icon
         variant="text"
         class="mr-2"
+        :aria-label="unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'"
       >
         <v-badge
           :content="unreadCount"
@@ -250,6 +253,7 @@ async function submitBugReport() {
             v-bind="props"
             icon
             variant="text"
+            aria-label="Open user menu"
           >
             <v-avatar
               color="primary"
@@ -305,7 +309,7 @@ async function submitBugReport() {
                   :color="getRoleBadgeColor(currentUser?.role || 'viewer')"
                   label
                 >
-                  {{ currentUser?.role }}
+                  {{ currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : '' }}
                 </v-chip>
               </v-list-item-subtitle>
             </v-list-item>
@@ -387,7 +391,7 @@ async function submitBugReport() {
 </template>
 
 <style scoped lang="scss">
-@import '@/styles/variables.scss';
+@use '@/styles/variables.scss' as *;
 
 .app-bar {
   border-bottom: 1px solid $border-light;

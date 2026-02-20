@@ -9,7 +9,10 @@ export interface User {
   id: string;
   email: string;
   displayName: string;
+  phone?: string;
   role: UserRole;
+  isActive?: boolean;
+  lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,6 +54,8 @@ export interface TournamentSettings {
   matchDurationMinutes: number; // Estimated match duration for scheduling
   allowSelfRegistration: boolean;
   requireApproval: boolean;
+  autoAssignEnabled?: boolean;
+  autoStartEnabled?: boolean;
   // Scoring settings
   gamesPerMatch: number; // Best of 1, 3, or 5
   pointsToWin: number; // Points needed to win a game
@@ -186,6 +191,30 @@ export const FORMAT_LABELS: Record<TournamentFormat, string> = {
   'pool_to_elimination': 'Pool Play to Elimination',
 };
 
+// Tournament status display labels
+export const TOURNAMENT_STATUS_LABELS: Record<TournamentStatus, string> = {
+  'draft': 'Draft',
+  'registration': 'Registration Open',
+  'active': 'Active',
+  'completed': 'Completed',
+  'cancelled': 'Cancelled',
+};
+
+// Category type display labels
+export const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
+  'singles': 'Singles',
+  'doubles': 'Doubles',
+  'mixed_doubles': 'Mixed Doubles',
+};
+
+// Category gender display labels
+export const CATEGORY_GENDER_LABELS: Record<CategoryGender, string> = {
+  'men': "Men's",
+  'women': "Women's",
+  'mixed': 'Mixed',
+  'open': 'Open',
+};
+
 // Player/Team Types
 export interface Player {
   id: string;
@@ -227,6 +256,7 @@ export interface Registration {
   bibNumber?: number | null; // Bib number assigned to participant
   registeredBy: string; // User ID who created the registration
   registeredAt: Date;
+  createdAt?: Date;
   approvedAt?: Date;
   approvedBy?: string;
 }
@@ -252,6 +282,7 @@ export interface Match {
   id: string;
   tournamentId: string;
   categoryId: string;
+  levelId?: string;
   round: number;
   matchNumber: number; // Position in bracket
   bracketPosition: BracketPosition;
@@ -274,6 +305,10 @@ export interface Match {
   // Score correction tracking
   corrected?: boolean; // Whether this match has been corrected
   correctionCount?: number; // How many times the score has been corrected
+  categoryName?: string;
+  courtName?: string;
+  score?: string;
+  calledAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -420,6 +455,14 @@ export interface AuditLogFilter {
   startDate?: Date;
   endDate?: Date;
   limit?: number;
+}
+
+export interface MatchEvent {
+  id: string;
+  type: 'court_assigned' | 'match_announced' | 'match_started' | 'match_completed' | 'match_delayed' | 'walkover' | string;
+  title: string;
+  description?: string;
+  timestamp: Date;
 }
 
 // API Response Types

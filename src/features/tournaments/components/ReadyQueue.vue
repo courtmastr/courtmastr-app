@@ -19,6 +19,7 @@ const props = defineProps<Props>();
 interface QueueMatchRef {
   matchId: string;
   categoryId: string;
+  levelId?: string;
 }
 
 const emit = defineEmits<{
@@ -117,7 +118,7 @@ function isSelected(match: Match): boolean {
         <v-list-item
           :class="['ready-queue__item', { 'ready-queue__item--selected': isSelected(match) }]"
           :active="isSelected(match)"
-          @click="emit('select', { matchId: match.id, categoryId: match.categoryId })"
+          @click="emit('select', { matchId: match.id, categoryId: match.categoryId, levelId: match.levelId })"
         >
           <template #prepend>
             <div class="d-flex flex-column align-center mr-3">
@@ -162,7 +163,7 @@ function isSelected(match: Match): boolean {
                 color="success"
                 class="mt-1"
                 prepend-icon="mdi-plus"
-                @click.stop="emit('assign', { matchId: match.id, categoryId: match.categoryId })"
+                @click.stop="emit('assign', { matchId: match.id, categoryId: match.categoryId, levelId: match.levelId })"
               >
                 Assign
               </v-btn>
