@@ -46,10 +46,10 @@ setup('authenticate as scorekeeper', async ({ page }) => {
 });
 
 setup('seed test tournament', async () => {
-  console.log('🌱 Seeding test tournament data via Node.js script...');
+  console.log('🌱 Seeding test tournament data via local seed script...');
   
   try {
-    const result = execSync('node scripts/seed-test-tournament.cjs', {
+    const result = execSync('npx tsx scripts/seed/local.ts', {
       encoding: 'utf-8',
       timeout: 60000,
       cwd: process.cwd(),
