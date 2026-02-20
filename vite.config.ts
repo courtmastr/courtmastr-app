@@ -9,7 +9,7 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['logo.svg', 'favicon.png', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'CourtMaster Tournament Manager',
         short_name: 'CourtMaster',
