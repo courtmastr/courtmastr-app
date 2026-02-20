@@ -36,30 +36,34 @@ const db = getFirestore(app);
 connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
 connectFirestoreEmulator(db, 'localhost', 8080);
 
-async function setupAdmin(): Promise<string> {
-  const email = 'admin@courtmastr.com';
-  const password = 'admin123';
+interface UserConfig {
+  email: string;
+  password: string;
+  displayName: string;
+  role: string;
+}
 
+async function createOrSignIn(config: UserConfig): Promise<string> {
   try {
-    const { user } = await createUserWithEmailAndPassword(auth, email, password);
+    const { user } = await createUserWithEmailAndPassword(auth, config.email, config.password);
     await setDoc(doc(db, 'users', user.uid), {
-      email,
-      displayName: 'Tournament Admin',
-      role: 'admin',
+      email: config.email,
+      displayName: config.displayName,
+      role: config.role,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    console.log('  Created admin user');
+    console.log(`  Created ${config.role}: ${config.email}`);
     return user.uid;
   } catch (err: unknown) {
     if ((err as { code?: string }).code === 'auth/email-already-in-use') {
-      const { user } = await signInWithEmailAndPassword(auth, email, password);
+      const { user } = await signInWithEmailAndPassword(auth, config.email, config.password);
       await setDoc(
         doc(db, 'users', user.uid),
-        { email, displayName: 'Tournament Admin', role: 'admin', updatedAt: serverTimestamp() },
+        { email: config.email, displayName: config.displayName, role: config.role, updatedAt: serverTimestamp() },
         { merge: true }
       );
-      console.log('  Signed in as existing admin');
+      console.log(`  Found existing ${config.role}: ${config.email}`);
       return user.uid;
     }
     throw err;
@@ -72,8 +76,20 @@ async function main(): Promise<void> {
   console.log('='.repeat(64));
 
   try {
-    console.log('\n[1] Setting up admin user...');
-    const adminId = await setupAdmin();
+    console.log('\n[1] Setting up users...');
+    const adminId = await createOrSignIn({
+      email: 'admin@courtmastr.com',
+      password: 'admin123',
+      displayName: 'Tournament Admin',
+      role: 'admin',
+    });
+    await createOrSignIn({
+      email: 'scorekeeper@courtmastr.com',
+      password: 'score123',
+      displayName: 'Court Scorekeeper',
+      role: 'scorekeeper',
+    });
+
     await runSeed(db, adminId);
     process.exit(0);
   } catch (error) {

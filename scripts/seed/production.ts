@@ -6,16 +6,22 @@
  *
  * Run: npm run seed:prod
  *
- * Prerequisites:
- *   1. Create admin@courtmastr.com / admin123 in Firebase Console
- *      → Authentication > Users > Add user
- *   2. Add a Firestore doc at users/<uid>:
- *      { email, displayName: "Tournament Admin", role: "admin" }
+ * Users (admin + scorekeeper) are created automatically on first run
+ * if they don't already exist.
  */
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { runSeed } from './core';
 
 const app = initializeApp({
@@ -30,19 +36,36 @@ const app = initializeApp({
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-async function signInAdmin(): Promise<string> {
+interface UserConfig {
+  email: string;
+  password: string;
+  displayName: string;
+  role: string;
+}
+
+async function createOrSignIn(config: UserConfig): Promise<string> {
   try {
-    const { user } = await signInWithEmailAndPassword(auth, 'admin@courtmastr.com', 'admin123');
-    console.log('  Signed in as admin');
+    const { user } = await createUserWithEmailAndPassword(auth, config.email, config.password);
+    await setDoc(doc(db, 'users', user.uid), {
+      email: config.email,
+      displayName: config.displayName,
+      role: config.role,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    console.log(`  Created ${config.role}: ${config.email}`);
     return user.uid;
   } catch (err: unknown) {
     const code = (err as { code?: string }).code ?? '';
-    if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-      console.error('\n  Admin user not found. Create it first:');
-      console.error('  Firebase Console → Authentication → Users → Add user');
-      console.error('  Email: admin@courtmastr.com  Password: admin123');
-      console.error('  Then add Firestore doc at users/<uid> with role: "admin".');
-      process.exit(1);
+    if (code === 'auth/email-already-in-use') {
+      const { user } = await signInWithEmailAndPassword(auth, config.email, config.password);
+      await setDoc(
+        doc(db, 'users', user.uid),
+        { email: config.email, displayName: config.displayName, role: config.role, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+      console.log(`  Found existing ${config.role}: ${config.email}`);
+      return user.uid;
     }
     throw err;
   }
@@ -57,8 +80,20 @@ async function main(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 5000));
 
   try {
-    console.log('\n[1] Signing in as admin...');
-    const adminId = await signInAdmin();
+    console.log('\n[1] Setting up users...');
+    const adminId = await createOrSignIn({
+      email: 'admin@courtmastr.com',
+      password: 'admin123',
+      displayName: 'Tournament Admin',
+      role: 'admin',
+    });
+    await createOrSignIn({
+      email: 'scorekeeper@courtmastr.com',
+      password: 'score123',
+      displayName: 'Court Scorekeeper',
+      role: 'scorekeeper',
+    });
+
     await runSeed(db, adminId);
     process.exit(0);
   } catch (error) {
