@@ -114,7 +114,7 @@ echo -e "${GREEN}  ✓ Ready${NC}"
 echo ""
 
 echo -e "${BLUE}🌱 Seeding...${NC}"
-npx tsx scripts/seed-simple.ts 2>&1 | tee "$ABS_LOGS_DIR/seed.log"
+npx tsx scripts/seed/local.ts 2>&1 | tee "$ABS_LOGS_DIR/seed.log"
 SEED_EXIT=${PIPESTATUS[0]}
 if [ $SEED_EXIT -eq 0 ]; then
   echo -e "${GREEN}  ✓ Seeded${NC}"
