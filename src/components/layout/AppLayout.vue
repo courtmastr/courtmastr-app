@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import { LogIn, UserPlus, LayoutDashboard, Settings, LogOut, Bug, Bell } from 'lucide-vue-next';
 import AppNavigation from '@/components/navigation/AppNavigation.vue';
 import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation.vue';
 import ContextualNavigation from '@/components/navigation/ContextualNavigation.vue';
@@ -42,22 +43,22 @@ const showSearch = computed(() => {
 const userMenuItems = computed(() => {
   if (!isAuthenticated.value) {
     return [
-      { title: 'Login', icon: 'mdi-login', action: () => router.push('/login') },
-      { title: 'Register', icon: 'mdi-account-plus', action: () => router.push('/register') },
+      { title: 'Login', icon: LogIn, action: () => router.push('/login') },
+      { title: 'Register', icon: UserPlus, action: () => router.push('/register') },
     ];
   }
 
   return [
-    { title: 'My Tournaments', icon: 'mdi-view-dashboard', action: () => router.push('/tournaments') },
+    { title: 'My Tournaments', icon: LayoutDashboard, action: () => router.push('/tournaments') },
     ...(route.params.tournamentId && authStore.isOrganizer
       ? [{
           title: 'Tournament Settings',
-          icon: 'mdi-cog',
+          icon: Settings,
           action: () => router.push(`/tournaments/${route.params.tournamentId as string}/settings`),
         }]
       : []),
     { divider: true },
-    { title: 'Logout', icon: 'mdi-logout', action: handleLogout },
+    { title: 'Logout', icon: LogOut, action: handleLogout },
   ];
 });
 
@@ -139,9 +140,9 @@ async function submitBugReport() {
       <v-toolbar-title>
         <router-link
           to="/"
-          class="text-decoration-none text-inherit"
+          class="text-decoration-none text-inherit d-flex align-center"
         >
-          <span class="app-title">CourtMaster</span>
+          <img src="@/assets/brand/courtmaster-lockup.svg" alt="CourtMaster Logo" class="app-logo" />
         </router-link>
       </v-toolbar-title>
 
@@ -160,7 +161,7 @@ async function submitBugReport() {
       >
         <template #activator="{ props }">
           <v-btn
-            icon="mdi-bug"
+            icon
             variant="text"
             color="grey-darken-1"
             class="mr-2"
@@ -168,7 +169,9 @@ async function submitBugReport() {
             :ripple="false"
             aria-label="Report a bug"
             @click="showBugDialog = true"
-          />
+          >
+            <Bug :size="20" />
+          </v-btn>
         </template>
       </v-tooltip>
 
@@ -186,7 +189,7 @@ async function submitBugReport() {
           color="error"
           dot
         >
-          <v-icon>mdi-bell-outline</v-icon>
+          <Bell :size="20" />
         </v-badge>
         <v-menu activator="parent">
           <v-card
@@ -232,13 +235,10 @@ async function submitBugReport() {
               v-else
               class="text-center text-grey py-8"
             >
-              <v-icon
-                size="48"
-                color="grey-lighten-1"
-                class="mb-2"
-              >
-                mdi-bell-outline
-              </v-icon>
+              <Bell
+                :size="48"
+                class="mb-2 text-grey-lighten-1"
+              />
               <div>No notifications</div>
             </v-card-text>
           </v-card>
@@ -324,11 +324,14 @@ async function submitBugReport() {
               />
               <v-list-item
                 v-else
-                :prepend-icon="item.icon"
                 :title="item.title"
                 class="menu-item"
                 @click="item.action"
-              />
+              >
+                <template #prepend>
+                  <component :is="item.icon" :size="20" class="mr-4 text-grey-darken-1" />
+                </template>
+              </v-list-item>
             </template>
           </v-list>
         </v-card>
@@ -399,13 +402,20 @@ async function submitBugReport() {
   background-color: $white !important;
 }
 
+.app-logo {
+  height: 36px;
+  width: auto;
+  transition: transform 0.2s ease;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
 .app-title {
   font-weight: $font-weight-bold;
   font-size: $font-size-lg;
-  background: $primary-gradient;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: $primary-base;
 }
 
 .text-inherit {
