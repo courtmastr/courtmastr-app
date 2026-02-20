@@ -19,6 +19,8 @@ import {
   onSnapshot,
   serverTimestamp,
   increment,
+  arrayUnion,
+  arrayRemove,
   Timestamp,
   httpsCallable,
   functions,
@@ -28,6 +30,7 @@ import { convertTimestamps } from '@/utils/firestore';
 import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import { useBracketGenerator } from '@/composables/useBracketGenerator';
 import { useAuditStore } from '@/stores/audit';
+import { useAuthStore } from '@/stores/auth';
 
 const USE_CLOUD_FUNCTION_FOR_BRACKETS = false;
 const USE_CLOUD_FUNCTION_FOR_SCHEDULE = false;
@@ -73,16 +76,30 @@ export const useTournamentStore = defineStore('tournaments', () => {
     courts.value.filter((c) => c.status === 'available')
   );
 
+  // Build a tournament list query scoped by the current user's role
+  function buildTournamentsQuery() {
+    const authStore = useAuthStore();
+    const role = authStore.currentUser?.role;
+    const uid = authStore.currentUser?.id;
+
+    if (role === 'admin') {
+      return query(collection(db, 'tournaments'), orderBy('createdAt', 'desc'));
+    }
+    // Organizers (and everyone else) see only tournaments they are listed on
+    return query(
+      collection(db, 'tournaments'),
+      where('organizerIds', 'array-contains', uid),
+      orderBy('createdAt', 'desc')
+    );
+  }
+
   // Fetch all tournaments
   async function fetchTournaments(): Promise<void> {
     loading.value = true;
     error.value = null;
 
     try {
-      const q = query(
-        collection(db, 'tournaments'),
-        orderBy('createdAt', 'desc')
-      );
+      const q = buildTournamentsQuery();
       const snapshot = await getDocs(q);
 
       tournaments.value = snapshot.docs.map((doc) => ({
@@ -101,10 +118,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
   function subscribeTournaments(): void {
     if (tournamentsUnsubscribe) return;
 
-    const q = query(
-      collection(db, 'tournaments'),
-      orderBy('createdAt', 'desc')
-    );
+    const q = buildTournamentsQuery();
 
     tournamentsUnsubscribe = onSnapshot(q, (snapshot) => {
       tournaments.value = snapshot.docs.map((doc) => ({
@@ -216,8 +230,15 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
     try {
       // Race addDoc against a timeout to prevent hanging
+      const authStore = useAuthStore();
+      const uid = authStore.currentUser?.id;
+      const organizerIds = tournamentData.organizerIds?.length
+        ? tournamentData.organizerIds
+        : uid ? [uid] : [];
+
       const addDocPromise = addDoc(collection(db, 'tournaments'), {
         ...tournamentData,
+        organizerIds,
         startDate: Timestamp.fromDate(tournamentData.startDate),
         endDate: Timestamp.fromDate(tournamentData.endDate),
         registrationDeadline: tournamentData.registrationDeadline
@@ -319,6 +340,46 @@ export const useTournamentStore = defineStore('tournaments', () => {
       throw err;
     } finally {
       loading.value = false;
+    }
+  }
+
+  // Organizer management
+  async function addOrganizer(tournamentId: string, userId: string): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'tournaments', tournamentId), {
+        organizerIds: arrayUnion(userId),
+        updatedAt: serverTimestamp(),
+      });
+      if (currentTournament.value?.id === tournamentId) {
+        const existing = currentTournament.value.organizerIds ?? [];
+        if (!existing.includes(userId)) {
+          currentTournament.value = {
+            ...currentTournament.value,
+            organizerIds: [...existing, userId],
+          };
+        }
+      }
+    } catch (err) {
+      console.error('Error adding organizer:', err);
+      throw err;
+    }
+  }
+
+  async function removeOrganizer(tournamentId: string, userId: string): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'tournaments', tournamentId), {
+        organizerIds: arrayRemove(userId),
+        updatedAt: serverTimestamp(),
+      });
+      if (currentTournament.value?.id === tournamentId) {
+        currentTournament.value = {
+          ...currentTournament.value,
+          organizerIds: (currentTournament.value.organizerIds ?? []).filter((id) => id !== userId),
+        };
+      }
+    } catch (err) {
+      console.error('Error removing organizer:', err);
+      throw err;
     }
   }
 
@@ -1185,6 +1246,8 @@ export const useTournamentStore = defineStore('tournaments', () => {
     updateTournament,
     updateTournamentStatus,
     deleteTournament,
+    addOrganizer,
+    removeOrganizer,
     addCategory,
     updateCategory,
     deleteCategory,

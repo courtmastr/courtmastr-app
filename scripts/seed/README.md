@@ -45,7 +45,7 @@ npm run seed:local
 ```
 
 Emulators must be running on the default ports (Auth: 9099, Firestore: 8080).
-The admin user is created automatically if it doesn't exist yet.
+Both users are created automatically on first run.
 
 ### Production
 
@@ -53,15 +53,7 @@ The admin user is created automatically if it doesn't exist yet.
 npm run seed:prod
 ```
 
-**Prerequisites** — create the admin user manually before running:
-1. Firebase Console → Authentication → Users → Add user
-   - Email: `admin@courtmastr.com`
-   - Password: `admin123`
-2. Firestore → `users/<uid>` document:
-   ```json
-   { "email": "admin@courtmastr.com", "displayName": "Tournament Admin", "role": "admin" }
-   ```
-
+No prerequisites — both users are created automatically on first run if they don't already exist.
 The script pauses 5 seconds on startup so you can abort with `Ctrl+C`.
 
 ---
@@ -71,6 +63,7 @@ The script pauses 5 seconds on startup so you can abort with `Ctrl+C`.
 | Role | Email | Password |
 |---|---|---|
 | Admin | `admin@courtmastr.com` | `admin123` |
+| Scorekeeper | `scorekeeper@courtmastr.com` | `score123` |
 
 ---
 

@@ -71,13 +71,7 @@ async function handleGoogleLogin() {
         <v-card elevation="8">
           <v-card-title class="text-center py-6">
             <div>
-              <v-icon
-                size="48"
-                color="primary"
-                class="mb-2"
-              >
-                mdi-trophy
-              </v-icon>
+              <img src="@/assets/brand/courtmaster-mark.svg" alt="CourtMaster Logo" height="48" class="mb-2" />
               <h1 class="text-h5 font-weight-bold">
                 CourtMaster
               </h1>

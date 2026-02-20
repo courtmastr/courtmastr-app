@@ -772,10 +772,7 @@ function clearFilters() {
 }
 
 .text-gradient {
-  background: $primary-gradient;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: $primary-base;
 }
 
 .stat-card {

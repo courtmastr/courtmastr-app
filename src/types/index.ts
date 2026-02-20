@@ -45,6 +45,7 @@ export interface Tournament {
   maxParticipants?: number;
   settings: TournamentSettings;
   createdBy: string;
+  organizerIds?: string[];
   createdAt: Date;
   updatedAt: Date;
 }

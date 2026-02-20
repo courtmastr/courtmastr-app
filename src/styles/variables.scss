@@ -5,16 +5,15 @@
 // Color Palette
 // ===========================
 
-// Primary - Modern Blue Gradient
-$primary-base: #007AFF;
-$primary-dark: #0066FF;
-$primary-light: #4DA3FF;
-$primary-gradient: linear-gradient(135deg, $primary-base 0%, $primary-dark 100%);
+// Primary - Indigo
+$primary-base: #4F46E5;
+$primary-dark: #4338CA;
+$primary-light: #6366F1;
 
-// Secondary - Purple Accent
-$secondary-base: #5856D6;
-$secondary-light: #7875E0;
-$secondary-dark: #4240B3;
+// Secondary/Accent - Sky
+$secondary-base: #0EA5E9;
+$secondary-light: #38BDF8;
+$secondary-dark: #0284C7;
 
 // Semantic Colors (iOS-inspired)
 $success: #34C759;
@@ -24,15 +23,15 @@ $info: #007AFF;
 
 // Neutrals
 $white: #FFFFFF;
-$background: #F8F9FA;
-$background-dark: #F1F3F5;
+$background: #F8FAFC;
+$background-dark: #F1F5F9;
 $surface: #FFFFFF;
-$border: #E0E0E0;
-$border-light: #F1F1F1;
+$border: #E5E7EB;
+$border-light: #F3F4F6;
 
 // Text
-$text-primary: #1A1A1A;
-$text-secondary: #6B7280;
+$text-primary: #0F172A;
+$text-secondary: #64748B;
 $text-disabled: #9CA3AF;
 
 // ===========================
@@ -40,27 +39,27 @@ $text-disabled: #9CA3AF;
 // ===========================
 
 // Font Family
-$font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+$font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 
-// Font Sizes (5-tier system)
+// Font Sizes
 $font-size-xs: 12px;
 $font-size-sm: 14px;
-$font-size-base: 16px;
+$font-size-base: 16px; // Body
 $font-size-lg: 20px;
-$font-size-xl: 28px;
-$font-size-2xl: 36px;
-$font-size-3xl: 48px;
+$font-size-xl: 24px; // H3
+$font-size-2xl: 32px; // H2
+$font-size-3xl: 48px; // H1
 
 // Line Heights
-$line-height-tight: 1.25;
-$line-height-normal: 1.5;
+$line-height-tight: 1.15; // Hero
+$line-height-normal: 1.5; // 24px
 $line-height-relaxed: 1.75;
 
 // Font Weights
 $font-weight-normal: 400;
 $font-weight-medium: 500;
 $font-weight-semibold: 600;
-$font-weight-bold: 700;
+$font-weight-bold: 700; // Only for hero
 
 // ===========================
 // Spacing
@@ -78,9 +77,9 @@ $spacing-3xl: 64px;
 // Borders & Radius
 // ===========================
 
-$border-radius-sm: 8px;
-$border-radius-md: 12px;
-$border-radius-lg: 16px;
+$border-radius-sm: 8px; // Buttons
+$border-radius-md: 12px; // Cards
+$border-radius-lg: 16px; // Modals
 $border-radius-xl: 24px;
 $border-radius-full: 9999px;
 
@@ -91,10 +90,10 @@ $border-width: 1px;
 // ===========================
 
 $shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-$shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+$shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
 
 // ===========================
 // Transitions

@@ -16,12 +16,14 @@ import {
 import { sanitizeScoringConfig } from '@/features/scoring/utils/validation';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { useAuthStore } from '@/stores/auth';
+import { useUserStore } from '@/stores/users';
 
 const route = useRoute();
 const router = useRouter();
 const tournamentStore = useTournamentStore();
 const notificationStore = useNotificationStore();
 const authStore = useAuthStore();
+const userStore = useUserStore();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const isAdmin = computed(() => authStore.isAdmin);
@@ -253,6 +255,9 @@ onMounted(async () => {
   if (!tournament.value) {
     await tournamentStore.fetchTournament(tournamentId.value);
   }
+  if (canManageOrganizers.value) {
+    await userStore.fetchUsers();
+  }
 });
 
 async function saveSettings() {
@@ -295,6 +300,62 @@ async function saveSettings() {
     notificationStore.showToast('error', message);
   } finally {
     loading.value = false;
+  }
+}
+
+// Co-organizer management
+const canManageOrganizers = computed(() => {
+  if (!tournament.value) return false;
+  if (authStore.userRole === 'admin') return true;
+  const uid = authStore.currentUser?.id;
+  if (!uid) return false;
+  const ids = tournament.value.organizerIds ?? [];
+  return ids.includes(uid) || tournament.value.createdBy === uid;
+});
+
+const organizerUsers = computed(() => {
+  const ids = tournament.value?.organizerIds ?? [];
+  return userStore.users.filter((u) => ids.includes(u.id));
+});
+
+const addableOrganizers = computed(() => {
+  const ids = tournament.value?.organizerIds ?? [];
+  return userStore.users.filter(
+    (u) => (u.role === 'organizer' || u.role === 'admin') && !ids.includes(u.id)
+  );
+});
+
+const selectedOrganizerToAdd = ref<string | null>(null);
+const organizerLoading = ref(false);
+
+async function addOrganizerToTournament(): Promise<void> {
+  if (!selectedOrganizerToAdd.value) return;
+  organizerLoading.value = true;
+  try {
+    await tournamentStore.addOrganizer(tournamentId.value, selectedOrganizerToAdd.value);
+    selectedOrganizerToAdd.value = null;
+    notificationStore.showToast('success', 'Organizer added');
+  } catch {
+    notificationStore.showToast('error', 'Failed to add organizer');
+  } finally {
+    organizerLoading.value = false;
+  }
+}
+
+async function removeOrganizerFromTournament(userId: string): Promise<void> {
+  const ids = tournament.value?.organizerIds ?? [];
+  if (ids.length <= 1) {
+    notificationStore.showToast('error', 'Cannot remove the last organizer');
+    return;
+  }
+  organizerLoading.value = true;
+  try {
+    await tournamentStore.removeOrganizer(tournamentId.value, userId);
+    notificationStore.showToast('success', 'Organizer removed');
+  } catch {
+    notificationStore.showToast('error', 'Failed to remove organizer');
+  } finally {
+    organizerLoading.value = false;
   }
 }
 
@@ -778,6 +839,81 @@ async function confirmDelete() {
             Save Changes
           </v-btn>
         </div>
+
+        <!-- Co-Organizers -->
+        <v-card
+          v-if="canManageOrganizers"
+          class="mt-6"
+          variant="outlined"
+        >
+          <v-card-title class="d-flex align-center pa-4 pb-2">
+            <v-icon
+              start
+              icon="mdi-account-multiple"
+            />
+            Co-Organizers
+          </v-card-title>
+          <v-card-text>
+            <!-- Current organizers list -->
+            <v-list
+              v-if="organizerUsers.length > 0"
+              lines="one"
+              class="mb-4"
+            >
+              <v-list-item
+                v-for="user in organizerUsers"
+                :key="user.id"
+                :title="user.displayName"
+                :subtitle="user.email"
+                prepend-icon="mdi-account"
+              >
+                <template #append>
+                  <v-btn
+                    icon="mdi-close"
+                    variant="text"
+                    size="small"
+                    color="error"
+                    :disabled="organizerLoading || (tournament?.organizerIds?.length ?? 0) <= 1"
+                    :title="(tournament?.organizerIds?.length ?? 0) <= 1 ? 'Cannot remove the last organizer' : 'Remove organizer'"
+                    @click="removeOrganizerFromTournament(user.id)"
+                  />
+                </template>
+              </v-list-item>
+            </v-list>
+            <p
+              v-else
+              class="text-medium-emphasis text-body-2 mb-4"
+            >
+              No organizers assigned yet.
+            </p>
+
+            <!-- Add organizer -->
+            <div class="d-flex align-center gap-2">
+              <v-autocomplete
+                v-model="selectedOrganizerToAdd"
+                :items="addableOrganizers"
+                item-title="displayName"
+                item-value="id"
+                label="Add organizer"
+                placeholder="Search by name..."
+                variant="outlined"
+                density="compact"
+                clearable
+                hide-details
+                :item-props="(u) => ({ subtitle: u.email })"
+              />
+              <v-btn
+                color="primary"
+                variant="elevated"
+                :disabled="!selectedOrganizerToAdd || organizerLoading"
+                :loading="organizerLoading"
+                @click="addOrganizerToTournament"
+              >
+                Add
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
 
         <!-- Danger Zone -->
         <v-card

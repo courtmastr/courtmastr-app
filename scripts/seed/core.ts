@@ -222,6 +222,7 @@ export async function createTournament(db: Firestore, adminId: string): Promise<
       maxPoints: 30,
     },
     createdBy: adminId,
+    organizerIds: [adminId],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
