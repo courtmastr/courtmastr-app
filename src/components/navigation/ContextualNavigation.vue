@@ -5,71 +5,170 @@
       :color="statusColor"
       class="mb-4"
     >
-      <v-card-title class="d-flex align-center">
-        <v-icon start>
-          mdi-information
-        </v-icon>
-        Tournament Status: {{ tournamentStatus }}
-      </v-card-title>
-      <v-card-text>
-        <div class="status-actions d-flex flex-wrap gap-2">
-          <v-btn 
-            v-if="tournamentStatus === 'draft'" 
-            color="primary" 
-            @click="openSetupTab"
+      <v-card-text class="pa-4">
+        <!-- Step indicator -->
+        <div class="d-flex align-center mb-3">
+          <v-icon
+            start
+            size="18"
+            class="mr-1"
           >
-            Setup Categories
-          </v-btn>
-          <v-btn
+            {{ stepIcon }}
+          </v-icon>
+          <span class="text-caption text-medium-emphasis font-weight-medium text-uppercase tracking-wide">
+            Step {{ currentStep }} of 4
+          </span>
+          <v-divider
+            class="mx-3"
+            vertical
+            thickness="1"
+            style="height:14px;opacity:.3"
+          />
+          <span class="text-caption text-medium-emphasis">
+            {{ stepLabel }}
+          </span>
+        </div>
+
+        <!-- What to do next -->
+        <div class="text-body-2 font-weight-medium mb-3">
+          {{ nextStepHint }}
+        </div>
+
+        <!-- Actions with hints -->
+        <div class="d-flex flex-wrap gap-4">
+
+          <!-- DRAFT -->
+          <div
+            v-if="tournamentStatus === 'draft'"
+            class="action-block"
+          >
+            <v-btn
+              color="primary"
+              @click="openSetupTab"
+            >
+              <v-icon start>mdi-shape-plus</v-icon>
+              Setup Categories
+            </v-btn>
+            <div class="action-hint">
+              Define event types (e.g. Men's Singles, Women's Doubles). Required before opening registration.
+            </div>
+          </div>
+
+          <div
             v-if="tournamentStatus === 'draft' && isOrganizer"
-            color="success"
-            @click="openRegistration"
+            class="action-block"
           >
-            Open Registration
-          </v-btn>
-          <v-btn 
-            v-if="tournamentStatus === 'registration'" 
-            color="primary"
-            @click="navigateToRegistrations"
+            <v-btn
+              color="success"
+              @click="openRegistration"
+            >
+              <v-icon start>mdi-account-plus</v-icon>
+              Open Registration
+            </v-btn>
+            <div class="action-hint">
+              Once categories are set, allow players to sign up online.
+            </div>
+          </div>
+
+          <!-- REGISTRATION -->
+          <div
+            v-if="tournamentStatus === 'registration'"
+            class="action-block"
           >
-            Review Registrations
-          </v-btn>
-          <v-btn
+            <v-btn
+              color="primary"
+              @click="navigateToRegistrations"
+            >
+              <v-icon start>mdi-clipboard-check</v-icon>
+              Review Registrations
+            </v-btn>
+            <div class="action-hint">
+              Approve or reject player sign-ups. Build the final roster before play begins.
+            </div>
+          </div>
+
+          <div
             v-if="tournamentStatus === 'registration' && isOrganizer"
-            color="success" 
-            @click="startTournament"
+            class="action-block"
           >
-            Start Tournament
-          </v-btn>
-          <v-btn 
-            v-if="tournamentStatus === 'active' && !isInMatchControl && isOrganizer" 
-            color="warning" 
-            @click="navigateToMatchControl"
+            <v-btn
+              color="success"
+              @click="startTournament"
+            >
+              <v-icon start>mdi-play</v-icon>
+              Start Tournament
+            </v-btn>
+            <div class="action-hint">
+              Locks the roster and generates brackets. Do this only when all players are approved.
+            </div>
+          </div>
+
+          <!-- ACTIVE -->
+          <div
+            v-if="tournamentStatus === 'active' && !isInMatchControl && isOrganizer"
+            class="action-block"
           >
-            Enter Match Control
-          </v-btn>
-          <v-btn 
-            v-if="tournamentStatus === 'active' && isScorekeeper" 
-            color="primary"
-            @click="navigateToScoring"
+            <v-btn
+              color="warning"
+              @click="navigateToMatchControl"
+            >
+              <v-icon start>mdi-view-dashboard</v-icon>
+              Enter Match Control
+            </v-btn>
+            <div class="action-hint">
+              Assign courts, call matches, and monitor live scores from one screen.
+            </div>
+          </div>
+
+          <div
+            v-if="tournamentStatus === 'active' && isScorekeeper"
+            class="action-block"
           >
-            Score Matches
-          </v-btn>
-          <v-btn 
-            v-if="tournamentStatus === 'active' && isInMatchControl" 
-            color="primary" 
-            variant="tonal"
-            @click="exitMatchControl"
+            <v-btn
+              color="primary"
+              @click="navigateToScoring"
+            >
+              <v-icon start>mdi-scoreboard</v-icon>
+              Score Matches
+            </v-btn>
+            <div class="action-hint">
+              Enter scores for your assigned matches as they finish.
+            </div>
+          </div>
+
+          <div
+            v-if="tournamentStatus === 'active' && isInMatchControl"
+            class="action-block"
           >
-            Exit Match Control
-          </v-btn>
-          <v-btn 
-            v-if="tournamentStatus === 'completed'" 
-            color="primary" 
-            @click="viewResults"
+            <v-btn
+              color="primary"
+              variant="tonal"
+              @click="exitMatchControl"
+            >
+              <v-icon start>mdi-arrow-left</v-icon>
+              Exit Match Control
+            </v-btn>
+            <div class="action-hint">
+              Return to the tournament overview dashboard.
+            </div>
+          </div>
+
+          <!-- COMPLETED -->
+          <div
+            v-if="tournamentStatus === 'completed'"
+            class="action-block"
           >
-            View Leaderboard
-          </v-btn>
+            <v-btn
+              color="primary"
+              @click="viewResults"
+            >
+              <v-icon start>mdi-trophy</v-icon>
+              View Leaderboard
+            </v-btn>
+            <div class="action-hint">
+              See final standings, rankings, and results for all categories.
+            </div>
+          </div>
         </div>
       </v-card-text>
     </v-card>
@@ -104,6 +203,37 @@ const statusColor = computed(() => {
   return 'primary';
 });
 
+const currentStep = computed(() => {
+  if (tournamentStatus.value === 'draft') return 1;
+  if (tournamentStatus.value === 'registration') return 2;
+  if (tournamentStatus.value === 'active') return 3;
+  return 4;
+});
+
+const stepLabel = computed(() => {
+  if (tournamentStatus.value === 'draft') return 'Draft — Configure your tournament';
+  if (tournamentStatus.value === 'registration') return 'Registration — Players signing up';
+  if (tournamentStatus.value === 'active') return 'Live — Tournament in progress';
+  return 'Completed — Tournament finished';
+});
+
+const stepIcon = computed(() => {
+  if (tournamentStatus.value === 'draft') return 'mdi-pencil-box-outline';
+  if (tournamentStatus.value === 'registration') return 'mdi-account-group';
+  if (tournamentStatus.value === 'active') return 'mdi-lightning-bolt';
+  return 'mdi-trophy';
+});
+
+const nextStepHint = computed(() => {
+  if (tournamentStatus.value === 'draft')
+    return 'Create your event categories first, then open registration so players can sign up.';
+  if (tournamentStatus.value === 'registration')
+    return 'Review and approve player sign-ups. When the roster is complete, start the tournament to generate brackets.';
+  if (tournamentStatus.value === 'active')
+    return 'Use Match Control to assign courts and call matches. Scorekeepers can enter scores in real time.';
+  return 'The tournament is over. Check final standings on the leaderboard.';
+});
+
 onMounted(async () => {
   if (!tournamentId.value) return;
   if (tournamentStore.currentTournament?.id === tournamentId.value) return;
@@ -128,10 +258,7 @@ async function openRegistration() {
 
 function openSetupTab() {
   if (!tournamentId.value) return;
-  router.push({
-    path: `/tournaments/${tournamentId.value}`,
-    query: { tab: 'categories' },
-  });
+  router.push(`/tournaments/${tournamentId.value}/categories`);
 }
 
 function navigateToRegistrations() {
@@ -177,7 +304,21 @@ function viewResults() {
   margin-bottom: 16px;
 }
 
-.status-actions {
-  gap: 8px;
+.action-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.action-hint {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.55);
+  line-height: 1.4;
+  max-width: 220px;
+}
+
+.tracking-wide {
+  letter-spacing: 0.05em;
 }
 </style>
