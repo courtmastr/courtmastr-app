@@ -7,7 +7,6 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useNotificationStore } from '@/stores/notifications';
 import { useActivityStore } from '@/stores/activities';
 import { useAuthStore } from '@/stores/auth';
-import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
@@ -17,10 +16,8 @@ import ScheduleMatchDialog from '@/features/tournaments/dialogs/ScheduleMatchDia
 import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.vue';
 import AutoScheduleDialog from '@/features/tournaments/dialogs/AutoScheduleDialog.vue';
 import BaseDialog from '@/components/common/BaseDialog.vue';
-import ActivityFeed from '@/components/ActivityFeed.vue';
 import FilterBar from '@/components/common/FilterBar.vue';
 import MatchQueueList from '@/features/tournaments/components/MatchQueueList.vue';
-import QuickActionsBar from '@/features/tournaments/components/QuickActionsBar.vue';
 import ActiveMatchesSection from '@/features/tournaments/components/ActiveMatchesSection.vue';
 // TOURNEY-101: Command Center components
 import CourtGrid from '@/features/tournaments/components/CourtGrid.vue';
@@ -28,7 +25,7 @@ import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
 import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
 import RunningStatusBoard from '@/features/tournaments/components/RunningStatusBoard.vue';
 import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
-import type { Match, Court } from '@/types';
+import type { Match } from '@/types';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
 
@@ -43,7 +40,6 @@ const registrationStore = useRegistrationStore();
 const notificationStore = useNotificationStore();
 const activityStore = useActivityStore();
 const authStore = useAuthStore();
-const scheduler = useMatchScheduler();
 const { getParticipantName } = useParticipantResolver();
 const { getMatchDisplayName } = useMatchDisplay();
 const { open: openDialog, close: closeDialog, isOpen: isDialogOpen } = useDialogManager([
@@ -182,22 +178,7 @@ const showResetDialog = computed<boolean>({
   },
 });
 
-// Auto-schedule state
-const autoScheduleConfig = ref({
-  startTime: '',
-  matchDurationMinutes: 20,
-  breakBetweenMatches: 5,
-});
 const selectedCategoryIds = ref<string[]>([]); // Multi-select categories for auto-schedule
-
-// Select/deselect all categories
-function selectAllCategories() {
-  selectedCategoryIds.value = categories.value.map(c => c.id);
-}
-
-function deselectAllCategories() {
-  selectedCategoryIds.value = [];
-}
 
 // Open auto-schedule dialog with all categories pre-selected
 function openAutoScheduleDialog() {
@@ -246,9 +227,6 @@ watch(viewMode, (mode) => {
     },
   });
 });
-
-// Share links dialog
-const scoringUrl = computed(() => `${window.location.origin}/tournaments/${tournamentId.value}/score`);
 
 // Current time for auto-ready calculations (updates every minute)
 const currentTime = ref(new Date());
@@ -418,12 +396,6 @@ const filteredMatches = computed(() => {
 
   return result;
 });
-
-// Court options for filter dropdown
-const courtOptions = computed(() => [
-  { name: 'All Courts', id: 'all' },
-  ...courts.value.map(c => ({ name: c.name, id: c.id })),
-]);
 
 // Status options for filter dropdown
 const statusOptions = [
@@ -632,9 +604,6 @@ const runningStatusSummary = computed(() => ({
   nextMatch: nextActionMatchLabel.value,
 }));
 
-// Activity feed
-const activities = computed(() => activityStore.recentActivities);
-
 // Auto-ready: check for scheduled matches that are due and mark them as ready
 async function checkAndMarkDueMatches() {
   currentTime.value = new Date();
@@ -812,34 +781,6 @@ function openAssignCourtDialogFromQueue(ref: QueueMatchRef) {
   }
 }
 
-async function quickAssignCourt(match: Match, court: Court) {
-  try {
-    await matchStore.assignCourt(
-      tournamentId.value,
-      match.id,
-      court.id,
-      match.categoryId,
-      match.levelId
-    );
-    notificationStore.showToast('success', `Assigned to ${court.name}`);
-
-    // Log activity (non-blocking - don't fail assignment if logging fails)
-    const categoryName = getCategoryName(match.categoryId);
-    const p1Name = getParticipantName(match.participant1Id);
-    const p2Name = getParticipantName(match.participant2Id);
-    activityStore.logMatchReady(
-      tournamentId.value,
-      match.id,
-      p1Name,
-      p2Name,
-      court.name,
-      categoryName
-    ).catch((err) => console.warn('Activity logging failed:', err));
-  } catch (error) {
-    notificationStore.showToast('error', 'Failed to assign court');
-  }
-}
-
 function openScheduleDialog(match: Match) {
   selectedMatch.value = match;
   openDialog('schedule');
@@ -913,48 +854,8 @@ function openManualScoreDialog(match: Match) {
   openDialog('score');
 }
 
-function copyToClipboard(text: string, label: string) {
-  navigator.clipboard.writeText(text).then(() => {
-    notificationStore.showToast('success', `${label} copied to clipboard!`);
-  }).catch(() => {
-    notificationStore.showToast('error', 'Failed to copy');
-  });
-}
-
-// Get matches to schedule based on selected categories (multi-select)
-const matchesToScheduleForAuto = computed(() => {
-  let result = matches.value.filter(
-    (m) => (m.status === 'scheduled' || m.status === 'ready') && !m.courtId
-  );
-
-  if (selectedCategoryIds.value.length > 0) {
-    result = result.filter((m) => selectedCategoryIds.value.includes(m.categoryId));
-  } else {
-    return [];
-  }
-
-  return result.sort((a, b) => a.round - b.round || a.matchNumber - b.matchNumber);
-});
-
-// Count of already scheduled matches for the selected categories
-const alreadyScheduledCount = computed(() => {
-  let result = matches.value.filter(
-    (m) => (m.status === 'scheduled' || m.status === 'ready') && m.courtId
-  );
-  if (selectedCategoryIds.value.length > 0) {
-    result = result.filter((m) => selectedCategoryIds.value.includes(m.categoryId));
-  }
-  return result.length;
-});
-
 // Reset schedule loading state
 const resettingSchedule = ref(false);
-
-// Reset schedule for selected category
-async function resetSchedule() {
-  // Show confirmation dialog instead of native confirm()
-  openDialog('reset');
-}
 
 // Actually perform the reset after confirmation
 async function confirmResetSchedule() {
@@ -989,118 +890,6 @@ async function confirmResetSchedule() {
     resettingSchedule.value = false;
   }
 }
-
-// Auto-schedule function with improved algorithm
-async function runAutoSchedule() {
-  if (selectedCategoryIds.value.length === 0) {
-    notificationStore.showToast('error', 'Please select at least one category');
-    return;
-  }
-
-  if (!autoScheduleConfig.value.startTime) {
-    notificationStore.showToast('error', 'Please set a start time');
-    return;
-  }
-
-  const startTime = new Date(autoScheduleConfig.value.startTime);
-
-  // Use ALL courts (not just available) for scheduling
-  const allCourts = courts.value
-    .filter((c) => c.status !== 'maintenance')
-    .sort((a, b) => a.number - b.number);
-
-  if (allCourts.length === 0) {
-    notificationStore.showToast('error', 'No courts available');
-    return;
-  }
-
-  // Get matches to schedule
-  const matchesToSchedule = [...matchesToScheduleForAuto.value];
-
-  if (matchesToSchedule.length === 0) {
-    notificationStore.showToast('info', 'No matches to schedule');
-    return;
-  }
-
-  try {
-    // Schedule for each selected category separately
-    // This prevents time/court overlaps between categories
-    let totalScheduled = 0;
-    let totalUnscheduled: { matchId: string; reason?: string; details?: Record<string, unknown> }[] = [];
-
-    for (const categoryId of selectedCategoryIds.value) {
-      const levels = await tournamentStore.fetchCategoryLevels(tournamentId.value, categoryId);
-      const scheduleScopes = [
-        { categoryId, levelId: undefined as string | undefined },
-        ...levels.map((level) => ({ categoryId, levelId: level.id })),
-      ];
-
-      for (const scope of scheduleScopes) {
-        const result = await scheduler.scheduleMatches(tournamentId.value, {
-          categoryId: scope.categoryId,
-          levelId: scope.levelId,
-          courtIds: allCourts.map((c) => c.id),
-          startTime,
-          respectDependencies: true,
-        });
-
-        totalScheduled += result.scheduled.length;
-        totalUnscheduled = [
-          ...totalUnscheduled,
-          ...result.unscheduled.map((item) => ({
-            ...item,
-            details: {
-              ...(item.details || {}),
-              categoryId: scope.categoryId,
-              levelId: scope.levelId,
-            },
-          })),
-        ];
-
-        // Store the last result for display
-        autoScheduleResult.value = result;
-      }
-    }
-
-    // Build combined result
-    const combinedResult: ScheduleResult = {
-      scheduled: [], // We don't need the full list for display
-      unscheduled: totalUnscheduled,
-      stats: {
-        totalMatches: matchesToSchedule.length,
-        scheduledCount: totalScheduled,
-        unscheduledCount: totalUnscheduled.length,
-        courtUtilization: 0, // Not calculated for multi-category
-        estimatedDuration: 0,
-      },
-    };
-
-    autoScheduleResult.value = combinedResult;
-
-    // Show appropriate message
-    if (totalUnscheduled.length > 0) {
-      notificationStore.showToast(
-        'warning',
-        `Scheduled ${totalScheduled} matches, ${totalUnscheduled.length} could not be scheduled`
-      );
-    } else {
-      notificationStore.showToast(
-        'success',
-        `Scheduled ${totalScheduled} matches across ${allCourts.length} courts`
-      );
-      // Only close dialog on full success
-      if (totalUnscheduled.length === 0) {
-        closeDialog('autoSchedule');
-        autoScheduleResult.value = null;
-      }
-    }
-  } catch (error) {
-    console.error('Auto-schedule error:', error);
-    notificationStore.showToast('error', 'Failed to auto-schedule');
-  }
-}
-
-
 
 // Auto-assign and Auto-start state
 const autoAssignEnabled = ref(true);
@@ -1219,7 +1008,7 @@ async function confirmUnschedule() {
     const p2 = getParticipantName(match.participant2Id);
     activityStore.logActivity(
       tournamentId.value,
-      'match_update',
+      'match_reassigned',
        `Unscheduled: ${p1} vs ${p2}`
     );
   } catch (error) {
@@ -1629,7 +1418,7 @@ async function advanceState(): Promise<void> {
                   Score
                 </v-btn>
                 <v-btn
-                  v-else-if="!item.courtId && (item.status === 'scheduled' || item.status === 'ready')"
+                  v-else-if="!item.courtId && item.status === 'scheduled'"
                   size="small"
                   color="secondary"
                   variant="tonal"

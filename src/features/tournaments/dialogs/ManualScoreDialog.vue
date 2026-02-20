@@ -8,7 +8,6 @@ import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import {
   getGamesNeeded,
-  getScoreInputMax,
   resolveScoringConfig,
   validateCompletedGameScore,
 } from '@/features/scoring/utils/validation';
@@ -57,8 +56,6 @@ const scoringConfig = computed<ScoringConfig>(() => {
   const category = props.categories.find(c => c.id === props.match?.categoryId);
   return resolveScoringConfig(props.tournament, category);
 });
-
-const maxScore = computed(() => getScoreInputMax(scoringConfig.value));
 
 function createScoreRows(count: number) {
   return Array.from({ length: count }, () => ({ score1: 0, score2: 0 }));

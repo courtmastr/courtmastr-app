@@ -20,11 +20,12 @@ const selectedRole = ref<'all' | UserRole>('all');
 const showEditDialog = ref(false);
 const showStatusDialog = ref(false);
 const statusDialogTarget = ref<User | null>(null);
-  const editForm = ref<{ id: string; displayName: string; email: string }>({
-    id: '',
-    displayName: '',
-    email: '',
-  });
+const editForm = ref<{ id: string; displayName: string; email: string; phone: string }>({
+  id: '',
+  displayName: '',
+  email: '',
+  phone: '',
+});
 
 const roleOptions = [
   { title: 'Admin', value: 'admin' },
@@ -32,14 +33,6 @@ const roleOptions = [
   { title: 'Scorekeeper', value: 'scorekeeper' },
   { title: 'Player', value: 'player' },
   { title: 'Viewer', value: 'viewer' },
-];
-
-const tableHeaders = [
-  { title: 'Name', key: 'displayName' },
-  { title: 'Email', key: 'email' },
-  { title: 'Role', key: 'role' },
-  { title: 'Created', key: 'createdAt' },
-  { title: 'Actions', key: 'actions', sortable: false },
 ];
 
 const hasActiveFilters = computed(() =>
@@ -64,7 +57,6 @@ const filteredUsers = computed(() => {
 function clearFilters() {
   searchQuery.value = '';
   selectedRole.value = 'all';
-  selectedStatus.value = 'all';
 }
 
 onMounted(() => {
@@ -105,6 +97,7 @@ function openEditDialog(user: User): void {
     id: user.id,
     displayName: user.displayName,
     email: user.email,
+    phone: user.phone || '',
   };
   showEditDialog.value = true;
 }

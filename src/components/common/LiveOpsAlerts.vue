@@ -43,10 +43,6 @@ function getSeverityColor(severity: LiveOpsAlert['severity']): string {
   return severityConfig[severity].color;
 }
 
-function getSeverityIcon(severity: LiveOpsAlert['severity']): string {
-  return severityConfig[severity].icon;
-}
-
 function getCategoryIcon(category: LiveOpsAlert['category']): string {
   return categoryIcons[category];
 }

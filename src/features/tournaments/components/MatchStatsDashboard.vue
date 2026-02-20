@@ -115,7 +115,7 @@
           <v-list-item
             v-for="match in stats.recentCompletions"
             :key="match.id"
-            :subtitle="`${match.score || 'N/A'} • ${formatTime(match.completedAt)}`"
+            :subtitle="`${formatScore(match)} • ${formatTime(match.completedAt)}`"
           >
             <v-list-item-title>
               {{ getMatchDisplayName(match) }}
@@ -171,7 +171,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match, Court } from '@/types';
 
@@ -180,8 +179,19 @@ const props = defineProps<{
   courts: Court[];
 }>();
 
-const { getParticipantName } = useParticipantResolver();
 const { getMatchDisplayName } = useMatchDisplay();
+
+function toDateOrNull(value: Date | undefined): Date | null {
+  return value instanceof Date ? value : null;
+}
+
+function formatScore(match: Match): string {
+  if (match.score) return match.score;
+  if (!match.scores || match.scores.length === 0) return 'N/A';
+  const completeGames = match.scores.filter((game) => game.isComplete);
+  if (completeGames.length === 0) return 'N/A';
+  return completeGames.map((game) => `${game.score1}-${game.score2}`).join(', ');
+}
 
 const stats = computed(() => {
   const total = props.matches.length;
@@ -190,8 +200,9 @@ const stats = computed(() => {
 
   const completedMatches = props.matches.filter(m => m.status === 'completed' && m.startedAt && m.completedAt);
   const durations = completedMatches.map(m => {
-    const start = m.startedAt instanceof Date ? m.startedAt : new Date(m.startedAt);
-    const end = m.completedAt instanceof Date ? m.completedAt : new Date(m.completedAt);
+    const start = toDateOrNull(m.startedAt);
+    const end = toDateOrNull(m.completedAt);
+    if (!start || !end) return 0;
     return (end.getTime() - start.getTime()) / (1000 * 60);
   });
   const avgDuration = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 30;
@@ -209,10 +220,10 @@ const stats = computed(() => {
   const inProgress = props.matches.filter(m => m.status === 'in_progress').length;
 
   const recentCompletions = props.matches
-    .filter(m => m.status === 'completed')
+    .filter(m => m.status === 'completed' && m.completedAt)
     .sort((a, b) => {
-      const aTime = a.completedAt?.toDate ? a.completedAt.toDate() : new Date(a.completedAt);
-      const bTime = b.completedAt?.toDate ? b.completedAt.toDate() : new Date(b.completedAt);
+      const aTime = toDateOrNull(a.completedAt) ?? new Date(0);
+      const bTime = toDateOrNull(b.completedAt) ?? new Date(0);
       return bTime.getTime() - aTime.getTime();
     })
     .slice(0, 5);

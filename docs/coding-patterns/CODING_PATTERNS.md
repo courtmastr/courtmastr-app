@@ -1511,6 +1511,60 @@ rg -n "@manual-assign|@toggle-auto-assign|@toggle-auto-start|@complete-match|@un
 
 ---
 
+### CP-034: App Build Typecheck Must Scope to `src/` and Keep Shared Types in Sync
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-20 |
+| **Source Bug** | Production build blocked by `vue-tsc -b` errors from stale test imports and shared model drift |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```json
+{
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "tests/**/*.ts"]
+}
+```
+```typescript
+// Shared type missing properties used across multiple views
+export interface User {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+}
+```
+
+**Correct Pattern (✅):**
+```json
+{
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+}
+```
+```typescript
+// Shared type matches actual UI/store usage
+export interface User {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  phone?: string;
+  isActive?: boolean;
+  lastLoginAt?: Date;
+}
+```
+
+**Rule:** `tsconfig.app.json` is for application build type-checking only; keep test-only files out of this include list and update central shared types in `src/types/index.ts` whenever new cross-feature fields are introduced.
+
+**Detection:**
+```bash
+rg -n "\"tests/\\*\\*/\\*.ts\"" tsconfig.app.json
+rg -n "isActive|lastLoginAt|autoAssignEnabled|calledAt|categoryName|courtName|MatchEvent" src/types/index.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

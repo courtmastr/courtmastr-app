@@ -75,7 +75,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match } from '@/types';
 
@@ -88,7 +87,6 @@ const emit = defineEmits<{
   announceAll: [];
 }>();
 
-const { getParticipantName } = useParticipantResolver();
 const { getMatchDisplayName } = useMatchDisplay();
 
 const readyMatches = computed(() => {

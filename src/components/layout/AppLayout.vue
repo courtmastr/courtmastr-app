@@ -391,7 +391,7 @@ async function submitBugReport() {
 </template>
 
 <style scoped lang="scss">
-@import '@/styles/variables.scss';
+@use '@/styles/variables.scss' as *;
 
 .app-bar {
   border-bottom: 1px solid $border-light;

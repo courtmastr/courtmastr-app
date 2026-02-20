@@ -14,7 +14,6 @@ import {
   writeBatch,
   query,
   where,
-  orderBy,
   Timestamp,
   serverTimestamp,
 } from '@/services/firebase';

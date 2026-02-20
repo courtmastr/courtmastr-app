@@ -507,18 +507,6 @@ function resetRegistrationForm() {
   };
 }
 
-function openEditPlayerDialog(player: any) {
-  editingPlayer.value = {
-    id: player.id,
-    firstName: player.firstName,
-    lastName: player.lastName,
-    email: player.email || '',
-    phone: player.phone || '',
-    skillLevel: player.skillLevel || 5,
-  };
-  showEditPlayerDialog.value = true;
-}
-
 async function savePlayer() {
   if (!editingPlayer.value) return;
 
@@ -538,11 +526,6 @@ async function savePlayer() {
   }
 }
 
-function requestDeletePlayer(playerId: string) {
-  playerToDeleteId.value = playerId;
-  showDeletePlayerDialog.value = true;
-}
-
 async function confirmDeletePlayer() {
   if (!playerToDeleteId.value) return;
   showDeletePlayerDialog.value = false;
@@ -555,16 +538,6 @@ async function confirmDeletePlayer() {
 }
 
 // Payment Functions
-function openPaymentDialog(registration: any) {
-  editingPayment.value = {
-    registrationId: registration.id,
-    participantName: getParticipantDisplay(registration),
-    paymentStatus: registration.paymentStatus || 'unpaid',
-    paymentNote: registration.paymentNote || '',
-  };
-  showPaymentDialog.value = true;
-}
-
 async function togglePaymentStatus(registration: any) {
   const newStatus = registration.paymentStatus === 'paid' ? 'unpaid' : 'paid';
   try {
@@ -605,16 +578,6 @@ function getPaymentColor(status: string | undefined): string {
     refunded: 'grey',
   };
   return colors[status || 'unpaid'] || 'error';
-}
-
-function getPaymentIcon(status: string | undefined): string {
-  const icons: Record<string, string> = {
-    paid: 'mdi-check-circle',
-    unpaid: 'mdi-close-circle',
-    partial: 'mdi-circle-half-full',
-    refunded: 'mdi-cash-refund',
-  };
-  return icons[status || 'unpaid'] || 'mdi-close-circle';
 }
 
 // File Import Functions (.csv and .txt)

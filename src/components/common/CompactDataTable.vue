@@ -137,7 +137,7 @@ function getSortIcon(column: Column): string {
         @toggle="toggleExpand(item)"
         @action="(action, item) => emit('rowAction', action, item)"
       >
-        <template #main="{ item: rowItem, isOpen }">
+        <template #main="{ item: rowItem }">
           <div class="d-flex align-center flex-grow-1">
             <div
               v-for="column in essentialColumns"

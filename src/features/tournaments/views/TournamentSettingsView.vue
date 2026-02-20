@@ -46,7 +46,6 @@ async function advanceState(): Promise<void> {
 }
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
-const courts = computed(() => tournamentStore.courts);
 const loading = ref(false);
 
 interface CategoryScoringOverrideForm {

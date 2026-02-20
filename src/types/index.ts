@@ -9,7 +9,10 @@ export interface User {
   id: string;
   email: string;
   displayName: string;
+  phone?: string;
   role: UserRole;
+  isActive?: boolean;
+  lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,6 +54,8 @@ export interface TournamentSettings {
   matchDurationMinutes: number; // Estimated match duration for scheduling
   allowSelfRegistration: boolean;
   requireApproval: boolean;
+  autoAssignEnabled?: boolean;
+  autoStartEnabled?: boolean;
   // Scoring settings
   gamesPerMatch: number; // Best of 1, 3, or 5
   pointsToWin: number; // Points needed to win a game
@@ -251,6 +256,7 @@ export interface Registration {
   bibNumber?: number | null; // Bib number assigned to participant
   registeredBy: string; // User ID who created the registration
   registeredAt: Date;
+  createdAt?: Date;
   approvedAt?: Date;
   approvedBy?: string;
 }
@@ -299,6 +305,10 @@ export interface Match {
   // Score correction tracking
   corrected?: boolean; // Whether this match has been corrected
   correctionCount?: number; // How many times the score has been corrected
+  categoryName?: string;
+  courtName?: string;
+  score?: string;
+  calledAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -445,6 +455,14 @@ export interface AuditLogFilter {
   startDate?: Date;
   endDate?: Date;
   limit?: number;
+}
+
+export interface MatchEvent {
+  id: string;
+  type: 'court_assigned' | 'match_announced' | 'match_started' | 'match_completed' | 'match_delayed' | 'walkover' | string;
+  title: string;
+  description?: string;
+  timestamp: Date;
 }
 
 // API Response Types

@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useAuditStore, type AuditRecord, type AuditActionType } from '@/stores/audit';
+import { useAuditStore } from '@/stores/audit';
 
 import FilterBar from '@/components/common/FilterBar.vue';
-import StatusBadge from '@/components/common/StatusBadge.vue';
 
 interface Props {
   tournamentId: string;

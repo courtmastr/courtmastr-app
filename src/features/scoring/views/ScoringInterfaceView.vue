@@ -886,6 +886,7 @@ function onScoreCorrected() {
     :match="match"
     :tournament-id="tournamentId"
     :category-id="match?.categoryId"
+    :scoring-config="match?.scoringConfig || BADMINTON_CONFIG"
     @corrected="onScoreCorrected"
   />
 </template>

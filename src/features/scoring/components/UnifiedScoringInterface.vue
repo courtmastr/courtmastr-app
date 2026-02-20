@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useMatchStore } from '@/stores/matches';
+import { computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
-import { useNotificationStore } from '@/stores/notifications';
 import { useDialogManager } from '@/composables/useDialogManager';
 import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.vue';
 import type { Match, Tournament, Category } from '@/types';
@@ -21,10 +18,7 @@ const emit = defineEmits<{
   'match-completed': [];
 }>();
 
-const matchStore = useMatchStore();
 const authStore = useAuthStore();
-const notificationStore = useNotificationStore();
-const { getParticipantName } = useParticipantResolver();
 const { getMatchDisplayName } = useMatchDisplay();
 const { open: openDialog, close: closeDialog, isOpen: isDialogOpen } = useDialogManager(['manualScore']);
 

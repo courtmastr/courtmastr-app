@@ -157,14 +157,6 @@ const categoryBreakdown = computed(() =>
   })
 );
 
-const categoryHeaders = [
-  { title: 'Category', key: 'categoryName' },
-  { title: 'Registrations', key: 'registrationCount' },
-  { title: 'Checked In', key: 'checkedInCount' },
-  { title: 'Matches', key: 'matchCount' },
-  { title: 'Completed', key: 'completedMatches' },
-];
-
 onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
   matchStore.subscribeAllMatches(tournamentId.value);

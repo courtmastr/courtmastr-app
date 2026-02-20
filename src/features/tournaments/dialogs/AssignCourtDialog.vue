@@ -3,7 +3,6 @@ import { ref, computed, watch } from 'vue';
 import { useMatchStore } from '@/stores/matches';
 import { useNotificationStore } from '@/stores/notifications';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
-import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import type { Match, Court } from '@/types';
 
@@ -23,7 +22,6 @@ const emit = defineEmits<{
 const matchStore = useMatchStore();
 const notificationStore = useNotificationStore();
 const { getMatchDisplayName } = useMatchDisplay();
-const { getParticipantName } = useParticipantResolver();
 
 const selectedCourtId = ref<string | null>(null);
 const loading = ref(false);

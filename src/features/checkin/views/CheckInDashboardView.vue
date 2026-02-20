@@ -6,9 +6,7 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
-import FilterBar from '@/components/common/FilterBar.vue';
 import CheckInList from '@/features/checkin/components/CheckInList.vue';
-import type { Registration } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -180,9 +178,7 @@ async function handleCheckIn(registrationId: string): Promise<void> {
   try {
     await registrationStore.checkInRegistration(
       tournamentId.value,
-      registrationId,
-      authStore.currentUser?.id,
-      { autoAssignBib: true }
+      registrationId
     );
     notificationStore.showToast('success', `${getParticipantName(registrationId)} checked in`);
   } catch (error) {
@@ -259,9 +255,7 @@ async function bulkCheckIn(): Promise<void> {
     try {
       await registrationStore.checkInRegistration(
         tournamentId.value,
-        registrationId,
-        authStore.currentUser?.id,
-        { autoAssignBib: true }
+        registrationId
       );
       successCount++;
     } catch (error) {

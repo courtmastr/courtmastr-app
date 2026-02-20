@@ -1,3 +1,24 @@
+- id: 42109da1
+  title: build:log fails with existing workspace TypeScript baseline errors
+  status: "✅ fixed"
+  date: "2026-02-20"
+  fingerprint: "42109da1"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-20-14-20-54.vue-tsc-b.log"
+- id: 0a9dffa2
+  title: test:log fails on firebase/testing import in diagnose_data suite
+  status: "❌ unresolved"
+  date: "2026-02-20"
+  fingerprint: "0a9dffa2"
+  command: "npm run test:log -- --run"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-20-14-20-31.vitest-run.log"
+- id: efb03793
+  title: lint:log fails because eslint-plugin-vue is missing
+  status: "❌ unresolved"
+  date: "2026-02-20"
+  fingerprint: "efb03793"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-20-14-19-40.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 9248ae25
   title: build:log fails with existing workspace TypeScript baseline errors
   status: "❌ unresolved"

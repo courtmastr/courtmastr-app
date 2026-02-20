@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
@@ -8,7 +8,6 @@ import { useNotificationStore } from '@/stores/notifications';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
 
 const route = useRoute();
-const router = useRouter();
 const tournamentStore = useTournamentStore();
 const registrationStore = useRegistrationStore();
 const authStore = useAuthStore();
@@ -72,6 +71,8 @@ async function submitRegistration() {
       }
 
       // Create registrations for each selected category
+      const requiresApproval = tournament.value?.settings.requireApproval ?? true;
+
       for (const categoryId of selectedCategories.value) {
         const category = categories.value.find((c) => c.id === categoryId);
         const isDoubles = category?.type === 'doubles' || category?.type === 'mixed_doubles';
@@ -81,7 +82,7 @@ async function submitRegistration() {
           categoryId,
           participantType: 'player',
           playerId,
-          status: tournament.value.settings.requireApproval ? 'pending' : 'approved',
+          status: requiresApproval ? 'pending' : 'approved',
           registeredBy: authStore.currentUser?.id || playerId,
         };
 

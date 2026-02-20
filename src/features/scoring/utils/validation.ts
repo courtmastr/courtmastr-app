@@ -109,13 +109,14 @@ export const validateCompletedGameScore = (
   const maxScore = Math.max(score1, score2);
   const minScore = Math.min(score1, score2);
   const scoreDiff = maxScore - minScore;
+  const maxPoints = config.maxPoints;
   const hasWinningScore = maxScore >= config.pointsToWin;
   const hasWinningMargin = scoreDiff >= config.mustWinBy;
-  const hasCap = config.maxPoints != null;
-  const atCap = hasCap && maxScore >= config.maxPoints;
+  const hasCap = maxPoints != null;
+  const atCap = hasCap && maxScore >= maxPoints;
 
-  if (hasCap && maxScore > config.maxPoints) {
-    return { isValid: false, message: `Score cannot exceed ${config.maxPoints}.` };
+  if (hasCap && maxScore > maxPoints) {
+    return { isValid: false, message: `Score cannot exceed ${maxPoints}.` };
   }
 
   if (!hasWinningScore) {
