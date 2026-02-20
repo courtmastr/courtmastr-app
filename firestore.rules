@@ -20,6 +20,16 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isOrganizer() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'organizer';
+    }
+
+    function isOrganizerOf(tournamentId) {
+      return isAuthenticated() &&
+        request.auth.uid in get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.get('organizerIds', []);
+    }
+
     // Users collection
     match /users/{userId} {
       // Users can read their own profile, admins can read all
@@ -37,94 +47,90 @@ service cloud.firestore {
     match /tournaments/{tournamentId} {
       // Anyone can read published tournaments
       allow read: if true;
-      // Authenticated users can create/update tournaments (simplified for development)
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      // Admins or organizers can create tournaments
+      allow create: if isAdmin() || isOrganizer();
+      // Only admins or organizers assigned to this tournament can update it
+      allow update: if isAdmin() || isOrganizerOf(tournamentId);
       allow delete: if isAdmin();
 
       // Categories subcollection
       match /categories/{categoryId} {
         allow read: if true;
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || isOrganizerOf(tournamentId);
       }
 
       // Courts subcollection
       match /courts/{courtId} {
         allow read: if true;
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || isOrganizerOf(tournamentId);
       }
 
       // Players subcollection
       match /players/{playerId} {
         allow read: if true;
-        // Admins can add players, or anyone if self-registration is enabled
         allow create: if isAuthenticated();
-        allow update: if isAuthenticated();
-        allow delete: if isAdmin();
+        allow update: if isAdmin() || isOrganizerOf(tournamentId);
+        allow delete: if isAdmin() || isOrganizerOf(tournamentId);
       }
 
       // Registrations subcollection
       match /registrations/{registrationId} {
         allow read: if true;
-        // Anyone authenticated can create a registration (self-register)
+        // Anyone authenticated can self-register
         allow create: if isAuthenticated();
-        // Only admins can update/delete registrations
-        allow update: if isAuthenticated();
-        allow delete: if isAdmin();
+        // Only tournament organizers or admins can approve/reject
+        allow update: if isAdmin() || isOrganizerOf(tournamentId);
+        allow delete: if isAdmin() || isOrganizerOf(tournamentId);
       }
 
       // Activities subcollection (tournament activity feed)
       match /activities/{activityId} {
-        // Anyone can read activities (public feed)
         allow read: if true;
-        // Authenticated users can create activities (logging events)
         allow create: if isAuthenticated();
-        // No updates or deletes needed for activity log
-        allow update: if isAdmin();
-        allow delete: if isAdmin();
+        allow update: if isAdmin() || isOrganizerOf(tournamentId);
+        allow delete: if isAdmin() || isOrganizerOf(tournamentId);
       }
       // Brackets Manager Collections
       // stage subcollection
       match /stage/{stageId} {
         allow read: if true;
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || isOrganizerOf(tournamentId);
       }
 
       // match subcollection (singular 'match' used by brackets-manager)
       match /match/{matchId} {
         allow read: if true;
-        // Admins and scorekeepers can update matches
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
       }
 
       // participant subcollection
       match /participant/{participantId} {
         allow read: if true;
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || isOrganizerOf(tournamentId);
       }
 
       // group subcollection
       match /group/{groupId} {
         allow read: if true;
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || isOrganizerOf(tournamentId);
       }
 
       // round subcollection
       match /round/{roundId} {
         allow read: if true;
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || isOrganizerOf(tournamentId);
       }
 
       // match_game subcollection (for game scores)
       match /match_game/{gameId} {
         allow read: if true;
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
       }
 
       // match_scores subcollection (for legacy/custom scoring)
       match /match_scores/{matchId} {
         allow read: if true;
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
 
         // Score correction history - readable by all, writable by scorekeepers only
         match /corrections/{correctionId} {
@@ -137,42 +143,42 @@ service cloud.firestore {
       // Category-isolated bracket collections (new architecture)
       match /categories/{categoryId} {
         allow read: if true;
-        allow write: if isAuthenticated();
+        allow write: if isAdmin() || isOrganizerOf(tournamentId);
 
         // Bracket subcollections under each category
         match /stage/{stageId} {
           allow read: if true;
-          allow write: if isAuthenticated();
+          allow write: if isAdmin() || isOrganizerOf(tournamentId);
         }
 
         match /match/{matchId} {
           allow read: if true;
-          allow write: if isAuthenticated();
+          allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
         }
 
         match /participant/{participantId} {
           allow read: if true;
-          allow write: if isAuthenticated();
+          allow write: if isAdmin() || isOrganizerOf(tournamentId);
         }
 
         match /group/{groupId} {
           allow read: if true;
-          allow write: if isAuthenticated();
+          allow write: if isAdmin() || isOrganizerOf(tournamentId);
         }
 
         match /round/{roundId} {
           allow read: if true;
-          allow write: if isAuthenticated();
+          allow write: if isAdmin() || isOrganizerOf(tournamentId);
         }
 
         match /match_game/{gameId} {
           allow read: if true;
-          allow write: if isAuthenticated();
+          allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
         }
 
         match /match_scores/{matchId} {
           allow read: if true;
-          allow write: if isAuthenticated();
+          allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
 
           // Score correction history - readable by all, writable by scorekeepers only
           match /corrections/{correctionId} {
@@ -185,53 +191,53 @@ service cloud.firestore {
         // Level split configuration + generated level brackets
         match /levels/{levelId} {
           allow read: if true;
-          allow write: if isAuthenticated();
+          allow write: if isAdmin() || isOrganizerOf(tournamentId);
 
           // Bracket subcollections under each level
           match /stage/{stageId} {
             allow read: if true;
-            allow write: if isAuthenticated();
+            allow write: if isAdmin() || isOrganizerOf(tournamentId);
           }
 
           match /match/{matchId} {
             allow read: if true;
-            allow write: if isAuthenticated();
+            allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
           }
 
           match /participant/{participantId} {
             allow read: if true;
-            allow write: if isAuthenticated();
+            allow write: if isAdmin() || isOrganizerOf(tournamentId);
           }
 
           match /group/{groupId} {
             allow read: if true;
-            allow write: if isAuthenticated();
+            allow write: if isAdmin() || isOrganizerOf(tournamentId);
           }
 
           match /round/{roundId} {
             allow read: if true;
-            allow write: if isAuthenticated();
+            allow write: if isAdmin() || isOrganizerOf(tournamentId);
           }
 
           match /match_game/{gameId} {
             allow read: if true;
-            allow write: if isAuthenticated();
+            allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
           }
 
           match /match_scores/{matchId} {
             allow read: if true;
-            allow write: if isAuthenticated();
+            allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
           }
         }
 
         match /level_assignments/{assignmentId} {
           allow read: if true;
-          allow write: if isAuthenticated();
+          allow write: if isAdmin() || isOrganizerOf(tournamentId);
         }
 
         match /level_generation/{configId} {
           allow read: if true;
-          allow write: if isAuthenticated();
+          allow write: if isAdmin() || isOrganizerOf(tournamentId);
         }
       }
 
