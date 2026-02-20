@@ -380,6 +380,7 @@ export const useMatchStore = defineStore('matches', () => {
       matchesUnsubscribe();
       matchesUnsubscribe = null;
     }
+    matches.value = [];
 
     const categorySubscriptions = new Map<string, { match: () => void; scores: () => void }>();
     const levelCollectionSubscriptions = new Map<string, () => void>();

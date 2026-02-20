@@ -6,12 +6,12 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
-import { 
-  ArrowLeft, Calendar, MapPin, Settings as SettingsIcon, ChevronDown, 
+import {
+  ArrowLeft, Calendar, MapPin, Settings as SettingsIcon, ChevronDown,
   UserPlus, Play, CalendarClock, Check, Trash2,
-  Zap, Users, Trophy, ClipboardEdit, Lock, Unlock,
+  Users,
   PlayCircle, Medal, ArrowRightCircle, Megaphone, CheckCheck,
-  UserCheck, AlertTriangle, Info, GitFork
+  UserCheck, GitFork
 } from 'lucide-vue-next';
 import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
@@ -293,10 +293,9 @@ async function handleDeleteTournament() {
           <v-btn
             variant="outlined"
             color="primary"
-            >
-            <template #prepend><SettingsIcon :size="18" /></template
             :to="`/tournaments/${tournamentId}/settings`"
           >
+            <template #prepend><SettingsIcon :size="18" /></template>
             Settings
           </v-btn>
           <v-menu>
@@ -304,11 +303,8 @@ async function handleDeleteTournament() {
               <v-btn
                 v-bind="props"
                 color="primary"
-                >
-                Manage
-                <template #append><ChevronDown :size="18" /></template>
-              </v-btn
               >
+                <template #append><ChevronDown :size="18" /></template>
                 Manage
               </v-btn>
             </template>
@@ -318,44 +314,39 @@ async function handleDeleteTournament() {
             >
               <v-list-item
                 v-if="tournament.status === 'draft'"
-                >
-                <template #prepend><UserPlus :size="18" class="mr-3 text-grey-darken-1" /></template>
-              </v-list-item
                 title="Open Registration"
                 @click="updateStatus('registration')"
-              />
+              >
+                <template #prepend><UserPlus :size="18" class="mr-3 text-grey-darken-1" /></template>
+              </v-list-item>
               <v-list-item
                 v-if="tournament.status === 'registration'"
-                >
-                <template #prepend><Play :size="18" class="mr-3 text-grey-darken-1" /></template>
-              </v-list-item
                 title="Start Tournament"
                 @click="updateStatus('active')"
-              />
+              >
+                <template #prepend><Play :size="18" class="mr-3 text-grey-darken-1" /></template>
+              </v-list-item>
               <v-list-item
-                >
-                <template #prepend><CalendarClock :size="18" class="mr-3 text-grey-darken-1" /></template>
-              </v-list-item
                 title="Generate Schedule"
                 @click="generateSchedule"
-              />
+              >
+                <template #prepend><CalendarClock :size="18" class="mr-3 text-grey-darken-1" /></template>
+              </v-list-item>
               <v-list-item
                 v-if="tournament.status === 'active'"
-                >
-                <template #prepend><Check :size="18" class="mr-3 text-grey-darken-1" /></template>
-              </v-list-item
                 title="Complete Tournament"
                 @click="showCompleteDialog = true"
-              />
+              >
+                <template #prepend><Check :size="18" class="mr-3 text-grey-darken-1" /></template>
+              </v-list-item>
               <v-divider class="my-1" />
               <v-list-item
-                >
-                <template #prepend><Trash2 :size="18" class="mr-3 text-grey-darken-1" /></template>
-              </v-list-item
                 title="Delete Tournament"
                 base-color="error"
                 @click="showDeleteDialog = true"
-              />
+              >
+                <template #prepend><Trash2 :size="18" class="mr-3 text-grey-darken-1" /></template>
+              </v-list-item>
             </v-list>
           </v-menu>
         </div>
@@ -455,10 +446,9 @@ async function handleDeleteTournament() {
             v-if="tournament.status === 'active'"
             variant="flat"
             color="success"
-            >
-            <template #prepend><PlayCircle :size="18" /></template
             :to="`/tournaments/${tournamentId}/match-control`"
           >
+            <template #prepend><PlayCircle :size="18" /></template>
             Enter Match Control
           </v-btn>
           <!-- Other status CTAs -->
@@ -466,30 +456,27 @@ async function handleDeleteTournament() {
             v-if="tournament.status === 'draft'"
             variant="flat"
             color="primary"
-            >
-            <template #prepend><GitFork :size="18" /></template
             :to="`/tournaments/${tournamentId}/categories`"
           >
+            <template #prepend><GitFork :size="18" /></template>
             Setup Categories
           </v-btn>
           <v-btn
             v-if="tournament.status === 'registration'"
             variant="flat"
             color="primary"
-            >
-            <template #prepend><UserCheck :size="18" /></template
             :to="`/tournaments/${tournamentId}/registrations`"
           >
+            <template #prepend><UserCheck :size="18" /></template>
             Review Registrations
           </v-btn>
           <v-btn
             v-if="tournament.status === 'completed'"
             variant="flat"
             color="primary"
-            >
-            <template #prepend><Medal :size="18" /></template
             :to="`/tournaments/${tournamentId}/brackets`"
           >
+            <template #prepend><Medal :size="18" /></template>
             View Results
           </v-btn>
           <!-- Advance state (secondary) -->
@@ -498,10 +485,9 @@ async function handleDeleteTournament() {
             variant="outlined"
             color="primary"
             size="small"
-            >
-            <template #prepend><ArrowRightCircle :size="18" /></template
             @click="advanceState"
           >
+            <template #prepend><ArrowRightCircle :size="18" /></template>
             {{ getNextState(tournament.state) }}
           </v-btn>
         </div>
@@ -879,9 +865,6 @@ async function handleDeleteTournament() {
         <v-btn
           color="success"
           variant="elevated"
-          >
-                <template #prepend><Check :size="18" class="mr-3 text-grey-darken-1" /></template>
-              </v-list-item
           @click="updateStatus('completed'); showCompleteDialog = false"
         >
           Complete Tournament
