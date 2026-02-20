@@ -94,6 +94,10 @@ async function main(): Promise<void> {
       role: 'scorekeeper',
     });
 
+    // Re-authenticate as admin — createOrSignIn leaves auth as the last signed-in
+    // user (scorekeeper), but runSeed must write as admin to satisfy Firestore rules.
+    await signInWithEmailAndPassword(auth, 'admin@courtmastr.com', 'admin123');
+
     await runSeed(db, adminId);
     process.exit(0);
   } catch (error) {
