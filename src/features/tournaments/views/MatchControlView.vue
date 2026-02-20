@@ -2008,10 +2008,7 @@ async function advanceState(): Promise<void> {
 
 // Compact Header
 .text-gradient {
-  background: $primary-gradient;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: $primary-base;
   display: inline-block;
 }
 
@@ -2113,10 +2110,7 @@ async function advanceState(): Promise<void> {
 }
 
 .text-gradient-primary {
-  background: $primary-gradient;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: $primary-base;
 }
 
 // Global Polish

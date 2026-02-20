@@ -219,6 +219,7 @@ async function createTournament() {
       endDate: endDateObj,
       settings: { ...toRaw(settings.value) },
       createdBy: authStore.currentUser.id,
+      organizerIds: [authStore.currentUser.id],
     };
 
     // Only add optional fields if they have values
