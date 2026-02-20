@@ -78,6 +78,8 @@ export {
   serverTimestamp,
   Timestamp,
   increment,
+  arrayUnion,
+  arrayRemove,
   type DocumentReference,
   type DocumentSnapshot,
   type QuerySnapshot,
