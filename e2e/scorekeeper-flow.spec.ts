@@ -17,7 +17,7 @@ test.describe('Scorekeeper Flow', () => {
 
     // Fresh admin login
     await adminPage.goto('/login');
-    await adminPage.getByLabel('Email').fill('admin@courtmaster.local');
+    await adminPage.getByLabel('Email').fill('admin@courtmastr.com');
     await adminPage.locator('input[type="password"]').fill('admin123');
     await adminPage.getByRole('button', { name: 'Sign In' }).click();
     await adminPage.waitForURL('/tournaments', { timeout: 15000 });
@@ -61,7 +61,7 @@ test.describe('Scorekeeper Flow', () => {
     // Firebase auth state lives in IndexedDB — storageState alone does not restore it.
     // Do a fresh scorekeeper login before each test.
     await page.goto('/login');
-    await page.getByLabel('Email').fill('scorekeeper@courtmaster.local');
+    await page.getByLabel('Email').fill('scorekeeper@courtmastr.com');
     await page.locator('input[type="password"]').fill('score123');
     await page.getByRole('button', { name: 'Sign In' }).click();
     await page.waitForURL('/tournaments', { timeout: 15000 });

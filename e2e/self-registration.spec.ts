@@ -17,7 +17,7 @@ test.describe('Self-Registration', () => {
     try {
       // Fresh login
       await adminPage.goto('/login');
-      await adminPage.getByLabel('Email').fill('admin@courtmaster.local');
+      await adminPage.getByLabel('Email').fill('admin@courtmastr.com');
       await adminPage.locator('input[type="password"]').fill('admin123');
       await adminPage.getByRole('button', { name: 'Sign In' }).click();
       await adminPage.waitForURL('/tournaments', { timeout: 15000 });

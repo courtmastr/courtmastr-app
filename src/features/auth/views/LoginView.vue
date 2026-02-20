@@ -187,8 +187,8 @@ async function handleGoogleLogin() {
               <strong>Demo Credentials:</strong>
             </p>
             <p class="text-caption">
-              Admin: admin@courtmaster.local / admin123<br>
-              Scorekeeper: scorekeeper@courtmaster.local / score123
+              Admin: admin@courtmastr.com / admin123<br>
+              Scorekeeper: scorekeeper@courtmastr.com / score123
             </p>
           </v-card-text>
         </v-card>

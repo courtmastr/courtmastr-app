@@ -161,7 +161,7 @@ export class AgentBrowser {
     const passwordInput = this.findElementByRole(snapshot.data.refs, 'textbox', 'password');
     const submitButton = this.findElementByRole(snapshot.data.refs, 'button', 'sign in');
 
-    if (emailInput) await this.fill(`@${emailInput.ref}`, 'admin@courtmaster.local');
+    if (emailInput) await this.fill(`@${emailInput.ref}`, 'admin@courtmastr.com');
     if (passwordInput) await this.fill(`@${passwordInput.ref}`, 'admin123');
     if (submitButton) await this.click(`@${submitButton.ref}`);
     

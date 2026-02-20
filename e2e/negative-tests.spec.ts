@@ -6,7 +6,7 @@ import { getTournamentId } from './utils/test-data';
 // Tests that need an authenticated admin must do a fresh login.
 async function loginAsAdmin(page: import('@playwright/test').Page) {
   await page.goto('/login');
-  await page.getByLabel('Email').fill('admin@courtmaster.local');
+  await page.getByLabel('Email').fill('admin@courtmastr.com');
   await page.locator('input[type="password"]').fill('admin123');
   await page.getByRole('button', { name: 'Sign In' }).click();
   await page.waitForURL('/tournaments', { timeout: 10000 });
@@ -230,7 +230,7 @@ test.describe('Negative Test Cases', () => {
 
     test('should show error for invalid match ID in scoring', async ({ page }) => {
       await page.goto('/login');
-      await page.getByLabel('Email').fill('scorekeeper@courtmaster.local');
+      await page.getByLabel('Email').fill('scorekeeper@courtmastr.com');
       await page.locator('input[type="password"]').fill('score123');
       await page.getByRole('button', { name: 'Sign In' }).click();
       await page.waitForURL('/tournaments');
@@ -244,7 +244,7 @@ test.describe('Negative Test Cases', () => {
   test.describe('Access Control', () => {
     test('should not allow scorekeeper to access admin-only pages', async ({ page }) => {
       await page.goto('/login');
-      await page.getByLabel('Email').fill('scorekeeper@courtmaster.local');
+      await page.getByLabel('Email').fill('scorekeeper@courtmastr.com');
       await page.locator('input[type="password"]').fill('score123');
       await page.getByRole('button', { name: 'Sign In' }).click();
       await page.waitForURL('/tournaments');
@@ -260,7 +260,7 @@ test.describe('Negative Test Cases', () => {
       // so admin can access scoring routes. But scorekeeper cannot access admin-only routes.
       // This test verifies the reverse: scorekeeper → match-control (requiresAdmin: true) is blocked.
       await page.goto('/login');
-      await page.getByLabel('Email').fill('scorekeeper@courtmaster.local');
+      await page.getByLabel('Email').fill('scorekeeper@courtmastr.com');
       await page.locator('input[type="password"]').fill('score123');
       await page.getByRole('button', { name: 'Sign In' }).click();
       await page.waitForURL('/tournaments');

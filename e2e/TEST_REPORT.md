@@ -155,8 +155,8 @@ All tested in Steps 12-13 of lifecycle test.
 - **Artifacts**: Screenshots and videos on failure
 
 ### Authentication
-- Admin: `admin@courtmaster.local` / `admin123`
-- Scorekeeper: `scorekeeper@courtmaster.local` / `score123`
+- Admin: `admin@courtmastr.com` / `admin123`
+- Scorekeeper: `scorekeeper@courtmastr.com` / `score123`
 - Auth state saved to `e2e/.auth/admin.json` and `scorekeeper.json`
 
 ## Running the Tests

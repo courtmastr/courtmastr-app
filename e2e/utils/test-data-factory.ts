@@ -45,7 +45,7 @@ export class TestDataFactory {
     await this.page.goto('/tournaments');
 
     if (this.page.url().includes('/login')) {
-      await this.page.locator('input[type="email"]').fill('admin@courtmaster.local');
+      await this.page.locator('input[type="email"]').fill('admin@courtmastr.com');
       await this.page.locator('input[type="password"]').fill('admin123');
       await this.page.getByRole('button', { name: 'Sign In' }).click();
       await this.page.waitForURL('/tournaments', { timeout: 10000 });

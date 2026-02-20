@@ -34,7 +34,7 @@ test.describe('Tournament Lifecycle', () => {
     page = await context.newPage();
 
     await page.goto('/login');
-    await page.getByLabel('Email').fill('admin@courtmaster.local');
+    await page.getByLabel('Email').fill('admin@courtmastr.com');
     await page.locator('input[type="password"]').fill('admin123');
     await page.getByRole('button', { name: 'Sign In' }).click();
     await page.waitForURL('/tournaments', { timeout: 15000 });

@@ -16,7 +16,7 @@ setup('authenticate as admin', async ({ page }) => {
 
   await page.goto('/login');
   
-  await page.getByLabel('Email').fill('admin@courtmaster.local');
+  await page.getByLabel('Email').fill('admin@courtmastr.com');
   await page.locator('input[type="password"]').fill('admin123');
   await page.getByRole('button', { name: 'Sign In' }).click();
   
@@ -34,7 +34,7 @@ setup('authenticate as scorekeeper', async ({ page }) => {
 
   await page.goto('/login');
 
-  await page.getByLabel('Email').fill('scorekeeper@courtmaster.local');
+  await page.getByLabel('Email').fill('scorekeeper@courtmastr.com');
   await page.locator('input[type="password"]').fill('score123');
   await page.getByRole('button', { name: 'Sign In' }).click();
 

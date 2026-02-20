@@ -70,7 +70,7 @@ test.describe('User Registration (/register)', () => {
   });
 
   test('should register a new account and redirect to tournaments', async ({ page }) => {
-    const uniqueEmail = `e2e-user-${Date.now()}@courtmaster.local`;
+    const uniqueEmail = `e2e-user-${Date.now()}@courtmastr.com`;
 
     await page.getByLabel('Display Name').fill('E2E Test User');
     await page.getByLabel('Email').fill(uniqueEmail);
