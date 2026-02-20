@@ -53,13 +53,18 @@ watch(selectedCategory, async (categoryId) => {
     <!-- Header -->
     <v-row class="mb-4">
       <v-col cols="12">
-        <div v-if="tournament">
-          <h1 class="text-h4 font-weight-bold">
-            {{ tournament.name }}
-          </h1>
-          <p class="text-body-2 text-grey">
-            Live Tournament Bracket
-          </p>
+        <div v-if="tournament" class="pa-6 rounded-lg bg-primary text-white mb-6">
+          <div class="d-flex align-center gap-4">
+            <v-icon size="40" color="white" class="opacity-80">mdi-tournament</v-icon>
+            <div>
+              <h1 class="text-h4 font-weight-bold mb-1">
+                {{ tournament.name }}
+              </h1>
+              <p class="text-subtitle-1 text-primary-lighten-4 font-weight-medium">
+                Live Tournament Bracket
+              </p>
+            </div>
+          </div>
         </div>
         <v-skeleton-loader
           v-else-if="!notFound"
@@ -151,3 +156,8 @@ watch(selectedCategory, async (categoryId) => {
     </template>
   </v-container>
 </template>
+<style scoped>
+.opacity-80 {
+  opacity: 0.8;
+}
+</style>
