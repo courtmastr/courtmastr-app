@@ -10,9 +10,8 @@ import {
   normalizeTournamentState,
   assertCanEditScoring,
   isScoringLocked,
-  getNextTournamentState,
-  type TournamentLifecycleState,
 } from '@/guards/tournamentState';
+import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
 import { sanitizeScoringConfig } from '@/features/scoring/utils/validation';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { useAuthStore } from '@/stores/auth';
@@ -29,23 +28,8 @@ const tournamentId = computed(() => route.params.tournamentId as string);
 const isAdmin = computed(() => authStore.isAdmin);
 const showUnlockDialog = ref(false);
 
-function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
-  if (!currentState) return 'REG_OPEN';
-  return getNextTournamentState(currentState);
-}
+const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(tournamentId);
 
-async function advanceState(): Promise<void> {
-  if (!tournament.value?.state) return;
-  const nextState = getNextTournamentState(tournament.value.state);
-  if (nextState) {
-    try {
-      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
-      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
-    } catch (error) {
-      notificationStore.showToast('error', 'Failed to advance tournament state');
-    }
-  }
-}
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const loading = ref(false);
@@ -418,6 +402,7 @@ async function confirmDelete() {
           :is-admin="isAdmin"
           @advance="advanceState"
           @unlock="showUnlockDialog = true"
+          @revert="transitionTo('LIVE')"
         />
 
         <!-- Basic Info -->

@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
@@ -80,6 +80,21 @@ const selectedLevelId = ref<string | null>(null);
 const selectedCategoryLevels = computed(() =>
   selectedCategory.value ? categoryLevels.value[selectedCategory.value] || [] : []
 );
+
+onMounted(async () => {
+  try {
+    if (!tournamentStore.currentTournament || tournamentStore.categories.length === 0) {
+      await tournamentStore.fetchTournament(tournamentId.value);
+    }
+    tournamentStore.subscribeTournament(tournamentId.value);
+  } catch (error) {
+    console.error('Failed to initialize brackets view:', error);
+  }
+});
+
+onUnmounted(() => {
+  tournamentStore.unsubscribeAll();
+});
 
 watch(selectedCategory, async (categoryId) => {
   if (!categoryId) return;

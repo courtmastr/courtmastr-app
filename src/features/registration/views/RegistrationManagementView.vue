@@ -10,7 +10,7 @@ import FilterBar from '@/components/common/FilterBar.vue';
 
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { FORMAT_LABELS, type Category } from '@/types';
-import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
+import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
 
 const route = useRoute();
 const router = useRouter();
@@ -1083,23 +1083,7 @@ const canApprove = computed(() => {
 const isAdmin = computed(() => authStore.isAdmin);
 const showUnlockDialog = ref(false);
 
-function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
-  if (!currentState) return 'REG_OPEN';
-  return getNextTournamentState(currentState);
-}
-
-async function advanceState(): Promise<void> {
-  if (!tournament.value?.state) return;
-  const nextState = getNextTournamentState(tournament.value.state);
-  if (nextState) {
-    try {
-      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
-      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
-    } catch (error) {
-      notificationStore.showToast('error', 'Failed to advance tournament state');
-    }
-  }
-}
+const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(tournamentId);
 </script>
 
 <template>
@@ -1112,6 +1096,7 @@ async function advanceState(): Promise<void> {
       :is-admin="isAdmin"
       @advance="advanceState"
       @unlock="showUnlockDialog = true"
+      @revert="transitionTo('LIVE')"
     />
 
     <!-- Header -->

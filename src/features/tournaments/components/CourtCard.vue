@@ -22,7 +22,7 @@ const emit = defineEmits<{
   release: [courtId: string];
 }>();
 
-const { getMatchStatusColor, getMatchStatusLabel, formatMatchDuration } = useMatchDisplay();
+const { formatMatchDuration } = useMatchDisplay();
 const { getParticipantName } = useParticipantResolver();
 
 // Derived visual state from court status + match status for clearer ops communication
@@ -101,17 +101,8 @@ const currentScore = computed(() => {
         v-if="hasMatch"
         class="match-info"
       >
-        <!-- Match Status Badge + Elapsed time -->
+        <!-- Elapsed time -->
         <div class="d-flex align-center mb-2">
-          <v-chip
-            :color="getMatchStatusColor(match!)"
-            size="x-small"
-            variant="tonal"
-            label
-            class="mr-2"
-          >
-            {{ getMatchStatusLabel(match!) }}
-          </v-chip>
           <span
             v-if="matchDuration && matchDuration > 0 && match?.status === 'in_progress'"
             class="text-caption font-weight-medium"
@@ -224,7 +215,7 @@ const currentScore = computed(() => {
           </v-btn>
         </div>
       </template>
-      <template v-else-if="court.status === 'available'">
+      <template v-else-if="court.status === 'available' || !court.status">
         <v-btn
           variant="outlined"
           color="success"

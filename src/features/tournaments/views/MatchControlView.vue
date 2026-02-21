@@ -12,6 +12,7 @@ import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useDialogManager } from '@/composables/useDialogManager';
 import AssignCourtDialog from '@/features/tournaments/dialogs/AssignCourtDialog.vue';
+import SelectMatchForCourtDialog from '@/features/tournaments/dialogs/SelectMatchForCourtDialog.vue';
 import ScheduleMatchDialog from '@/features/tournaments/dialogs/ScheduleMatchDialog.vue';
 import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.vue';
 import AutoScheduleDialog from '@/features/tournaments/dialogs/AutoScheduleDialog.vue';
@@ -22,8 +23,7 @@ import MatchQueueList from '@/features/tournaments/components/MatchQueueList.vue
 import CourtGrid from '@/features/tournaments/components/CourtGrid.vue';
 import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
 import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
-import RunningStatusBoard from '@/features/tournaments/components/RunningStatusBoard.vue';
-import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
+import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
 import type { Match } from '@/types';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
@@ -42,11 +42,13 @@ const authStore = useAuthStore();
 const { getParticipantName } = useParticipantResolver();
 const { getMatchDisplayName } = useMatchDisplay();
 const { open: openDialog, close: closeDialog, isOpen: isDialogOpen } = useDialogManager([
-  'assignCourt', 'schedule', 'score', 'autoSchedule', 'release', 'reset', 'share'
+  'assignCourt', 'selectMatchForCourt', 'schedule', 'score', 'autoSchedule', 'release', 'reset', 'share'
 ]);
 
 const isAdmin = computed(() => authStore.isAdmin);
 const showUnlockDialog = ref(false);
+const showCompleteTournamentDialog = ref(false);
+const advanceLoading = ref(false);
 
 
 const tournamentId = computed(() => route.params.tournamentId as string);
@@ -57,29 +59,6 @@ const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const courts = computed(() => tournamentStore.courts);
 const matches = computed(() => matchStore.matches);
-
-// Load data
-async function loadData() {
-  if (!tournamentId.value) return;
-  try {
-    await Promise.all([
-      tournamentStore.fetchTournament(tournamentId.value),
-      matchStore.fetchMatches(tournamentId.value)
-    ]);
-  } catch (error) {
-    console.error('Failed to load data:', error);
-  }
-}
-
-onMounted(() => {
-  loadData();
-  // Start auto-ready interval
-  autoReadyInterval = setInterval(checkAndMarkDueMatches, 60 * 1000);
-});
-
-onUnmounted(() => {
-  if (autoReadyInterval) clearInterval(autoReadyInterval);
-});
 
 // Filter state
 const selectedCategory = ref<string>('all');
@@ -120,13 +99,6 @@ const { categoryStageStatuses } = useCategoryStageStatus(
   getParticipantName
 );
 
-const filteredCategoryStageStatuses = computed(() => {
-  if (selectedCategory.value === 'all') {
-    return categoryStageStatuses.value;
-  }
-  return categoryStageStatuses.value.filter((status) => status.categoryId === selectedCategory.value);
-});
-
 // Categories that have completed their current stage and need level generation
 const levelGenerationCategories = computed(() =>
   categoryStageStatuses.value.filter((s) => s.needsLevelGeneration)
@@ -140,6 +112,13 @@ const showAssignCourtDialog = computed<boolean>({
   set: (value) => {
     if (value) openDialog('assignCourt');
     else closeDialog('assignCourt');
+  },
+});
+const showSelectMatchForCourtDialog = computed<boolean>({
+  get: () => isDialogOpen('selectMatchForCourt'),
+  set: (value) => {
+    if (value) openDialog('selectMatchForCourt');
+    else closeDialog('selectMatchForCourt');
   },
 });
 const showScheduleDialog = computed<boolean>({
@@ -550,59 +529,30 @@ const stats = computed(() => {
   return result;
 });
 
-const blockedMatches = computed(() =>
-  matches.value.filter((match) =>
-    (match.status === 'scheduled' || match.status === 'ready') &&
-    (!match.participant1Id || !match.participant2Id)
-  )
-);
-
 const completionPercent = computed(() => {
   if (!stats.value.total) return 0;
   return Math.round((stats.value.completed / stats.value.total) * 100);
 });
 
 const tournamentHealth = computed(() => {
-  const { ready, inProgress, totalCourts, courtsInUse, pending } = stats.value;
-  const queuePressure = ready + pending;
-  const courtsBusy = totalCourts > 0 ? courtsInUse / totalCourts : 0;
+  const { inProgress, totalCourts, courtsInUse, pending } = stats.value;
+  const queueSize = pending;
+  const courtsAvailable = totalCourts - courtsInUse;
 
-  if (inProgress === 0 && queuePressure === 0) {
+  if (inProgress === 0 && queueSize === 0) {
     return { label: 'Idle', color: 'default', icon: 'mdi-circle-outline' };
   }
-  if (courtsBusy >= 0.8 && queuePressure > 5) {
+  if (courtsAvailable === 0 && inProgress > 0) {
+    return { label: 'Healthy', color: 'success', icon: 'mdi-check-circle' };
+  }
+  if (queueSize > 8 && courtsAvailable > 0) {
     return { label: 'Backlog', color: 'error', icon: 'mdi-alert-circle' };
   }
-  if (queuePressure > 3 || courtsBusy >= 0.6) {
+  if (queueSize > 3 && courtsAvailable > 0) {
     return { label: 'Queue Building', color: 'warning', icon: 'mdi-alert' };
   }
   return { label: 'Healthy', color: 'success', icon: 'mdi-check-circle' };
 });
-
-const nextActionMatchLabel = computed(() => {
-  const nextMatch = matches.value
-    .filter((match) =>
-      (match.status === 'ready' || match.status === 'scheduled') &&
-      !match.courtId &&
-      match.participant1Id &&
-      match.participant2Id &&
-      (selectedCategory.value === 'all' || match.categoryId === selectedCategory.value)
-    )
-    .sort((a, b) => a.round - b.round || a.matchNumber - b.matchNumber)[0];
-
-  if (!nextMatch) return '-';
-  return `${getCategoryName(nextMatch.categoryId)} · ${getMatchDisplayName(nextMatch)}`;
-});
-
-const runningStatusSummary = computed(() => ({
-  total: stats.value.total,
-  inProgress: stats.value.inProgress,
-  ready: stats.value.ready,
-  scheduled: stats.value.scheduled,
-  blocked: blockedMatches.value.length,
-  completed: stats.value.completed,
-  nextMatch: nextActionMatchLabel.value,
-}));
 
 // Auto-ready: check for scheduled matches that are due and mark them as ready
 async function checkAndMarkDueMatches() {
@@ -751,10 +701,7 @@ async function confirmReleaseCourt() {
 // TOURNEY-101: Command Center helper functions
 function openAssignCourtDialogForCourt(courtId: string) {
   selectedCourtId.value = courtId;
-  // Find the first ready match to suggest, or leave null for manual selection
-  const firstReadyMatch = matches.value.find(m => m.status === 'ready' && !m.courtId);
-  selectedMatch.value = firstReadyMatch || null;
-  openDialog('assignCourt');
+  openDialog('selectMatchForCourt');
 }
 
 function selectMatchFromQueue(ref: QueueMatchRef) {
@@ -1044,21 +991,26 @@ function toggleAutoStart(enabled: boolean) {
   }
 }
 
-function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
-  if (!currentState) return 'REG_OPEN';
-  return getNextTournamentState(currentState);
+const { advanceState: doAdvance, transitionTo, getNextState } = useTournamentStateAdvance(tournamentId);
+
+/** Intercept LIVE → COMPLETED to show confirmation dialog */
+async function advanceState(): Promise<void> {
+  if (tournament.value?.state === 'LIVE') {
+    showCompleteTournamentDialog.value = true;
+    return;
+  }
+  await doAdvance();
 }
 
-async function advanceState(): Promise<void> {
-  if (!tournament.value?.state) return;
-  const nextState = getNextTournamentState(tournament.value.state);
-  if (nextState) {
-    try {
-      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
-      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
-    } catch (error) {
-      notificationStore.showToast('error', 'Failed to advance tournament state');
-    }
+async function confirmCompleteTournament(): Promise<void> {
+  advanceLoading.value = true;
+  try {
+    await transitionTo('COMPLETED');
+    showCompleteTournamentDialog.value = false;
+  } catch (error) {
+    notificationStore.showToast('error', 'Failed to complete tournament');
+  } finally {
+    advanceLoading.value = false;
   }
 }
 
@@ -1072,8 +1024,16 @@ async function advanceState(): Promise<void> {
       :state="tournament.state || 'DRAFT'"
       :next-state="getNextState(tournament.state || 'DRAFT')"
       :is-admin="isAdmin"
+      :live-stats="{
+        inProgress: stats.inProgress,
+        remaining: stats.total - stats.completed - stats.inProgress,
+        courtsFree: stats.totalCourts - stats.courtsInUse,
+        completed: stats.completed,
+        total: stats.total
+      }"
       @advance="advanceState"
       @unlock="showUnlockDialog = true"
+      @revert="transitionTo('LIVE')"
     />
 
     <!-- Level Generation Banners (pool play / round robin complete) -->
@@ -1195,18 +1155,20 @@ async function advanceState(): Promise<void> {
     </v-toolbar>
 
     <!-- Progress Bar Strip -->
-    <div class="d-flex align-center px-3 border-b bg-surface" style="height: 28px; gap: 8px">
+    <div class="d-flex align-center px-3 border-b bg-surface progress-strip">
       <span class="text-caption text-medium-emphasis" style="white-space: nowrap">
         {{ stats.completed }}/{{ stats.total }} complete
       </span>
-      <v-progress-linear
-        :model-value="completionPercent"
-        color="success"
-        bg-color="surface-variant"
-        rounded
-        height="6"
-        class="flex-grow-1"
-      />
+      <div class="progress-track-wrapper">
+        <v-progress-linear
+          :model-value="completionPercent"
+          color="success"
+          bg-color="surface-variant"
+          rounded
+          height="6"
+          class="progress-track"
+        />
+      </div>
       <span class="text-caption font-weight-bold" style="min-width: 32px; text-align: right">
         {{ completionPercent }}%
       </span>
@@ -1798,16 +1760,6 @@ async function advanceState(): Promise<void> {
 
             <v-col
               cols="12"
-              class="pa-1"
-            >
-              <RunningStatusBoard
-                :summary="runningStatusSummary"
-                :category-statuses="filteredCategoryStageStatuses"
-              />
-            </v-col>
-
-            <v-col
-              cols="12"
               lg="8"
               class="pa-1 d-flex"
             >
@@ -1864,7 +1816,7 @@ async function advanceState(): Promise<void> {
                 <v-card
                   variant="flat"
                   border
-                  class="command-feed-card"
+                  class="command-feed-card command-feed-queue"
                 >
                   <ready-queue
                     :matches="pendingMatches"
@@ -1879,7 +1831,7 @@ async function advanceState(): Promise<void> {
                 <v-card
                   variant="flat"
                   border
-                  class="command-feed-card"
+                  class="command-feed-card command-feed-alerts"
                 >
                   <alerts-panel
                     :courts="courts"
@@ -1906,6 +1858,17 @@ async function advanceState(): Promise<void> {
       :tournament-id="tournamentId"
       :courts="courts"
       @assigned="showAssignCourtDialog = false"
+    />
+
+    <SelectMatchForCourtDialog
+      v-model="showSelectMatchForCourtDialog"
+      :court-id="selectedCourtId"
+      :court-name="courts.find(c => c.id === selectedCourtId)?.name ?? ''"
+      :matches="pendingMatches"
+      :tournament-id="tournamentId"
+      :get-participant-name="getParticipantName"
+      :get-category-name="getCategoryName"
+      @assigned="showSelectMatchForCourtDialog = false"
     />
 
     <AutoScheduleDialog
@@ -2043,6 +2006,63 @@ async function advanceState(): Promise<void> {
         </v-btn>
       </template>
     </BaseDialog>
+
+    <!-- Complete Tournament Confirmation Dialog -->
+    <v-dialog
+      v-model="showCompleteTournamentDialog"
+      max-width="480"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="warning" class="mr-2">mdi-flag-checkered</v-icon>
+          Complete Tournament?
+        </v-card-title>
+        <v-card-text>
+          <v-alert
+            v-if="stats.total - stats.completed > 0"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+          >
+            <strong>{{ stats.total - stats.completed }} matches are not yet completed</strong>
+            ({{ stats.inProgress }} in progress, {{ stats.total - stats.completed - stats.inProgress }} pending).
+            Completing the tournament now will finalize all results.
+          </v-alert>
+          <v-alert
+            v-else
+            type="success"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+          >
+            All {{ stats.total }} matches are completed. The tournament is ready to finalize.
+          </v-alert>
+          <p class="text-body-2 text-medium-emphasis">
+            This action marks the tournament as finished. Results will become final and no further scoring will be possible.
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="showCompleteTournamentDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="warning"
+            variant="flat"
+            :loading="advanceLoading"
+            prepend-icon="mdi-flag-checkered"
+            @click="confirmCompleteTournament"
+          >
+            Complete Tournament
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -2187,6 +2207,23 @@ async function advanceState(): Promise<void> {
   background: rgba($primary-base, 0.02);
 }
 
+.progress-strip {
+  min-height: 28px;
+  gap: 8px;
+}
+
+.progress-track-wrapper {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.progress-track {
+  width: 100%;
+  min-width: 0;
+}
+
 .command-section-body {
   flex: 1;
   min-height: 0;
@@ -2202,14 +2239,26 @@ async function advanceState(): Promise<void> {
   gap: 8px;
 }
 
+/* Shared base */
 .command-feed-card {
   display: flex;
-  flex: 1;
-  min-height: 280px;
   min-width: 0;
   overflow: hidden;
   background: rgb(var(--v-theme-surface));
   border-radius: 10px;
+}
+
+/* Ready Queue: fill all remaining sidebar space, scrolls for many matches */
+.command-feed-queue {
+  flex: 1 1 0;
+  min-height: 220px;
+}
+
+/* Alerts: compact, only as tall as content, never more than half the sidebar */
+.command-feed-alerts {
+  flex: 0 1 auto;
+  min-height: 120px;
+  max-height: 280px;
 }
 
 @media (max-width: 960px) {
@@ -2217,8 +2266,13 @@ async function advanceState(): Promise<void> {
     min-height: 420px;
   }
 
-  .command-feed-card {
+  .command-feed-queue {
     min-height: 300px;
+  }
+
+  .command-feed-alerts {
+    min-height: 120px;
+    max-height: 260px;
   }
 }
 

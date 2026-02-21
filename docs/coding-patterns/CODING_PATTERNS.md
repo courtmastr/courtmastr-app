@@ -81,6 +81,45 @@ grep -rn "alert(" src/ --include="*.vue" --include="*.ts" | grep -v "//.*alert"
 
 ---
 
+### CP-014: Court Cards Must Show One Authoritative Status Chip
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-21 |
+| **Source Bug** | Court cards showed both `READY` and `Ready` simultaneously |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<!-- Header chip (court-level state) -->
+<v-chip>{{ statusLabel }}</v-chip>
+
+<!-- Match-info chip (match-level state) -->
+<v-chip>{{ getMatchStatusLabel(match!) }}</v-chip>
+```
+
+**Correct Pattern (✅):**
+```vue
+<!-- Keep one chip only: the court-level state in card header -->
+<v-chip>{{ statusLabel }}</v-chip>
+
+<!-- In match body, keep timing/context text only -->
+<span v-if="match?.status === 'in_progress'">{{ formatMatchDuration(matchDuration) }}</span>
+```
+
+**Rule:** In `CourtCard`, use the header state chip (`LIVE`/`READY`/`FREE`/`BLOCKED`) as the single status indicator. Do not render a second status chip inside `.match-info`.
+
+**Detection:**
+```bash
+# Violation if both header status and match status chip logic are present together
+if rg -q "statusLabel" src/features/tournaments/components/CourtCard.vue && rg -q "getMatchStatusLabel\\(match!?\\)" src/features/tournaments/components/CourtCard.vue; then
+  echo "Violation: dual status chips in CourtCard.vue"
+fi
+```
+
+---
+
 ## Category: Data Integrity
 
 ### CP-002: Reverse Lookups for Cross-Collection References
