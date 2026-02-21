@@ -12,6 +12,7 @@ export interface CategoryStageStatus {
   live: number;
   upcoming: number;
   nextRound: number | null;
+  poolPlayComplete: boolean;
 }
 
 const FINISHED_MATCH_STATUSES = new Set<Match['status']>(['completed', 'walkover', 'cancelled']);
@@ -141,6 +142,14 @@ export function useCategoryStageStatus(
             ? 'Waiting on prior results'
             : '-';
 
+        // Pool play is complete when: pool_to_elimination format, still in pool phase,
+        // matches exist, and no remaining actionable matches
+        const poolPlayComplete =
+          category.format === 'pool_to_elimination' &&
+          category.poolPhase === 'pool' &&
+          categoryMatches.length > 0 &&
+          remaining === 0;
+
         return {
           categoryId: category.id,
           categoryName: category.name,
@@ -152,6 +161,7 @@ export function useCategoryStageStatus(
           live: liveMatches.length,
           upcoming: upcomingMatches.length,
           nextRound,
+          poolPlayComplete,
         } as CategoryStageStatus;
       })
       .sort((a, b) => b.remaining - a.remaining || a.categoryName.localeCompare(b.categoryName));

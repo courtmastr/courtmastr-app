@@ -101,6 +101,14 @@
           :ripple="false"
         />
         <v-list-item
+          v-if="smartBracketPath"
+          :to="smartBracketPath"
+          prepend-icon="mdi-source-branch"
+          title="Smart Bracket"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
           v-if="isOrganizer"
           :to="`/tournaments/${currentTournamentId}/registrations`"
           prepend-icon="mdi-account-multiple"
@@ -198,10 +206,22 @@ const router = useRouter();
 
 const currentUser = computed(() => authStore.currentUser);
 const isOrganizer = computed(() => authStore.isOrganizer);
+const categories = computed(() => tournamentStore.categories);
 const currentTournamentId = computed(() => {
   // Try to get tournament ID from route, otherwise use the current tournament from store
   const routeParams = route.params;
   return routeParams.tournamentId as string || tournamentStore.currentTournament?.id || '';
+});
+
+const smartBracketPath = computed(() => {
+  const tournamentId = currentTournamentId.value;
+  if (!tournamentId) return '';
+
+  const routeCategoryId = route.params.categoryId as string | undefined;
+  const categoryId = routeCategoryId || categories.value[0]?.id;
+  if (!categoryId) return '';
+
+  return `/tournaments/${tournamentId}/categories/${categoryId}/smart-bracket`;
 });
 
 async function handleLogout(): Promise<void> {

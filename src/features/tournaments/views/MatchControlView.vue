@@ -18,7 +18,6 @@ import AutoScheduleDialog from '@/features/tournaments/dialogs/AutoScheduleDialo
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import FilterBar from '@/components/common/FilterBar.vue';
 import MatchQueueList from '@/features/tournaments/components/MatchQueueList.vue';
-import ActiveMatchesSection from '@/features/tournaments/components/ActiveMatchesSection.vue';
 // TOURNEY-101: Command Center components
 import CourtGrid from '@/features/tournaments/components/CourtGrid.vue';
 import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
@@ -114,10 +113,6 @@ const quickFilters = [
 ];
 
 // Category options for dropdown
-const categoryOptions = computed(() => [
-  { name: 'All Categories', id: 'all' },
-  ...categories.value,
-]);
 
 const { categoryStageStatuses } = useCategoryStageStatus(
   categories,
@@ -293,28 +288,6 @@ const readyMatches = computed(() => {
     result = result.filter((m) => m.categoryId === selectedCategory.value);
   }
   return result;
-});
-
-
-
-// Enrich in-progress matches with participant names and court names for ActiveMatchesSection
-// Also include READY matches that have a court assigned, so they appear in the list
-const enrichedInProgressMatches = computed(() => {
-  // Get both In Progress AND Ready matches that have a court
-  const matchesToShow = matches.value.filter(m => 
-    (m.status === 'in_progress' || (m.status === 'ready' && m.courtId)) &&
-    (selectedCategory.value === 'all' || m.categoryId === selectedCategory.value)
-  );
-
-  const enriched = matchesToShow.map(match => ({
-    ...match,
-    participant1Name: getParticipantName(match.participant1Id),
-    participant2Name: getParticipantName(match.participant2Id),
-    categoryName: getCategoryName(match.categoryId),
-    courtName: courts.value.find(c => c.id === match.courtId)?.name
-  })) as any;
-
-  return enriched;
 });
 
 
@@ -578,6 +551,28 @@ const blockedMatches = computed(() =>
     (!match.participant1Id || !match.participant2Id)
   )
 );
+
+const completionPercent = computed(() => {
+  if (!stats.value.total) return 0;
+  return Math.round((stats.value.completed / stats.value.total) * 100);
+});
+
+const tournamentHealth = computed(() => {
+  const { ready, inProgress, totalCourts, courtsInUse, pending } = stats.value;
+  const queuePressure = ready + pending;
+  const courtsBusy = totalCourts > 0 ? courtsInUse / totalCourts : 0;
+
+  if (inProgress === 0 && queuePressure === 0) {
+    return { label: 'Idle', color: 'default', icon: 'mdi-circle-outline' };
+  }
+  if (courtsBusy >= 0.8 && queuePressure > 5) {
+    return { label: 'Backlog', color: 'error', icon: 'mdi-alert-circle' };
+  }
+  if (queuePressure > 3 || courtsBusy >= 0.6) {
+    return { label: 'Queue Building', color: 'warning', icon: 'mdi-alert' };
+  }
+  return { label: 'Healthy', color: 'success', icon: 'mdi-check-circle' };
+});
 
 const nextActionMatchLabel = computed(() => {
   const nextMatch = matches.value
@@ -1098,6 +1093,18 @@ async function advanceState(): Promise<void> {
       
       <v-spacer />
 
+      <!-- Tournament Health Badge -->
+      <v-chip
+        :color="tournamentHealth.color"
+        size="small"
+        variant="tonal"
+        class="mr-3 hidden-sm-and-down"
+        :prepend-icon="tournamentHealth.icon"
+      >
+        {{ tournamentHealth.label }}
+        <span class="ml-1 text-caption" style="opacity: 0.7">{{ stats.courtsInUse }}/{{ stats.totalCourts }} courts</span>
+      </v-chip>
+
       <!-- Category Filter -->
       <div
         v-if="viewMode !== 'schedule'"
@@ -1106,9 +1113,9 @@ async function advanceState(): Promise<void> {
       >
         <v-select
           v-model="selectedCategory"
-          :items="categoryOptions"
-          item-title="name"
-          item-value="id"
+          :items="categoryFilterOptions"
+          item-title="title"
+          item-value="value"
           density="compact"
           variant="outlined"
           hide-details
@@ -1151,6 +1158,24 @@ async function advanceState(): Promise<void> {
 
     </v-toolbar>
 
+    <!-- Progress Bar Strip -->
+    <div class="d-flex align-center px-3 border-b bg-surface" style="height: 28px; gap: 8px">
+      <span class="text-caption text-medium-emphasis" style="white-space: nowrap">
+        {{ stats.completed }}/{{ stats.total }} complete
+      </span>
+      <v-progress-linear
+        :model-value="completionPercent"
+        color="success"
+        bg-color="surface-variant"
+        rounded
+        height="6"
+        class="flex-grow-1"
+      />
+      <span class="text-caption font-weight-bold" style="min-width: 32px; text-align: right">
+        {{ completionPercent }}%
+      </span>
+    </div>
+
     <!-- Main Content Grid -->
     <div class="flex-grow-1 overflow-hidden">
       <!-- VIEW MODE: QUEUE (Original Layout) -->
@@ -1159,17 +1184,7 @@ async function advanceState(): Promise<void> {
         class="fill-height ma-0"
         no-gutters
       >
-        <v-col
-          cols="12"
-          class="pa-3 pb-0"
-        >
-          <RunningStatusBoard
-            :summary="runningStatusSummary"
-            :category-statuses="filteredCategoryStageStatuses"
-          />
-        </v-col>
-
-        <!-- LEFT PANEL: Active Matches & Courts (Flexible, Scrollable) -->
+        <!-- LEFT PANEL: Courts (Flexible, Scrollable) -->
         <v-col
           cols="12"
           md="8"
@@ -1177,14 +1192,6 @@ async function advanceState(): Promise<void> {
         >
           <!-- Scrollable Content Area -->
           <div class="flex-grow-1 overflow-y-auto pa-4 bg-background">
-            <!-- Active Matches Section -->
-            <div class="mb-4">
-              <active-matches-section
-                :matches="enrichedInProgressMatches"
-                :show-actions="false"
-              />
-            </div>
-
             <!-- Courts Grid -->
             <div class="d-flex align-center mb-2 mt-6">
               <v-icon

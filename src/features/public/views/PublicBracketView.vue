@@ -97,11 +97,9 @@ watch(selectedCategory, async (categoryId) => {
 
     <template v-else>
       <!-- Category + Level Selection -->
-      <v-row class="mb-2">
-        <v-col
-          cols="12"
-          sm="4"
-        >
+      <div class="bracket-filters mb-4">
+        <div class="bracket-filters__label">Category</div>
+        <div class="bracket-filters__controls">
           <v-select
             v-model="selectedCategory"
             :items="categories"
@@ -109,26 +107,27 @@ watch(selectedCategory, async (categoryId) => {
             item-value="id"
             label="Select Category"
             :loading="loading"
+            variant="outlined"
+            density="comfortable"
             hide-details
+            style="max-width: 280px"
           />
-        </v-col>
-        <v-col
-          v-if="selectedCategoryLevels.length > 0"
-          cols="12"
-          sm="4"
-        >
           <v-select
+            v-if="selectedCategoryLevels.length > 0"
             v-model="selectedLevelId"
             :items="selectedCategoryLevels"
             item-title="name"
             item-value="id"
-            label="Select Level Bracket (Optional)"
-            placeholder="Category bracket (default)"
+            label="Level Bracket"
+            placeholder="All levels"
             clearable
+            variant="outlined"
+            density="comfortable"
             hide-details
+            style="max-width: 280px"
           />
-        </v-col>
-      </v-row>
+        </div>
+      </div>
 
       <!-- Bracket -->
       <BracketsManagerViewer
@@ -159,5 +158,69 @@ watch(selectedCategory, async (categoryId) => {
 <style scoped>
 .opacity-80 {
   opacity: 0.8;
+}
+
+/* Category filter bar */
+.bracket-filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bracket-filters__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  white-space: nowrap;
+}
+
+.bracket-filters__controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Bracket viewer typography overrides */
+:deep(.brackets-viewer) {
+  font-family: inherit;
+}
+
+/* Participant names */
+:deep(.brackets-viewer .participant) {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.92);
+  letter-spacing: 0.01em;
+}
+
+/* Scores */
+:deep(.brackets-viewer .score) {
+  font-size: 1rem;
+  font-weight: 800;
+  color: rgb(var(--v-theme-on-surface));
+}
+
+/* Winner highlight */
+:deep(.brackets-viewer .participant.win .name) {
+  color: rgb(var(--v-theme-success));
+  font-weight: 700;
+}
+
+/* Round labels */
+:deep(.brackets-viewer .round-name),
+:deep(.brackets-viewer .round-label) {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+}
+
+/* Match containers */
+:deep(.brackets-viewer .match) {
+  border-radius: 6px;
 }
 </style>

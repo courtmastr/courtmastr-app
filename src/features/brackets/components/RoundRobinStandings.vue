@@ -34,12 +34,15 @@ const standings = computed(() => {
     registrationId: string;
     name: string;
     played: number;
-    won: number;
-    lost: number;
+    matchesWon: number;
+    matchesLost: number;
+    matchPoints: number; // 2 for win, 1 for loss, 0 for not played
+    gamesWon: number;
+    gamesLost: number;
+    gameDifference: number;
     pointsFor: number;
     pointsAgainst: number;
-    pointsDiff: number;
-    matchPoints: number; // 2 for win, 1 for loss, 0 for not played
+    pointDifference: number;
   }>();
 
   // Initialize standings for all registrations
@@ -49,12 +52,15 @@ const standings = computed(() => {
         registrationId: reg.id,
         name: getParticipantName(reg.id),
         played: 0,
-        won: 0,
-        lost: 0,
+        matchesWon: 0,
+        matchesLost: 0,
+        matchPoints: 0,
+        gamesWon: 0,
+        gamesLost: 0,
+        gameDifference: 0,
         pointsFor: 0,
         pointsAgainst: 0,
-        pointsDiff: 0,
-        matchPoints: 0,
+        pointDifference: 0,
       });
     }
   }
@@ -69,47 +75,67 @@ const standings = computed(() => {
         p1.played++;
         p2.played++;
 
-        // Calculate game points
+        // Calculate game points and games won
         let p1Points = 0;
         let p2Points = 0;
+        let p1Games = 0;
+        let p2Games = 0;
         for (const score of match.scores) {
           p1Points += score.score1;
           p2Points += score.score2;
+          // A player wins a game/set if they scored more points in that game
+          if (score.score1 > score.score2) {
+            p1Games++;
+          } else if (score.score2 > score.score1) {
+            p2Games++;
+          }
+          // If scores are equal, no game is awarded (shouldn't happen in completed matches)
         }
 
+        // Update games stats (matches LeaderboardEntry: gamesWon, gamesLost, gameDifference)
+        p1.gamesWon += p1Games;
+        p1.gamesLost += p2Games;
+        p2.gamesWon += p2Games;
+        p2.gamesLost += p1Games;
+        p1.gameDifference = p1.gamesWon - p1.gamesLost;
+        p2.gameDifference = p2.gamesWon - p2.gamesLost;
+
+        // Update points stats (matches LeaderboardEntry: pointsFor, pointsAgainst, pointDifference)
         p1.pointsFor += p1Points;
         p1.pointsAgainst += p2Points;
         p2.pointsFor += p2Points;
         p2.pointsAgainst += p1Points;
 
         if (match.winnerId === match.participant1Id) {
-          p1.won++;
+          p1.matchesWon++;
           p1.matchPoints += 2;
-          p2.lost++;
+          p2.matchesLost++;
           p2.matchPoints += 1;
         } else {
-          p2.won++;
+          p2.matchesWon++;
           p2.matchPoints += 2;
-          p1.lost++;
+          p1.matchesLost++;
           p1.matchPoints += 1;
         }
 
-        p1.pointsDiff = p1.pointsFor - p1.pointsAgainst;
-        p2.pointsDiff = p2.pointsFor - p2.pointsAgainst;
+        p1.pointDifference = p1.pointsFor - p1.pointsAgainst;
+        p2.pointDifference = p2.pointsFor - p2.pointsAgainst;
       }
     }
   }
 
-  // Convert to array and sort
+  // Convert to array and sort (same logic as useLeaderboard.ts)
   return Array.from(standingsMap.values()).sort((a, b) => {
     // First by match points
     if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
     // Then by wins
-    if (b.won !== a.won) return b.won - a.won;
-    // Then by point difference
-    if (b.pointsDiff !== a.pointsDiff) return b.pointsDiff - a.pointsDiff;
-    // Then by points for
-    return b.pointsFor - a.pointsFor;
+    if (b.matchesWon !== a.matchesWon) return b.matchesWon - a.matchesWon;
+    // Then by game difference (BWF tiebreaker: game difference)
+    if (b.gameDifference !== a.gameDifference) return b.gameDifference - a.gameDifference;
+    // Then by points difference
+    if (b.pointDifference !== a.pointDifference) return b.pointDifference - a.pointDifference;
+    // Then by games won
+    return b.gamesWon - a.gamesWon;
   });
 });
 
@@ -313,15 +339,14 @@ function getMatchScore(match: Match): string {
           <v-card>
             <v-data-table
               :headers="[
-                { title: 'Rank', key: 'rank', width: '80px' },
+                { title: '#', key: 'rank', width: '60px', align: 'center' },
                 { title: 'Participant', key: 'name' },
-                { title: 'Played', key: 'played', align: 'center' },
-                { title: 'Won', key: 'won', align: 'center' },
-                { title: 'Lost', key: 'lost', align: 'center' },
-                { title: 'PF', key: 'pointsFor', align: 'center' },
-                { title: 'PA', key: 'pointsAgainst', align: 'center' },
-                { title: '+/-', key: 'pointsDiff', align: 'center' },
-                { title: 'Pts', key: 'matchPoints', align: 'center' },
+                { title: 'Status', key: 'status', width: '110px' },
+                { title: 'MP', key: 'matchPoints', width: '70px', align: 'center' },
+                { title: 'W-L', key: 'record', width: '80px', align: 'center' },
+                { title: 'Games', key: 'games', width: '90px', align: 'center' },
+                { title: 'Pts For/Ag', key: 'points', width: '110px', align: 'center' },
+                { title: 'Pts +/-', key: 'pointDiff', width: '80px', align: 'center' },
               ]"
               :items="standings.map((s, i) => ({ ...s, rank: i + 1 }))"
               :items-per-page="-1"
@@ -330,35 +355,43 @@ function getMatchScore(match: Match): string {
             >
               <template #item.rank="{ item }">
                 <v-avatar
+                  v-if="item.played > 0"
                   :color="getRankBadgeColor(item.rank)"
                   size="32"
                   class="font-weight-bold"
                 >
                   {{ item.rank }}
                 </v-avatar>
+                <span v-else class="text-medium-emphasis">—</span>
               </template>
               <template #item.name="{ item }">
                 <span class="font-weight-medium">{{ item.name }}</span>
               </template>
-              <template #item.won="{ item }">
-                <span class="text-success font-weight-bold">{{ item.won }}</span>
-              </template>
-              <template #item.lost="{ item }">
-                <span class="text-error">{{ item.lost }}</span>
-              </template>
-              <template #item.pointsDiff="{ item }">
-                <span :class="item.pointsDiff >= 0 ? 'text-success' : 'text-error'">
-                  {{ item.pointsDiff >= 0 ? '+' : '' }}{{ item.pointsDiff }}
-                </span>
-              </template>
-              <template #item.matchPoints="{ item }">
+              <template #item.status="{ item }">
                 <v-chip
-                  color="primary"
                   size="small"
+                  :color="item.played === 0 ? 'grey' : item.matchesWon > item.matchesLost ? 'success' : 'info'"
                   variant="tonal"
                 >
-                  {{ item.matchPoints }}
+                  {{ item.played === 0 ? 'Awaiting' : item.matchesWon > item.matchesLost ? 'Active' : 'Active' }}
                 </v-chip>
+              </template>
+              <template #item.matchPoints="{ item }">
+                <span class="font-weight-bold">{{ item.matchPoints }}</span>
+              </template>
+              <template #item.record="{ item }">
+                <span>{{ item.matchesWon }}-{{ item.matchesLost }}</span>
+              </template>
+              <template #item.games="{ item }">
+                <span>{{ item.gamesWon }}-{{ item.gamesLost }}</span>
+              </template>
+              <template #item.points="{ item }">
+                <span>{{ item.pointsFor }} / {{ item.pointsAgainst }}</span>
+              </template>
+              <template #item.pointDiff="{ item }">
+                <span :class="item.pointDifference >= 0 ? 'text-success' : 'text-error'">
+                  {{ item.pointDifference >= 0 ? '+' : '' }}{{ item.pointDifference }}
+                </span>
               </template>
               <template #bottom />
             </v-data-table>
@@ -370,7 +403,7 @@ function getMatchScore(match: Match): string {
             class="mt-4"
           >
             <strong>Scoring:</strong> Win = 2 points, Loss = 1 point.
-            Tiebreakers: Match Points > Wins > Point Difference > Points For
+            Tiebreakers: Match Points > Wins > Game Difference > Point Difference > Games Won
           </v-alert>
         </v-tabs-window-item>
 

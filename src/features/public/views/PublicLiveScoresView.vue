@@ -26,6 +26,21 @@ const recentlyCompletedMatches = computed(() =>
 );
 const activities = computed(() => activityStore.recentActivities);
 const notFound = ref(false);
+const displayMode = ref(false);
+
+const allMatches = computed(() => matchStore.matches);
+const tvCompletion = computed(() => {
+  const total = allMatches.value.length;
+  if (!total) return { completed: 0, total: 0, percent: 0 };
+  const completed = allMatches.value.filter(m => m.status === 'completed' || m.status === 'walkover').length;
+  return { completed, total, percent: Math.round((completed / total) * 100) };
+});
+const nextUpMatches = computed(() =>
+  allMatches.value
+    .filter(m => (m.status === 'ready' || m.status === 'scheduled') && !m.courtId)
+    .sort((a: any, b: any) => a.round - b.round || a.matchNumber - b.matchNumber)
+    .slice(0, 6)
+);
 
 onMounted(async () => {
   try {
@@ -73,7 +88,124 @@ function getGamesScore(match: any): string {
 </script>
 
 <template>
-  <v-container fluid>
+  <!-- TV / Display Mode -->
+  <div
+    v-if="displayMode"
+    class="tv-mode"
+  >
+    <!-- Header: name + progress + exit -->
+    <div class="tv-mode__header">
+      <div class="tv-mode__title">{{ tournament?.name }}</div>
+      <div class="tv-mode__progress">
+        <span class="tv-mode__progress-label">
+          {{ tvCompletion.completed }}/{{ tvCompletion.total }} complete
+        </span>
+        <div class="tv-mode__progress-bar">
+          <div
+            class="tv-mode__progress-fill"
+            :style="{ width: tvCompletion.percent + '%' }"
+          />
+        </div>
+        <span class="tv-mode__progress-pct">{{ tvCompletion.percent }}%</span>
+      </div>
+      <v-btn
+        icon="mdi-fullscreen-exit"
+        variant="text"
+        color="white"
+        size="small"
+        @click="displayMode = false"
+      />
+    </div>
+
+    <!-- Court status chips -->
+    <div class="tv-mode__courts">
+      <v-chip
+        v-for="court in courts"
+        :key="court.id"
+        :color="court.status === 'in_use' ? 'success' : court.status === 'maintenance' ? 'warning' : 'default'"
+        variant="tonal"
+        size="small"
+        class="ma-1"
+      >
+        <v-icon
+          start
+          size="small"
+        >
+          {{ court.status === 'in_use' ? 'mdi-play' : court.status === 'maintenance' ? 'mdi-wrench' : 'mdi-check' }}
+        </v-icon>
+        {{ court.name }}
+      </v-chip>
+    </div>
+
+    <!-- Main: Live matches (left) + Next Up (right) -->
+    <div class="tv-mode__body">
+      <!-- Live match scores -->
+      <div class="tv-mode__live">
+        <div
+          v-if="inProgressMatches.length === 0"
+          class="tv-mode__empty"
+        >
+          <v-icon
+            size="64"
+            color="grey"
+          >
+            mdi-badminton
+          </v-icon>
+          <div class="tv-mode__empty-text">
+            No matches in progress
+          </div>
+        </div>
+        <div
+          v-else
+          class="tv-mode__matches"
+        >
+          <div
+            v-for="match in inProgressMatches"
+            :key="match.id"
+            class="tv-match-card"
+          >
+            <div class="tv-match-card__court">
+              {{ getCourtName(match.courtId) }}
+            </div>
+            <div class="tv-match-card__players">
+              <div class="tv-match-card__player">{{ getParticipantName(match.participant1Id) }}</div>
+              <div class="tv-match-card__score">{{ getCurrentScore(match) }}</div>
+              <div class="tv-match-card__player tv-match-card__player--right">{{ getParticipantName(match.participant2Id) }}</div>
+            </div>
+            <div class="tv-match-card__games">
+              Games: {{ getGamesScore(match) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Next Up sidebar -->
+      <div
+        v-if="nextUpMatches.length > 0"
+        class="tv-mode__queue"
+      >
+        <div class="tv-mode__queue-title">Next Up</div>
+        <div
+          v-for="(match, i) in nextUpMatches"
+          :key="match.id"
+          class="tv-queue-item"
+        >
+          <div class="tv-queue-item__num">{{ i + 1 }}</div>
+          <div class="tv-queue-item__names">
+            <div class="tv-queue-item__player">{{ getParticipantName(match.participant1Id) }}</div>
+            <div class="tv-queue-item__vs">vs</div>
+            <div class="tv-queue-item__player">{{ getParticipantName(match.participant2Id) }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Normal View -->
+  <v-container
+    v-else
+    fluid
+  >
     <!-- Not Found -->
     <v-row v-if="notFound">
       <v-col cols="12">
@@ -100,13 +232,26 @@ function getGamesScore(match: any): string {
       <!-- Header -->
       <v-row class="mb-4">
         <v-col cols="12">
-          <div v-if="tournament">
-            <h1 class="text-h4 font-weight-bold">
-              {{ tournament.name }}
-            </h1>
-            <p class="text-body-2 text-grey">
-              Live Scores
-            </p>
+          <div
+            v-if="tournament"
+            class="d-flex align-center justify-space-between"
+          >
+            <div>
+              <h1 class="text-h4 font-weight-bold">
+                {{ tournament.name }}
+              </h1>
+              <p class="text-body-2 text-grey">
+                Live Scores
+              </p>
+            </div>
+            <v-btn
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-monitor"
+              @click="displayMode = true"
+            >
+              Display Mode
+            </v-btn>
           </div>
         </v-col>
       </v-row>
@@ -313,6 +458,223 @@ function getGamesScore(match: any): string {
 </template>
 
 <style scoped>
+/* TV / Display Mode */
+.tv-mode {
+  position: fixed;
+  inset: 0;
+  background: #0a0a0a;
+  color: #fff;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px 24px 16px;
+}
+
+.tv-mode__header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 12px;
+}
+
+.tv-mode__title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 340px;
+}
+
+.tv-mode__progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tv-mode__progress-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+.tv-mode__progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tv-mode__progress-fill {
+  height: 100%;
+  background: #4caf50;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.tv-mode__progress-pct {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4caf50;
+  min-width: 36px;
+  text-align: right;
+}
+
+.tv-mode__courts {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tv-mode__body {
+  flex: 1;
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.tv-mode__live {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.tv-mode__empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.tv-mode__empty-text {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 16px;
+}
+
+.tv-mode__matches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.tv-match-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 4px solid #4caf50;
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
+.tv-match-card__court {
+  font-size: 0.7rem;
+  color: #4caf50;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.tv-match-card__players {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tv-match-card__player {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tv-match-card__player--right {
+  text-align: right;
+}
+
+.tv-match-card__score {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+  text-align: center;
+  min-width: 80px;
+}
+
+.tv-match-card__games {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Next Up sidebar */
+.tv-mode__queue {
+  width: 260px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.tv-mode__queue-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 12px;
+}
+
+.tv-queue-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tv-queue-item:last-child {
+  border-bottom: none;
+}
+
+.tv-queue-item__num {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.25);
+  min-width: 18px;
+  padding-top: 2px;
+}
+
+.tv-queue-item__names {
+  flex: 1;
+  min-width: 0;
+}
+
+.tv-queue-item__player {
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.tv-queue-item__vs {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 2px 0;
+}
+
+/* Normal View */
 .live-match-item {
   border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   padding: 16px;

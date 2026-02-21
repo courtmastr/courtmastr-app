@@ -166,6 +166,16 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/features/tournaments/views/BracketsView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/tournaments/:tournamentId/categories/:categoryId/smart-bracket',
+    name: 'smart-bracket-view',
+    component: () => import('@/features/brackets/components/SmartBracketView.vue'),
+    props: (route) => ({
+      tournamentId: route.params.tournamentId as string,
+      categoryId: route.params.categoryId as string,
+    }),
+    meta: { requiresAuth: true },
+  },
 
   {
     path: '/tournaments/:tournamentId/results',

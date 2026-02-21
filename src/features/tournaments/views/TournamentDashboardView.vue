@@ -19,6 +19,7 @@ import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/
 import OrganizerChecklist from '../components/OrganizerChecklist.vue';
 import ActiveMatchesSection from '../components/ActiveMatchesSection.vue';
 import ReadyQueue from '../components/ReadyQueue.vue';
+import MatchStatsDashboard from '../components/MatchStatsDashboard.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -754,6 +755,27 @@ async function handleDeleteTournament() {
           </tbody>
         </v-table>
       </v-card>
+    </div>
+
+    <!-- Event Insights -->
+    <div
+      v-if="stats.completedMatches > 0"
+      class="mt-6 mb-2"
+    >
+      <div class="d-flex align-center mb-3">
+        <v-icon
+          size="18"
+          color="secondary"
+          class="mr-2"
+        >
+          mdi-chart-bar
+        </v-icon>
+        <span class="text-subtitle-2 font-weight-bold text-uppercase text-medium-emphasis">Event Insights</span>
+      </div>
+      <match-stats-dashboard
+        :matches="matches"
+        :courts="courts"
+      />
     </div>
 
     <!-- Organizer Checklist -->
