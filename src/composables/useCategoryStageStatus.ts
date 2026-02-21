@@ -12,7 +12,8 @@ export interface CategoryStageStatus {
   live: number;
   upcoming: number;
   nextRound: number | null;
-  poolPlayComplete: boolean;
+  /** True when all current-stage matches are done and the category needs level generation */
+  needsLevelGeneration: boolean;
 }
 
 const FINISHED_MATCH_STATUSES = new Set<Match['status']>(['completed', 'walkover', 'cancelled']);
@@ -142,13 +143,17 @@ export function useCategoryStageStatus(
             ? 'Waiting on prior results'
             : '-';
 
-        // Pool play is complete when: pool_to_elimination format, still in pool phase,
-        // matches exist, and no remaining actionable matches
-        const poolPlayComplete =
-          category.format === 'pool_to_elimination' &&
-          category.poolPhase === 'pool' &&
-          categoryMatches.length > 0 &&
-          remaining === 0;
+        // Category needs level generation when:
+        // 1. pool_to_elimination: pool phase is done (still in 'pool' phase, all matches complete)
+        // 2. round_robin: all matches complete (status is 'active', no levels generated yet)
+        // In both cases: matches exist and no remaining actionable matches
+        const allMatchesDone = categoryMatches.length > 0 && remaining === 0;
+        const needsLevelGeneration = allMatchesDone && (
+          // Pool-to-elimination: still in pool phase
+          (category.format === 'pool_to_elimination' && category.poolPhase === 'pool') ||
+          // Round robin: active but no levels generated yet
+          (category.format === 'round_robin' && category.status === 'active' && !category.levelingStatus)
+        );
 
         return {
           categoryId: category.id,
@@ -161,7 +166,7 @@ export function useCategoryStageStatus(
           live: liveMatches.length,
           upcoming: upcomingMatches.length,
           nextRound,
-          poolPlayComplete,
+          needsLevelGeneration,
         } as CategoryStageStatus;
       })
       .sort((a, b) => b.remaining - a.remaining || a.categoryName.localeCompare(b.categoryName));

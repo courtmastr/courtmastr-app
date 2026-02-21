@@ -127,6 +127,11 @@ const filteredCategoryStageStatuses = computed(() => {
   return categoryStageStatuses.value.filter((status) => status.categoryId === selectedCategory.value);
 });
 
+// Categories that have completed their current stage and need level generation
+const levelGenerationCategories = computed(() =>
+  categoryStageStatuses.value.filter((s) => s.needsLevelGeneration)
+);
+
 // Dialog state
 const selectedMatch = ref<Match | null>(null);
 const selectedCourtId = ref<string | null>(null);
@@ -1070,6 +1075,37 @@ async function advanceState(): Promise<void> {
       @advance="advanceState"
       @unlock="showUnlockDialog = true"
     />
+
+    <!-- Level Generation Banners (pool play / round robin complete) -->
+    <v-alert
+      v-for="cat in levelGenerationCategories"
+      :key="cat.categoryId"
+      type="success"
+      variant="tonal"
+      prominent
+      border="start"
+      class="mx-2 mt-2"
+      closable
+    >
+      <div class="d-flex align-center flex-wrap ga-2">
+        <v-icon class="mr-1">mdi-trophy</v-icon>
+        <div class="flex-grow-1">
+          <strong>{{ cat.categoryName }} — all matches complete!</strong>
+          <div class="text-caption">
+            Go to Categories to create elimination levels.
+          </div>
+        </div>
+        <v-btn
+          size="small"
+          color="success"
+          variant="elevated"
+          prepend-icon="mdi-layers-triple"
+          @click="router.push(`/tournaments/${tournamentId}/categories`)"
+        >
+          Go to Categories
+        </v-btn>
+      </div>
+    </v-alert>
 
     <!-- Header Toolbar -->
     <v-toolbar

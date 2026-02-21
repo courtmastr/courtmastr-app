@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
+import { useMatchStore } from '@/stores/matches';
 import { FORMAT_LABELS, AGE_GROUP_LABELS } from '@/types';
 
 const props = defineProps<{
@@ -10,6 +11,7 @@ const props = defineProps<{
 
 const registrationStore = useRegistrationStore();
 const tournamentStore = useTournamentStore();
+const matchStore = useMatchStore();
 
 const categories = computed(() => tournamentStore.categories);
 const registrations = computed(() => registrationStore.registrations);
@@ -95,6 +97,28 @@ function hasPendingWarning(stats: typeof categoryStats.value[0]): boolean {
 // Check if category needs seeding
 function needsSeeding(stats: typeof categoryStats.value[0]): boolean {
   return stats.category.seedingEnabled && stats.seeded === 0 && stats.ready >= 4;
+}
+
+// Check if category has completed its current stage and needs level generation
+// Supports both pool_to_elimination (pool phase done) and round_robin (all matches done)
+function needsLevelGeneration(stats: typeof categoryStats.value[0]): boolean {
+  const cat = stats.category;
+  if (cat.status !== 'active') return false;
+
+  // Check if all matches for this category are finished
+  const categoryMatches = matchStore.matches.filter(m => m.categoryId === cat.id);
+  if (categoryMatches.length === 0) return false;
+
+  const finishedStatuses = new Set(['completed', 'walkover', 'cancelled']);
+  const remaining = categoryMatches.filter(m => !finishedStatuses.has(m.status));
+  if (remaining.length > 0) return false;
+
+  // Pool-to-elimination: still in pool phase
+  if (cat.format === 'pool_to_elimination' && cat.poolPhase === 'pool') return true;
+  // Round robin: no levels generated yet
+  if (cat.format === 'round_robin' && !cat.levelingStatus) return true;
+
+  return false;
 }
 
 // Calculate bracket size info
@@ -331,6 +355,35 @@ function getBracketInfo(stats: typeof categoryStats.value[0]): { size: number; b
               <div class="text-caption">
                 <strong>{{ stats.ready }} players</strong> will create a bracket of {{ getBracketInfo(stats).size }} with <strong>{{ getBracketInfo(stats).byes }} bye{{ getBracketInfo(stats).byes > 1 ? 's' : '' }}</strong>.
                 Top seeded players will get byes.
+              </div>
+            </v-alert>
+
+            <!-- Level Generation Banner (pool play / round robin complete) -->
+            <v-alert
+              v-if="needsLevelGeneration(stats)"
+              type="success"
+              variant="tonal"
+              density="compact"
+              class="mb-3"
+              prominent
+              border="start"
+            >
+              <div class="d-flex align-center flex-wrap ga-2">
+                <div class="flex-grow-1">
+                  <strong>All Matches Complete!</strong>
+                  <div class="text-caption">
+                    Create levels to split players into elimination brackets.
+                  </div>
+                </div>
+                <v-btn
+                  size="small"
+                  color="success"
+                  variant="elevated"
+                  prepend-icon="mdi-layers-triple"
+                  @click="emit('create-levels', stats.category.id)"
+                >
+                  Create Levels
+                </v-btn>
               </div>
             </v-alert>
 
