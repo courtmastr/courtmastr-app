@@ -381,7 +381,8 @@ export function useBracketGenerator() {
 
       progress.value = 60;
 
-      await deletePoolStageData(tournamentId, categoryId, storage, poolStageId, poolMatches);
+      // Pool data is preserved (not deleted) so pool standings remain available
+      // for the leaderboard and historical records after elimination starts.
 
       const eliminationSeeding = createSeedingFromParticipantIds(qualifiers.participantIds);
       const result = await createStageWithStats(
@@ -1033,26 +1034,6 @@ async function initializeLevelMatchScores(
       await batch.commit();
     }
   }
-}
-
-async function deletePoolStageData(
-  tournamentId: string,
-  categoryId: string,
-  storage: ClientFirestoreStorage,
-  poolStageId: number,
-  poolMatches: StoredMatch[]
-): Promise<void> {
-  await deleteMatchScoresByIds(
-    tournamentId,
-    categoryId,
-    poolMatches.map((match) => String(match.id))
-  );
-
-  await storage.delete('match', { stage_id: poolStageId });
-  await storage.delete('match_game', { stage_id: poolStageId });
-  await storage.delete('round', { stage_id: poolStageId });
-  await storage.delete('group', { stage_id: poolStageId });
-  await storage.delete('stage', poolStageId);
 }
 
 async function deleteMatchScoresByIds(

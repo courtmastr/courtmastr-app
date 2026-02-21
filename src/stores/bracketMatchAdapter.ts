@@ -109,18 +109,33 @@ export function adaptBracketsMatchToLegacyMatch(
       p.id == bracketsMatch.opponent2?.id
     );
 
+    // Debug logging for missing participants
+    if (!participant1 && bracketsMatch.opponent1?.id) {
+      console.warn(`[adaptBracketsMatch] Participant1 not found for match ${bracketsMatch.id}:`, {
+        opponent1Id: bracketsMatch.opponent1?.id,
+        availableParticipants: participants?.map(p => p.id),
+        categoryId
+      });
+    }
+    if (!participant2 && bracketsMatch.opponent2?.id) {
+      console.warn(`[adaptBracketsMatch] Participant2 not found for match ${bracketsMatch.id}:`, {
+        opponent2Id: bracketsMatch.opponent2?.id,
+        availableParticipants: participants?.map(p => p.id),
+        categoryId
+      });
+    }
+
     // participant.name contains the registration ID (Firestore document ID)
     // participant.id is just the numeric brackets-manager ID
     const participant1Id = participant1?.name || bracketsMatch.opponent1?.registrationId || undefined;
     const participant2Id = participant2?.name || bracketsMatch.opponent2?.registrationId || undefined;
 
+    // Extract winner from opponent.result for both completed and in-progress matches
     let winnerId: string | undefined;
-    if (bracketsMatch.status === 4) {
-        if (bracketsMatch.opponent1?.result === 'win') {
-            winnerId = participant1Id;
-        } else if (bracketsMatch.opponent2?.result === 'win') {
-            winnerId = participant2Id;
-        }
+    if (bracketsMatch.opponent1?.result === 'win') {
+        winnerId = participant1Id;
+    } else if (bracketsMatch.opponent2?.result === 'win') {
+        winnerId = participant2Id;
     }
 
     return {
