@@ -331,84 +331,78 @@ function getFormatColor(format: TournamentFormat): string {
     <!-- Add/Edit Dialog -->
     <v-dialog
       v-model="dialogs.category"
-      max-width="600"
+      max-width="640"
       persistent
     >
       <v-card>
-        <v-card-title>
+        <v-card-title class="pt-5 pb-1 px-6">
           {{ editingCategory ? 'Edit Category' : 'Add Category' }}
         </v-card-title>
-        <v-card-text>
-          <v-row>
-            <v-col
-              cols="12"
-              md="6"
-            >
+        <v-card-text class="px-6 pt-3 pb-2">
+          <!-- Category identity -->
+          <v-row dense>
+            <v-col cols="6">
               <v-select
                 v-model="form.type"
                 :items="categoryTypes"
                 item-title="title"
                 item-value="value"
                 label="Type"
+                density="comfortable"
                 data-testid="category-type-select"
                 @update:model-value="generateCategoryName"
               />
             </v-col>
-            <v-col
-              cols="12"
-              md="6"
-            >
+            <v-col cols="6">
               <v-select
                 v-model="form.gender"
                 :items="genderOptions"
                 item-title="title"
                 item-value="value"
                 label="Gender"
+                density="comfortable"
                 data-testid="category-gender-select"
                 @update:model-value="generateCategoryName"
               />
             </v-col>
-            <v-col
-              cols="12"
-              md="6"
-            >
+            <v-col cols="6">
               <v-select
                 v-model="form.ageGroup"
                 :items="ageGroupOptions"
                 item-title="title"
                 item-value="value"
                 label="Age Group"
+                density="comfortable"
                 @update:model-value="generateCategoryName"
               />
             </v-col>
-            <v-col
-              cols="12"
-              md="6"
-            >
+            <v-col cols="6">
               <v-select
                 v-model="form.format"
                 :items="formatOptions"
                 item-title="title"
                 item-value="value"
                 label="Format"
+                density="comfortable"
               />
             </v-col>
             <v-col cols="12">
               <v-text-field
                 v-model="form.name"
                 label="Category Name"
+                density="comfortable"
+                hint="Auto-generated — tap to customise"
                 data-testid="category-name-input"
-                hint="Auto-generated, but you can customise"
               />
             </v-col>
-            <v-col
-              cols="12"
-              md="6"
-            >
+
+            <!-- Capacity row: Max Teams/Players + format-specific sibling -->
+            <v-col cols="6">
               <v-text-field
                 v-model.number="form.maxParticipants"
                 :label="maxEntriesLabel"
                 :hint="maxEntriesHint"
+                density="comfortable"
                 type="number"
                 min="2"
                 max="128"
@@ -416,88 +410,82 @@ function getFormatColor(format: TournamentFormat): string {
             </v-col>
             <v-col
               v-if="isRoundRobin"
-              cols="12"
-              md="6"
+              cols="6"
             >
               <v-text-field
                 v-model.number="form.minGamesGuaranteed"
                 label="Min Games Guaranteed"
+                density="comfortable"
+                hint="Minimum matches per participant"
                 type="number"
                 min="1"
                 max="10"
-                hint="Minimum matches per participant"
               />
             </v-col>
-
-            <!-- Pool-to-Elimination configuration -->
-            <template v-if="isPoolToElimination">
-              <v-col cols="12">
-                <v-divider class="mb-1" />
-                <span class="text-caption text-medium-emphasis font-weight-medium text-uppercase">
-                  Pool Settings
-                </span>
-              </v-col>
-              <v-col
-                cols="12"
-                md="6"
-              >
-                <v-text-field
-                  v-model.number="form.teamsPerPool"
-                  label="Teams per Pool"
-                  type="number"
-                  min="2"
-                  max="16"
-                  :hint="teamsPerPoolHint"
-                  persistent-hint
-                />
-              </v-col>
-              <v-col
-                cols="12"
-                md="6"
-              >
-                <v-select
-                  v-model="form.poolSeedingMethod"
-                  :items="poolSeedingOptions"
-                  item-title="title"
-                  item-value="value"
-                  label="Pool Draw Method"
-                >
-                  <template #item="{ item, props: itemProps }">
-                    <v-list-item
-                      v-bind="itemProps"
-                      :subtitle="item.raw.subtitle"
-                    />
-                  </template>
-                </v-select>
-              </v-col>
-              <v-col
-                v-if="selectedSeedingOption"
-                cols="12"
-              >
-                <v-alert
-                  density="compact"
-                  variant="tonal"
-                  color="primary"
-                  :icon="false"
-                  class="text-body-2"
-                >
-                  <strong>{{ selectedSeedingOption.title }}:</strong>
-                  {{ selectedSeedingOption.subtitle }}
-                </v-alert>
-              </v-col>
-            </template>
-
-            <v-col cols="12">
-              <v-switch
-                v-model="form.seedingEnabled"
-                label="Enable Seeding"
-                hint="Allow manual seed numbers on registrations"
-                color="primary"
+            <v-col
+              v-if="isPoolToElimination"
+              cols="6"
+            >
+              <v-text-field
+                v-model.number="form.teamsPerPool"
+                label="Teams per Pool"
+                density="comfortable"
+                :hint="teamsPerPoolHint"
+                persistent-hint
+                type="number"
+                min="2"
+                max="16"
               />
             </v-col>
           </v-row>
+
+          <!-- Pool draw method — visually distinct section -->
+          <v-sheet
+            v-if="isPoolToElimination"
+            rounded="lg"
+            color="surface-variant"
+            class="pa-4 mt-4"
+          >
+            <p class="text-caption font-weight-semibold text-uppercase text-medium-emphasis mb-3">
+              Pool Draw Method
+            </p>
+            <v-select
+              v-model="form.poolSeedingMethod"
+              :items="poolSeedingOptions"
+              item-title="title"
+              item-value="value"
+              label="Draw Method"
+              density="comfortable"
+              variant="outlined"
+              bg-color="surface"
+              hide-details
+            >
+              <template #item="{ item, props: itemProps }">
+                <v-list-item
+                  v-bind="itemProps"
+                  :subtitle="item.raw.subtitle"
+                />
+              </template>
+            </v-select>
+            <p
+              v-if="selectedSeedingOption"
+              class="text-body-2 text-medium-emphasis mt-3 mb-0"
+            >
+              {{ selectedSeedingOption.subtitle }}
+            </p>
+          </v-sheet>
+
+          <!-- Seeding toggle -->
+          <v-switch
+            v-model="form.seedingEnabled"
+            label="Enable Seeding"
+            density="comfortable"
+            color="primary"
+            hide-details
+            class="mt-3"
+          />
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="px-6 pb-4">
           <v-spacer />
           <v-btn
             variant="text"
@@ -507,6 +495,7 @@ function getFormatColor(format: TournamentFormat): string {
           </v-btn>
           <v-btn
             color="primary"
+            variant="flat"
             data-testid="save-category-btn"
             :loading="loading"
             @click="saveCategory"
