@@ -9,16 +9,17 @@ import { useNotificationStore } from '@/stores/notifications';
 import {
   ArrowLeft, Calendar, MapPin, Settings as SettingsIcon, ChevronDown,
   UserPlus, Play, CalendarClock, Check, Trash2,
-  Users,
+  Users, QrCode,
   PlayCircle, Medal, ArrowRightCircle, Megaphone, CheckCheck,
   UserCheck, GitFork
 } from 'lucide-vue-next';
 import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
-import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
+import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
 import OrganizerChecklist from '../components/OrganizerChecklist.vue';
 import ActiveMatchesSection from '../components/ActiveMatchesSection.vue';
 import ReadyQueue from '../components/ReadyQueue.vue';
+import ScoringQrDialog from '../components/ScoringQrDialog.vue';
 import MatchStatsDashboard from '../components/MatchStatsDashboard.vue';
 
 const route = useRoute();
@@ -40,6 +41,7 @@ const loading = computed(() => tournamentStore.loading);
 const isAdmin = computed(() => authStore.isAdmin);
 
 const selectedCategory = ref<string | null>(null);
+const statsLoaded = ref(false);
 
 // Statistics
 const stats = computed(() => {
@@ -131,6 +133,17 @@ onMounted(async () => {
     }
   }
 
+  try {
+    await Promise.all([
+      matchStore.fetchMatches(tournamentId.value),
+      registrationStore.fetchRegistrations(tournamentId.value),
+    ]);
+  } catch (error) {
+    console.error('Error loading initial dashboard stats:', error);
+  } finally {
+    statsLoaded.value = true;
+  }
+
   tournamentStore.subscribeTournament(tournamentId.value);
   registrationStore.subscribeRegistrations(tournamentId.value);
   registrationStore.subscribePlayers(tournamentId.value);
@@ -171,23 +184,7 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
-function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
-  if (!currentState) return 'REG_OPEN';
-  return getNextTournamentState(currentState);
-}
-
-async function advanceState(): Promise<void> {
-  if (!tournament.value?.state) return;
-  const nextState = getNextTournamentState(tournament.value.state);
-  if (nextState) {
-    try {
-      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
-      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
-    } catch (error) {
-      notificationStore.showToast('error', 'Failed to advance tournament state');
-    }
-  }
-}
+const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(tournamentId);
 
 // Complete match dialog state
 const showCompleteMatchDialog = ref(false);
@@ -234,6 +231,9 @@ async function updateStatus(status: string) {
 
 // Complete Tournament confirmation
 const showCompleteDialog = ref(false);
+
+// Scoring QR dialog
+const showScoringQrDialog = ref(false);
 
 // Delete Tournament
 const showDeleteDialog = ref(false);
@@ -335,6 +335,13 @@ async function handleDeleteTournament() {
               </v-list-item>
               <v-list-item
                 v-if="tournament.status === 'active'"
+                title="Share Scoring Link"
+                @click="showScoringQrDialog = true"
+              >
+                <template #prepend><QrCode :size="18" class="mr-3 text-grey-darken-1" /></template>
+              </v-list-item>
+              <v-list-item
+                v-if="tournament.status === 'active'"
                 title="Complete Tournament"
                 @click="showCompleteDialog = true"
               >
@@ -392,51 +399,6 @@ async function handleDeleteTournament() {
                 tournament.status === 'completed' ? 'View final results and rankings.' : 'Configure settings and categories.'
               }}
             </div>
-            <!-- Lock-state chips (condensed from StateBanner) -->
-            <div
-              v-if="tournament.state"
-              class="d-flex flex-wrap gap-1 mt-2"
-            >
-              <v-chip
-                size="x-small"
-                :color="['SEEDING','BRACKET_GENERATED','BRACKET_LOCKED','LIVE','COMPLETED'].includes(tournament.state) ? 'success' : 'grey'"
-                variant="tonal"
-              >
-                <v-icon
-                  start
-                  size="10"
-                >
-                  {{ ['SEEDING','BRACKET_GENERATED','BRACKET_LOCKED','LIVE','COMPLETED'].includes(tournament.state) ? 'mdi-lock' : 'mdi-lock-open' }}
-                </v-icon>
-                Roster
-              </v-chip>
-              <v-chip
-                size="x-small"
-                :color="['BRACKET_LOCKED','LIVE','COMPLETED'].includes(tournament.state) ? 'success' : 'grey'"
-                variant="tonal"
-              >
-                <v-icon
-                  start
-                  size="10"
-                >
-                  {{ ['BRACKET_LOCKED','LIVE','COMPLETED'].includes(tournament.state) ? 'mdi-lock' : 'mdi-lock-open' }}
-                </v-icon>
-                Bracket
-              </v-chip>
-              <v-chip
-                size="x-small"
-                :color="['LIVE','COMPLETED'].includes(tournament.state) ? 'success' : 'grey'"
-                variant="tonal"
-              >
-                <v-icon
-                  start
-                  size="10"
-                >
-                  {{ ['LIVE','COMPLETED'].includes(tournament.state) ? 'mdi-lock' : 'mdi-lock-open' }}
-                </v-icon>
-                Scoring
-              </v-chip>
-            </div>
           </div>
         </div>
 
@@ -491,12 +453,43 @@ async function handleDeleteTournament() {
             <template #prepend><ArrowRightCircle :size="18" /></template>
             {{ getNextState(tournament.state) }}
           </v-btn>
+          <!-- Revert to Live -->
+          <v-btn
+            v-if="isAdmin && tournament.state === 'COMPLETED'"
+            variant="outlined"
+            color="warning"
+            size="small"
+            @click="transitionTo('LIVE')"
+          >
+            <template #prepend><ArrowRightCircle :size="18" style="transform: rotate(180deg);" /></template>
+            Revert to Live
+          </v-btn>
         </div>
       </v-card-text>
     </v-card>
 
     <!-- Stats Grid -->
-    <v-row class="mb-6">
+    <v-row
+      v-if="!statsLoaded"
+      class="mb-6"
+    >
+      <v-col
+        v-for="n in 4"
+        :key="`stats-skeleton-${n}`"
+        cols="12"
+        sm="6"
+        md="3"
+      >
+        <v-skeleton-loader
+          type="article"
+          class="rounded-lg"
+        />
+      </v-col>
+    </v-row>
+    <v-row
+      v-else
+      class="mb-6"
+    >
       <v-col
         cols="12"
         sm="6"
@@ -973,6 +966,13 @@ async function handleDeleteTournament() {
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <!-- Scoring QR Code Dialog -->
+  <ScoringQrDialog
+    v-model="showScoringQrDialog"
+    :tournament-id="tournamentId"
+    @copied="notificationStore.showToast('success', 'Scoring link copied!')"
+  />
 </template>
 
 <style scoped lang="scss">

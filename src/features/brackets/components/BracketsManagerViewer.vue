@@ -48,7 +48,7 @@ let matchGameUnsubscribe: (() => void) | null = null;
 let matchScoresUnsubscribe: (() => void) | null = null;
 
 // Debounced fetch function to prevent excessive updates
-let fetchTimeout: number | null = null;
+let fetchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function debouncedFetchBracketData() {
   if (fetchTimeout) {
