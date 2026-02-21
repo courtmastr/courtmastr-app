@@ -63,11 +63,49 @@ const formatOptions = Object.entries(FORMAT_LABELS).map(([value, title]) => ({
 const isRoundRobin = computed(() => form.value.format === 'round_robin');
 const isPoolToElimination = computed(() => form.value.format === 'pool_to_elimination');
 
+// "Max Participants" means teams for doubles/mixed, players for singles
+const maxEntriesLabel = computed(() =>
+  form.value.type === 'singles' ? 'Max Players' : 'Max Teams'
+);
+const maxEntriesHint = computed(() =>
+  form.value.type === 'singles'
+    ? 'Maximum number of individual players that can register'
+    : 'Each pair/team counts as 1 entry (e.g. 70 doubles teams = 70 entries)'
+);
+
+// Estimated pool count shown as a live hint under "Teams per Pool"
+const estimatedPools = computed(() => {
+  const teams = form.value.maxParticipants || 0;
+  const perPool = form.value.teamsPerPool || 4;
+  if (teams < 2 || perPool < 2) return null;
+  return Math.max(1, Math.floor(teams / perPool));
+});
+const teamsPerPoolHint = computed(() => {
+  if (estimatedPools.value === null) return 'Target entries per pool';
+  return `With ${form.value.maxParticipants} max entries → ~${estimatedPools.value} pools`;
+});
+
 const poolSeedingOptions: { value: PoolSeedingMethod; title: string; subtitle: string }[] = [
-  { value: 'serpentine', title: 'Balanced (Serpentine)', subtitle: 'Top seeds spread evenly across all pools' },
-  { value: 'random_in_tiers', title: 'Random within Tiers', subtitle: 'Balanced tiers, randomised within each tier' },
-  { value: 'fully_random', title: 'Fully Random', subtitle: 'Complete random draw, ignores seeding' },
+  {
+    value: 'serpentine',
+    title: 'Balanced (Serpentine)',
+    subtitle: 'Rank-sorted players snake across pools — Pool 1 gets seed #1, Pool 2 gets seed #2 … then reverses. Every pool ends up with one player from each skill tier.',
+  },
+  {
+    value: 'random_in_tiers',
+    title: 'Random within Tiers',
+    subtitle: 'Players split into skill tiers (same size as pool count); within each tier the draw is random. Tier balance is maintained but there\'s a draw element — two top seeds could land in the same pool.',
+  },
+  {
+    value: 'fully_random',
+    title: 'Fully Random',
+    subtitle: 'Complete blind draw. Seeds and rankings are ignored entirely. Any player can be placed in any pool.',
+  },
 ];
+
+const selectedSeedingOption = computed(() =>
+  poolSeedingOptions.find(o => o.value === form.value.poolSeedingMethod)
+);
 
 function openAddDialog() {
   editingCategory.value = null;
@@ -370,7 +408,9 @@ function getFormatColor(format: TournamentFormat): string {
             >
               <v-text-field
                 v-model.number="form.maxParticipants"
-                label="Max Participants"
+                :label="maxEntriesLabel"
+                :hint="maxEntriesHint"
+                persistent-hint
                 type="number"
                 min="2"
                 max="128"
@@ -404,7 +444,7 @@ function getFormatColor(format: TournamentFormat): string {
                   type="number"
                   min="2"
                   max="16"
-                  hint="Target number of players in each pool"
+                  :hint="teamsPerPoolHint"
                   persistent-hint
                 />
               </v-col>
@@ -418,9 +458,16 @@ function getFormatColor(format: TournamentFormat): string {
                   item-title="title"
                   item-value="value"
                   label="Pool Draw Method"
-                  hint="How players are assigned to pools"
+                  :hint="selectedSeedingOption?.subtitle"
                   persistent-hint
-                />
+                >
+                  <template #item="{ item, props: itemProps }">
+                    <v-list-item
+                      v-bind="itemProps"
+                      :subtitle="item.raw.subtitle"
+                    />
+                  </template>
+                </v-select>
               </v-col>
             </template>
 
