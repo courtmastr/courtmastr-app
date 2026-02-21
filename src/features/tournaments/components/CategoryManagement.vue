@@ -398,8 +398,7 @@ function getFormatColor(format: TournamentFormat): string {
                 v-model="form.name"
                 label="Category Name"
                 data-testid="category-name-input"
-                hint="Auto-generated, but you can customize"
-                persistent-hint
+                hint="Auto-generated, but you can customise"
               />
             </v-col>
             <v-col
@@ -410,7 +409,6 @@ function getFormatColor(format: TournamentFormat): string {
                 v-model.number="form.maxParticipants"
                 :label="maxEntriesLabel"
                 :hint="maxEntriesHint"
-                persistent-hint
                 type="number"
                 min="2"
                 max="128"
@@ -423,17 +421,22 @@ function getFormatColor(format: TournamentFormat): string {
             >
               <v-text-field
                 v-model.number="form.minGamesGuaranteed"
-                label="Minimum Games Guaranteed"
+                label="Min Games Guaranteed"
                 type="number"
                 min="1"
                 max="10"
-                hint="Each participant plays at least this many games"
-                persistent-hint
+                hint="Minimum matches per participant"
               />
             </v-col>
 
             <!-- Pool-to-Elimination configuration -->
             <template v-if="isPoolToElimination">
+              <v-col cols="12">
+                <v-divider class="mb-1" />
+                <span class="text-caption text-medium-emphasis font-weight-medium text-uppercase">
+                  Pool Settings
+                </span>
+              </v-col>
               <v-col
                 cols="12"
                 md="6"
@@ -458,8 +461,6 @@ function getFormatColor(format: TournamentFormat): string {
                   item-title="title"
                   item-value="value"
                   label="Pool Draw Method"
-                  :hint="selectedSeedingOption?.subtitle"
-                  persistent-hint
                 >
                   <template #item="{ item, props: itemProps }">
                     <v-list-item
@@ -469,14 +470,28 @@ function getFormatColor(format: TournamentFormat): string {
                   </template>
                 </v-select>
               </v-col>
+              <v-col
+                v-if="selectedSeedingOption"
+                cols="12"
+              >
+                <v-alert
+                  density="compact"
+                  variant="tonal"
+                  color="primary"
+                  :icon="false"
+                  class="text-body-2"
+                >
+                  <strong>{{ selectedSeedingOption.title }}:</strong>
+                  {{ selectedSeedingOption.subtitle }}
+                </v-alert>
+              </v-col>
             </template>
 
             <v-col cols="12">
               <v-switch
                 v-model="form.seedingEnabled"
                 label="Enable Seeding"
-                hint="Allow manual seeding of participants"
-                persistent-hint
+                hint="Allow manual seed numbers on registrations"
                 color="primary"
               />
             </v-col>
