@@ -5,7 +5,7 @@ import { useNotificationStore } from '@/stores/notifications';
 import { useDialogManager } from '@/composables/useDialogManager';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
-import type { Category, CategoryType, CategoryGender, AgeGroup, TournamentFormat } from '@/types';
+import type { Category, CategoryType, CategoryGender, AgeGroup, TournamentFormat, PoolSeedingMethod } from '@/types';
 import { AGE_GROUP_LABELS, FORMAT_LABELS, CATEGORY_TYPE_LABELS } from '@/types';
 
 const props = defineProps<{
@@ -33,6 +33,8 @@ const form = ref({
   maxParticipants: 32,
   minGamesGuaranteed: 3,
   seedingEnabled: true,
+  teamsPerPool: 4,
+  poolSeedingMethod: 'serpentine' as PoolSeedingMethod,
 });
 
 const categoryTypes: { value: CategoryType; title: string }[] = [
@@ -59,6 +61,13 @@ const formatOptions = Object.entries(FORMAT_LABELS).map(([value, title]) => ({
 }));
 
 const isRoundRobin = computed(() => form.value.format === 'round_robin');
+const isPoolToElimination = computed(() => form.value.format === 'pool_to_elimination');
+
+const poolSeedingOptions: { value: PoolSeedingMethod; title: string; subtitle: string }[] = [
+  { value: 'serpentine', title: 'Balanced (Serpentine)', subtitle: 'Top seeds spread evenly across all pools' },
+  { value: 'random_in_tiers', title: 'Random within Tiers', subtitle: 'Balanced tiers, randomised within each tier' },
+  { value: 'fully_random', title: 'Fully Random', subtitle: 'Complete random draw, ignores seeding' },
+];
 
 function openAddDialog() {
   editingCategory.value = null;
@@ -71,6 +80,8 @@ function openAddDialog() {
     maxParticipants: 32,
     minGamesGuaranteed: 3,
     seedingEnabled: true,
+    teamsPerPool: 4,
+    poolSeedingMethod: 'serpentine',
   };
   open('category');
 }
@@ -86,6 +97,8 @@ function openEditDialog(category: Category) {
     maxParticipants: category.maxParticipants || 32,
     minGamesGuaranteed: category.minGamesGuaranteed || 3,
     seedingEnabled: category.seedingEnabled,
+    teamsPerPool: category.teamsPerPool || 4,
+    poolSeedingMethod: category.poolSeedingMethod || 'serpentine',
   };
   open('category');
 }
@@ -109,6 +122,10 @@ async function saveCategory() {
       status: 'setup' as const,
       ...(form.value.format === 'round_robin' && {
         minGamesGuaranteed: form.value.minGamesGuaranteed,
+      }),
+      ...(form.value.format === 'pool_to_elimination' && {
+        teamsPerPool: form.value.teamsPerPool,
+        poolSeedingMethod: form.value.poolSeedingMethod,
       }),
     };
 
@@ -374,6 +391,39 @@ function getFormatColor(format: TournamentFormat): string {
                 persistent-hint
               />
             </v-col>
+
+            <!-- Pool-to-Elimination configuration -->
+            <template v-if="isPoolToElimination">
+              <v-col
+                cols="12"
+                md="6"
+              >
+                <v-text-field
+                  v-model.number="form.teamsPerPool"
+                  label="Teams per Pool"
+                  type="number"
+                  min="2"
+                  max="16"
+                  hint="Target number of players in each pool"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col
+                cols="12"
+                md="6"
+              >
+                <v-select
+                  v-model="form.poolSeedingMethod"
+                  :items="poolSeedingOptions"
+                  item-title="title"
+                  item-value="value"
+                  label="Pool Draw Method"
+                  hint="How players are assigned to pools"
+                  persistent-hint
+                />
+              </v-col>
+            </template>
+
             <v-col cols="12">
               <v-switch
                 v-model="form.seedingEnabled"

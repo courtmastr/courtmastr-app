@@ -72,6 +72,7 @@ export type PoolPhase = 'pool' | 'elimination';
 export type LevelingMode = 'pool_position' | 'global_bands';
 export type LevelEliminationFormat = 'single_elimination' | 'double_elimination' | 'playoff_8';
 export type LevelingStatus = 'not_started' | 'configured' | 'generated';
+export type PoolSeedingMethod = 'serpentine' | 'random_in_tiers' | 'fully_random';
 
 export interface Category {
   id: string;
@@ -104,6 +105,8 @@ export interface Category {
   poolGroupCount?: number | null;
   poolQualifiersPerGroup?: number | null;
   poolQualifiedRegistrationIds?: string[];
+  teamsPerPool?: number | null;
+  poolSeedingMethod?: PoolSeedingMethod | null;
   levelingEnabled?: boolean | null;
   levelingStatus?: LevelingStatus | null;
   recommendedLevelMode?: LevelingMode | null;

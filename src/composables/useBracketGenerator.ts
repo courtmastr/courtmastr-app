@@ -19,7 +19,7 @@ import {
 } from '@/services/firebase';
 import { BracketsManager } from 'brackets-manager';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
-import type { Registration, Category, LevelEliminationFormat, MatchStatus } from '@/types';
+import type { Registration, Category, LevelEliminationFormat, MatchStatus, PoolSeedingMethod } from '@/types';
 
 // ============================================
 // Types
@@ -41,6 +41,8 @@ export interface BracketOptions {
   )[];
   groupCount?: number;
   qualifiersPerGroup?: number;
+  teamsPerPool?: number;
+  poolSeedingMethod?: PoolSeedingMethod;
 }
 
 export interface BracketResult {
@@ -169,9 +171,24 @@ export function useBracketGenerator() {
 
       progress.value = 20;
 
-      // 3. Sort by seed
-      const sortedRegistrations = sortRegistrationsBySeed(registrations);
-      console.log(`📊 Generating ${category.format} bracket for ${sortedRegistrations.length} participants`);
+      // 3. Sort by seed — base ranking order (seeded first, then random)
+      const baseSorted = sortRegistrationsBySeed(registrations);
+
+      // For pool-to-elimination: apply the configured seeding method
+      let finalOrdered: Registration[] = baseSorted;
+      let poolSeedOverride: BracketOptions['seedOrdering'];
+
+      if (category.format === 'pool_to_elimination') {
+        const teamsPerPool = category.teamsPerPool ?? options.teamsPerPool ?? 4;
+        const numPools = Math.max(1, Math.floor(registrations.length / teamsPerPool));
+        const method: PoolSeedingMethod = category.poolSeedingMethod ?? options.poolSeedingMethod ?? 'serpentine';
+        const { ordered, seedOrdering } = orderRegistrationsForPool(baseSorted, method, numPools);
+        finalOrdered = ordered;
+        poolSeedOverride = seedOrdering;
+        console.log(`🎯 Pool seeding: method=${method}, numPools=${numPools}, teamsPerPool=${teamsPerPool}`);
+      }
+
+      console.log(`📊 Generating ${category.format} bracket for ${finalOrdered.length} participants`);
 
       progress.value = 30;
 
@@ -183,7 +200,7 @@ export function useBracketGenerator() {
 
       console.log(`💾 Using FirestoreStorage with path: ${categoryPath}`);
 
-      const participantsData: StoredParticipant[] = sortedRegistrations.map((reg, index) => ({
+      const participantsData: StoredParticipant[] = finalOrdered.map((reg, index) => ({
         id: index + 1,
         tournament_id: categoryId,
         name: reg.id,
@@ -214,7 +231,7 @@ export function useBracketGenerator() {
           manager,
           storage,
           participantsData.length,
-          options
+          poolSeedOverride ? { ...options, seedOrdering: poolSeedOverride } : options
         );
 
         await setDoc(
@@ -597,6 +614,50 @@ function sortRegistrationsBySeed(registrations: Registration[]): Registration[] 
   return [...seeded, ...unseeded];
 }
 
+function fisherYatesShuffle<T>(arr: T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/**
+ * Order registrations for pool assignment based on the chosen seeding method.
+ * All three methods use brackets-manager's `groups.effort_balanced` (serpentine)
+ * distribution — the difference is only in how players are ordered before
+ * being added as participants.
+ *
+ * - serpentine:      rank-sorted → effort_balanced snakes top seeds across pools
+ * - random_in_tiers: rank-sorted, shuffled within each tier of `numPools` →
+ *                    each pool still gets one player from each skill tier, but
+ *                    which specific player is randomised
+ * - fully_random:    all players shuffled → effort_balanced on a random list =
+ *                    effectively fully random pool assignment
+ */
+function orderRegistrationsForPool(
+  sortedByRank: Registration[],
+  method: PoolSeedingMethod,
+  numPools: number
+): { ordered: Registration[]; seedOrdering: BracketOptions['seedOrdering'] } {
+  if (method === 'fully_random') {
+    return { ordered: fisherYatesShuffle(sortedByRank), seedOrdering: ['groups.effort_balanced'] };
+  }
+
+  if (method === 'random_in_tiers') {
+    const tiered: Registration[] = [];
+    for (let i = 0; i < sortedByRank.length; i += numPools) {
+      const tier = sortedByRank.slice(i, i + numPools);
+      tiered.push(...fisherYatesShuffle(tier));
+    }
+    return { ordered: tiered, seedOrdering: ['groups.effort_balanced'] };
+  }
+
+  // serpentine — pass rank-sorted; brackets-manager snakes them into pools
+  return { ordered: sortedByRank, seedOrdering: ['groups.effort_balanced'] };
+}
+
 function createSeedingArray(participantCount: number): (number | null)[] {
   const count = participantCount;
   const bracketSize = Math.pow(2, Math.ceil(Math.log2(Math.max(count, 2))));
@@ -632,14 +693,10 @@ function asArray<T>(value: T[] | T | null): T[] {
   return [value];
 }
 
-function calculatePoolGroupCount(participantCount: number, requested?: number): number {
-  if (requested && requested >= 1) {
-    return Math.floor(requested);
-  }
-
-  // Starter heuristic: keep pools around 4 participants while ensuring at least one group.
-  const calculated = Math.ceil(participantCount / 4);
-  return Math.max(1, calculated);
+function calculatePoolGroupCount(participantCount: number, teamsPerPool?: number): number {
+  const size = teamsPerPool && teamsPerPool >= 2 ? Math.floor(teamsPerPool) : 4;
+  // Use floor so each pool gets at least `size` players; extras are spread by brackets-manager
+  return Math.max(1, Math.floor(participantCount / size));
 }
 
 function getRoundRobinSeedOrdering(
@@ -707,7 +764,8 @@ async function createPoolStage(
   participantCount: number,
   options: BracketOptions
 ): Promise<BracketResult> {
-  const groupCount = calculatePoolGroupCount(participantCount, options.groupCount);
+  const teamsPerPool = category.teamsPerPool ?? options.teamsPerPool;
+  const groupCount = calculatePoolGroupCount(participantCount, teamsPerPool);
   const seeding = createSequentialSeeding(participantCount);
 
   return createStageWithStats(
