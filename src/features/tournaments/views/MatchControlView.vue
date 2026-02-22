@@ -225,7 +225,13 @@ const pendingMatches = computed(() => {
   if (selectedCategory.value && selectedCategory.value !== 'all') {
     result = result.filter((m) => m.categoryId === selectedCategory.value);
   }
-  return result.sort((a, b) => a.round - b.round || a.matchNumber - b.matchNumber);
+  // Bug G fix: sort by plannedStartAt (earliest first, nulls last), then round/matchNumber
+  return result.sort((a, b) => {
+    const aTime = a.plannedStartAt?.getTime() ?? Infinity;
+    const bTime = b.plannedStartAt?.getTime() ?? Infinity;
+    if (aTime !== bTime) return aTime - bTime;
+    return a.round - b.round || a.matchNumber - b.matchNumber;
+  });
 });
 
 // Enrich pending matches with participant names for MatchQueueList
@@ -870,12 +876,23 @@ watch(() => readyMatches.value, async (newMatches) => {
 }, { deep: true, immediate: true });
 
 // Watch for auto-assign opportunities
+// Bug G fix: only auto-assign matches that are due soon (plannedStartAt <= now + 10 min)
+// or have no planned time at all. This prevents assigning distant future matches prematurely.
+const AUTO_ASSIGN_DUE_WINDOW_MS = 10 * 60_000; // 10 minutes
+
 watch(
   [() => autoAssignEnabled.value, () => availableCourts.value, () => pendingMatches.value],
   async ([isEnabled, courts, matches]) => {
     if (!isEnabled || courts.length === 0 || matches.length === 0) return;
 
-    const match = matches[0];
+    const now = Date.now();
+    // Pick the earliest-due match that is within the due window
+    const dueMatch = (matches as typeof pendingMatches.value).find(m =>
+      !m.plannedStartAt || m.plannedStartAt.getTime() <= now + AUTO_ASSIGN_DUE_WINDOW_MS
+    );
+    if (!dueMatch) return; // No match due soon — don't auto-assign yet
+
+    const match = dueMatch;
     const court = courts[0];
 
     try {

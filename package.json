@@ -54,6 +54,7 @@
     "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.8.1",
     "brackets-memory-db": "^1.0.5",
+    "eslint-plugin-vue": "^9.33.0",
     "firebase-tools": "^15.5.1",
     "happy-dom": "^20.3.7",
     "playwright": "^1.58.1",

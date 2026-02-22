@@ -294,8 +294,18 @@ export interface Match {
   participant2Id?: string; // Registration ID
   winnerId?: string; // Registration ID of winner
   status: MatchStatus;
+  groupId?: string;         // pool / round-robin group identifier (from brackets-manager group_id)
   courtId?: string;
   scheduledTime?: Date;
+  // Time-first scheduling fields (source-of-truth for player communication)
+  plannedStartAt?: Date;
+  plannedEndAt?: Date;
+  scheduleVersion?: number;
+  scheduleStatus?: 'draft' | 'published';
+  lockedTime?: boolean;       // if true, re-schedule runs skip this match
+  plannedCourtId?: string | null;
+  publishedAt?: Date;
+  publishedBy?: string;
   startedAt?: Date;
   completedAt?: Date;
   scores: GameScore[];
@@ -493,3 +503,16 @@ export interface ScheduleGenerationRequest {
   minRestTimeMinutes: number;
   matchDurationMinutes: number;
 }
+
+// Re-export pool assignment types
+export type {
+  PoolTeam,
+  PoolPlan,
+  MinSeedOptions,
+  PoolAssignmentResult,
+  PoolAssignmentConfig,
+  ByeDistributionMode,
+  ByePoolSelection,
+  ShuffledSerpentineOptions,
+  RngState,
+} from './poolAssignment';

@@ -262,6 +262,18 @@ export const useMatchStore = defineStore('matches', () => {
               if (scoreData.scheduledTime) adapted.scheduledTime = scoreData.scheduledTime instanceof Timestamp ? scoreData.scheduledTime.toDate() : scoreData.scheduledTime;
               if (scoreData.startedAt) adapted.startedAt = scoreData.startedAt instanceof Timestamp ? scoreData.startedAt.toDate() : scoreData.startedAt;
               if (scoreData.completedAt) adapted.completedAt = scoreData.completedAt instanceof Timestamp ? scoreData.completedAt.toDate() : scoreData.completedAt;
+              // Time-first scheduling fields
+              if (scoreData.plannedStartAt) adapted.plannedStartAt = scoreData.plannedStartAt instanceof Timestamp ? scoreData.plannedStartAt.toDate() : scoreData.plannedStartAt;
+              else if (scoreData.scheduledTime && !adapted.plannedStartAt) {
+                // Backward-compat shim: treat existing scheduledTime as plannedStartAt for display
+                adapted.plannedStartAt = scoreData.scheduledTime instanceof Timestamp ? scoreData.scheduledTime.toDate() : scoreData.scheduledTime;
+              }
+              if (scoreData.plannedEndAt) adapted.plannedEndAt = scoreData.plannedEndAt instanceof Timestamp ? scoreData.plannedEndAt.toDate() : scoreData.plannedEndAt;
+              if (scoreData.scheduleVersion !== undefined) adapted.scheduleVersion = scoreData.scheduleVersion;
+              if (scoreData.scheduleStatus) adapted.scheduleStatus = scoreData.scheduleStatus;
+              if (scoreData.lockedTime !== undefined) adapted.lockedTime = scoreData.lockedTime;
+              if (scoreData.publishedAt) adapted.publishedAt = scoreData.publishedAt instanceof Timestamp ? scoreData.publishedAt.toDate() : scoreData.publishedAt;
+              if (scoreData.publishedBy) adapted.publishedBy = scoreData.publishedBy;
             }
             allAdaptedMatches.push(adapted);
           }
@@ -1079,15 +1091,9 @@ export const useMatchStore = defineStore('matches', () => {
         },
         { merge: true }
       );
-
-      const courtSnap = await getDoc(doc(db, matchScoresPath, matchId));
-      const courtId = courtSnap.data()?.courtId;
-      if (courtId) {
-        await updateDoc(doc(db, `tournaments/${tournamentId}/courts`, courtId), {
-          currentMatchId: matchId,
-          status: 'in_use',
-        });
-      }
+      // Bug H fix: do NOT set court status to 'in_use' here.
+      // The court only becomes in_use when startMatch() is called.
+      // Setting it here was causing courts to appear occupied before play began.
     } catch (err) {
       console.error('Error marking match ready:', err);
       throw err;
@@ -1595,6 +1601,34 @@ export const useMatchStore = defineStore('matches', () => {
     }
   }
 
+  /**
+   * Save a manually set planned time for a single match.
+   * Optionally locks the time so automated re-scheduling skips this match.
+   */
+  async function saveManualPlannedTime(
+    tournamentId: string,
+    matchId: string,
+    plannedStartAt: Date,
+    matchDurationMinutes: number,
+    locked: boolean,
+    categoryId?: string,
+    levelId?: string
+  ): Promise<void> {
+    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
+    const plannedEndAt = new Date(plannedStartAt.getTime() + matchDurationMinutes * 60_000);
+    await setDoc(
+      doc(db, matchScoresPath, matchId),
+      {
+        plannedStartAt: Timestamp.fromDate(plannedStartAt),
+        plannedEndAt: Timestamp.fromDate(plannedEndAt),
+        scheduleStatus: 'draft',
+        lockedTime: locked,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
   return {
     matches,
     currentMatch,
@@ -1635,5 +1669,6 @@ export const useMatchStore = defineStore('matches', () => {
     correctMatchScore,
     fetchCorrectionHistory,
     checkAndFixConsistency,
+    saveManualPlannedTime,
   };
 });

@@ -705,20 +705,30 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
         const matchesSnapshot = await getDocs(matchesQuery);
 
-        // Reset each match
+        // Reset each match — skip in-progress / completed / walkover (Bug F fix)
+        const skipStatuses = new Set(['in_progress', 'completed', 'walkover']);
         for (const matchDoc of matchesSnapshot.docs) {
           const matchData = matchDoc.data();
+
+          if (skipStatuses.has(matchData.status)) {
+            skippedCount++;
+            continue;
+          }
 
           // Track courts that need to be released
           if (matchData.courtId) {
             courtsToRelease.add(matchData.courtId);
           }
 
-          // Clear court and scheduled time assignments
+          // Clear court, scheduled time, and planned time assignments
           await updateDoc(matchDoc.ref, {
             courtId: null,
             scheduledTime: null,
-            sequence: null, // Also clear sequence
+            sequence: null,
+            plannedStartAt: null,
+            plannedEndAt: null,
+            scheduleVersion: null,
+            scheduleStatus: null,
             updatedAt: serverTimestamp(),
           });
           resetCount++;
@@ -739,16 +749,6 @@ export const useTournamentStore = defineStore('tournaments', () => {
         if (court) {
           releasedCourts.push(court.name);
         }
-      }
-
-      // Count skipped (running/completed) matches from brackets-manager collection
-      for (const categoryId of categoryIdsToReset) {
-        const skippedQuery = query(
-          collection(db, `tournaments/${tournamentId}/categories/${categoryId}/match`),
-          where('status', 'in', [3, 4])
-        );
-        const skippedSnapshot = await getDocs(skippedQuery);
-        skippedCount += skippedSnapshot.size;
       }
 
       return { resetCount, skippedCount, releasedCourts };

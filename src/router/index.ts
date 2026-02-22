@@ -33,6 +33,7 @@ const MatchControl = () => import('@/features/tournaments/views/MatchControlView
 const PublicBracket = () => import('@/features/public/views/PublicBracketView.vue');
 const PublicLiveScores = () => import('@/features/public/views/PublicLiveScoresView.vue');
 const PublicScoring = () => import('@/features/public/views/PublicScoringView.vue');
+const PublicSchedule = () => import('@/features/public/views/PublicScheduleView.vue');
 
 const routes: RouteRecordRaw[] = [
   // Public routes
@@ -78,6 +79,12 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/register',
     name: 'self-registration',
     component: SelfRegistration,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/tournaments/:tournamentId/schedule',
+    name: 'public-schedule',
+    component: PublicSchedule,
     meta: { requiresAuth: false },
   },
 

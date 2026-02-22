@@ -391,7 +391,7 @@ function getFormatColor(format: TournamentFormat): string {
                 v-model="form.name"
                 label="Category Name"
                 density="comfortable"
-                hint="Auto-generated — tap to customise"
+                hide-details
                 data-testid="category-name-input"
               />
             </v-col>
@@ -443,10 +443,10 @@ function getFormatColor(format: TournamentFormat): string {
           <v-sheet
             v-if="isPoolToElimination"
             rounded="lg"
-            color="surface-variant"
+            border
             class="pa-4 mt-4"
           >
-            <p class="text-caption font-weight-semibold text-uppercase text-medium-emphasis mb-3">
+            <p class="text-overline text-primary mb-3">
               Pool Draw Method
             </p>
             <v-select
@@ -456,8 +456,7 @@ function getFormatColor(format: TournamentFormat): string {
               item-value="value"
               label="Draw Method"
               density="comfortable"
-              variant="outlined"
-              bg-color="surface"
+              variant="filled"
               hide-details
             >
               <template #item="{ item, props: itemProps }">
