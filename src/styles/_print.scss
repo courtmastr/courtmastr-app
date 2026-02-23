@@ -1,0 +1,69 @@
+/* ===========================
+   Print Styles for Hardcopy Backups
+   =========================== */
+
+@media print {
+  /* Hide navigation, sidebars and headers */
+  .v-navigation-drawer,
+  .v-app-bar,
+  .v-bottom-navigation,
+  header {
+    display: none !important;
+  }
+
+  /* Hide interactive elements like buttons */
+  button,
+  .v-btn,
+  .v-speed-dial,
+  .v-tooltip,
+  .v-overlay-container {
+    display: none !important;
+  }
+
+  /* Reset layout constraints for full page usage */
+  html, body, #app, .v-application, .v-main {
+    background-color: white !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .v-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  /* Clear formatting for ink saving */
+  * {
+    color: black !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Keep components from breaking across pages */
+  .stat-card,
+  .unified-status-card,
+  .v-card {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border: 1px solid #ccc !important;
+    background: none !important;
+    color: black !important;
+  }
+
+  /* Keep match boxes together in brackets */
+  .brackets-viewer .match {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Force borders to ensure readability */
+  .v-chip {
+    border: 1px solid #666 !important;
+    color: black !important;
+    background: transparent !important;
+  }
+}
