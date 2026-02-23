@@ -648,7 +648,7 @@ const categoryCardsWithAction = computed(() =>
                   @click="emit('setup-category', stats.category)"
                 />
                 <v-list-item
-                  v-if="isScheduleAvailable(stats)"
+                  v-if="isScheduleAvailable(stats) && !(stats.resolvedFormat === 'pool_to_elimination' && stats.category.poolStageId == null)"
                   prepend-icon="mdi-calendar-clock-outline"
                   title="Schedule Times"
                   @click="emit('schedule-times', stats.category)"
