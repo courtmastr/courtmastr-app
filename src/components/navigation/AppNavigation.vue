@@ -4,17 +4,27 @@
     :rail="rail"
     @click="rail = false"
   >
-    <!-- User Profile Section -->
+    <!-- Branding Section -->
     <v-list-item
-      :title="currentUser?.displayName || 'User'"
-      :subtitle="currentUser?.email"
+      class="branding-section"
       nav
       :ripple="false"
     >
       <template #prepend>
-        <v-avatar color="primary">
-          <span class="text-h6">{{ currentUser?.displayName?.charAt(0) || 'U' }}</span>
-        </v-avatar>
+        <div class="brand-logo-container">
+          <img
+            v-if="!rail"
+            src="@/assets/brand/courtmaster-lockup.svg"
+            alt="CourtMaster"
+            class="app-logo-expanded"
+          >
+          <img
+            v-else
+            src="@/assets/brand/courtmaster-mark.svg"
+            alt="CourtMaster"
+            class="app-logo-collapsed"
+          >
+        </div>
       </template>
       <template #append>
         <v-btn
@@ -130,16 +140,16 @@
           Public
         </v-list-subheader>
         <v-list-item
-          :to="`/tournaments/${currentTournamentId}/live`"
-          prepend-icon="mdi-broadcast"
-          title="Live Scores"
+          :to="`/tournaments/${currentTournamentId}/bracket`"
+          prepend-icon="mdi-tournament"
+          title="Public Bracket"
           rounded="lg"
           :ripple="false"
         />
         <v-list-item
-          :to="`/tournaments/${currentTournamentId}/bracket`"
-          prepend-icon="mdi-tournament"
-          title="Public Bracket"
+          :to="`/tournaments/${currentTournamentId}/schedule`"
+          prepend-icon="mdi-calendar-clock"
+          title="Public Schedule"
           rounded="lg"
           :ripple="false"
         />
@@ -235,6 +245,33 @@ async function handleLogout(): Promise<void> {
 
 .v-list-item--nav {
   margin-bottom: 4px;
+}
+
+// Branding Section
+.branding-section {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.brand-logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.app-logo-expanded {
+  height: 32px;
+  width: auto;
+}
+
+.app-logo-collapsed {
+  height: 28px;
+  width: auto;
+  margin-left: 2px;
 }
 
 // Active state styling using Design System
