@@ -93,22 +93,106 @@ function getRoleBadgeColor(role: string): string {
   }
 }
 
-// Bug Report Logic
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+
 const showBugDialog = ref(false);
 const bugDescription = ref('');
 const bugSubmitting = ref(false);
+const screenshotFile = ref<File | null>(null);
+const screenshotPreview = ref<string>('');
+const fileInput = ref<HTMLInputElement | null>(null);
+const maxFileSize = 5 * 1024 * 1024;
+const acceptedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+function processFile(file: File | null | undefined) {
+  if (!file) return;
+
+  if (!acceptedTypes.includes(file.type)) {
+    notificationStore.showToast('error', 'Please select an image file (JPEG, PNG, GIF, or WebP)');
+    return;
+  }
+
+  if (file.size > maxFileSize) {
+    notificationStore.showToast('error', 'File size must be less than 5MB');
+    return;
+  }
+
+  screenshotFile.value = file;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    screenshotPreview.value = e.target?.result as string;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement;
+  processFile(input.files?.[0]);
+}
+
+function handleFileDrop(event: DragEvent) {
+  const file = event.dataTransfer?.files[0];
+  processFile(file);
+}
+
+function removeScreenshot() {
+  screenshotFile.value = null;
+  screenshotPreview.value = '';
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+}
+
+function triggerFileInput() {
+  fileInput.value?.click();
+}
+
+async function uploadScreenshot(): Promise<string | null> {
+  if (!screenshotFile.value) return null;
+
+  const storage = getStorage();
+  const timestamp = Date.now();
+  const filename = `bug-reports/${authStore.currentUser?.id || 'anonymous'}/${timestamp}_${screenshotFile.value.name}`;
+  const fileRef = storageRef(storage, filename);
+
+  await uploadBytes(fileRef, screenshotFile.value);
+  const downloadUrl = await getDownloadURL(fileRef);
+
+  return downloadUrl;
+}
 
 async function submitBugReport() {
   if (!bugDescription.value.trim()) return;
-  
+
   bugSubmitting.value = true;
-  // Mock submission - in real app would call API
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  notificationStore.showToast('success', 'Bug report submitted! Thank you for your feedback.');
-  showBugDialog.value = false;
-  bugDescription.value = '';
-  bugSubmitting.value = false;
+
+  try {
+    const screenshotUrl = await uploadScreenshot();
+    const functions = getFunctions();
+    const submitBug = httpsCallable(functions, 'submitBugReport');
+
+    await submitBug({
+      description: bugDescription.value.trim(),
+      pageUrl: window.location.href,
+      browserInfo: navigator.userAgent,
+      screenshotUrl,
+    });
+
+    notificationStore.showToast('success', 'Bug report submitted! Thank you for your feedback.');
+    showBugDialog.value = false;
+    bugDescription.value = '';
+    removeScreenshot();
+  } catch (error) {
+    console.error('Error submitting bug report:', error);
+    notificationStore.showToast(
+      'error',
+      error instanceof Error ? error.message : 'Failed to submit bug report. Please try again.'
+    );
+  } finally {
+    bugSubmitting.value = false;
+  }
 }
 </script>
 
@@ -142,7 +226,11 @@ async function submitBugReport() {
           to="/"
           class="text-decoration-none text-inherit d-flex align-center"
         >
-          <img src="@/assets/brand/courtmaster-lockup.svg" alt="CourtMaster Logo" class="app-logo" />
+          <img
+            src="@/assets/brand/courtmaster-lockup.svg"
+            alt="CourtMaster Logo"
+            class="app-logo"
+          >
         </router-link>
       </v-toolbar-title>
 
@@ -329,7 +417,11 @@ async function submitBugReport() {
                 @click="item.action"
               >
                 <template #prepend>
-                  <component :is="item.icon" :size="20" class="mr-4 text-grey-darken-1" />
+                  <component
+                    :is="item.icon"
+                    :size="20"
+                    class="mr-4 text-grey-darken-1"
+                  />
                 </template>
               </v-list-item>
             </template>
@@ -356,21 +448,94 @@ async function submitBugReport() {
     <BaseDialog
       v-model="showBugDialog"
       title="Report a Bug"
-      max-width="500"
+      max-width="600"
       :loading="bugSubmitting"
       @cancel="showBugDialog = false"
     >
       <p class="text-body-2 text-grey-darken-1 mb-4">
         Found an issue? Let us know so we can fix it.
       </p>
+
       <v-textarea
         v-model="bugDescription"
-        label="Describe the issue"
+        label="Describe the issue *"
         placeholder="What happened? What did you expect to happen?"
         variant="outlined"
         rows="4"
         auto-grow
+        class="mb-4"
       />
+
+      <!-- Screenshot Upload -->
+      <div class="screenshot-section">
+        <label class="text-subtitle-2 mb-2 d-block">Screenshot (optional)</label>
+
+        <!-- Hidden File Input -->
+        <input
+          ref="fileInput"
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          class="d-none"
+          @change="handleFileSelect"
+        >
+
+        <!-- Upload Area or Preview -->
+        <v-fade-transition>
+          <div
+            v-if="!screenshotPreview"
+            key="upload"
+          >
+            <v-card
+              variant="outlined"
+              class="upload-area pa-6 text-center cursor-pointer"
+              :ripple="false"
+              @click="triggerFileInput"
+              @dragover.prevent
+              @drop.prevent="handleFileDrop"
+            >
+              <v-icon
+                icon="mdi-camera"
+                size="48"
+                color="grey-lighten-1"
+                class="mb-2"
+              />
+              <div class="text-body-2 text-grey-darken-1">
+                Click to upload or drag and drop
+              </div>
+              <div class="text-caption text-grey mt-1">
+                JPEG, PNG, GIF, WebP (max 5MB)
+              </div>
+            </v-card>
+          </div>
+
+          <div
+            v-else
+            key="preview"
+            class="preview-container"
+          >
+            <v-card
+              variant="outlined"
+              class="preview-card"
+            >
+              <v-img
+                :src="screenshotPreview"
+                height="200"
+                cover
+                class="rounded"
+              />
+              <v-btn
+                icon="mdi-close"
+                size="small"
+                color="error"
+                variant="flat"
+                class="remove-btn"
+                @click="removeScreenshot"
+              />
+            </v-card>
+          </div>
+        </v-fade-transition>
+      </div>
+
       <template #actions>
         <v-spacer />
         <v-btn
@@ -470,6 +635,39 @@ async function submitBugReport() {
   
   &:hover {
     background-color: rgba($primary-base, 0.04);
+  }
+}
+
+// Screenshot Upload Styles
+.screenshot-section {
+  margin-top: $spacing-md;
+}
+
+.upload-area {
+  border: 2px dashed rgba($primary-base, 0.3);
+  border-radius: $border-radius-md;
+  transition: $transition-base;
+  cursor: pointer;
+
+  &:hover {
+    border-color: $primary-base;
+    background-color: rgba($primary-base, 0.04);
+  }
+}
+
+.preview-container {
+  position: relative;
+}
+
+.preview-card {
+  position: relative;
+  overflow: hidden;
+
+  .remove-btn {
+    position: absolute;
+    top: $spacing-sm;
+    right: $spacing-sm;
+    z-index: 1;
   }
 }
 </style>
