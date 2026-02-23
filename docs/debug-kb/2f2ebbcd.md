@@ -5,7 +5,7 @@ signature: "eslint runs and reports existing no-require-imports/no-empty/no-usel
 area: lint
 status: ❌ unresolved
 tags: [lint, eslint, baseline, repo-wide]
-artifact: 2026-02-23-01-39-02.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log
+artifact: 2026-02-23-13-49-03.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log
 ---
 
 # KB Entry: lint:log fails on existing repo lint-rule violations after local ESLint toolchain setup
@@ -49,6 +49,27 @@ ESLint executes successfully but exits with existing repository violations (e.g.
 
 **Result**:
 ❌ Same fingerprint `2f2ebbcd`; baseline lint set remains unchanged.
+
+### Attempt 5
+**Date**: 2026-02-23  
+**Change**: Re-ran `npm run lint:log` after match state-flow update (`assign -> in_progress`), release keep/clear score prompt, and Match Control auto-start removal.
+
+**Result**:
+❌ Same fingerprint `2f2ebbcd`; lint still fails on pre-existing repository-wide violations outside edited files.
+
+### Attempt 6
+**Date**: 2026-02-23  
+**Change**: Re-ran `npm run lint:log` after final verification pass.
+
+**Result**:
+❌ Same fingerprint `2f2ebbcd`; no change to existing repo-wide lint baseline.
+
+### Attempt 7
+**Date**: 2026-02-23  
+**Change**: Re-ran `npm run lint:log` after aligning legacy tournament-store assignment path to `in_progress`.
+
+**Result**:
+❌ Same fingerprint `2f2ebbcd`; still failing on existing unrelated repository-wide lint violations.
 
 ## Root Cause
 Repository currently contains lint violations in unrelated files that are now surfaced once local ESLint + TypeScript plugin/parser are available.

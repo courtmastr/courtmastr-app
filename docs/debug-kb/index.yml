@@ -1,10 +1,24 @@
+- id: 2078f8ff
+  title: lint:log fails on existing repo lint-rule violations after pool scheduling deadlock fix
+  status: "❌ unresolved"
+  date: "2026-02-23"
+  fingerprint: "2078f8ff"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-13-54-47.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 637073f2
+  title: build:log fails on existing unused import in tournaments export utility
+  status: "✅ fixed"
+  date: "2026-02-23"
+  fingerprint: "637073f2"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-13-56-37.vue-tsc-b.log"
 - id: 2f2ebbcd
   title: lint:log fails on existing repo lint-rule violations after local ESLint toolchain setup
   status: "❌ unresolved"
   date: "2026-02-23"
   fingerprint: "2f2ebbcd"
   command: "npm run lint:log"
-  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-01-39-02.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-13-49-03.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 67be1e73
   title: build:log fails on unused currentUser in AppNavigation
   status: "✅ fixed"
