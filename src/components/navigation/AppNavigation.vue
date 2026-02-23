@@ -214,7 +214,6 @@ const tournamentStore = useTournamentStore();
 const route = useRoute();
 const router = useRouter();
 
-const currentUser = computed(() => authStore.currentUser);
 const isOrganizer = computed(() => authStore.isOrganizer);
 const categories = computed(() => tournamentStore.categories);
 const currentTournamentId = computed(() => {

@@ -36,7 +36,6 @@
 
         <!-- Actions with hints -->
         <div class="d-flex flex-wrap gap-4">
-
           <!-- DRAFT -->
           <div
             v-if="tournamentStatus === 'draft'"
@@ -46,7 +45,9 @@
               color="primary"
               @click="openSetupTab"
             >
-              <v-icon start>mdi-shape-plus</v-icon>
+              <v-icon start>
+                mdi-shape-plus
+              </v-icon>
               Setup Categories
             </v-btn>
             <div class="action-hint">
@@ -62,7 +63,9 @@
               color="success"
               @click="openRegistration"
             >
-              <v-icon start>mdi-account-plus</v-icon>
+              <v-icon start>
+                mdi-account-plus
+              </v-icon>
               Open Registration
             </v-btn>
             <div class="action-hint">
@@ -79,7 +82,9 @@
               color="primary"
               @click="navigateToRegistrations"
             >
-              <v-icon start>mdi-clipboard-check</v-icon>
+              <v-icon start>
+                mdi-clipboard-check
+              </v-icon>
               Review Registrations
             </v-btn>
             <div class="action-hint">
@@ -95,7 +100,9 @@
               color="success"
               @click="startTournament"
             >
-              <v-icon start>mdi-play</v-icon>
+              <v-icon start>
+                mdi-play
+              </v-icon>
               Start Tournament
             </v-btn>
             <div class="action-hint">
@@ -112,7 +119,9 @@
               color="warning"
               @click="navigateToMatchControl"
             >
-              <v-icon start>mdi-view-dashboard</v-icon>
+              <v-icon start>
+                mdi-view-dashboard
+              </v-icon>
               Enter Match Control
             </v-btn>
             <div class="action-hint">
@@ -128,7 +137,9 @@
               color="primary"
               @click="navigateToScoring"
             >
-              <v-icon start>mdi-scoreboard</v-icon>
+              <v-icon start>
+                mdi-scoreboard
+              </v-icon>
               Score Matches
             </v-btn>
             <div class="action-hint">
@@ -145,7 +156,9 @@
               variant="tonal"
               @click="exitMatchControl"
             >
-              <v-icon start>mdi-arrow-left</v-icon>
+              <v-icon start>
+                mdi-arrow-left
+              </v-icon>
               Exit Match Control
             </v-btn>
             <div class="action-hint">
@@ -162,7 +175,9 @@
               color="primary"
               @click="viewResults"
             >
-              <v-icon start>mdi-trophy</v-icon>
+              <v-icon start>
+                mdi-trophy
+              </v-icon>
               View Leaderboard
             </v-btn>
             <div class="action-hint">
