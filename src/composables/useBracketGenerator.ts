@@ -249,6 +249,17 @@ export function useBracketGenerator() {
           },
           { merge: true }
         );
+
+        // Write walkover match_scores for BYE matches immediately so standings
+        // show correct MP/W counts right after bracket generation (no need to
+        // wait for elimination phase). A BYE match has one null opponent.
+        await initializeByeWalkovers(
+          tournamentId,
+          categoryId,
+          storage,
+          result.stageId,
+          participantsData
+        );
       } else {
         result = await createStandardStage(
           category,
@@ -1121,6 +1132,76 @@ async function initializeLevelMatchScores(
       await batch.commit();
     }
   }
+}
+
+/**
+ * Write walkover match_scores for every BYE match in the pool stage so that
+ * standings reflect the correct MP/W values immediately after bracket generation.
+ * A BYE match is one where either opponent1 or opponent2 has a null id.
+ */
+async function initializeByeWalkovers(
+  tournamentId: string,
+  categoryId: string,
+  storage: ClientFirestoreStorage,
+  stageId: number,
+  participants: StoredParticipant[]
+): Promise<void> {
+  const allMatches = asArray(
+    await storage.select<StoredMatch>('match', { stage_id: stageId })
+  );
+
+  // Find all BYE matches — one side has a null / undefined opponent id
+  const byeMatches = allMatches.filter(
+    (m) =>
+      m.opponent1?.id === null ||
+      m.opponent1?.id === undefined ||
+      m.opponent2?.id === null ||
+      m.opponent2?.id === undefined
+  );
+
+  if (byeMatches.length === 0) {
+    console.log('ℹ️ No BYE matches found — skipping walkover initialisation');
+    return;
+  }
+
+  // participantId (number) → registrationId (name stored in StoredParticipant.name)
+  const regIdByParticipantId = new Map<number, string>(
+    participants.map((p) => [p.id, p.name])
+  );
+
+  const batch = writeBatch(db);
+
+  for (const match of byeMatches) {
+    const p1Id = toNumberId(match.opponent1?.id ?? null);
+    const p2Id = toNumberId(match.opponent2?.id ?? null);
+
+    // The real player is on the non-null side
+    const realParticipantId = p1Id ?? p2Id;
+    if (realParticipantId === null) continue;
+
+    const winnerId = regIdByParticipantId.get(realParticipantId);
+    if (!winnerId) continue;
+
+    batch.set(
+      doc(
+        db,
+        'tournaments', tournamentId,
+        'categories', categoryId,
+        'match_scores', String(match.id)
+      ),
+      {
+        status: 'walkover',
+        winnerId,
+        scores: [],          // WO = 0-0, no game scores
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  await batch.commit();
+  console.log(`✅ Wrote ${byeMatches.length} walkover match_scores for BYE matches in stage ${stageId}`);
 }
 
 async function deleteMatchScoresByIds(
