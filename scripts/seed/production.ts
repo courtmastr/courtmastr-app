@@ -18,10 +18,8 @@ import {
 } from 'firebase/auth';
 import {
   getFirestore,
-  doc,
-  setDoc,
-  serverTimestamp,
 } from 'firebase/firestore';
+import { createOrSignIn } from './helpers';
 import { runSeed } from './core';
 
 const app = initializeApp({
@@ -36,40 +34,6 @@ const app = initializeApp({
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-interface UserConfig {
-  email: string;
-  password: string;
-  displayName: string;
-  role: string;
-}
-
-async function createOrSignIn(config: UserConfig): Promise<string> {
-  try {
-    const { user } = await createUserWithEmailAndPassword(auth, config.email, config.password);
-    await setDoc(doc(db, 'users', user.uid), {
-      email: config.email,
-      displayName: config.displayName,
-      role: config.role,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-    console.log(`  Created ${config.role}: ${config.email}`);
-    return user.uid;
-  } catch (err: unknown) {
-    const code = (err as { code?: string }).code ?? '';
-    if (code === 'auth/email-already-in-use') {
-      const { user } = await signInWithEmailAndPassword(auth, config.email, config.password);
-      await setDoc(
-        doc(db, 'users', user.uid),
-        { email: config.email, displayName: config.displayName, role: config.role, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
-      console.log(`  Found existing ${config.role}: ${config.email}`);
-      return user.uid;
-    }
-    throw err;
-  }
-}
 
 async function main(): Promise<void> {
   console.log('\n' + '='.repeat(64));
@@ -81,13 +45,13 @@ async function main(): Promise<void> {
 
   try {
     console.log('\n[1] Setting up users...');
-    const adminId = await createOrSignIn({
+    const adminId = await createOrSignIn(auth, db, {
       email: 'admin@courtmastr.com',
       password: 'admin123',
       displayName: 'Tournament Admin',
       role: 'admin',
     });
-    await createOrSignIn({
+    await createOrSignIn(auth, db, {
       email: 'scorekeeper@courtmastr.com',
       password: 'score123',
       displayName: 'Court Scorekeeper',
