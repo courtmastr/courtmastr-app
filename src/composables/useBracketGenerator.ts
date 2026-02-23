@@ -180,7 +180,7 @@ export function useBracketGenerator() {
 
       if (category.format === 'pool_to_elimination') {
         const teamsPerPool = category.teamsPerPool ?? options.teamsPerPool ?? 4;
-        const numPools = Math.max(1, Math.floor(registrations.length / teamsPerPool));
+        const numPools = calculatePoolGroupCount(registrations.length, teamsPerPool);
         const method: PoolSeedingMethod = category.poolSeedingMethod ?? options.poolSeedingMethod ?? 'serpentine';
         const { ordered, seedOrdering } = orderRegistrationsForPool(baseSorted, method, numPools);
         finalOrdered = ordered;
@@ -696,7 +696,7 @@ function asArray<T>(value: T[] | T | null): T[] {
 function calculatePoolGroupCount(participantCount: number, teamsPerPool?: number): number {
   const size = teamsPerPool && teamsPerPool >= 2 ? Math.floor(teamsPerPool) : 4;
   // Use floor so each pool gets at least `size` players; extras are spread by brackets-manager
-  return Math.max(1, Math.floor(participantCount / size));
+  return Math.max(1, Math.ceil(participantCount / size));
 }
 
 function getRoundRobinSeedOrdering(
@@ -764,9 +764,19 @@ async function createPoolStage(
   participantCount: number,
   options: BracketOptions
 ): Promise<BracketResult> {
-  const teamsPerPool = category.teamsPerPool ?? options.teamsPerPool;
+  const teamsPerPool = category.teamsPerPool ?? options.teamsPerPool ?? 4;
   const groupCount = calculatePoolGroupCount(participantCount, teamsPerPool);
-  const seeding = createSequentialSeeding(participantCount);
+
+  // Pad with nulls (BYEs) so every pool has exactly teamsPerPool slots.
+  // createStageWithStats already accepts (number | null)[] — nulls create bye matches.
+  // BYE padding: works for any N and any teamsPerPool.
+  // When N divides evenly, totalSlots === participantCount → loop never runs.
+  // When uneven, null slots are distributed by brackets-manager one per affected pool.
+  const totalSlots = groupCount * teamsPerPool;
+  const seeding: (number | null)[] = createSequentialSeeding(participantCount);
+  while (seeding.length < totalSlots) {
+    seeding.push(null);
+  }
 
   return createStageWithStats(
     manager,
@@ -929,6 +939,25 @@ function extractPoolQualifiers(params: {
       p1Standing.matchesLost += 1;
       p1Standing.matchPoints += 1;
     }
+  }
+
+  // Grant walkover wins to players whose opponent was a BYE (null opponent).
+  // The main loop above already skips these via the (p1Id === null || p2Id === null) guard.
+  for (const match of params.matches) {
+    const p1Id = toNumberId(match.opponent1?.id ?? null);
+    const p2Id = toNumberId(match.opponent2?.id ?? null);
+    if (p1Id !== null && p2Id !== null) continue; // real match — already handled above
+    if (p1Id === null && p2Id === null) continue;  // no players (shouldn't happen)
+
+    const realPlayerId = p1Id ?? p2Id;
+    if (realPlayerId === null) continue;
+
+    const standing = standings.get(realPlayerId);
+    if (!standing) continue;
+
+    standing.matchesPlayed += 1;
+    standing.matchesWon += 1;
+    standing.matchPoints += 2; // Win = 2 pts; WO scored 0-0, no pointsFor/Against added
   }
 
   const standingsByGroup = new Map<string, PoolStanding[]>();
