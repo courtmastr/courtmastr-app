@@ -185,6 +185,42 @@ export async function runTNF2025Seed(config: TNF2025SeedConfig): Promise<string>
   }
   console.log("  Created 5 courts");
 
+  // Manual seeding overrides for MD category
+  // Format: "Team Name": new seed number
+  // (Old seed → New seed) per user request:
+  //   Kavin KK / Pritesh Pitti:                    1 → 2
+  //   Tejas Mayavanshi / Divaspathi Bhat:           2 → 3
+  //   RamC Venkatasamy / Kishore Subarao:          15 → 4
+  //   Kumaran Thiru / Sriram Balakrishnan:          4 → 5
+  //   Ram Vaithilingam / Sakthinesan Somanathan:    5 → 6
+  //   Karthik Kalairajan / Manoj Edward:            6 → 7
+  //   Sudhan Sekar / Drumil Trivedi:                7 → 8
+  //   Dhrumil Trivedi / Sudhan Sekar:               8 → 9
+  //   Christuraj Arockiasamy / Abhiram Madugula:    9 → 10
+  //   Arun Jay / Rajkumar Murugan:                 10 → 11
+  //   Eshwar Palayam / Gowtham Kandasamy:          11 → 12
+  //   Rajini thalaiva / Vijay Thalapathy:          12 → 13
+  //   Hanuman Veera / Hitesh Reddivari:            13 → 14
+  //   Ankur Upadhyay / Rahul Krishnan:              3 → 15
+  //   Vinothkumar Nagarajan / Karthikeyan Subramanian: 15 → 16
+  const MD_SEED_OVERRIDES: Record<string, number> = {
+    "Kavin KK / Pritesh Pitti": 2,
+    "Tejas Mayavanshi / Divaspathi Bhat": 3,
+    "RamC Venkatasamy / Kishore Subarao": 4,
+    "Kumaran Thiru / Sriram Balakrishnan": 5,
+    "Ram Vaithilingam / Sakthinesan Somanathan": 6,
+    "Karthik Kalairajan / Manoj Edward": 7,
+    "Sudhan Sekar / Drumil Trivedi": 8,
+    "Dhrumil Trivedi / Sudhan Sekar": 9,
+    "Christuraj Arockiasamy / Abhiram Madugula": 10,
+    "Arun Jay / Rajkumar Murugan": 11,
+    "Eshwar Palayam / Gowtham Kandasamy": 12,
+    "Rajini thalaiva / Vijay Thalapathy": 13,
+    "Hanuman Veera / Hitesh Reddivari": 14,
+    "Ankur Upadhyay / Rahul Krishnan": 15,
+    "Vinothkumar Nagarajan / Karthikeyan Subramanian": 16,
+  };
+
   console.log("\n[4] Creating Players and Registrations...");
 
   // We cache players by email or by name to avoid duplicates
@@ -299,7 +335,7 @@ export async function runTNF2025Seed(config: TNF2025SeedConfig): Promise<string>
               partnerPlayerId: p2Id,
               teamName: teamName,
               status: "approved",
-              seed: totalRegistrations + 1,
+              seed: key === "MD" && MD_SEED_OVERRIDES[teamName] ? MD_SEED_OVERRIDES[teamName] : (totalRegistrations + 1),
               isCheckedIn: false,
               registeredBy: adminId,
               registeredAt: serverTimestamp(),

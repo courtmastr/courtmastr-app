@@ -26,6 +26,12 @@ const allMatches = computed(() =>
   matchStore.matches.filter((m) => m.categoryId === props.categoryId)
 );
 
+// Real matches only — excludes BYE walkover matches (one participant absent)
+// Used for stats/progress so BYE slots don't inflate match counts
+const realMatches = computed(() =>
+  allMatches.value.filter((m) => m.participant1Id && m.participant2Id)
+);
+
 // Calculate standings
 const standings = computed(() => {
   const categoryRegs = registrations.value.filter((r) => r.categoryId === props.categoryId);
@@ -67,7 +73,8 @@ const standings = computed(() => {
 
   // Process completed matches
   for (const match of allMatches.value) {
-    if (match.status === 'completed' && match.winnerId) {
+    const isFinished = (match.status === 'completed' || match.status === 'walkover') && match.winnerId;
+    if (isFinished) {
       const p1 = standingsMap.get(match.participant1Id || '');
       const p2 = standingsMap.get(match.participant2Id || '');
 
@@ -75,21 +82,21 @@ const standings = computed(() => {
         p1.played++;
         p2.played++;
 
-        // Calculate game points and games won
+        // Tally game scores only for real completed matches (walkovers are scored 0-0)
         let p1Points = 0;
         let p2Points = 0;
         let p1Games = 0;
         let p2Games = 0;
-        for (const score of match.scores) {
-          p1Points += score.score1;
-          p2Points += score.score2;
-          // A player wins a game/set if they scored more points in that game
-          if (score.score1 > score.score2) {
-            p1Games++;
-          } else if (score.score2 > score.score1) {
-            p2Games++;
+        if (match.status !== 'walkover') {
+          for (const score of match.scores) {
+            p1Points += score.score1;
+            p2Points += score.score2;
+            if (score.score1 > score.score2) {
+              p1Games++;
+            } else if (score.score2 > score.score1) {
+              p2Games++;
+            }
           }
-          // If scores are equal, no game is awarded (shouldn't happen in completed matches)
         }
 
         // Update games stats (matches LeaderboardEntry: gamesWon, gamesLost, gameDifference)
@@ -120,6 +127,15 @@ const standings = computed(() => {
 
         p1.pointDifference = p1.pointsFor - p1.pointsAgainst;
         p2.pointDifference = p2.pointsFor - p2.pointsAgainst;
+      } else if (match.status === 'walkover' && match.winnerId) {
+        // BYE walkover: one side has no registered participant
+        const winner = standingsMap.get(match.winnerId);
+        if (winner) {
+          winner.played++;
+          winner.matchesWon++;
+          winner.matchPoints += 2;
+          // No score tallying (WO = 0-0)
+        }
       }
     }
   }
@@ -157,10 +173,10 @@ const rounds = computed(() =>
 
 // Stats
 const tournamentStats = computed(() => {
-  const total = allMatches.value.length;
-  const completed = allMatches.value.filter((m) => m.status === 'completed').length;
-  const inProgress = allMatches.value.filter((m) => m.status === 'in_progress').length;
-  const ready = allMatches.value.filter((m) => m.status === 'ready').length;
+  const total = realMatches.value.length;
+  const completed = realMatches.value.filter((m) => m.status === 'completed').length;
+  const inProgress = realMatches.value.filter((m) => m.status === 'in_progress').length;
+  const ready = realMatches.value.filter((m) => m.status === 'ready').length;
 
   return {
     total,
@@ -341,12 +357,12 @@ function getMatchScore(match: Match): string {
               :headers="[
                 { title: '#', key: 'rank', width: '60px', align: 'center' },
                 { title: 'Participant', key: 'name' },
-                { title: 'Status', key: 'status', width: '110px' },
                 { title: 'MP', key: 'matchPoints', width: '70px', align: 'center' },
-                { title: 'W-L', key: 'record', width: '80px', align: 'center' },
-                { title: 'Games', key: 'games', width: '90px', align: 'center' },
-                { title: 'Pts For/Ag', key: 'points', width: '110px', align: 'center' },
-                { title: 'Pts +/-', key: 'pointDiff', width: '80px', align: 'center' },
+                { title: 'W', key: 'matchesWon', width: '60px', align: 'center' },
+                { title: 'L', key: 'matchesLost', width: '60px', align: 'center' },
+                { title: 'GD', key: 'gameDifference', width: '70px', align: 'center' },
+                { title: 'PD', key: 'pointDifference', width: '70px', align: 'center' },
+                { title: 'PF', key: 'pointsFor', width: '70px', align: 'center' },
               ]"
               :items="standings.map((s, i) => ({ ...s, rank: i + 1 }))"
               :items-per-page="-1"
@@ -370,44 +386,215 @@ function getMatchScore(match: Match): string {
               <template #item.name="{ item }">
                 <span class="font-weight-medium">{{ item.name }}</span>
               </template>
-              <template #item.status="{ item }">
-                <v-chip
-                  size="small"
-                  :color="item.played === 0 ? 'grey' : item.matchesWon > item.matchesLost ? 'success' : 'info'"
-                  variant="tonal"
+              <template #header.matchPoints="{ column }">
+                <v-tooltip
+                  location="top"
+                  text="Match Points: Win = 2 pts, Loss = 1 pt, Walkover Win = 2 pts (BWF Art. 16.1)"
                 >
-                  {{ item.played === 0 ? 'Awaiting' : item.matchesWon > item.matchesLost ? 'Active' : 'Active' }}
-                </v-chip>
+                  <template #activator="{ props: tp }">
+                    <span
+                      v-bind="tp"
+                      class="cursor-help"
+                    >{{ column.title }} <v-icon size="12">mdi-information-outline</v-icon></span>
+                  </template>
+                </v-tooltip>
+              </template>
+              <template #header.matchesWon="{ column }">
+                <v-tooltip
+                  location="top"
+                  text="Matches Won (including walkovers)"
+                >
+                  <template #activator="{ props: tp }">
+                    <span
+                      v-bind="tp"
+                      class="cursor-help"
+                    >{{ column.title }} <v-icon size="12">mdi-information-outline</v-icon></span>
+                  </template>
+                </v-tooltip>
+              </template>
+              <template #header.matchesLost="{ column }">
+                <v-tooltip
+                  location="top"
+                  text="Matches Lost"
+                >
+                  <template #activator="{ props: tp }">
+                    <span
+                      v-bind="tp"
+                      class="cursor-help"
+                    >{{ column.title }} <v-icon size="12">mdi-information-outline</v-icon></span>
+                  </template>
+                </v-tooltip>
+              </template>
+              <template #header.gameDifference="{ column }">
+                <v-tooltip
+                  location="top"
+                  text="Game Difference: Games Won minus Games Lost. BWF Tiebreaker #2 (Art. 16.2.3)"
+                >
+                  <template #activator="{ props: tp }">
+                    <span
+                      v-bind="tp"
+                      class="cursor-help"
+                    >{{ column.title }} <v-icon size="12">mdi-information-outline</v-icon></span>
+                  </template>
+                </v-tooltip>
+              </template>
+              <template #header.pointDifference="{ column }">
+                <v-tooltip
+                  location="top"
+                  text="Point Difference: Points For minus Points Against. BWF Tiebreaker #3. Walkovers count as 0-0."
+                >
+                  <template #activator="{ props: tp }">
+                    <span
+                      v-bind="tp"
+                      class="cursor-help"
+                    >{{ column.title }} <v-icon size="12">mdi-information-outline</v-icon></span>
+                  </template>
+                </v-tooltip>
+              </template>
+              <template #header.pointsFor="{ column }">
+                <v-tooltip
+                  location="top"
+                  text="Points For: Total rally points scored (excludes walkovers)"
+                >
+                  <template #activator="{ props: tp }">
+                    <span
+                      v-bind="tp"
+                      class="cursor-help"
+                    >{{ column.title }} <v-icon size="12">mdi-information-outline</v-icon></span>
+                  </template>
+                </v-tooltip>
               </template>
               <template #item.matchPoints="{ item }">
                 <span class="font-weight-bold">{{ item.matchPoints }}</span>
               </template>
-              <template #item.record="{ item }">
-                <span>{{ item.matchesWon }}-{{ item.matchesLost }}</span>
+              <template #item.matchesWon="{ item }">
+                <span>{{ item.matchesWon }}</span>
               </template>
-              <template #item.games="{ item }">
-                <span>{{ item.gamesWon }}-{{ item.gamesLost }}</span>
+              <template #item.matchesLost="{ item }">
+                <span>{{ item.matchesLost }}</span>
               </template>
-              <template #item.points="{ item }">
-                <span>{{ item.pointsFor }} / {{ item.pointsAgainst }}</span>
+              <template #item.gameDifference="{ item }">
+                <span :class="item.gameDifference >= 0 ? 'text-success' : 'text-error'">
+                  {{ item.gameDifference >= 0 ? '+' : '' }}{{ item.gameDifference }}
+                </span>
               </template>
-              <template #item.pointDiff="{ item }">
+              <template #item.pointDifference="{ item }">
                 <span :class="item.pointDifference >= 0 ? 'text-success' : 'text-error'">
                   {{ item.pointDifference >= 0 ? '+' : '' }}{{ item.pointDifference }}
                 </span>
+              </template>
+              <template #item.pointsFor="{ item }">
+                <span>{{ item.pointsFor }}</span>
               </template>
               <template #bottom />
             </v-data-table>
           </v-card>
 
-          <v-alert
-            type="info"
-            variant="tonal"
+          <v-expansion-panels
+            variant="accordion"
             class="mt-4"
           >
-            <strong>Scoring:</strong> Win = 2 points, Loss = 1 point.
-            Tiebreakers: Match Points > Wins > Game Difference > Point Difference > Games Won
-          </v-alert>
+            <v-expansion-panel>
+              <v-expansion-panel-title>
+                <v-icon
+                  start
+                  color="primary"
+                >
+                  mdi-information-outline
+                </v-icon>
+                BWF Scoring &amp; Tiebreaker Rules
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <v-row>
+                  <v-col
+                    cols="12"
+                    md="4"
+                  >
+                    <p class="text-subtitle-2 font-weight-bold mb-2">
+                      Match Points (BWF Art. 16.1)
+                    </p>
+                    <v-list
+                      density="compact"
+                      class="pa-0"
+                    >
+                      <v-list-item
+                        prepend-icon="mdi-trophy"
+                        title="Win"
+                        subtitle="2 match points"
+                      />
+                      <v-list-item
+                        prepend-icon="mdi-minus-circle-outline"
+                        title="Loss"
+                        subtitle="1 match point"
+                      />
+                      <v-list-item
+                        prepend-icon="mdi-fast-forward"
+                        title="Walkover Win (W/O)"
+                        subtitle="2 match points · scored as 0-0"
+                      />
+                    </v-list>
+                  </v-col>
+                  <v-col
+                    cols="12"
+                    md="4"
+                  >
+                    <p class="text-subtitle-2 font-weight-bold mb-2">
+                      Tiebreaker Order (BWF Art. 16.2)
+                    </p>
+                    <v-timeline
+                      density="compact"
+                      side="end"
+                    >
+                      <v-timeline-item
+                        dot-color="primary"
+                        size="x-small"
+                      >
+                        <span class="text-body-2"><strong>1.</strong> Match Points (MP)</span>
+                      </v-timeline-item>
+                      <v-timeline-item
+                        dot-color="primary"
+                        size="x-small"
+                      >
+                        <span class="text-body-2"><strong>2.</strong> Game Difference (GD)</span>
+                      </v-timeline-item>
+                      <v-timeline-item
+                        dot-color="primary"
+                        size="x-small"
+                      >
+                        <span class="text-body-2"><strong>3.</strong> Point Difference (PD)</span>
+                      </v-timeline-item>
+                      <v-timeline-item
+                        dot-color="grey"
+                        size="x-small"
+                      >
+                        <span class="text-body-2"><strong>4.</strong> Equal standing awarded</span>
+                      </v-timeline-item>
+                    </v-timeline>
+                  </v-col>
+                  <v-col
+                    cols="12"
+                    md="4"
+                  >
+                    <v-alert
+                      type="info"
+                      variant="tonal"
+                      density="compact"
+                    >
+                      <p class="text-subtitle-2 font-weight-bold">
+                        Uneven Pool (Bye)
+                      </p>
+                      <p class="text-body-2">
+                        When players don't divide evenly into pools, one pool receives a
+                        <strong>BYE slot</strong>. Both players get a walkover win (W/O) against
+                        the BYE, ensuring equal match counts and maximum match points across all
+                        pools — consistent with BWF tournament practice.
+                      </p>
+                    </v-alert>
+                  </v-col>
+                </v-row>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
         </v-tabs-window-item>
 
         <!-- Matches by Round Tab -->

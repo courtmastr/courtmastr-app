@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import BracketView from './BracketView.vue';
 import DoubleEliminationBracket from './DoubleEliminationBracket.vue';
 import RoundRobinStandings from './RoundRobinStandings.vue';
+import PoolDrawView from './PoolDrawView.vue';
 import { FORMAT_LABELS } from '@/types';
 
 const props = defineProps<{
@@ -25,6 +26,8 @@ const format = computed(() => category.value?.format || 'single_elimination');
 const isPoolPhase = computed(
   () => format.value === 'pool_to_elimination' && category.value?.poolPhase !== 'elimination'
 );
+
+const poolTab = ref('draw');
 
 const selectedCategoryId = computed<string>({
   get: () => props.categoryId,
@@ -100,12 +103,48 @@ onMounted(async () => {
       </v-card-text>
     </v-card>
 
-    <!-- Round Robin View -->
+    <!-- Round Robin View (pure round_robin format) -->
     <RoundRobinStandings
-      v-if="format === 'round_robin' || isPoolPhase"
+      v-if="format === 'round_robin'"
       :tournament-id="tournamentId"
       :category-id="categoryId"
     />
+
+    <!-- Pool Phase: Pool Draw + Standings tabs -->
+    <template v-else-if="isPoolPhase">
+      <v-tabs
+        v-model="poolTab"
+        color="primary"
+        class="mb-4"
+      >
+        <v-tab value="draw">
+          <v-icon start>
+            mdi-table-large
+          </v-icon>
+          Pool Draw
+        </v-tab>
+        <v-tab value="standings">
+          <v-icon start>
+            mdi-podium
+          </v-icon>
+          Standings
+        </v-tab>
+      </v-tabs>
+      <v-tabs-window v-model="poolTab">
+        <v-tabs-window-item value="draw">
+          <PoolDrawView
+            :tournament-id="tournamentId"
+            :category-id="categoryId"
+          />
+        </v-tabs-window-item>
+        <v-tabs-window-item value="standings">
+          <RoundRobinStandings
+            :tournament-id="tournamentId"
+            :category-id="categoryId"
+          />
+        </v-tabs-window-item>
+      </v-tabs-window>
+    </template>
 
     <!-- Double Elimination View -->
     <DoubleEliminationBracket
