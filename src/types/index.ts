@@ -53,10 +53,14 @@ export interface Tournament {
 export interface TournamentSettings {
   minRestTimeMinutes: number; // Minimum rest time between matches for same player
   matchDurationMinutes: number; // Estimated match duration for scheduling
+  bufferMinutes?: number; // Buffer between planned matches
   allowSelfRegistration: boolean;
   requireApproval: boolean;
   autoAssignEnabled?: boolean;
   autoStartEnabled?: boolean;
+  autoReadyLeadMinutes?: number;
+  emergencyScheduleBufferMinutes?: number;
+  autoAssignDueWindowMinutes?: number;
   // Scoring settings
   gamesPerMatch: number; // Best of 1, 3, or 5
   pointsToWin: number; // Points needed to win a game
@@ -114,6 +118,8 @@ export interface Category {
   levelCount?: number | null;
   levelsVersion?: number | null;
   poolCompletedAt?: Date | null;
+  checkInOpen?: boolean; // true = check-in is open and accepting arrivals
+  checkInClosedAt?: Date | null; // timestamp when check-in was closed
   createdAt: Date;
   updatedAt: Date;
 }
@@ -254,6 +260,7 @@ export interface Registration {
   partnerPlayerId?: string; // For doubles
   teamName?: string; // Display name for doubles teams
   status: RegistrationStatus;
+  isCheckedIn?: boolean; // Fast-path check-in flag (set alongside status='checked_in')
   paymentStatus?: PaymentStatus; // Payment tracking
   paymentNote?: string; // e.g., "Paid via Venmo", "Cash collected"
   seed?: number;
