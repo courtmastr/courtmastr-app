@@ -486,6 +486,20 @@ async function runSchedule() {
       scheduledCategoryIds: [...selectedCategoryIds.value],
     };
 
+    if (result.stats.scheduledCount === 0) {
+      const poolCategoriesWithNoStage = selectedCategories.value.filter(
+        (category) => category.format === 'pool_to_elimination' && category.poolStageId == null
+      );
+
+      if (poolCategoriesWithNoStage.length > 0) {
+        const names = poolCategoriesWithNoStage.map((category) => category.name).join(', ');
+        notificationStore.showToast(
+          'warning',
+          `Pool brackets not generated for: ${names}. Generate pool brackets first, then schedule.`
+        );
+      }
+    }
+
     if (result.stats.unscheduledCount > 0) {
       notificationStore.showToast(
         'warning',
