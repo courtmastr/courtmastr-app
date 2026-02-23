@@ -69,24 +69,41 @@ const completionPercent = computed(() => {
           class="font-weight-bold"
           label
         >
-          <v-icon start size="14">mdi-circle</v-icon>
+          <v-icon
+            start
+            size="14"
+          >
+            mdi-circle
+          </v-icon>
           LIVE
         </v-chip>
 
         <span class="state-strip__stat">
-          <v-icon size="14" class="mr-1">mdi-play-circle</v-icon>
+          <v-icon
+            size="14"
+            class="mr-1"
+          >mdi-play-circle</v-icon>
           {{ liveStats.inProgress }} in progress
         </span>
         <span class="state-strip__stat">
-          <v-icon size="14" class="mr-1">mdi-clock-outline</v-icon>
+          <v-icon
+            size="14"
+            class="mr-1"
+          >mdi-clock-outline</v-icon>
           {{ liveStats.remaining }} remaining
         </span>
         <span class="state-strip__stat">
-          <v-icon size="14" class="mr-1">mdi-map-marker</v-icon>
+          <v-icon
+            size="14"
+            class="mr-1"
+          >mdi-map-marker</v-icon>
           {{ liveStats.courtsFree }} courts free
         </span>
         <span class="state-strip__stat">
-          <v-icon size="14" class="mr-1">mdi-check-circle</v-icon>
+          <v-icon
+            size="14"
+            class="mr-1"
+          >mdi-check-circle</v-icon>
           {{ completionPercent }}% done
         </span>
       </div>

@@ -11,12 +11,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useDurationFormatter } from '@/composables/useDurationFormatter';
 
 const props = defineProps<{
   queuePosition: number;
   courtsAvailable: number;
   avgMatchDuration: number;
 }>();
+
+const { formatDuration } = useDurationFormatter();
 
 const estimatedMinutes = computed(() => {
   const matchesAhead = props.queuePosition - 1;
@@ -34,10 +37,6 @@ const color = computed(() => {
 
 const label = computed(() => {
   if (estimatedMinutes.value === 0) return 'Next up';
-  if (estimatedMinutes.value < 60) return `~${estimatedMinutes.value} min`;
-  const hours = Math.floor(estimatedMinutes.value / 60);
-  const mins = estimatedMinutes.value % 60;
-  if (mins === 0) return `~${hours}h`;
-  return `~${hours}h ${mins}m`;
+  return `~${formatDuration(estimatedMinutes.value)}`;
 });
 </script>

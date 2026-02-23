@@ -172,6 +172,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
+import { useDurationFormatter } from '@/composables/useDurationFormatter';
 import type { Match, Court } from '@/types';
 
 const props = defineProps<{
@@ -180,6 +181,7 @@ const props = defineProps<{
 }>();
 
 const { getMatchDisplayName } = useMatchDisplay();
+const { formatDuration, formatDurationAgo } = useDurationFormatter();
 
 function toDateOrNull(value: Date | undefined): Date | null {
   return value instanceof Date ? value : null;
@@ -239,22 +241,10 @@ const stats = computed(() => {
   };
 });
 
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (mins === 0) return `${hours}h`;
-  return `${hours}h ${mins}m`;
-}
-
 function formatTime(timestamp: any): string {
   if (!timestamp) return '';
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes === 1) return '1m ago';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
+  return formatDurationAgo(minutes);
 }
 </script>
