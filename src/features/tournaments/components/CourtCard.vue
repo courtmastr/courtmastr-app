@@ -108,7 +108,10 @@ const currentScore = computed(() => {
             class="text-caption font-weight-medium"
             :class="matchDuration > 50 ? 'text-warning' : 'text-medium-emphasis'"
           >
-            <v-icon size="10" class="mr-1">mdi-timer-outline</v-icon>{{ formatMatchDuration(matchDuration) }}
+            <v-icon
+              size="10"
+              class="mr-1"
+            >mdi-timer-outline</v-icon>{{ formatMatchDuration(matchDuration) }}
           </span>
         </div>
 
@@ -126,7 +129,9 @@ const currentScore = computed(() => {
             </div>
           </div>
           <div class="d-flex align-center justify-space-between">
-            <div class="vs text-caption text-medium-emphasis flex-grow-1 text-center">vs</div>
+            <div class="vs text-caption text-medium-emphasis flex-grow-1 text-center">
+              vs
+            </div>
             <div
               v-if="currentScore && match?.status === 'in_progress'"
               class="text-caption text-medium-emphasis ml-2 flex-shrink-0 text-right"

@@ -32,7 +32,12 @@ watch(() => props.modelValue, (isOpen) => {
 });
 
 const sortedMatches = computed(() => {
-  return [...props.matches].sort((a, b) => a.round - b.round || a.matchNumber - b.matchNumber);
+  return [...props.matches].sort((a, b) => {
+    const aTime = (a.plannedStartAt ?? a.scheduledTime)?.getTime() ?? Number.POSITIVE_INFINITY;
+    const bTime = (b.plannedStartAt ?? b.scheduledTime)?.getTime() ?? Number.POSITIVE_INFINITY;
+    if (aTime !== bTime) return aTime - bTime;
+    return a.round - b.round || a.matchNumber - b.matchNumber;
+  });
 });
 
 const close = (): void => {
@@ -55,9 +60,10 @@ async function assignMatch(): Promise<void> {
     notificationStore.showToast('success', 'Match assigned to court!');
     emit('assigned');
     emit('update:modelValue', false);
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Error assigning match:', err);
-    notificationStore.showToast('error', 'Failed to assign match');
+    const message = err instanceof Error ? err.message : 'Failed to assign match';
+    notificationStore.showToast('error', message);
   } finally {
     loading.value = false;
   }
@@ -67,9 +73,9 @@ async function assignMatch(): Promise<void> {
 <template>
   <BaseDialog
     :model-value="modelValue"
-    @update:model-value="emit('update:modelValue', $event)"
     :title="`Assign Match → ${courtName}`"
     max-width="520"
+    @update:model-value="emit('update:modelValue', $event)"
   >
     <!-- Empty state -->
     <v-alert
@@ -78,12 +84,20 @@ async function assignMatch(): Promise<void> {
       variant="tonal"
       class="mb-4"
     >
-      <div class="text-subtitle-2">No matches ready to assign.</div>
-      <div class="text-body-2">Check that matches have both participants set and are not already on a court.</div>
+      <div class="text-subtitle-2">
+        No matches ready to assign.
+      </div>
+      <div class="text-body-2">
+        Only published, scheduled, checked-in matches can be assigned to court.
+      </div>
     </v-alert>
 
     <!-- Match list -->
-    <v-list v-else density="compact" lines="two">
+    <v-list
+      v-else
+      density="compact"
+      lines="two"
+    >
       <v-list-item
         v-for="match in sortedMatches"
         :key="match.id"
@@ -92,7 +106,11 @@ async function assignMatch(): Promise<void> {
         @click="selectedMatchId = match.id"
       >
         <template #prepend>
-          <v-chip size="x-small" variant="tonal" color="primary">
+          <v-chip
+            size="x-small"
+            variant="tonal"
+            color="primary"
+          >
             {{ getCategoryName(match.categoryId) }}
           </v-chip>
         </template>
@@ -118,7 +136,13 @@ async function assignMatch(): Promise<void> {
 
     <template #actions>
       <v-spacer />
-      <v-btn variant="text" :disabled="loading" @click="close">Cancel</v-btn>
+      <v-btn
+        variant="text"
+        :disabled="loading"
+        @click="close"
+      >
+        Cancel
+      </v-btn>
       <v-btn
         color="primary"
         variant="flat"
