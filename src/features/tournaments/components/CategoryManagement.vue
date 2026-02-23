@@ -4,9 +4,8 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
 import { useDialogManager } from '@/composables/useDialogManager';
 import BaseDialog from '@/components/common/BaseDialog.vue';
-import EmptyState from '@/components/common/EmptyState.vue';
 import type { Category, CategoryType, CategoryGender, AgeGroup, TournamentFormat, PoolSeedingMethod } from '@/types';
-import { AGE_GROUP_LABELS, FORMAT_LABELS, CATEGORY_TYPE_LABELS } from '@/types';
+import { AGE_GROUP_LABELS, FORMAT_LABELS } from '@/types';
 
 const props = defineProps<{
   tournamentId: string;
@@ -17,25 +16,38 @@ const notificationStore = useNotificationStore();
 
 const categories = computed(() => tournamentStore.categories);
 
-// Dialog state management
 const { dialogs, open, close } = useDialogManager(['category', 'deleteCategory']);
 const editingCategory = ref<Category | null>(null);
 const loading = ref(false);
 const categoryToDelete = ref<Category | null>(null);
 
-// Form state
-const form = ref({
+interface FormState {
+  name: string;
+  type: CategoryType;
+  gender: CategoryGender;
+  ageGroup: AgeGroup;
+  format: TournamentFormat;
+  maxParticipants: number;
+  minGamesGuaranteed: number;
+  seedingEnabled: boolean;
+  teamsPerPool: number;
+  poolSeedingMethod: PoolSeedingMethod;
+}
+
+const DEFAULT_FORM: FormState = {
   name: '',
-  type: 'doubles' as CategoryType,
-  gender: 'men' as CategoryGender,
-  ageGroup: 'open' as AgeGroup,
-  format: 'double_elimination' as TournamentFormat,
+  type: 'doubles',
+  gender: 'men',
+  ageGroup: 'open',
+  format: 'double_elimination',
   maxParticipants: 32,
   minGamesGuaranteed: 3,
   seedingEnabled: true,
   teamsPerPool: 4,
-  poolSeedingMethod: 'serpentine' as PoolSeedingMethod,
-});
+  poolSeedingMethod: 'serpentine',
+};
+
+const form = ref<FormState>({ ...DEFAULT_FORM });
 
 const categoryTypes: { value: CategoryType; title: string }[] = [
   { value: 'singles', title: 'Singles' },
@@ -63,7 +75,6 @@ const formatOptions = Object.entries(FORMAT_LABELS).map(([value, title]) => ({
 const isRoundRobin = computed(() => form.value.format === 'round_robin');
 const isPoolToElimination = computed(() => form.value.format === 'pool_to_elimination');
 
-// "Max Participants" means teams for doubles/mixed, players for singles
 const maxEntriesLabel = computed(() =>
   form.value.type === 'singles' ? 'Max Players' : 'Max Teams'
 );
@@ -73,13 +84,13 @@ const maxEntriesHint = computed(() =>
     : 'Each pair/team counts as 1 entry (e.g. 70 doubles teams = 70 entries)'
 );
 
-// Estimated pool count shown as a live hint under "Teams per Pool"
 const estimatedPools = computed(() => {
   const teams = form.value.maxParticipants || 0;
   const perPool = form.value.teamsPerPool || 4;
   if (teams < 2 || perPool < 2) return null;
   return Math.max(1, Math.floor(teams / perPool));
 });
+
 const teamsPerPoolHint = computed(() => {
   if (estimatedPools.value === null) return 'Target entries per pool';
   return `With ${form.value.maxParticipants} max entries → ~${estimatedPools.value} pools`;
@@ -107,24 +118,13 @@ const selectedSeedingOption = computed(() =>
   poolSeedingOptions.find(o => o.value === form.value.poolSeedingMethod)
 );
 
-function openAddDialog() {
+function openAddDialog(): void {
   editingCategory.value = null;
-  form.value = {
-    name: '',
-    type: 'doubles',
-    gender: 'men',
-    ageGroup: 'open',
-    format: 'double_elimination',
-    maxParticipants: 32,
-    minGamesGuaranteed: 3,
-    seedingEnabled: true,
-    teamsPerPool: 4,
-    poolSeedingMethod: 'serpentine',
-  };
+  form.value = { ...DEFAULT_FORM };
   open('category');
 }
 
-function openEditDialog(category: Category) {
+function openEditDialog(category: Category): void {
   editingCategory.value = category;
   form.value = {
     name: category.name,
@@ -141,7 +141,7 @@ function openEditDialog(category: Category) {
   open('category');
 }
 
-async function saveCategory() {
+async function saveCategory(): Promise<void> {
   if (!form.value.name.trim()) {
     notificationStore.showToast('error', 'Category name is required');
     return;
@@ -182,12 +182,12 @@ async function saveCategory() {
   }
 }
 
-function requestDeleteCategory(category: Category) {
+function requestDeleteCategory(category: Category): void {
   categoryToDelete.value = category;
   open('deleteCategory');
 }
 
-async function confirmDeleteCategory() {
+async function confirmDeleteCategory(): Promise<void> {
   if (!categoryToDelete.value) return;
   close('deleteCategory');
   try {
@@ -198,32 +198,24 @@ async function confirmDeleteCategory() {
   }
 }
 
-function generateCategoryName() {
+function generateCategoryName(): void {
   const genderLabel = genderOptions.find(g => g.value === form.value.gender)?.title || '';
   const typeLabel = categoryTypes.find(t => t.value === form.value.type)?.title || '';
   const ageLabel = form.value.ageGroup !== 'open' ? AGE_GROUP_LABELS[form.value.ageGroup] : '';
 
-  if (ageLabel) {
-    form.value.name = `${genderLabel} ${typeLabel} ${ageLabel}`.replace('Mixed Mixed', 'Mixed');
-  } else {
-    form.value.name = `${genderLabel} ${typeLabel}`.replace('Mixed Mixed', 'Mixed');
-  }
+  const parts = [genderLabel, typeLabel, ageLabel].filter(Boolean);
+  form.value.name = parts.join(' ').replace('Mixed Mixed', 'Mixed');
 }
 
-function getFormatColor(format: TournamentFormat): string {
-  const colors: Record<TournamentFormat, string> = {
-    'single_elimination': 'warning',
-    'double_elimination': 'info',
-    'round_robin': 'success',
-    'pool_to_elimination': 'purple',
-  };
-  return colors[format] || 'grey';
-}
+defineExpose({
+  openAddDialog,
+  openEditDialog,
+  requestDeleteCategory,
+});
 </script>
 
 <template>
   <div>
-    <!-- Header -->
     <div class="d-flex justify-space-between align-center mb-4">
       <h3 class="text-h6">
         Categories ({{ categories.length }})
@@ -238,97 +230,6 @@ function getFormatColor(format: TournamentFormat): string {
       </v-btn>
     </div>
 
-    <!-- Category List -->
-    <v-card v-if="categories.length > 0">
-      <v-list>
-        <v-list-item
-          v-for="category in categories"
-          :key="category.id"
-          class="py-3"
-        >
-          <template #prepend>
-            <v-avatar
-              :color="getFormatColor(category.format)"
-              class="mr-3"
-            >
-              <v-icon color="white">
-                {{ category.type === 'singles' ? 'mdi-account' : 'mdi-account-multiple' }}
-              </v-icon>
-            </v-avatar>
-          </template>
-
-          <v-list-item-title class="font-weight-medium">
-            {{ category.name }}
-          </v-list-item-title>
-          <v-list-item-subtitle>
-            <v-chip
-              size="x-small"
-              class="mr-1"
-              variant="outlined"
-            >
-              {{ FORMAT_LABELS[category.format] }}
-            </v-chip>
-            <v-chip
-              size="x-small"
-              class="mr-1"
-              variant="outlined"
-            >
-              {{ CATEGORY_TYPE_LABELS[category.type] }}
-            </v-chip>
-            <v-chip
-              v-if="category.ageGroup && category.ageGroup !== 'open'"
-              size="x-small"
-              variant="outlined"
-            >
-              {{ AGE_GROUP_LABELS[category.ageGroup] }}
-            </v-chip>
-            <span
-              v-if="category.minGamesGuaranteed"
-              class="text-caption ml-2"
-            >
-              (Min {{ category.minGamesGuaranteed }} games)
-            </span>
-          </v-list-item-subtitle>
-
-          <template #append>
-            <v-chip
-              :color="category.status === 'active' ? 'success' : category.status === 'completed' ? 'secondary' : 'grey'"
-              size="small"
-              class="mr-2"
-            >
-              {{ category.status }}
-            </v-chip>
-            <v-btn
-              icon="mdi-pencil"
-              variant="text"
-              size="small"
-              data-testid="edit-category-btn"
-              @click="openEditDialog(category)"
-            />
-            <v-btn
-              icon="mdi-delete"
-              variant="text"
-              size="small"
-              color="error"
-              data-testid="delete-category-btn"
-              :disabled="category.status !== 'setup'"
-              @click="requestDeleteCategory(category)"
-            />
-          </template>
-        </v-list-item>
-      </v-list>
-    </v-card>
-
-    <!-- Empty State -->
-    <EmptyState
-      v-else
-      icon="mdi-folder-open-outline"
-      title="No categories yet"
-      message="Add your first category to get started"
-      :action="{ label: 'Add Category', handler: openAddDialog }"
-    />
-
-    <!-- Add/Edit Dialog -->
     <v-dialog
       v-model="dialogs.category"
       max-width="640"
@@ -339,7 +240,6 @@ function getFormatColor(format: TournamentFormat): string {
           {{ editingCategory ? 'Edit Category' : 'Add Category' }}
         </v-card-title>
         <v-card-text class="px-6 pt-3 pb-2">
-          <!-- Category identity -->
           <v-row dense>
             <v-col cols="6">
               <v-select
@@ -396,7 +296,6 @@ function getFormatColor(format: TournamentFormat): string {
               />
             </v-col>
 
-            <!-- Capacity row: Max Teams/Players + format-specific sibling -->
             <v-col cols="6">
               <v-text-field
                 v-model.number="form.maxParticipants"
@@ -439,7 +338,6 @@ function getFormatColor(format: TournamentFormat): string {
             </v-col>
           </v-row>
 
-          <!-- Pool draw method — visually distinct section -->
           <v-sheet
             v-if="isPoolToElimination"
             rounded="lg"
@@ -474,7 +372,6 @@ function getFormatColor(format: TournamentFormat): string {
             </p>
           </v-sheet>
 
-          <!-- Seeding toggle -->
           <v-switch
             v-model="form.seedingEnabled"
             label="Enable Seeding"
@@ -505,12 +402,11 @@ function getFormatColor(format: TournamentFormat): string {
       </v-card>
     </v-dialog>
 
-    <!-- Delete Category Confirmation Dialog -->
     <BaseDialog
       v-model="dialogs.deleteCategory"
       title="Delete Category?"
       max-width="400"
-      :persistent="true"
+      persistent
       @confirm="confirmDeleteCategory"
       @cancel="close('deleteCategory')"
     >
