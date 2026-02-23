@@ -200,7 +200,7 @@ const categoryStats = computed<CategoryStats[]>(() => {
     const ready = approved + checkedIn;
     const matchesCount = categoryMatches.length;
     const hasPlannedTimes = categoryMatches.some((match) => Boolean(match.plannedStartAt));
-    const allPlannedTimes = matchesCount > 0 && categoryMatches.every((match) => Boolean(match.plannedStartAt));
+    const allPlannedTimes = categoryMatches.every((match) => Boolean(match.plannedStartAt));
     const schedulePublished = categoryMatches.some(
       (match) => match.scheduleStatus === 'published' || Boolean(match.publishedAt)
     );
