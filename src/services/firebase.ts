@@ -3,6 +3,7 @@ import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator, type Functions } from 'firebase/functions';
+import { getStorage, connectStorageEmulator, type FirebaseStorage } from 'firebase/storage';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -19,13 +20,15 @@ let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 let functions: Functions;
+let storage: FirebaseStorage;
 
-export function initializeFirebase(): { app: FirebaseApp; auth: Auth; db: Firestore; functions: Functions } {
+export function initializeFirebase(): { app: FirebaseApp; auth: Auth; db: Firestore; functions: Functions; storage: FirebaseStorage } {
   if (!app) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
     functions = getFunctions(app);
+    storage = getStorage(app);
 
     // Connect to emulators in development
     if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
@@ -34,16 +37,17 @@ export function initializeFirebase(): { app: FirebaseApp; auth: Auth; db: Firest
       connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true });
       connectFirestoreEmulator(db, emulatorHost, 8080);
       connectFunctionsEmulator(functions, emulatorHost, 5001);
+      connectStorageEmulator(storage, emulatorHost, 9199);
 
       console.log('🔧 Connected to Firebase Emulators');
     }
   }
 
-  return { app, auth, db, functions };
+  return { app, auth, db, functions, storage };
 }
 
 // Export singleton instances
-export { app, auth, db, functions };
+export { app, auth, db, functions, storage };
 
 // Re-export commonly used Firebase functions
 export {
@@ -91,3 +95,15 @@ export {
   // Functions
   httpsCallable,
 } from 'firebase/functions';
+
+export {
+  // Storage
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+  listAll,
+  type StorageReference,
+  type UploadMetadata,
+} from 'firebase/storage';
