@@ -31,8 +31,8 @@ const MatchControl = () => import('@/features/tournaments/views/MatchControlView
 
 // Public views
 const PublicBracket = () => import('@/features/public/views/PublicBracketView.vue');
-const PublicLiveScores = () => import('@/features/public/views/PublicLiveScoresView.vue');
 const PublicScoring = () => import('@/features/public/views/PublicScoringView.vue');
+const PublicSchedule = () => import('@/features/public/views/PublicScheduleView.vue');
 
 const routes: RouteRecordRaw[] = [
   // Public routes
@@ -65,7 +65,13 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/tournaments/:tournamentId/live',
     name: 'public-live-scores',
-    component: PublicLiveScores,
+    redirect: to => ({
+      path: `/tournaments/${to.params.tournamentId}/schedule`,
+      query: {
+        ...to.query,
+        view: 'display',
+      },
+    }),
     meta: { requiresAuth: false },
   },
   {
@@ -78,6 +84,12 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/register',
     name: 'self-registration',
     component: SelfRegistration,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/tournaments/:tournamentId/schedule',
+    name: 'public-schedule',
+    component: PublicSchedule,
     meta: { requiresAuth: false },
   },
 
@@ -164,6 +176,16 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/brackets',
     name: 'tournament-brackets',
     component: () => import('@/features/tournaments/views/BracketsView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/tournaments/:tournamentId/categories/:categoryId/smart-bracket',
+    name: 'smart-bracket-view',
+    component: () => import('@/features/brackets/components/SmartBracketView.vue'),
+    props: (route) => ({
+      tournamentId: route.params.tournamentId as string,
+      categoryId: route.params.categoryId as string,
+    }),
     meta: { requiresAuth: true },
   },
 

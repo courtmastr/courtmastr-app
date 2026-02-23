@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
+import { useDurationFormatter } from '@/composables/useDurationFormatter';
 import type { Court, Match } from '@/types';
 
 interface Alert {
@@ -40,6 +41,7 @@ const emit = defineEmits<{
 }>();
 
 const { getMatchDisplayName } = useMatchDisplay();
+const { formatDuration } = useDurationFormatter();
 
 const now = computed(() => new Date());
 
@@ -82,7 +84,7 @@ const alerts = computed((): Alert[] => {
         type: 'late_match',
         severity: 'warning',
         title: 'Match Running Long',
-        message: `${getMatchDisplayName(match)} on ${court?.name || 'Unknown Court'} - ${Math.round(durationMinutes)} min`,
+        message: `${getMatchDisplayName(match)} on ${court?.name || 'Unknown Court'} - ${formatDuration(durationMinutes)}`,
         matchId: match.id,
       });
     }
@@ -105,7 +107,7 @@ const alerts = computed((): Alert[] => {
           type: 'unassigned_ready',
           severity: 'warning',
           title: 'Match Waiting for Court',
-          message: `${getMatchDisplayName(match)} waiting ${Math.round(waitMinutes)} min`,
+          message: `${getMatchDisplayName(match)} waiting ${formatDuration(waitMinutes)}`,
           matchId: match.id,
         });
       }
@@ -282,7 +284,8 @@ function handleAlertClick(alert: Alert) {
 
 <style scoped>
 .alerts-panel {
-  height: 100%;
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: rgb(var(--v-theme-background));

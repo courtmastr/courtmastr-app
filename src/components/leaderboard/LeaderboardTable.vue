@@ -183,7 +183,10 @@ function statusColor(entry: LeaderboardEntry): string {
 
     <template #expanded-row="{ columns, item }">
       <tr>
-        <td :colspan="columns.length" class="pa-0">
+        <td
+          :colspan="columns.length"
+          class="pa-0"
+        >
           <div class="pa-2">
             <div class="text-subtitle-2 mb-2 font-weight-medium">
               <v-icon

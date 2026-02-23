@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import type { Stage, Match, MatchGame, Participant } from 'brackets-model';
 import { db, onSnapshot, collection, doc, getDoc } from '@/services/firebase';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
@@ -26,6 +26,15 @@ const props = defineProps<{
 const loading = ref(true);
 const error = ref<string | null>(null);
 const bracketContainer = ref<HTMLElement | null>(null);
+const lastUpdated = ref<Date | null>(null);
+
+const lastUpdatedLabel = computed(() => {
+  if (!lastUpdated.value) return null;
+  const minutes = Math.floor((Date.now() - lastUpdated.value.getTime()) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes === 1) return '1m ago';
+  return `${minutes}m ago`;
+});
 
 const stages = ref<Stage[]>([]);
 const matches = ref<Match[]>([]);
@@ -39,7 +48,7 @@ let matchGameUnsubscribe: (() => void) | null = null;
 let matchScoresUnsubscribe: (() => void) | null = null;
 
 // Debounced fetch function to prevent excessive updates
-let fetchTimeout: number | null = null;
+let fetchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function debouncedFetchBracketData() {
   if (fetchTimeout) {
@@ -185,6 +194,7 @@ async function fetchBracketData() {
     });
 
     loading.value = false;
+    lastUpdated.value = new Date();
     await nextTick();
     renderBracket();
 
@@ -389,6 +399,12 @@ onUnmounted(() => {
           </v-icon>
           Live
         </v-chip>
+        <span
+          v-if="lastUpdatedLabel"
+          class="text-caption text-medium-emphasis ml-3"
+        >
+          Updated {{ lastUpdatedLabel }}
+        </span>
       </div>
       <div
         :id="containerId"

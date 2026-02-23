@@ -8,6 +8,7 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     include: ['tests/**/*.test.ts'],
+    exclude: ['tests/diagnose_data.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

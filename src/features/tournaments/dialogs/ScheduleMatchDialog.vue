@@ -11,6 +11,7 @@ const props = defineProps<{
   match: Match | null;
   tournamentId: string;
   courts: Court[];
+  matchDurationMinutes?: number; // from tournament settings; used for plannedEndAt
 }>();
 
 const emit = defineEmits<{
@@ -24,14 +25,18 @@ const { getMatchDisplayName } = useMatchDisplay();
 
 const selectedCourtId = ref<string | null>(null);
 const scheduledTime = ref<string>('');
+const lockTime = ref(false);
 const loading = ref(false);
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen && props.match) {
-    scheduledTime.value = props.match.scheduledTime
-      ? new Date(props.match.scheduledTime).toISOString().slice(0, 16)
+    // Prefer plannedStartAt for display; fall back to legacy scheduledTime
+    const displayTime = props.match.plannedStartAt ?? props.match.scheduledTime;
+    scheduledTime.value = displayTime
+      ? new Date(displayTime).toISOString().slice(0, 16)
       : '';
     selectedCourtId.value = props.match.courtId || null;
+    lockTime.value = props.match.lockedTime ?? false;
   }
 });
 
@@ -40,7 +45,22 @@ async function saveSchedule() {
 
   loading.value = true;
   try {
-    // If court changed, update assignment
+    // Save planned time (Bug E fix: actually persist the time)
+    if (scheduledTime.value) {
+      const plannedStart = new Date(scheduledTime.value);
+      const duration = props.matchDurationMinutes ?? 30;
+      await matchStore.saveManualPlannedTime(
+        props.tournamentId,
+        props.match.id,
+        plannedStart,
+        duration,
+        lockTime.value,
+        props.match.categoryId,
+        props.match.levelId
+      );
+    }
+
+    // If court changed, update assignment separately
     if (selectedCourtId.value && selectedCourtId.value !== props.match.courtId) {
       await matchStore.assignCourt(
         props.tournamentId,
@@ -50,10 +70,6 @@ async function saveSchedule() {
         props.match.levelId
       );
     }
-
-    // TODO: Update scheduled time separately once the store supports it directly
-    // For now, we rely on assignCourt handling scheduling implicitly or separate logic
-    // This part might need adjustment based on store capabilities
 
     notificationStore.showToast('success', 'Schedule updated');
     emit('saved');
@@ -85,9 +101,16 @@ async function saveSchedule() {
     <v-text-field
       v-model="scheduledTime"
       type="datetime-local"
-      label="Start Time"
+      label="Planned Start Time"
       variant="outlined"
-      class="mb-4"
+      class="mb-3"
+    />
+
+    <v-checkbox
+      v-model="lockTime"
+      label="Lock this time (will not be changed when schedule is re-run)"
+      density="compact"
+      class="mb-3"
     />
 
     <v-select
@@ -116,7 +139,7 @@ async function saveSchedule() {
         :loading="loading"
         @click="saveSchedule"
       >
-        Save Schedule
+        Save
       </v-btn>
     </template>
   </BaseDialog>

@@ -535,11 +535,17 @@ async function generateLevels(): Promise<void> {
       >
         <template #item.poolRank="{ item }">
           <span v-if="isPoolStageComplete">{{ item.poolRank }}</span>
-          <span v-else class="text-grey">--</span>
+          <span
+            v-else
+            class="text-grey"
+          >--</span>
         </template>
         <template #item.globalRank="{ item }">
           <span v-if="isPoolStageComplete">{{ item.globalRank }}</span>
-          <span v-else class="text-grey">--</span>
+          <span
+            v-else
+            class="text-grey"
+          >--</span>
         </template>
         <template #item.finalLevelIndex="{ item }">
           <v-select

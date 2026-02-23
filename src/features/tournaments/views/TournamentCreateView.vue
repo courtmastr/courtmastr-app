@@ -340,16 +340,6 @@ async function handleSubmit() {
 }
 </script>
 
-<style scoped>
-.action-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  background: rgb(var(--v-theme-surface));
-  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-</style>
-
 <template>
   <v-container>
     <v-row justify="center">
@@ -483,7 +473,7 @@ async function handleSubmit() {
 
                     <v-checkbox
                       v-for="option in categoryOptions"
-                        :key="option.value"
+                      :key="option.value"
                       v-model="selectedCategories"
                       :value="option.value"
                       :label="option.title"
@@ -713,3 +703,13 @@ async function handleSubmit() {
     </v-row>
   </v-container>
 </template>
+
+<style scoped>
+.action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: rgb(var(--v-theme-surface));
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+</style>

@@ -105,18 +105,39 @@ function exportData() {
 }
 
 function exportCSV(matches: Match[]) {
-  const headers = ['Match #', 'Category', 'Round', 'Player 1', 'Player 2', 'Court', 'Time', 'Status', 'Score'];
-  const rows = matches.map(m => [
-    m.matchNumber,
-    m.categoryName || 'Unknown',
-    m.round,
-    m.participant1Id || 'TBD',
-    m.participant2Id || 'TBD',
-    m.courtName || 'Unassigned',
-    m.scheduledTime ? formatTime(m.scheduledTime) : 'N/A',
-    m.status,
-    m.score || 'N/A',
-  ]);
+  const headers = [
+    'Match #', 'Category', 'Round',
+    'Player 1', 'Player 2',
+    'Court',
+    'Planned Start', 'Planned End',
+    'Schedule Status',
+    'Status', 'Score',
+  ];
+  const rows = matches
+    // Sort published/draft by planned start for player-readable output
+    .sort((a, b) => {
+      const aT = (a.plannedStartAt ?? a.scheduledTime)?.getTime() ?? Infinity;
+      const bT = (b.plannedStartAt ?? b.scheduledTime)?.getTime() ?? Infinity;
+      return aT - bT;
+    })
+    .map(m => {
+      // Prefer plannedStartAt; fall back to scheduledTime for legacy rows (backward-compat shim)
+      const plannedStart = m.plannedStartAt ?? m.scheduledTime;
+      const plannedEnd = m.plannedEndAt;
+      return [
+        m.matchNumber,
+        m.categoryName || 'Unknown',
+        m.round,
+        m.participant1Id || 'TBD',
+        m.participant2Id || 'TBD',
+        m.courtName || 'TBD',
+        plannedStart ? formatTime(plannedStart) : 'N/A',
+        plannedEnd ? formatTime(plannedEnd) : 'N/A',
+        m.scheduleStatus || 'unscheduled',
+        m.status,
+        m.score || 'N/A',
+      ];
+    });
 
   const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
   downloadFile(csv, 'schedule.csv', 'text/csv');

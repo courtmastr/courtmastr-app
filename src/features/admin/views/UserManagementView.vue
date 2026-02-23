@@ -236,7 +236,10 @@ async function confirmStatusChange(): Promise<void> {
 
         <template #expanded-row="{ columns, item }">
           <tr>
-            <td :colspan="columns.length" class="bg-grey-lighten-5 pa-4">
+            <td
+              :colspan="columns.length"
+              class="bg-grey-lighten-5 pa-4"
+            >
               <div class="d-flex flex-wrap gap-4 text-body-2">
                 <div><strong>Email:</strong> {{ item.email }}</div>
                 <div><strong>Created:</strong> {{ formatDate(item.createdAt) }}</div>

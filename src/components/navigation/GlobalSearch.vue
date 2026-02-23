@@ -1,5 +1,8 @@
 <template>
-  <div ref="containerRef" class="global-search pa-4">
+  <div
+    ref="containerRef"
+    class="global-search pa-4"
+  >
     <v-autocomplete
       v-model="selectedItem"
       v-model:search="searchTerm"

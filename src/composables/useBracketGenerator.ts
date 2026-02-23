@@ -19,7 +19,7 @@ import {
 } from '@/services/firebase';
 import { BracketsManager } from 'brackets-manager';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
-import type { Registration, Category, LevelEliminationFormat, MatchStatus } from '@/types';
+import type { Registration, Category, LevelEliminationFormat, MatchStatus, PoolSeedingMethod } from '@/types';
 
 // ============================================
 // Types
@@ -41,6 +41,8 @@ export interface BracketOptions {
   )[];
   groupCount?: number;
   qualifiersPerGroup?: number;
+  teamsPerPool?: number;
+  poolSeedingMethod?: PoolSeedingMethod;
 }
 
 export interface BracketResult {
@@ -169,9 +171,24 @@ export function useBracketGenerator() {
 
       progress.value = 20;
 
-      // 3. Sort by seed
-      const sortedRegistrations = sortRegistrationsBySeed(registrations);
-      console.log(`📊 Generating ${category.format} bracket for ${sortedRegistrations.length} participants`);
+      // 3. Sort by seed — base ranking order (seeded first, then random)
+      const baseSorted = sortRegistrationsBySeed(registrations);
+
+      // For pool-to-elimination: apply the configured seeding method
+      let finalOrdered: Registration[] = baseSorted;
+      let poolSeedOverride: BracketOptions['seedOrdering'];
+
+      if (category.format === 'pool_to_elimination') {
+        const teamsPerPool = category.teamsPerPool ?? options.teamsPerPool ?? 4;
+        const numPools = calculatePoolGroupCount(registrations.length, teamsPerPool);
+        const method: PoolSeedingMethod = category.poolSeedingMethod ?? options.poolSeedingMethod ?? 'serpentine';
+        const { ordered, seedOrdering } = orderRegistrationsForPool(baseSorted, method, numPools);
+        finalOrdered = ordered;
+        poolSeedOverride = seedOrdering;
+        console.log(`🎯 Pool seeding: method=${method}, numPools=${numPools}, teamsPerPool=${teamsPerPool}`);
+      }
+
+      console.log(`📊 Generating ${category.format} bracket for ${finalOrdered.length} participants`);
 
       progress.value = 30;
 
@@ -183,7 +200,7 @@ export function useBracketGenerator() {
 
       console.log(`💾 Using FirestoreStorage with path: ${categoryPath}`);
 
-      const participantsData: StoredParticipant[] = sortedRegistrations.map((reg, index) => ({
+      const participantsData: StoredParticipant[] = finalOrdered.map((reg, index) => ({
         id: index + 1,
         tournament_id: categoryId,
         name: reg.id,
@@ -214,7 +231,7 @@ export function useBracketGenerator() {
           manager,
           storage,
           participantsData.length,
-          options
+          poolSeedOverride ? { ...options, seedOrdering: poolSeedOverride } : options
         );
 
         await setDoc(
@@ -231,6 +248,17 @@ export function useBracketGenerator() {
             updatedAt: serverTimestamp(),
           },
           { merge: true }
+        );
+
+        // Write walkover match_scores for BYE matches immediately so standings
+        // show correct MP/W counts right after bracket generation (no need to
+        // wait for elimination phase). A BYE match has one null opponent.
+        await initializeByeWalkovers(
+          tournamentId,
+          categoryId,
+          storage,
+          result.stageId,
+          participantsData
         );
       } else {
         result = await createStandardStage(
@@ -381,7 +409,8 @@ export function useBracketGenerator() {
 
       progress.value = 60;
 
-      await deletePoolStageData(tournamentId, categoryId, storage, poolStageId, poolMatches);
+      // Pool data is preserved (not deleted) so pool standings remain available
+      // for the leaderboard and historical records after elimination starts.
 
       const eliminationSeeding = createSeedingFromParticipantIds(qualifiers.participantIds);
       const result = await createStageWithStats(
@@ -596,6 +625,50 @@ function sortRegistrationsBySeed(registrations: Registration[]): Registration[] 
   return [...seeded, ...unseeded];
 }
 
+function fisherYatesShuffle<T>(arr: T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/**
+ * Order registrations for pool assignment based on the chosen seeding method.
+ * All three methods use brackets-manager's `groups.effort_balanced` (serpentine)
+ * distribution — the difference is only in how players are ordered before
+ * being added as participants.
+ *
+ * - serpentine:      rank-sorted → effort_balanced snakes top seeds across pools
+ * - random_in_tiers: rank-sorted, shuffled within each tier of `numPools` →
+ *                    each pool still gets one player from each skill tier, but
+ *                    which specific player is randomised
+ * - fully_random:    all players shuffled → effort_balanced on a random list =
+ *                    effectively fully random pool assignment
+ */
+function orderRegistrationsForPool(
+  sortedByRank: Registration[],
+  method: PoolSeedingMethod,
+  numPools: number
+): { ordered: Registration[]; seedOrdering: BracketOptions['seedOrdering'] } {
+  if (method === 'fully_random') {
+    return { ordered: fisherYatesShuffle(sortedByRank), seedOrdering: ['groups.effort_balanced'] };
+  }
+
+  if (method === 'random_in_tiers') {
+    const tiered: Registration[] = [];
+    for (let i = 0; i < sortedByRank.length; i += numPools) {
+      const tier = sortedByRank.slice(i, i + numPools);
+      tiered.push(...fisherYatesShuffle(tier));
+    }
+    return { ordered: tiered, seedOrdering: ['groups.effort_balanced'] };
+  }
+
+  // serpentine — pass rank-sorted; brackets-manager snakes them into pools
+  return { ordered: sortedByRank, seedOrdering: ['groups.effort_balanced'] };
+}
+
 function createSeedingArray(participantCount: number): (number | null)[] {
   const count = participantCount;
   const bracketSize = Math.pow(2, Math.ceil(Math.log2(Math.max(count, 2))));
@@ -631,14 +704,10 @@ function asArray<T>(value: T[] | T | null): T[] {
   return [value];
 }
 
-function calculatePoolGroupCount(participantCount: number, requested?: number): number {
-  if (requested && requested >= 1) {
-    return Math.floor(requested);
-  }
-
-  // Starter heuristic: keep pools around 4 participants while ensuring at least one group.
-  const calculated = Math.ceil(participantCount / 4);
-  return Math.max(1, calculated);
+function calculatePoolGroupCount(participantCount: number, teamsPerPool?: number): number {
+  const size = teamsPerPool && teamsPerPool >= 2 ? Math.floor(teamsPerPool) : 4;
+  // Use floor so each pool gets at least `size` players; extras are spread by brackets-manager
+  return Math.max(1, Math.ceil(participantCount / size));
 }
 
 function getRoundRobinSeedOrdering(
@@ -706,8 +775,19 @@ async function createPoolStage(
   participantCount: number,
   options: BracketOptions
 ): Promise<BracketResult> {
-  const groupCount = calculatePoolGroupCount(participantCount, options.groupCount);
-  const seeding = createSequentialSeeding(participantCount);
+  const teamsPerPool = category.teamsPerPool ?? options.teamsPerPool ?? 4;
+  const groupCount = calculatePoolGroupCount(participantCount, teamsPerPool);
+
+  // Pad with nulls (BYEs) so every pool has exactly teamsPerPool slots.
+  // createStageWithStats already accepts (number | null)[] — nulls create bye matches.
+  // BYE padding: works for any N and any teamsPerPool.
+  // When N divides evenly, totalSlots === participantCount → loop never runs.
+  // When uneven, null slots are distributed by brackets-manager one per affected pool.
+  const totalSlots = groupCount * teamsPerPool;
+  const seeding: (number | null)[] = createSequentialSeeding(participantCount);
+  while (seeding.length < totalSlots) {
+    seeding.push(null);
+  }
 
   return createStageWithStats(
     manager,
@@ -870,6 +950,25 @@ function extractPoolQualifiers(params: {
       p1Standing.matchesLost += 1;
       p1Standing.matchPoints += 1;
     }
+  }
+
+  // Grant walkover wins to players whose opponent was a BYE (null opponent).
+  // The main loop above already skips these via the (p1Id === null || p2Id === null) guard.
+  for (const match of params.matches) {
+    const p1Id = toNumberId(match.opponent1?.id ?? null);
+    const p2Id = toNumberId(match.opponent2?.id ?? null);
+    if (p1Id !== null && p2Id !== null) continue; // real match — already handled above
+    if (p1Id === null && p2Id === null) continue;  // no players (shouldn't happen)
+
+    const realPlayerId = p1Id ?? p2Id;
+    if (realPlayerId === null) continue;
+
+    const standing = standings.get(realPlayerId);
+    if (!standing) continue;
+
+    standing.matchesPlayed += 1;
+    standing.matchesWon += 1;
+    standing.matchPoints += 2; // Win = 2 pts; WO scored 0-0, no pointsFor/Against added
   }
 
   const standingsByGroup = new Map<string, PoolStanding[]>();
@@ -1035,24 +1134,74 @@ async function initializeLevelMatchScores(
   }
 }
 
-async function deletePoolStageData(
+/**
+ * Write walkover match_scores for every BYE match in the pool stage so that
+ * standings reflect the correct MP/W values immediately after bracket generation.
+ * A BYE match is one where either opponent1 or opponent2 has a null id.
+ */
+async function initializeByeWalkovers(
   tournamentId: string,
   categoryId: string,
   storage: ClientFirestoreStorage,
-  poolStageId: number,
-  poolMatches: StoredMatch[]
+  stageId: number,
+  participants: StoredParticipant[]
 ): Promise<void> {
-  await deleteMatchScoresByIds(
-    tournamentId,
-    categoryId,
-    poolMatches.map((match) => String(match.id))
+  const allMatches = asArray(
+    await storage.select<StoredMatch>('match', { stage_id: stageId })
   );
 
-  await storage.delete('match', { stage_id: poolStageId });
-  await storage.delete('match_game', { stage_id: poolStageId });
-  await storage.delete('round', { stage_id: poolStageId });
-  await storage.delete('group', { stage_id: poolStageId });
-  await storage.delete('stage', poolStageId);
+  // Find all BYE matches — one side has a null / undefined opponent id
+  const byeMatches = allMatches.filter(
+    (m) =>
+      m.opponent1?.id === null ||
+      m.opponent1?.id === undefined ||
+      m.opponent2?.id === null ||
+      m.opponent2?.id === undefined
+  );
+
+  if (byeMatches.length === 0) {
+    console.log('ℹ️ No BYE matches found — skipping walkover initialisation');
+    return;
+  }
+
+  // participantId (number) → registrationId (name stored in StoredParticipant.name)
+  const regIdByParticipantId = new Map<number, string>(
+    participants.map((p) => [p.id, p.name])
+  );
+
+  const batch = writeBatch(db);
+
+  for (const match of byeMatches) {
+    const p1Id = toNumberId(match.opponent1?.id ?? null);
+    const p2Id = toNumberId(match.opponent2?.id ?? null);
+
+    // The real player is on the non-null side
+    const realParticipantId = p1Id ?? p2Id;
+    if (realParticipantId === null) continue;
+
+    const winnerId = regIdByParticipantId.get(realParticipantId);
+    if (!winnerId) continue;
+
+    batch.set(
+      doc(
+        db,
+        'tournaments', tournamentId,
+        'categories', categoryId,
+        'match_scores', String(match.id)
+      ),
+      {
+        status: 'walkover',
+        winnerId,
+        scores: [],          // WO = 0-0, no game scores
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  await batch.commit();
+  console.log(`✅ Wrote ${byeMatches.length} walkover match_scores for BYE matches in stage ${stageId}`);
 }
 
 async function deleteMatchScoresByIds(

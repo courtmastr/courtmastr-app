@@ -12,6 +12,7 @@ const props = defineProps<{
   initialCourtId?: string | null;
   tournamentId: string;
   courts: Court[];
+  ignoreCheckInGate?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -47,13 +48,18 @@ async function assignCourt() {
       props.match.id,
       selectedCourtId.value,
       props.match.categoryId,
-      props.match.levelId
+      props.match.levelId,
+      { ignoreCheckInGate: props.ignoreCheckInGate === true }
     );
-    notificationStore.showToast('success', 'Court assigned - match ready!');
+    notificationStore.showToast(
+      'success',
+      props.ignoreCheckInGate ? 'Court assigned with admin override' : 'Court assigned - match is now live'
+    );
     emit('assigned');
     emit('update:modelValue', false);
-  } catch (error) {
-    notificationStore.showToast('error', 'Failed to assign court');
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to assign court';
+    notificationStore.showToast('error', message);
   } finally {
     loading.value = false;
   }
@@ -90,6 +96,16 @@ async function assignCourt() {
       hide-details="auto"
       class="mb-4"
     />
+
+    <v-alert
+      v-if="ignoreCheckInGate"
+      type="warning"
+      variant="tonal"
+      density="compact"
+      class="mb-3"
+    >
+      Admin override: assigning before both players are checked in.
+    </v-alert>
 
     <template #actions>
       <v-spacer />

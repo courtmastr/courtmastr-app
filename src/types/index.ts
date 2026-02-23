@@ -53,10 +53,14 @@ export interface Tournament {
 export interface TournamentSettings {
   minRestTimeMinutes: number; // Minimum rest time between matches for same player
   matchDurationMinutes: number; // Estimated match duration for scheduling
+  bufferMinutes?: number; // Buffer between planned matches
   allowSelfRegistration: boolean;
   requireApproval: boolean;
   autoAssignEnabled?: boolean;
   autoStartEnabled?: boolean;
+  autoReadyLeadMinutes?: number;
+  emergencyScheduleBufferMinutes?: number;
+  autoAssignDueWindowMinutes?: number;
   // Scoring settings
   gamesPerMatch: number; // Best of 1, 3, or 5
   pointsToWin: number; // Points needed to win a game
@@ -72,6 +76,7 @@ export type PoolPhase = 'pool' | 'elimination';
 export type LevelingMode = 'pool_position' | 'global_bands';
 export type LevelEliminationFormat = 'single_elimination' | 'double_elimination' | 'playoff_8';
 export type LevelingStatus = 'not_started' | 'configured' | 'generated';
+export type PoolSeedingMethod = 'serpentine' | 'random_in_tiers' | 'fully_random';
 
 export interface Category {
   id: string;
@@ -104,6 +109,8 @@ export interface Category {
   poolGroupCount?: number | null;
   poolQualifiersPerGroup?: number | null;
   poolQualifiedRegistrationIds?: string[];
+  teamsPerPool?: number | null;
+  poolSeedingMethod?: PoolSeedingMethod | null;
   levelingEnabled?: boolean | null;
   levelingStatus?: LevelingStatus | null;
   recommendedLevelMode?: LevelingMode | null;
@@ -111,6 +118,8 @@ export interface Category {
   levelCount?: number | null;
   levelsVersion?: number | null;
   poolCompletedAt?: Date | null;
+  checkInOpen?: boolean; // true = check-in is open and accepting arrivals
+  checkInClosedAt?: Date | null; // timestamp when check-in was closed
   createdAt: Date;
   updatedAt: Date;
 }
@@ -251,6 +260,7 @@ export interface Registration {
   partnerPlayerId?: string; // For doubles
   teamName?: string; // Display name for doubles teams
   status: RegistrationStatus;
+  isCheckedIn?: boolean; // Fast-path check-in flag (set alongside status='checked_in')
   paymentStatus?: PaymentStatus; // Payment tracking
   paymentNote?: string; // e.g., "Paid via Venmo", "Cash collected"
   seed?: number;
@@ -291,8 +301,18 @@ export interface Match {
   participant2Id?: string; // Registration ID
   winnerId?: string; // Registration ID of winner
   status: MatchStatus;
+  groupId?: string;         // pool / round-robin group identifier (from brackets-manager group_id)
   courtId?: string;
   scheduledTime?: Date;
+  // Time-first scheduling fields (source-of-truth for player communication)
+  plannedStartAt?: Date;
+  plannedEndAt?: Date;
+  scheduleVersion?: number;
+  scheduleStatus?: 'draft' | 'published';
+  lockedTime?: boolean;       // if true, re-schedule runs skip this match
+  plannedCourtId?: string | null;
+  publishedAt?: Date;
+  publishedBy?: string;
   startedAt?: Date;
   completedAt?: Date;
   scores: GameScore[];
@@ -490,3 +510,16 @@ export interface ScheduleGenerationRequest {
   minRestTimeMinutes: number;
   matchDurationMinutes: number;
 }
+
+// Re-export pool assignment types
+export type {
+  PoolTeam,
+  PoolPlan,
+  MinSeedOptions,
+  PoolAssignmentResult,
+  PoolAssignmentConfig,
+  ByeDistributionMode,
+  ByePoolSelection,
+  ShuffledSerpentineOptions,
+  RngState,
+} from './poolAssignment';

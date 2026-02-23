@@ -254,5 +254,15 @@ service cloud.firestore {
       // Users can delete their own notifications
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
+
+    // Bug Reports collection
+    match /bugReports/{reportId} {
+      // Only admins can read all bug reports
+      allow read: if isAdmin();
+      // Authenticated users can create their own bug reports
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      // Only admins can update or delete
+      allow update, delete: if isAdmin();
+    }
   }
 }

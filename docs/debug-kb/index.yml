@@ -1,3 +1,115 @@
+- id: 2078f8ff
+  title: lint:log fails on existing repo lint-rule violations after pool scheduling deadlock fix
+  status: "❌ unresolved"
+  date: "2026-02-23"
+  fingerprint: "2078f8ff"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-14-28-01.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 637073f2
+  title: build:log fails on existing unused import in tournaments export utility
+  status: "✅ fixed"
+  date: "2026-02-23"
+  fingerprint: "637073f2"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-13-56-37.vue-tsc-b.log"
+- id: 2f2ebbcd
+  title: lint:log fails on existing repo lint-rule violations after local ESLint toolchain setup
+  status: "❌ unresolved"
+  date: "2026-02-23"
+  fingerprint: "2f2ebbcd"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-13-49-03.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 67be1e73
+  title: build:log fails on unused currentUser in AppNavigation
+  status: "✅ fixed"
+  date: "2026-02-23"
+  fingerprint: "67be1e73"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-01-21-03.vue-tsc-b.log"
+- id: 8546e9a4
+  title: lint:log fails on existing repo rule violations after plugin install
+  status: "❌ unresolved"
+  date: "2026-02-23"
+  fingerprint: "8546e9a4"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-00-48-03.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: b30d69e5
+  title: lint:log fails because @typescript-eslint/eslint-plugin is missing
+  status: "✅ fixed"
+  date: "2026-02-23"
+  fingerprint: "b30d69e5"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-00-48-03.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 445a141f
+  title: build:log fails after settings-driven auto-start update due to wrong computed name
+  status: "✅ fixed"
+  date: "2026-02-23"
+  fingerprint: "445a141f"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-00-33-55.vue-tsc-b.log"
+- id: 1c4721f0
+  title: test:log fails on firebase/testing import in diagnose_data suite
+  status: "✅ fixed"
+  date: "2026-02-23"
+  fingerprint: "1c4721f0"
+  command: "npm run test:log -- --run"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-00-20-49.vitest-run.log"
+- id: 292be27c
+  title: build:log fails on unused imports and readonly filter options typing
+  status: "✅ fixed"
+  date: "2026-02-22"
+  fingerprint: "292be27c"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-22-20-57-30.vue-tsc-b.log"
+- id: 0615d796
+  title: eslint fallback fails because @typescript-eslint/eslint-plugin is missing
+  status: "❌ unresolved"
+  date: "2026-02-22"
+  fingerprint: "0615d796"
+  command: "node scripts/run-and-log.mjs eslint src/features/public/views/PublicScheduleView.vue --fix"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-22-19-27-18.eslint-src-features-public-views-PublicScheduleVie.log"
+- id: bc602a88
+  title: test:log fails on firebase/testing import in diagnose_data suite
+  status: "❌ unresolved"
+  date: "2026-02-22"
+  fingerprint: "bc602a88"
+  command: "npm run test:log -- --run"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-22-19-25-45.vitest-run.log"
+- id: f745beab
+  title: build:log fails on Vue macro import conflict for withDefaults
+  status: "✅ fixed"
+  date: "2026-02-22"
+  fingerprint: "f745beab"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-22-18-39-16.vue-tsc-b.log"
+- id: 159d0de4
+  title: lint:log fails because eslint CLI rejects --ignore-path
+  status: "✅ fixed"
+  date: "2026-02-23"
+  fingerprint: "159d0de4"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-00-20-49.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: cd1181e4
+  title: build:log fails on TS6133 unused symbols in lifecycle-state imports
+  status: "✅ fixed"
+  date: "2026-02-21"
+  fingerprint: "cd1181e4"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-21-15-13-08.vue-tsc-b.log"
+- id: 1112d9f3
+  title: test:log fails on firebase/testing import in diagnose_data suite
+  status: "❌ unresolved"
+  date: "2026-02-21"
+  fingerprint: "1112d9f3"
+  command: "npm run test:log -- --run"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-21-15-12-51.vitest-run.log"
+- id: 1d946e0a
+  title: test:log fails on firebase/testing import in diagnose_data suite
+  status: "❌ unresolved"
+  date: "2026-02-21"
+  fingerprint: "1d946e0a"
+  command: "npm run test:log -- --run"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-21-15-13-53.vitest-run.log"
 - id: 42109da1
   title: build:log fails with existing workspace TypeScript baseline errors
   status: "✅ fixed"

@@ -12,25 +12,20 @@ import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useDialogManager } from '@/composables/useDialogManager';
 import AssignCourtDialog from '@/features/tournaments/dialogs/AssignCourtDialog.vue';
+import SelectMatchForCourtDialog from '@/features/tournaments/dialogs/SelectMatchForCourtDialog.vue';
 import ScheduleMatchDialog from '@/features/tournaments/dialogs/ScheduleMatchDialog.vue';
 import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.vue';
 import AutoScheduleDialog from '@/features/tournaments/dialogs/AutoScheduleDialog.vue';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import FilterBar from '@/components/common/FilterBar.vue';
 import MatchQueueList from '@/features/tournaments/components/MatchQueueList.vue';
-import ActiveMatchesSection from '@/features/tournaments/components/ActiveMatchesSection.vue';
-// TOURNEY-101: Command Center components
 import CourtGrid from '@/features/tournaments/components/CourtGrid.vue';
 import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
 import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
-import RunningStatusBoard from '@/features/tournaments/components/RunningStatusBoard.vue';
-import { getNextTournamentState, type TournamentLifecycleState } from '@/guards/tournamentState';
+import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
 import type { Match } from '@/types';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
-
-// Configuration for auto-ready
-const AUTO_READY_MINUTES_BEFORE = 5; // Mark matches as ready X minutes before scheduled time
 
 const route = useRoute();
 const router = useRouter();
@@ -43,46 +38,51 @@ const authStore = useAuthStore();
 const { getParticipantName } = useParticipantResolver();
 const { getMatchDisplayName } = useMatchDisplay();
 const { open: openDialog, close: closeDialog, isOpen: isDialogOpen } = useDialogManager([
-  'assignCourt', 'schedule', 'score', 'autoSchedule', 'release', 'reset', 'share'
+  'assignCourt', 'selectMatchForCourt', 'schedule', 'score', 'autoSchedule', 'release', 'reset', 'share'
 ]);
 
 const isAdmin = computed(() => authStore.isAdmin);
 const showUnlockDialog = ref(false);
+const showCompleteTournamentDialog = ref(false);
+const advanceLoading = ref(false);
 
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 
-// Auto-schedule result for displaying errors
 const autoScheduleResult = ref<ScheduleResult | null>(null);
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const courts = computed(() => tournamentStore.courts);
 const matches = computed(() => matchStore.matches);
 
-// Load data
-async function loadData() {
-  if (!tournamentId.value) return;
-  try {
-    await Promise.all([
-      tournamentStore.fetchTournament(tournamentId.value),
-      matchStore.fetchMatches(tournamentId.value)
-    ]);
-  } catch (error) {
-    console.error('Failed to load data:', error);
-  }
+interface MatchControlScheduleSettings {
+  bufferMinutes?: number;
+  autoReadyLeadMinutes?: number;
+  emergencyScheduleBufferMinutes?: number;
+  autoAssignDueWindowMinutes?: number;
 }
 
-onMounted(() => {
-  loadData();
-  // Start auto-ready interval
-  autoReadyInterval = setInterval(checkAndMarkDueMatches, 60 * 1000);
+const scheduleSettings = computed<MatchControlScheduleSettings>(
+  () => (tournament.value?.settings ?? {}) as MatchControlScheduleSettings
+);
+const emergencyScheduleBufferMinutes = computed(() =>
+  Math.max(1, Number(scheduleSettings.value.emergencyScheduleBufferMinutes ?? scheduleSettings.value.bufferMinutes ?? 10))
+);
+const autoAssignDueWindowMs = computed(() =>
+  Math.max(1, Number(scheduleSettings.value.autoAssignDueWindowMinutes ?? scheduleSettings.value.bufferMinutes ?? 10)) * 60_000
+);
+
+const registrationsById = computed(() => {
+  const lookup = new Map<string, { status?: string; isCheckedIn?: boolean }>();
+  for (const registration of registrationStore.registrations) {
+    lookup.set(registration.id, {
+      status: registration.status,
+      isCheckedIn: registration.isCheckedIn,
+    });
+  }
+  return lookup;
 });
 
-onUnmounted(() => {
-  if (autoReadyInterval) clearInterval(autoReadyInterval);
-});
-
-// Filter state
 const selectedCategory = ref<string>('all');
 const viewMode = ref<'queue' | 'courts' | 'schedule' | 'command'>('command');
 
@@ -92,32 +92,35 @@ interface QueueMatchRef {
   levelId?: string;
 }
 
-// Schedule view filter state
 const scheduleFilters = ref({
   status: 'all' as 'all' | 'scheduled' | 'ready' | 'in_progress' | 'completed' | 'cancelled',
+  publicState: 'all' as 'all' | 'published' | 'draft' | 'not_scheduled',
   courtId: 'all' as string,
   searchQuery: '',
-  sortBy: 'round' as string,
+  sortBy: 'time' as string,
   sortDesc: false,
 });
 
-// TOURNEY-104: Compact table view mode
 const scheduleViewMode = ref<'compact' | 'full'>('compact');
 
-// Quick filter presets
-const quickFilters = [
-  { label: 'All', value: 'all', color: 'default' },
-  { label: 'Pending', value: 'scheduled', color: 'grey' },
-  { label: 'Ready', value: 'ready', color: 'warning' },
-  { label: 'In Progress', value: 'in_progress', color: 'info' },
-  { label: 'Completed', value: 'completed', color: 'success' },
-];
+const STATUS_COLORS: Record<string, string> = {
+  scheduled: 'grey',
+  ready: 'warning',
+  in_progress: 'info',
+  completed: 'success',
+  walkover: 'success',
+};
 
-// Category options for dropdown
-const categoryOptions = computed(() => [
-  { name: 'All Categories', id: 'all' },
-  ...categories.value,
-]);
+function getStatusColor(status: string): string {
+  return STATUS_COLORS[status] ?? 'grey';
+}
+
+const publicStateQuickFilters = [
+  { label: 'All', value: 'all' },
+  { label: 'Published', value: 'published' },
+  { label: 'Draft', value: 'draft' },
+  { label: 'Not Scheduled', value: 'not_scheduled' },
+] as const;
 
 const { categoryStageStatuses } = useCategoryStageStatus(
   categories,
@@ -125,83 +128,85 @@ const { categoryStageStatuses } = useCategoryStageStatus(
   getParticipantName
 );
 
-const filteredCategoryStageStatuses = computed(() => {
-  if (selectedCategory.value === 'all') {
-    return categoryStageStatuses.value;
-  }
-  return categoryStageStatuses.value.filter((status) => status.categoryId === selectedCategory.value);
-});
+const levelGenerationCategories = computed(() =>
+  categoryStageStatuses.value.filter((s) => s.needsLevelGeneration)
+);
 
 // Dialog state
 const selectedMatch = ref<Match | null>(null);
 const selectedCourtId = ref<string | null>(null);
-const showAssignCourtDialog = computed<boolean>({
-  get: () => isDialogOpen('assignCourt'),
-  set: (value) => {
-    if (value) openDialog('assignCourt');
-    else closeDialog('assignCourt');
-  },
-});
-const showScheduleDialog = computed<boolean>({
-  get: () => isDialogOpen('schedule'),
-  set: (value) => {
-    if (value) openDialog('schedule');
-    else closeDialog('schedule');
-  },
-});
-const showManualScoreDialog = computed<boolean>({
-  get: () => isDialogOpen('score'),
-  set: (value) => {
-    if (value) openDialog('score');
-    else closeDialog('score');
-  },
-});
-const showAutoScheduleDialog = computed<boolean>({
-  get: () => isDialogOpen('autoSchedule'),
-  set: (value) => {
-    if (value) openDialog('autoSchedule');
-    else closeDialog('autoSchedule');
-  },
-});
-const showReleaseDialog = computed<boolean>({
-  get: () => isDialogOpen('release'),
-  set: (value) => {
-    if (value) openDialog('release');
-    else closeDialog('release');
-  },
-});
-const showResetDialog = computed<boolean>({
-  get: () => isDialogOpen('reset'),
-  set: (value) => {
-    if (value) openDialog('reset');
-    else closeDialog('reset');
-  },
-});
+const assignIgnoreCheckInGate = ref(false);
+const releaseTargetMatch = ref<Match | null>(null);
+const releaseScoreHandling = ref<'keep' | 'clear'>('keep');
+const showSchedulePublishNowDialog = ref(false);
+const schedulePublishMatch = ref<Match | null>(null);
+const schedulePublishStart = ref('');
+const schedulePublishLoading = ref(false);
 
-const selectedCategoryIds = ref<string[]>([]); // Multi-select categories for auto-schedule
+/** Create a writable computed that syncs a v-model boolean with the dialog manager. */
+function dialogModel(name: string): ReturnType<typeof computed<boolean>> {
+  return computed<boolean>({
+    get: () => isDialogOpen(name),
+    set: (value) => { if (value) openDialog(name); else closeDialog(name); },
+  });
+}
 
-// Open auto-schedule dialog with all categories pre-selected
-function openAutoScheduleDialog() {
-  // Auto-select all categories for better UX
+const showAssignCourtDialog = dialogModel('assignCourt');
+const showSelectMatchForCourtDialog = dialogModel('selectMatchForCourt');
+const showScheduleDialog = dialogModel('schedule');
+const showManualScoreDialog = dialogModel('score');
+const showAutoScheduleDialog = dialogModel('autoSchedule');
+const showReleaseDialog = dialogModel('release');
+const showResetDialog = dialogModel('reset');
+
+const selectedCategoryIds = ref<string[]>([]);
+
+function openAutoScheduleDialog(): void {
   if (categories.value.length > 0) {
     selectedCategoryIds.value = categories.value.map(c => c.id);
   }
   openDialog('autoSchedule');
 }
 
-// Reset selected categories when dialog closes
-watch(() => isDialogOpen('autoSchedule'), (newValue) => {
-  if (!newValue) {
-    // Dialog closed - reset selection and results for next time
+watch(() => isDialogOpen('autoSchedule'), (open) => {
+  if (!open) {
     selectedCategoryIds.value = [];
     autoScheduleResult.value = null;
   }
 });
 
+watch(showAssignCourtDialog, (open) => {
+  if (!open) {
+    assignIgnoreCheckInGate.value = false;
+  }
+});
+
+watch(showReleaseDialog, (open) => {
+  if (!open) {
+    releaseTargetMatch.value = null;
+    releaseScoreHandling.value = 'keep';
+  }
+});
+
+const releaseHasInProgressScores = computed(() =>
+  releaseTargetMatch.value?.status === 'in_progress' &&
+  Array.isArray(releaseTargetMatch.value.scores) &&
+  releaseTargetMatch.value.scores.length > 0
+);
+
+watch(showSchedulePublishNowDialog, (open) => {
+  if (!open) {
+    schedulePublishMatch.value = null;
+    schedulePublishLoading.value = false;
+  }
+});
+
+const VALID_VIEW_MODES = new Set(['queue', 'schedule', 'command']);
+
 function resolveViewModeFromQuery(value: unknown): 'queue' | 'schedule' | 'command' | null {
-  if (typeof value !== 'string') return null;
-  if (value === 'queue' || value === 'schedule' || value === 'command') return value;
-  return null;
+  return typeof value === 'string' && VALID_VIEW_MODES.has(value)
+    ? (value as 'queue' | 'schedule' | 'command')
+    : null;
 }
 
 watch(
@@ -228,29 +233,27 @@ watch(viewMode, (mode) => {
   });
 });
 
-// Current time for auto-ready calculations (updates every minute)
-const currentTime = ref(new Date());
-let autoReadyInterval: ReturnType<typeof setInterval> | null = null;
-
-// Computed match lists
-// Matches that need court assignment or scheduling:
-// - Status is 'ready' or 'scheduled'
-// - Have both participants assigned (not TBD)
-// - Don't have a court OR don't have a scheduled time
 const pendingMatches = computed(() => {
   let result = matches.value.filter(
     (m) => (m.status === 'ready' || m.status === 'scheduled') &&
            m.participant1Id && m.participant2Id &&
            !m.courtId
   );
-  if (selectedCategory.value && selectedCategory.value !== 'all') {
+  if (selectedCategory.value !== 'all') {
     result = result.filter((m) => m.categoryId === selectedCategory.value);
   }
-  return result.sort((a, b) => a.round - b.round || a.matchNumber - b.matchNumber);
+  return result.sort((a, b) => {
+    const aTime = (a.plannedStartAt ?? a.scheduledTime)?.getTime() ?? Infinity;
+    const bTime = (b.plannedStartAt ?? b.scheduledTime)?.getTime() ?? Infinity;
+    if (aTime !== bTime) return aTime - bTime;
+    return a.round - b.round || a.matchNumber - b.matchNumber;
+  });
 });
 
-// Enrich pending matches with participant names for MatchQueueList
-// MatchQueueList expects participant1Name and participant2Name properties
+const assignablePendingMatches = computed(() =>
+  pendingMatches.value.filter((match) => canAssignCourtToMatch(match))
+);
+
 const enrichedPendingMatches = computed(() => {
   return pendingMatches.value.map(match => ({
     ...match,
@@ -260,98 +263,32 @@ const enrichedPendingMatches = computed(() => {
   })) as any;
 });
 
-// Matches that are scheduled AND have a court AND scheduledTime assigned - waiting for their time
-// Only includes matches that went through auto-schedule (which sets both courtId and scheduledTime)
-const scheduledWithCourtMatches = computed(() => {
-  let result = matches.value.filter(
-    (m) => m.status === 'scheduled' && m.participant1Id && m.participant2Id && m.courtId && m.scheduledTime
-  );
-  if (selectedCategory.value && selectedCategory.value !== 'all') {
-    result = result.filter((m) => m.categoryId === selectedCategory.value);
-  }
-  return result.sort((a, b) => {
-    // Sort by scheduled time, then by round/match number
-    const timeA = a.scheduledTime?.getTime() || 0;
-    const timeB = b.scheduledTime?.getTime() || 0;
-    if (timeA !== timeB) return timeA - timeB;
-    return a.round - b.round || a.matchNumber - b.matchNumber;
-  });
-});
-
-// Check if a match is due to start (scheduled time has arrived or is within X minutes)
-function isMatchDue(match: Match): boolean {
-  if (!match.scheduledTime) return false;
-  const scheduledTime = match.scheduledTime.getTime();
-  const readyTime = scheduledTime - (AUTO_READY_MINUTES_BEFORE * 60 * 1000);
-  return currentTime.value.getTime() >= readyTime;
-}
-
-
-const readyMatches = computed(() => {
-  let result = matches.value.filter((m) => m.status === 'ready');
-  if (selectedCategory.value && selectedCategory.value !== 'all') {
-    result = result.filter((m) => m.categoryId === selectedCategory.value);
-  }
-  return result;
-});
-
-
-
-// Enrich in-progress matches with participant names and court names for ActiveMatchesSection
-// Also include READY matches that have a court assigned, so they appear in the list
-const enrichedInProgressMatches = computed(() => {
-  // Get both In Progress AND Ready matches that have a court
-  const matchesToShow = matches.value.filter(m => 
-    (m.status === 'in_progress' || (m.status === 'ready' && m.courtId)) &&
-    (selectedCategory.value === 'all' || m.categoryId === selectedCategory.value)
-  );
-
-  const enriched = matchesToShow.map(match => ({
-    ...match,
-    participant1Name: getParticipantName(match.participant1Id),
-    participant2Name: getParticipantName(match.participant2Id),
-    categoryName: getCategoryName(match.categoryId),
-    courtName: courts.value.find(c => c.id === match.courtId)?.name
-  })) as any;
-
-  return enriched;
-});
-
-
-
-// Filtered matches for Schedule view with advanced filtering and sorting
 const filteredMatches = computed(() => {
   let result = [...matches.value];
 
-  // Category filter
-  if (selectedCategory.value && selectedCategory.value !== 'all') {
+  if (selectedCategory.value !== 'all') {
     result = result.filter((m) => m.categoryId === selectedCategory.value);
   }
-
-  // Status filter
   if (scheduleFilters.value.status !== 'all') {
     result = result.filter((m) => m.status === scheduleFilters.value.status);
   }
-
-  // Court filter
+  if (scheduleFilters.value.publicState !== 'all') {
+    result = result.filter((m) => getMatchScheduleState(m) === scheduleFilters.value.publicState);
+  }
   if (scheduleFilters.value.courtId !== 'all') {
     result = result.filter((m) => m.courtId === scheduleFilters.value.courtId);
   }
-
-  // Search filter (participants)
   if (scheduleFilters.value.searchQuery.trim()) {
     const query = scheduleFilters.value.searchQuery.toLowerCase();
     result = result.filter((m) => {
       const p1Name = getParticipantName(m.participant1Id).toLowerCase();
       const p2Name = getParticipantName(m.participant2Id).toLowerCase();
-      const matchNumber = String(m.matchNumber).toLowerCase();
+      const matchNumber = String(m.matchNumber);
       return p1Name.includes(query) || p2Name.includes(query) || matchNumber.includes(query);
     });
   }
 
-  // Sorting
-  const sortBy = scheduleFilters.value.sortBy;
-  const sortDesc = scheduleFilters.value.sortDesc;
+  const { sortBy, sortDesc } = scheduleFilters.value;
 
   result.sort((a, b) => {
     let comparison = 0;
@@ -379,9 +316,17 @@ const filteredMatches = computed(() => {
         break;
       }
       case 'time': {
-        const aTime = a.scheduledTime?.getTime() || 0;
-        const bTime = b.scheduledTime?.getTime() || 0;
-        comparison = aTime - bTime;
+        const aTime = getMatchScheduleTime(a)?.getTime();
+        const bTime = getMatchScheduleTime(b)?.getTime();
+        if (aTime == null && bTime == null) {
+          comparison = 0;
+        } else if (aTime == null) {
+          comparison = 1;
+        } else if (bTime == null) {
+          comparison = -1;
+        } else {
+          comparison = aTime - bTime;
+        }
         break;
       }
       case 'status':
@@ -397,25 +342,19 @@ const filteredMatches = computed(() => {
   return result;
 });
 
-// Status options for filter dropdown
-const statusOptions = [
-  { name: 'All Status', value: 'all' },
-  { name: 'Scheduled', value: 'scheduled' },
-  { name: 'Ready', value: 'ready' },
-  { name: 'In Progress', value: 'in_progress' },
-  { name: 'Completed', value: 'completed' },
-  { name: 'Cancelled', value: 'cancelled' },
-] as const;
+const scheduleStatusFilterOptions = [
+  { title: 'All Status', value: 'all' },
+  { title: 'Scheduled', value: 'scheduled' },
+  { title: 'Ready', value: 'ready' },
+  { title: 'In Progress', value: 'in_progress' },
+  { title: 'Completed', value: 'completed' },
+  { title: 'Cancelled', value: 'cancelled' },
+];
 
 const categoryFilterOptions = computed(() => [
   { title: 'All Categories', value: 'all' },
   ...categories.value.map((category) => ({ title: category.name, value: category.id })),
 ]);
-
-const scheduleStatusFilterOptions = statusOptions.map((option) => ({
-  title: option.name,
-  value: option.value,
-}));
 
 const scheduleCourtFilterOptions = computed(() => [
   { title: 'All Courts', value: 'all' },
@@ -435,98 +374,62 @@ const scheduleSortOptions = [
   { title: 'Status (A-Z)', value: 'status_asc' },
 ];
 
+/** Maps "sortBy_direction" combo values to { sortBy, sortDesc } filter state. */
+const SORT_VALUE_MAP: Record<string, { sortBy: string; sortDesc: boolean }> = {
+  round_asc: { sortBy: 'round', sortDesc: false },
+  round_desc: { sortBy: 'round', sortDesc: true },
+  match_number_asc: { sortBy: 'matchNumber', sortDesc: false },
+  match_number_desc: { sortBy: 'matchNumber', sortDesc: true },
+  category_asc: { sortBy: 'category', sortDesc: false },
+  participants_asc: { sortBy: 'participants', sortDesc: false },
+  court_asc: { sortBy: 'court', sortDesc: false },
+  time_asc: { sortBy: 'time', sortDesc: false },
+  time_desc: { sortBy: 'time', sortDesc: true },
+  status_asc: { sortBy: 'status', sortDesc: false },
+};
+
 const scheduleSortValue = computed<string>({
   get: () => {
     const { sortBy, sortDesc } = scheduleFilters.value;
-    if (sortBy === 'round') return sortDesc ? 'round_desc' : 'round_asc';
-    if (sortBy === 'matchNumber') return sortDesc ? 'match_number_desc' : 'match_number_asc';
-    if (sortBy === 'category') return 'category_asc';
-    if (sortBy === 'participants') return 'participants_asc';
-    if (sortBy === 'court') return 'court_asc';
-    if (sortBy === 'time') return sortDesc ? 'time_desc' : 'time_asc';
-    if (sortBy === 'status') return 'status_asc';
-    return 'round_asc';
+    const suffix = sortDesc ? 'desc' : 'asc';
+    const key = sortBy === 'matchNumber' ? `match_number_${suffix}` : `${sortBy}_${suffix}`;
+    return key in SORT_VALUE_MAP ? key : 'time_asc';
   },
   set: (value) => {
-    switch (value) {
-      case 'round_desc':
-        scheduleFilters.value.sortBy = 'round';
-        scheduleFilters.value.sortDesc = true;
-        break;
-      case 'match_number_asc':
-        scheduleFilters.value.sortBy = 'matchNumber';
-        scheduleFilters.value.sortDesc = false;
-        break;
-      case 'match_number_desc':
-        scheduleFilters.value.sortBy = 'matchNumber';
-        scheduleFilters.value.sortDesc = true;
-        break;
-      case 'category_asc':
-        scheduleFilters.value.sortBy = 'category';
-        scheduleFilters.value.sortDesc = false;
-        break;
-      case 'participants_asc':
-        scheduleFilters.value.sortBy = 'participants';
-        scheduleFilters.value.sortDesc = false;
-        break;
-      case 'court_asc':
-        scheduleFilters.value.sortBy = 'court';
-        scheduleFilters.value.sortDesc = false;
-        break;
-      case 'time_asc':
-        scheduleFilters.value.sortBy = 'time';
-        scheduleFilters.value.sortDesc = false;
-        break;
-      case 'time_desc':
-        scheduleFilters.value.sortBy = 'time';
-        scheduleFilters.value.sortDesc = true;
-        break;
-      case 'status_asc':
-        scheduleFilters.value.sortBy = 'status';
-        scheduleFilters.value.sortDesc = false;
-        break;
-      case 'round_asc':
-      default:
-        scheduleFilters.value.sortBy = 'round';
-        scheduleFilters.value.sortDesc = false;
-    }
+    const mapped = SORT_VALUE_MAP[value] ?? SORT_VALUE_MAP.time_asc;
+    scheduleFilters.value.sortBy = mapped.sortBy;
+    scheduleFilters.value.sortDesc = mapped.sortDesc;
   },
 });
 
 const hasActiveScheduleFilters = computed(() => (
   selectedCategory.value !== 'all' ||
   scheduleFilters.value.status !== 'all' ||
+  scheduleFilters.value.publicState !== 'all' ||
   scheduleFilters.value.courtId !== 'all' ||
   Boolean(scheduleFilters.value.searchQuery.trim()) ||
-  scheduleSortValue.value !== 'round_asc'
+  scheduleSortValue.value !== 'time_asc'
 ));
 
+const VALID_MATCH_STATUSES = new Set(['scheduled', 'ready', 'in_progress', 'completed', 'cancelled']);
+
 function updateScheduleStatus(value: string | null): void {
-  switch (value) {
-    case 'scheduled':
-    case 'ready':
-    case 'in_progress':
-    case 'completed':
-    case 'cancelled':
-      scheduleFilters.value.status = value;
-      break;
-    default:
-      scheduleFilters.value.status = 'all';
-  }
+  scheduleFilters.value.status = (value && VALID_MATCH_STATUSES.has(value))
+    ? value as typeof scheduleFilters.value.status
+    : 'all';
 }
 
-// Reset schedule filters
-function resetScheduleFilters() {
+function resetScheduleFilters(): void {
   scheduleFilters.value = {
     status: 'all',
+    publicState: 'all',
     courtId: 'all',
     searchQuery: '',
-    sortBy: 'round',
+    sortBy: 'time',
     sortDesc: false,
   };
 }
 
-// Court status
 const availableCourts = computed(() =>
   courts.value.filter((c) => c.status === 'available')
 );
@@ -535,7 +438,6 @@ const courtsInUse = computed(() =>
   courts.value.filter((c) => c.status === 'in_use')
 );
 
-// Category-independent computed properties for stats (show totals across all categories)
 const allReadyMatches = computed(() =>
   matches.value.filter((m) => m.status === 'ready')
 );
@@ -556,122 +458,58 @@ const allPendingMatches = computed(() =>
   matches.value.filter((m) => (m.status === 'ready' || m.status === 'scheduled') && !m.courtId)
 );
 
-// Stats - always show totals across ALL categories for dashboard overview
-const stats = computed(() => {
-  const result = {
-    total: matches.value.length,
-    pending: allPendingMatches.value.length,
-    scheduled: allScheduledWithCourtMatches.value.length,
-    ready: allReadyMatches.value.length,
-    inProgress: allInProgressMatches.value.length,
-    completed: allCompletedMatches.value.length,
-    totalCourts: courts.value.length,
-    courtsInUse: courtsInUse.value.length,
-  };
-
-  return result;
-});
-
-const blockedMatches = computed(() =>
-  matches.value.filter((match) =>
-    (match.status === 'scheduled' || match.status === 'ready') &&
-    (!match.participant1Id || !match.participant2Id)
-  )
-);
-
-const nextActionMatchLabel = computed(() => {
-  const nextMatch = matches.value
-    .filter((match) =>
-      (match.status === 'ready' || match.status === 'scheduled') &&
-      !match.courtId &&
-      match.participant1Id &&
-      match.participant2Id &&
-      (selectedCategory.value === 'all' || match.categoryId === selectedCategory.value)
-    )
-    .sort((a, b) => a.round - b.round || a.matchNumber - b.matchNumber)[0];
-
-  if (!nextMatch) return '-';
-  return `${getCategoryName(nextMatch.categoryId)} · ${getMatchDisplayName(nextMatch)}`;
-});
-
-const runningStatusSummary = computed(() => ({
-  total: stats.value.total,
-  inProgress: stats.value.inProgress,
-  ready: stats.value.ready,
-  scheduled: stats.value.scheduled,
-  blocked: blockedMatches.value.length,
-  completed: stats.value.completed,
-  nextMatch: nextActionMatchLabel.value,
+const stats = computed(() => ({
+  total: matches.value.length,
+  pending: allPendingMatches.value.length,
+  scheduled: allScheduledWithCourtMatches.value.length,
+  ready: allReadyMatches.value.length,
+  inProgress: allInProgressMatches.value.length,
+  completed: allCompletedMatches.value.length,
+  totalCourts: courts.value.length,
+  courtsInUse: courtsInUse.value.length,
 }));
 
-// Auto-ready: check for scheduled matches that are due and mark them as ready
-async function checkAndMarkDueMatches() {
-  currentTime.value = new Date();
+const completionPercent = computed(() => {
+  if (!stats.value.total) return 0;
+  return Math.round((stats.value.completed / stats.value.total) * 100);
+});
 
-  const dueMatches = scheduledWithCourtMatches.value.filter(isMatchDue);
+const tournamentHealth = computed(() => {
+  const { inProgress, totalCourts, courtsInUse, pending } = stats.value;
+  const courtsAvailable = totalCourts - courtsInUse;
 
-  for (const match of dueMatches) {
-    try {
-      // Mark match as ready
-      await matchStore.markMatchReady(tournamentId.value, match.id, match.categoryId, match.levelId);
-
-      // Log activity (non-blocking)
-      const p1Name = getParticipantName(match.participant1Id);
-      const p2Name = getParticipantName(match.participant2Id);
-      const courtName = getCourtName(match.courtId);
-      const categoryName = getCategoryName(match.categoryId);
-      activityStore.logMatchReady(
-        tournamentId.value,
-        match.id,
-        p1Name,
-        p2Name,
-        courtName,
-        categoryName
-      ).catch((err) => console.warn('Activity logging failed:', err));
-
-      notificationStore.showToast('info', `${getMatchDisplayName(match)} is ready on ${courtName}`);
-    } catch (error) {
-      console.error('Failed to auto-ready match:', error);
-    }
+  if (inProgress === 0 && pending === 0) {
+    return { label: 'Idle', color: 'default', icon: 'mdi-circle-outline' };
   }
-}
-
-
+  if (courtsAvailable === 0 && inProgress > 0) {
+    return { label: 'Healthy', color: 'success', icon: 'mdi-check-circle' };
+  }
+  if (pending > 8 && courtsAvailable > 0) {
+    return { label: 'Backlog', color: 'error', icon: 'mdi-alert-circle' };
+  }
+  if (pending > 3 && courtsAvailable > 0) {
+    return { label: 'Queue Building', color: 'warning', icon: 'mdi-alert' };
+  }
+  return { label: 'Healthy', color: 'success', icon: 'mdi-check-circle' };
+});
 
 onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
   tournamentStore.subscribeTournament(tournamentId.value);
-  // Subscribe to all matches across all categories
-  // This automatically watches categories and subscribes to each one
   matchStore.subscribeAllMatches(tournamentId.value);
   registrationStore.subscribeRegistrations(tournamentId.value);
   registrationStore.subscribePlayers(tournamentId.value);
   activityStore.subscribeActivities(tournamentId.value);
 
-  // Start auto-ready interval (check every 30 seconds)
-  autoReadyInterval = setInterval(checkAndMarkDueMatches, 30000);
-  // Also check immediately on mount
-  checkAndMarkDueMatches();
-  
-  // Run consistency check to fix any zombie courts/matches
-  setTimeout(() => {
-    matchStore.checkAndFixConsistency(tournamentId.value);
-  }, 2000); // Small delay to ensure data is loaded
+  setTimeout(() => matchStore.checkAndFixConsistency(tournamentId.value), 2000);
 });
 
 onUnmounted(() => {
   tournamentStore.unsubscribeAll();
   matchStore.unsubscribeAll();
   activityStore.unsubscribe();
-
-  // Clear auto-ready interval
-  if (autoReadyInterval) {
-    clearInterval(autoReadyInterval);
-    autoReadyInterval = null;
-  }
 });
 
-// Helper functions
 function getCategoryName(categoryId: string): string {
   const category = categories.value.find((c) => c.id === categoryId);
   return category?.name || 'Unknown';
@@ -689,21 +527,208 @@ function getBracketCode(match: Match): string {
   return 'WB';
 }
 
-// Actions
-function openAssignCourtDialog(match: Match) {
+function getMatchScheduleTime(match: Match): Date | undefined {
+  return match.plannedStartAt ?? match.scheduledTime;
+}
+
+function getMatchScheduleState(match: Match): 'published' | 'draft' | 'not_scheduled' {
+  if (match.scheduleStatus === 'published' || match.publishedAt) return 'published';
+  if (getMatchScheduleTime(match)) return 'draft';
+  return 'not_scheduled';
+}
+
+const SCHEDULE_STATE_META: Record<string, { label: string; color: string; icon: string }> = {
+  published: { label: 'Published', color: 'success', icon: 'mdi-eye-check' },
+  draft: { label: 'Draft', color: 'warning', icon: 'mdi-file-document-edit-outline' },
+  not_scheduled: { label: 'Not Scheduled', color: 'grey-darken-1', icon: 'mdi-eye-off-outline' },
+};
+
+function getMatchScheduleStateLabel(match: Match): string {
+  return SCHEDULE_STATE_META[getMatchScheduleState(match)].label;
+}
+
+function getMatchScheduleStateColor(match: Match): string {
+  return SCHEDULE_STATE_META[getMatchScheduleState(match)].color;
+}
+
+function getMatchScheduleStateIcon(match: Match): string {
+  return SCHEDULE_STATE_META[getMatchScheduleState(match)].icon;
+}
+
+function getMatchParticipantsTooltip(match: Match): string {
+  return `${getParticipantName(match.participant1Id)} vs ${getParticipantName(match.participant2Id)}`;
+}
+
+function canScoreMatch(match: Match): boolean {
+  return match.status === 'in_progress';
+}
+
+function hasAssignmentEligibleStatus(match: Match): boolean {
+  return match.status === 'scheduled' || match.status === 'ready';
+}
+
+function isRegistrationCheckedIn(registrationId: string | undefined): boolean {
+  if (!registrationId) return false;
+  const registration = registrationsById.value.get(registrationId);
+  if (!registration) return false;
+  return registration.status === 'checked_in' || registration.isCheckedIn === true;
+}
+
+function areMatchParticipantsCheckedIn(match: Match): boolean {
+  return (
+    isRegistrationCheckedIn(match.participant1Id) &&
+    isRegistrationCheckedIn(match.participant2Id)
+  );
+}
+
+function getMatchAssignBlockers(match: Match, allowAdminCheckInOverride = false): string[] {
+  const blockers: string[] = [];
+  if (!getMatchScheduleTime(match)) {
+    blockers.push('Blocked: Not scheduled');
+  }
+
+  if (getMatchScheduleState(match) !== 'published') {
+    blockers.push('Blocked: Not published');
+  }
+
+  if (!areMatchParticipantsCheckedIn(match)) {
+    if (!(allowAdminCheckInOverride && isAdmin.value)) {
+      blockers.push('Blocked: Players not checked-in');
+    }
+  }
+
+  return blockers;
+}
+
+function getMatchAssignBlockersText(match: Match, allowAdminCheckInOverride = false): string {
+  return getMatchAssignBlockers(match, allowAdminCheckInOverride).join(' • ');
+}
+
+function canAssignCourtToMatch(match: Match, allowAdminCheckInOverride = false): boolean {
+  if (match.courtId) return false;
+  if (!hasAssignmentEligibleStatus(match)) return false;
+  return getMatchAssignBlockers(match, allowAdminCheckInOverride).length === 0;
+}
+
+function shouldShowBlockedAssign(match: Match): boolean {
+  if (match.courtId) return false;
+  if (!hasAssignmentEligibleStatus(match)) return false;
+  return !canAssignCourtToMatch(match);
+}
+
+function canAdminAssignAnyway(match: Match): boolean {
+  if (!isAdmin.value) return false;
+  if (match.courtId) return false;
+  if (!hasAssignmentEligibleStatus(match)) return false;
+  if (canAssignCourtToMatch(match)) return false;
+
+  const blockers = getMatchAssignBlockers(match);
+  return blockers.length === 1 && blockers[0] === 'Blocked: Players not checked-in';
+}
+
+function getPrimaryRowAction(match: Match): 'score' | 'assign' | null {
+  if (canAssignCourtToMatch(match)) return 'assign';
+  if (canScoreMatch(match)) return 'score';
+  return null;
+}
+
+function openPublicSchedulePage(): void {
+  router.push(`/tournaments/${tournamentId.value}/schedule`);
+}
+
+function openAssignCourtDialog(match: Match, options: { ignoreCheckInGate?: boolean } = {}): void {
+  if (!canAssignCourtToMatch(match, Boolean(options.ignoreCheckInGate))) {
+    const blockedReason = getMatchAssignBlockersText(match, Boolean(options.ignoreCheckInGate));
+    notificationStore.showToast('warning', blockedReason || 'Blocked: This match cannot be assigned');
+    return;
+  }
+
   selectedMatch.value = match;
   selectedCourtId.value = null;
+  assignIgnoreCheckInGate.value = Boolean(options.ignoreCheckInGate);
   openDialog('assignCourt');
 }
 
-// Release Court Dialog State
 const courtToReleaseId = ref<string | null>(null);
 
 async function releaseCourt(courtId: string) {
   const court = courts.value.find(c => c.id === courtId);
   if (!court) return;
+
+  releaseTargetMatch.value = null;
+  if (court.currentMatchId) {
+    releaseTargetMatch.value = matches.value.find((match) =>
+      match.id === court.currentMatchId &&
+      match.courtId === court.id &&
+      (match.status === 'in_progress' || match.status === 'ready' || match.status === 'scheduled')
+    ) ?? null;
+  }
+  releaseScoreHandling.value = 'keep';
+
   courtToReleaseId.value = courtId;
   openDialog('release');
+}
+
+function getEmergencyScheduleStartValue(): string {
+  const date = new Date(Date.now() + emergencyScheduleBufferMinutes.value * 60_000);
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+}
+
+function openSchedulePublishNowDialog(match: Match): void {
+  schedulePublishMatch.value = match;
+  schedulePublishStart.value = getEmergencyScheduleStartValue();
+  showSchedulePublishNowDialog.value = true;
+}
+
+function setSchedulePublishToDefault(): void {
+  schedulePublishStart.value = getEmergencyScheduleStartValue();
+}
+
+function canOpenSchedulePublishNow(match: Match): boolean {
+  return getMatchScheduleState(match) !== 'published' || !getMatchScheduleTime(match);
+}
+
+async function confirmSchedulePublishNow(): Promise<void> {
+  if (!schedulePublishMatch.value) return;
+  if (!schedulePublishStart.value) {
+    notificationStore.showToast('warning', 'Pick a planned start time');
+    return;
+  }
+
+  const plannedStart = new Date(schedulePublishStart.value);
+  if (Number.isNaN(plannedStart.getTime())) {
+    notificationStore.showToast('error', 'Invalid planned start time');
+    return;
+  }
+
+  schedulePublishLoading.value = true;
+  try {
+    await matchStore.saveManualPlannedTime(
+      tournamentId.value,
+      schedulePublishMatch.value.id,
+      plannedStart,
+      tournament.value?.settings?.matchDurationMinutes ?? 20,
+      false,
+      schedulePublishMatch.value.categoryId,
+      schedulePublishMatch.value.levelId
+    );
+    await matchStore.publishMatchSchedule(
+      tournamentId.value,
+      schedulePublishMatch.value.id,
+      schedulePublishMatch.value.categoryId,
+      schedulePublishMatch.value.levelId,
+      authStore.currentUser?.id ?? 'system'
+    );
+    notificationStore.showToast('success', 'Schedule published for this match');
+    showSchedulePublishNowDialog.value = false;
+    schedulePublishMatch.value = null;
+  } catch (error) {
+    console.error('Failed to schedule and publish match:', error);
+    notificationStore.showToast('error', 'Failed to schedule and publish match');
+  } finally {
+    schedulePublishLoading.value = false;
+  }
 }
 
 async function confirmReleaseCourt() {
@@ -717,68 +742,65 @@ async function confirmReleaseCourt() {
 
   if (!court) return;
 
+  const match = releaseTargetMatch.value;
+
   try {
-    // If there's a match on this court, we should unschedule it properly
-    // to avoid the "In Progress but Unassigned" state.
     if (court.currentMatchId) {
-       const match = matches.value.find(m =>
-         m.id === court.currentMatchId &&
-         m.courtId === court.id &&
-         (m.status === 'in_progress' || m.status === 'ready' || m.status === 'scheduled')
-       );
-       if (match) {
-         await matchStore.unscheduleMatch(
-           tournamentId.value,
-           match.id,
-           match.categoryId,
-           court.id,
-           match.levelId
-         );
-         notificationStore.showToast('success', 'Court released and match unscheduled');
-         return;
-       }
+      if (match) {
+        const shouldClearInProgressState = match.status === 'in_progress' && releaseScoreHandling.value === 'clear';
+        await matchStore.unscheduleMatch(
+          tournamentId.value,
+          match.id,
+          match.categoryId,
+          court.id,
+          match.levelId,
+          {
+            clearInProgressState: shouldClearInProgressState,
+            returnStatus: 'ready',
+          }
+        );
+        notificationStore.showToast(
+          'success',
+          shouldClearInProgressState
+            ? 'Court released, scores cleared, and match moved to ready queue'
+            : 'Court released and match moved to ready queue'
+        );
+        releaseTargetMatch.value = null;
+        return;
+      }
     }
 
-    // Fallback: Just release the court manually
     await tournamentStore.releaseCourtManual(tournamentId.value, courtId);
     notificationStore.showToast('success', 'Court released manually');
+    releaseTargetMatch.value = null;
   } catch (error) {
     console.error('Failed to release court:', error);
     notificationStore.showToast('error', 'Failed to release court');
   }
 }
 
-// TOURNEY-101: Command Center helper functions
-function openAssignCourtDialogForCourt(courtId: string) {
+function openAssignCourtDialogForCourt(courtId: string): void {
   selectedCourtId.value = courtId;
-  // Find the first ready match to suggest, or leave null for manual selection
-  const firstReadyMatch = matches.value.find(m => m.status === 'ready' && !m.courtId);
-  selectedMatch.value = firstReadyMatch || null;
-  openDialog('assignCourt');
+  openDialog('selectMatchForCourt');
 }
 
-function selectMatchFromQueue(ref: QueueMatchRef) {
-  const match = matches.value.find(
+function findMatchByRef(ref: QueueMatchRef): Match | undefined {
+  return matches.value.find(
     (m) =>
       m.id === ref.matchId &&
       m.categoryId === ref.categoryId &&
       (m.levelId || null) === (ref.levelId || null)
   );
-  if (match) {
-    selectedMatch.value = match;
-  }
 }
 
-function openAssignCourtDialogFromQueue(ref: QueueMatchRef) {
-  const match = matches.value.find(
-    (m) =>
-      m.id === ref.matchId &&
-      m.categoryId === ref.categoryId &&
-      (m.levelId || null) === (ref.levelId || null)
-  );
-  if (match) {
-    openAssignCourtDialog(match);
-  }
+function selectMatchFromQueue(ref: QueueMatchRef): void {
+  const match = findMatchByRef(ref);
+  if (match) selectedMatch.value = match;
+}
+
+function openAssignCourtDialogFromQueue(ref: QueueMatchRef): void {
+  const match = findMatchByRef(ref);
+  if (match) openAssignCourtDialog(match);
 }
 
 function openScheduleDialog(match: Match) {
@@ -788,81 +810,37 @@ function openScheduleDialog(match: Match) {
 
 
 
-function openScoreDialog(matchId: string) {
+function openScoreDialog(matchId: string): void {
   const match = matches.value.find(m => m.id === matchId);
-  if (match) {
-    openManualScoreDialog(match);
-  } else {
+  if (!match) {
     console.error('[openScoreDialog] Match not found:', matchId);
     notificationStore.showToast('error', 'Match not found');
-  }
-}
-
-function openCompleteMatchDialog(matchId: string) {
-  const match = matches.value.find(m => m.id === matchId);
-  if (match) {
-    openManualScoreDialog(match);
-  }
-}
-
-// Start match - changes status to in_progress without navigating away
-async function startMatchInProgress(match: Match) {
-  try {
-    await matchStore.startMatch(tournamentId.value, match.id, match.categoryId, match.levelId);
-
-    // Log activity (non-blocking)
-    const p1Name = getParticipantName(match.participant1Id);
-    const p2Name = getParticipantName(match.participant2Id);
-    const courtName = getCourtName(match.courtId);
-    const categoryName = getCategoryName(match.categoryId);
-    activityStore.logMatchStarted(
-      tournamentId.value,
-      match.id,
-      p1Name,
-      p2Name,
-      courtName,
-      categoryName
-    ).catch((err) => console.warn('Activity logging failed:', err));
-
-    notificationStore.showToast('success', `Match started on ${courtName}`);
-  } catch (error) {
-    notificationStore.showToast('error', 'Failed to start match');
-  }
-}
-
-// Open manual score entry dialog
-function openManualScoreDialog(match: Match) {
-  // Validate that both participants are assigned
-  if (!match.participant1Id || !match.participant2Id) {
-    const p1Name = getParticipantName(match.participant1Id);
-    const p2Name = getParticipantName(match.participant2Id);
-    console.error('[openManualScoreDialog] BLOCKED: Match missing participants:', {
-      matchId: match.id,
-      participant1Id: match.participant1Id,
-      participant2Id: match.participant2Id,
-      p1Name,
-      p2Name,
-      status: match.status,
-      courtId: match.courtId,
-      categoryId: match.categoryId
-    });
-    notificationStore.showToast('error', `Cannot score match ${match.id}: ${getMatchDisplayName(match)}. Both players must be assigned first. This match may be waiting for a previous round to complete.`);
     return;
   }
+  openManualScoreDialog(match);
+}
 
+// Alias: "Force Complete" opens the same score dialog
+const openCompleteMatchDialog = openScoreDialog;
+
+function openManualScoreDialog(match: Match): void {
+  if (!match.participant1Id || !match.participant2Id) {
+    console.error('[openManualScoreDialog] Match missing participants:', match.id);
+    notificationStore.showToast(
+      'error',
+      `Cannot score match: ${getMatchDisplayName(match)}. Both players must be assigned first.`
+    );
+    return;
+  }
   selectedMatch.value = match;
   openDialog('score');
 }
 
-// Reset schedule loading state
 const resettingSchedule = ref(false);
 
-// Actually perform the reset after confirmation
-async function confirmResetSchedule() {
+async function confirmResetSchedule(): Promise<void> {
   closeDialog('reset');
-
-  // Use selected categories or 'all' if all are selected
-  const categoryIdsToReset = selectedCategoryIds.value; // removed allCategoriesSelected
+  const categoryIdsToReset = selectedCategoryIds.value;
 
   resettingSchedule.value = true;
   try {
@@ -891,48 +869,31 @@ async function confirmResetSchedule() {
   }
 }
 
-// Auto-assign and Auto-start state
 const autoAssignEnabled = ref(true);
-const autoStartEnabled = ref(false);
 
-// Watch for tournament settings updates to sync auto-assign state
 watch(() => tournament.value?.settings, (settings) => {
   if (settings && typeof settings.autoAssignEnabled !== 'undefined') {
     autoAssignEnabled.value = settings.autoAssignEnabled;
   }
 }, { immediate: true });
 
-// Watch for ready matches to auto-start
-watch(() => readyMatches.value, async (newMatches) => {
-  if (autoStartEnabled.value && newMatches.length > 0) {
-    for (const match of newMatches) {
-      if (!match.courtId) continue;
-
-      const court = courts.value.find(c => c.id === match.courtId);
-      if (!court || court.status !== 'available') continue;
-
-      if (match.scheduledTime) {
-        const scheduledTime = new Date(match.scheduledTime);
-        const now = new Date();
-        if (scheduledTime.getTime() - now.getTime() > 2 * 60 * 1000) continue;
-      }
-
-      await startMatchInProgress(match);
-    }
-  }
-}, { deep: true, immediate: true });
-
-// Watch for auto-assign opportunities
 watch(
   [() => autoAssignEnabled.value, () => availableCourts.value, () => pendingMatches.value],
-  async ([isEnabled, courts, matches]) => {
-    if (!isEnabled || courts.length === 0 || matches.length === 0) return;
+  async ([isEnabled, freeCourts, pending]) => {
+    if (!isEnabled || freeCourts.length === 0 || pending.length === 0) return;
 
-    const match = matches[0];
-    const court = courts[0];
+    const now = Date.now();
+    const match = (pending as typeof pendingMatches.value).find((m) => {
+      if (!canAssignCourtToMatch(m)) return false;
+      const plannedTime = getMatchScheduleTime(m);
+      return Boolean(plannedTime && plannedTime.getTime() <= now + autoAssignDueWindowMs.value);
+    });
+    if (!match) return;
+
+    const court = freeCourts[0];
 
     try {
-      await tournamentStore.assignMatchToCourt(
+      await matchStore.assignCourt(
         tournamentId.value,
         match.id,
         court.id,
@@ -977,21 +938,17 @@ async function handleUnschedule(ref: QueueMatchRef) {
   showUnscheduleDialog.value = true;
 }
 
-async function confirmUnschedule() {
+async function confirmUnschedule(): Promise<void> {
   if (!matchToUnschedule.value) return;
 
-  const { matchId, categoryId, levelId } = matchToUnschedule.value;
-  const match = matches.value.find(
-    (m) =>
-      m.id === matchId &&
-      m.categoryId === categoryId &&
-      (m.levelId || null) === (levelId || null)
-  );
-  
+  const ref = matchToUnschedule.value;
+  const match = findMatchByRef(ref);
+
   showUnscheduleDialog.value = false;
   matchToUnschedule.value = null;
 
   if (!match) return;
+  const { matchId, categoryId, levelId } = ref;
 
   try {
     await matchStore.unscheduleMatch(
@@ -1002,14 +959,10 @@ async function confirmUnschedule() {
       levelId || match.levelId
     );
     notificationStore.showToast('success', 'Match unscheduled and moved to queue');
-    
-    // Log activity
-    const p1 = getParticipantName(match.participant1Id);
-    const p2 = getParticipantName(match.participant2Id);
     activityStore.logActivity(
       tournamentId.value,
       'match_reassigned',
-       `Unscheduled: ${p1} vs ${p2}`
+      `Unscheduled: ${getParticipantName(match.participant1Id)} vs ${getParticipantName(match.participant2Id)}`
     );
   } catch (error) {
     console.error('Failed to unschedule:', error);
@@ -1017,48 +970,35 @@ async function confirmUnschedule() {
   }
 }
 
-
-/**
- * Toggle auto-assignment on/off
- */
-function toggleAutoAssign(enabled: boolean) {
+function toggleAutoAssign(enabled: boolean): void {
   autoAssignEnabled.value = enabled;
   tournamentStore.updateTournament(tournamentId.value, {
     settings: {
       ...(tournament.value?.settings || {}),
       autoAssignEnabled: enabled,
-    } as any, // Cast to any to avoid type error if property missing in interface
+    } as any,
   });
 }
 
-function toggleAutoStart(enabled: boolean) {
-  autoStartEnabled.value = enabled;
-  if (enabled) {
-    notificationStore.showToast('success', 'Auto-start enabled');
-    // Trigger check immediately
-    if (readyMatches.value.length > 0) {
-      readyMatches.value.forEach(m => startMatchInProgress(m));
-    }
-  } else {
-    notificationStore.showToast('info', 'Auto-start disabled');
-  }
-}
-
-function getNextState(currentState: TournamentLifecycleState | undefined): TournamentLifecycleState | null {
-  if (!currentState) return 'REG_OPEN';
-  return getNextTournamentState(currentState);
-}
+const { advanceState: doAdvance, transitionTo, getNextState } = useTournamentStateAdvance(tournamentId);
 
 async function advanceState(): Promise<void> {
-  if (!tournament.value?.state) return;
-  const nextState = getNextTournamentState(tournament.value.state);
-  if (nextState) {
-    try {
-      await tournamentStore.updateTournament(tournamentId.value, { state: nextState });
-      notificationStore.showToast('success', `Tournament moved to ${nextState}`);
-    } catch (error) {
-      notificationStore.showToast('error', 'Failed to advance tournament state');
-    }
+  if (tournament.value?.state === 'LIVE') {
+    showCompleteTournamentDialog.value = true;
+    return;
+  }
+  await doAdvance();
+}
+
+async function confirmCompleteTournament(): Promise<void> {
+  advanceLoading.value = true;
+  try {
+    await transitionTo('COMPLETED');
+    showCompleteTournamentDialog.value = false;
+  } catch (error) {
+    notificationStore.showToast('error', 'Failed to complete tournament');
+  } finally {
+    advanceLoading.value = false;
   }
 }
 
@@ -1066,17 +1006,55 @@ async function advanceState(): Promise<void> {
 
 <template>
   <div class="match-control-container h-100 d-flex flex-column bg-background">
-    <!-- State Banner -->
     <StateBanner
       v-if="tournament"
       :state="tournament.state || 'DRAFT'"
       :next-state="getNextState(tournament.state || 'DRAFT')"
       :is-admin="isAdmin"
+      :live-stats="{
+        inProgress: stats.inProgress,
+        remaining: stats.total - stats.completed - stats.inProgress,
+        courtsFree: stats.totalCourts - stats.courtsInUse,
+        completed: stats.completed,
+        total: stats.total
+      }"
       @advance="advanceState"
       @unlock="showUnlockDialog = true"
+      @revert="transitionTo('LIVE')"
     />
 
-    <!-- Header Toolbar -->
+    <v-alert
+      v-for="cat in levelGenerationCategories"
+      :key="cat.categoryId"
+      type="success"
+      variant="tonal"
+      prominent
+      border="start"
+      class="mx-2 mt-2"
+      closable
+    >
+      <div class="d-flex align-center flex-wrap ga-2">
+        <v-icon class="mr-1">
+          mdi-trophy
+        </v-icon>
+        <div class="flex-grow-1">
+          <strong>{{ cat.categoryName }} — all matches complete!</strong>
+          <div class="text-caption">
+            Go to Categories to create elimination levels.
+          </div>
+        </div>
+        <v-btn
+          size="small"
+          color="success"
+          variant="elevated"
+          prepend-icon="mdi-layers-triple"
+          @click="router.push(`/tournaments/${tournamentId}/categories`)"
+        >
+          Go to Categories
+        </v-btn>
+      </div>
+    </v-alert>
+
     <v-toolbar
       color="surface"
       elevation="1"
@@ -1098,7 +1076,20 @@ async function advanceState(): Promise<void> {
       
       <v-spacer />
 
-      <!-- Category Filter -->
+      <v-chip
+        :color="tournamentHealth.color"
+        size="small"
+        variant="tonal"
+        class="mr-3 hidden-sm-and-down"
+        :prepend-icon="tournamentHealth.icon"
+      >
+        {{ tournamentHealth.label }}
+        <span
+          class="ml-1 text-caption"
+          style="opacity: 0.7"
+        >{{ stats.courtsInUse }}/{{ stats.totalCourts }} courts</span>
+      </v-chip>
+
       <div
         v-if="viewMode !== 'schedule'"
         style="width: 200px"
@@ -1106,9 +1097,9 @@ async function advanceState(): Promise<void> {
       >
         <v-select
           v-model="selectedCategory"
-          :items="categoryOptions"
-          item-title="name"
-          item-value="id"
+          :items="categoryFilterOptions"
+          item-title="title"
+          item-value="value"
           density="compact"
           variant="outlined"
           hide-details
@@ -1119,7 +1110,6 @@ async function advanceState(): Promise<void> {
         />
       </div>
 
-      <!-- View Mode Toggle -->
       <v-btn-toggle
         v-model="viewMode"
         mandatory
@@ -1148,44 +1138,46 @@ async function advanceState(): Promise<void> {
           <span class="hidden-sm-and-down">All Matches</span>
         </v-btn>
       </v-btn-toggle>
-
     </v-toolbar>
 
-    <!-- Main Content Grid -->
+    <div class="d-flex align-center px-3 border-b bg-surface progress-strip">
+      <span
+        class="text-caption text-medium-emphasis"
+        style="white-space: nowrap"
+      >
+        {{ stats.completed }}/{{ stats.total }} complete
+      </span>
+      <div class="progress-track-wrapper">
+        <v-progress-linear
+          :model-value="completionPercent"
+          color="success"
+          bg-color="surface-variant"
+          rounded
+          height="6"
+          class="progress-track"
+        />
+      </div>
+      <span
+        class="text-caption font-weight-bold"
+        style="min-width: 32px; text-align: right"
+      >
+        {{ completionPercent }}%
+      </span>
+    </div>
+
     <div class="flex-grow-1 overflow-hidden">
-      <!-- VIEW MODE: QUEUE (Original Layout) -->
       <v-row
         v-if="viewMode === 'queue'"
         class="fill-height ma-0"
         no-gutters
       >
-        <v-col
-          cols="12"
-          class="pa-3 pb-0"
-        >
-          <RunningStatusBoard
-            :summary="runningStatusSummary"
-            :category-statuses="filteredCategoryStageStatuses"
-          />
-        </v-col>
-
-        <!-- LEFT PANEL: Active Matches & Courts (Flexible, Scrollable) -->
+        <!-- Courts Panel -->
         <v-col
           cols="12"
           md="8"
           class="d-flex flex-column border-e fill-height"
         >
-          <!-- Scrollable Content Area -->
           <div class="flex-grow-1 overflow-y-auto pa-4 bg-background">
-            <!-- Active Matches Section -->
-            <div class="mb-4">
-              <active-matches-section
-                :matches="enrichedInProgressMatches"
-                :show-actions="false"
-              />
-            </div>
-
-            <!-- Courts Grid -->
             <div class="d-flex align-center mb-2 mt-6">
               <v-icon
                 start
@@ -1226,7 +1218,7 @@ async function advanceState(): Promise<void> {
           </div>
         </v-col>
 
-        <!-- RIGHT PANEL: Queue & Schedule (Fixed Width on Desktop) -->
+        <!-- Queue Panel -->
         <v-col
           cols="12"
           md="4"
@@ -1244,78 +1236,142 @@ async function advanceState(): Promise<void> {
             </div>
           </div>
 
-          <!-- Queue List -->
           <div class="flex-grow-1 overflow-y-auto pa-0">
             <match-queue-list
               :matches="enrichedPendingMatches"
               :available-courts="availableCourts"
               :auto-assign-enabled="autoAssignEnabled"
-              :auto-start-enabled="autoStartEnabled"
+              :auto-start-enabled="false"
               :read-only="true"
             />
           </div>
         </v-col>
       </v-row>
 
-      <!-- VIEW MODE: SCHEDULE (Full List) -->
       <div
         v-else-if="viewMode === 'schedule'"
         class="fill-height d-flex flex-column bg-background"
       >
-        <!-- Schedule Filters Toolbar -->
-        <div class="px-4 py-3 bg-surface border-b">
-          <filter-bar
-            :search="scheduleFilters.searchQuery"
-            :category="selectedCategory"
-            :status="scheduleFilters.status"
-            :court="scheduleFilters.courtId"
-            :sort="scheduleSortValue"
-            :enable-category="true"
-            :enable-status="true"
-            :enable-court="true"
-            :category-options="categoryFilterOptions"
-            :status-options="scheduleStatusFilterOptions"
-            :court-options="scheduleCourtFilterOptions"
-            :sort-options="scheduleSortOptions"
-            search-label="Search"
-            search-placeholder="Search participants or match number"
-            :has-active-filters="hasActiveScheduleFilters"
-            @update:search="scheduleFilters.searchQuery = $event"
-            @update:category="selectedCategory = $event || 'all'"
-            @update:status="updateScheduleStatus($event)"
-            @update:court="scheduleFilters.courtId = $event || 'all'"
-            @update:sort="scheduleSortValue = $event || 'round_asc'"
-            @clear="resetScheduleFilters"
-          />
+        <div class="schedule-controls-sticky">
+          <div class="px-4 py-3 bg-surface border-b">
+            <filter-bar
+              :search="scheduleFilters.searchQuery"
+              :category="selectedCategory"
+              :status="scheduleFilters.status"
+              :court="scheduleFilters.courtId"
+              :sort="scheduleSortValue"
+              :enable-category="true"
+              :enable-status="true"
+              :enable-court="true"
+              :category-options="categoryFilterOptions"
+              :status-options="scheduleStatusFilterOptions"
+              :court-options="scheduleCourtFilterOptions"
+              :sort-options="scheduleSortOptions"
+              search-label="Search"
+              search-placeholder="Search participants or match number"
+              :has-active-filters="hasActiveScheduleFilters"
+              @update:search="scheduleFilters.searchQuery = $event"
+              @update:category="selectedCategory = $event || 'all'"
+              @update:status="updateScheduleStatus($event)"
+              @update:court="scheduleFilters.courtId = $event || 'all'"
+              @update:sort="scheduleSortValue = $event || 'time_asc'"
+              @clear="resetScheduleFilters"
+            />
+          </div>
+
+          <div class="px-4 py-2 bg-surface border-b">
+            <div class="d-flex align-center justify-space-between flex-wrap ga-2">
+              <div class="d-flex align-center flex-wrap ga-2">
+                <span class="text-body-2 text-grey">{{ filteredMatches.length }} matches</span>
+                <span class="text-caption text-medium-emphasis">Public</span>
+                <v-btn-toggle
+                  v-model="scheduleFilters.publicState"
+                  mandatory
+                  density="compact"
+                  variant="outlined"
+                  divided
+                  class="schedule-public-toggle"
+                >
+                  <v-btn
+                    v-for="filterOption in publicStateQuickFilters"
+                    :key="filterOption.value"
+                    :value="filterOption.value"
+                    size="small"
+                  >
+                    {{ filterOption.label }}
+                  </v-btn>
+                </v-btn-toggle>
+              </div>
+              <div class="d-flex align-center ga-2 ml-auto schedule-toolbar-actions">
+                <v-btn
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                  prepend-icon="mdi-calendar-account-outline"
+                  @click="openPublicSchedulePage"
+                >
+                  Open Public Schedule
+                </v-btn>
+                <v-btn-toggle
+                  v-model="scheduleViewMode"
+                  density="compact"
+                  variant="outlined"
+                  mandatory
+                >
+                  <v-btn
+                    value="compact"
+                    prepend-icon="mdi-view-compact"
+                    size="small"
+                  >
+                    Compact
+                  </v-btn>
+                  <v-btn
+                    value="full"
+                    prepend-icon="mdi-table"
+                    size="small"
+                  >
+                    Full
+                  </v-btn>
+                </v-btn-toggle>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-4 py-1 bg-surface border-b d-flex align-center flex-wrap ga-2 schedule-legend">
+            <v-chip
+              size="x-small"
+              variant="tonal"
+              prepend-icon="mdi-clock-outline"
+            >
+              Planned time uses plannedStartAt
+            </v-chip>
+            <v-chip
+              size="x-small"
+              color="success"
+              variant="flat"
+              prepend-icon="mdi-eye-check"
+            >
+              Published
+            </v-chip>
+            <v-chip
+              size="x-small"
+              color="warning"
+              variant="flat"
+              prepend-icon="mdi-file-document-edit-outline"
+            >
+              Draft
+            </v-chip>
+            <v-chip
+              size="x-small"
+              color="grey-darken-1"
+              variant="flat"
+              prepend-icon="mdi-eye-off-outline"
+            >
+              Not Scheduled
+            </v-chip>
+          </div>
         </div>
 
-        <!-- TOURNEY-104: Compact Schedule Toggle -->
-        <div class="px-4 py-2 bg-surface border-b d-flex align-center justify-space-between">
-          <span class="text-body-2 text-grey">{{ filteredMatches.length }} matches</span>
-          <v-btn-toggle
-            v-model="scheduleViewMode"
-            density="compact"
-            variant="outlined"
-            mandatory
-          >
-            <v-btn
-              value="compact"
-              prepend-icon="mdi-view-compact"
-              size="small"
-            >
-              Compact
-            </v-btn>
-            <v-btn
-              value="full"
-              prepend-icon="mdi-table"
-              size="small"
-            >
-              Full
-            </v-btn>
-          </v-btn-toggle>
-        </div>
-
-        <!-- Schedule Table - Compact View (TOURNEY-104) -->
         <div
           v-if="scheduleViewMode === 'compact'"
           class="flex-grow-1 overflow-auto"
@@ -1330,7 +1386,7 @@ async function advanceState(): Promise<void> {
             ]"
             :items-per-page="50"
             density="compact"
-            class="fill-height"
+            class="fill-height schedule-table"
             fixed-header
             hover
             show-expand
@@ -1348,20 +1404,27 @@ async function advanceState(): Promise<void> {
                     {{ getCategoryName(item.categoryId) }}
                   </v-chip>
                 </div>
-                <div class="d-flex flex-column">
-                  <span
-                    :class="{'font-weight-bold text-success': item.winnerId === item.participant1Id}"
-                    class="text-body-2"
-                  >
-                    {{ getParticipantName(item.participant1Id) }}
-                  </span>
-                  <span
-                    :class="{'font-weight-bold text-success': item.winnerId === item.participant2Id}"
-                    class="text-body-2"
-                  >
-                    {{ getParticipantName(item.participant2Id) }}
-                  </span>
-                </div>
+                <v-tooltip :text="getMatchParticipantsTooltip(item)">
+                  <template #activator="{ props }">
+                    <div
+                      v-bind="props"
+                      class="d-flex flex-column schedule-participants-cell"
+                    >
+                      <span
+                        :class="{ 'font-weight-bold text-success': item.winnerId === item.participant1Id }"
+                        class="text-body-2 schedule-participant-line"
+                      >
+                        {{ getParticipantName(item.participant1Id) }}
+                      </span>
+                      <span
+                        :class="{ 'font-weight-bold text-success': item.winnerId === item.participant2Id }"
+                        class="text-body-2 schedule-participant-line"
+                      >
+                        {{ getParticipantName(item.participant2Id) }}
+                      </span>
+                    </div>
+                  </template>
+                </v-tooltip>
                 <div
                   v-if="item.scores && item.scores.length > 0"
                   class="mt-1"
@@ -1374,15 +1437,26 @@ async function advanceState(): Promise<void> {
             </template>
 
             <template #item.status="{ item }">
-              <v-chip
-                size="small"
-                :color="quickFilters.find(f => f.value === item.status)?.color || (item.status === 'completed' ? 'success' : 'grey')"
-                variant="flat"
-                class="text-uppercase font-weight-bold"
-                style="font-size: 10px; height: 20px;"
-              >
-                {{ item.status.replace('_', ' ') }}
-              </v-chip>
+              <div class="d-flex flex-column align-start ga-1 py-1">
+                <v-chip
+                  size="small"
+                  :color="getStatusColor(item.status)"
+                  variant="flat"
+                  class="text-uppercase font-weight-bold"
+                  style="font-size: 10px; height: 20px;"
+                >
+                  {{ item.status.replace('_', ' ') }}
+                </v-chip>
+                <v-chip
+                  size="x-small"
+                  variant="flat"
+                  :color="getMatchScheduleStateColor(item)"
+                  :prepend-icon="getMatchScheduleStateIcon(item)"
+                  class="schedule-public-chip"
+                >
+                  {{ getMatchScheduleStateLabel(item) }}
+                </v-chip>
+              </div>
             </template>
 
             <template #item.court="{ item }">
@@ -1408,7 +1482,7 @@ async function advanceState(): Promise<void> {
             <template #item.actions="{ item }">
               <div class="d-flex justify-end gap-1">
                 <v-btn
-                  v-if="item.status === 'ready' || item.status === 'in_progress'"
+                  v-if="getPrimaryRowAction(item) === 'score'"
                   size="small"
                   color="primary"
                   variant="tonal"
@@ -1418,7 +1492,7 @@ async function advanceState(): Promise<void> {
                   Score
                 </v-btn>
                 <v-btn
-                  v-else-if="!item.courtId && item.status === 'scheduled'"
+                  v-else-if="getPrimaryRowAction(item) === 'assign'"
                   size="small"
                   color="secondary"
                   variant="tonal"
@@ -1427,20 +1501,69 @@ async function advanceState(): Promise<void> {
                 >
                   Assign
                 </v-btn>
+                <v-tooltip
+                  v-else-if="shouldShowBlockedAssign(item)"
+                  :text="getMatchAssignBlockersText(item)"
+                >
+                  <template #activator="{ props }">
+                    <span v-bind="props">
+                      <v-btn
+                        size="small"
+                        color="grey"
+                        variant="tonal"
+                        prepend-icon="mdi-lock-outline"
+                        disabled
+                      >
+                        Assign
+                      </v-btn>
+                    </span>
+                  </template>
+                </v-tooltip>
                 <v-menu>
                   <template #activator="{ props }">
                     <v-btn
                       icon="mdi-dots-vertical"
                       variant="text"
                       size="small"
+                      :aria-label="`More actions for match ${item.id}`"
                       v-bind="props"
                     />
                   </template>
                   <v-list density="compact">
                     <v-list-item
+                      v-if="canScoreMatch(item) && getPrimaryRowAction(item) !== 'score'"
+                      prepend-icon="mdi-scoreboard"
+                      title="Score"
+                      @click="openScoreDialog(item.id)"
+                    />
+                    <v-list-item
+                      v-if="canAssignCourtToMatch(item) && getPrimaryRowAction(item) !== 'assign'"
+                      prepend-icon="mdi-court-sport"
+                      title="Assign Court"
+                      @click="openAssignCourtDialog(item)"
+                    />
+                    <v-list-item
+                      v-if="canAdminAssignAnyway(item)"
+                      prepend-icon="mdi-alert-decagram-outline"
+                      title="Assign Anyway (Admin)"
+                      @click="openAssignCourtDialog(item, { ignoreCheckInGate: true })"
+                    />
+                    <v-list-item
+                      v-if="shouldShowBlockedAssign(item) && !canAdminAssignAnyway(item)"
+                      prepend-icon="mdi-lock-outline"
+                      :title="getMatchAssignBlockersText(item)"
+                      disabled
+                    />
+                    <v-list-item
                       prepend-icon="mdi-pencil"
                       title="Edit Schedule"
                       @click="openScheduleDialog(item)"
+                    />
+                    <v-list-item
+                      v-if="canOpenSchedulePublishNow(item)"
+                      prepend-icon="mdi-calendar-check-outline"
+                      title="Schedule + Publish Now"
+                      @click="openSchedulePublishNowDialog(item)"
                     />
                     <v-list-item 
                       v-if="item.status !== 'completed' && item.status !== 'walkover'"
@@ -1470,10 +1593,11 @@ async function advanceState(): Promise<void> {
                     <div><strong>Match:</strong> {{ getBracketCode(item) }}-{{ item.matchNumber }}</div>
                     <div><strong>Round:</strong> {{ item.round }}</div>
                     <div><strong>Category:</strong> {{ getCategoryName(item.categoryId) }}</div>
-                    <div v-if="item.scheduledTime">
-                      <strong>Scheduled:</strong>
-                      {{ new Date(item.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+                    <div v-if="getMatchScheduleTime(item)">
+                      <strong>Planned:</strong>
+                      {{ new Date(getMatchScheduleTime(item)!).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
                     </div>
+                    <div><strong>Public:</strong> {{ getMatchScheduleStateLabel(item) }}</div>
                     <div v-if="item.scores && item.scores.length > 0">
                       <strong>Score:</strong>
                       {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
@@ -1485,7 +1609,6 @@ async function advanceState(): Promise<void> {
           </v-data-table>
         </div>
 
-        <!-- Schedule Table - Full View (Legacy) -->
         <div
           v-else
           class="flex-grow-1 overflow-auto"
@@ -1499,17 +1622,17 @@ async function advanceState(): Promise<void> {
               { title: 'Participants', key: 'participants', sortable: false },
               { title: 'Score', key: 'score', sortable: false },
               { title: 'Court', key: 'courtId', sortable: true },
-              { title: 'Scheduled', key: 'scheduledTime', sortable: true },
+              { title: 'Planned Time', key: 'scheduledTime', sortable: true },
+              { title: 'Public', key: 'scheduleVisibility', sortable: false },
               { title: 'Status', key: 'status', sortable: true },
               { title: 'Actions', key: 'actions', align: 'end', sortable: false },
             ]"
             item-value="id"
             hover
             sticky-header
-            class="fill-height"
+            class="fill-height schedule-table"
             fixed-header
           >
-            <!-- Custom Slots -->
             <template #item.matchNumber="{ item }">
               <div class="d-flex flex-column py-1">
                 <span class="font-weight-bold text-grey">#{{ item.id }}</span>
@@ -1527,14 +1650,27 @@ async function advanceState(): Promise<void> {
             </template>
             
             <template #item.participants="{ item }">
-              <div class="d-flex flex-column py-1">
-                <span :class="{'font-weight-bold text-success': item.winnerId === item.participant1Id}">
-                  {{ getParticipantName(item.participant1Id) }}
-                </span>
-                <span :class="{'font-weight-bold text-success': item.winnerId === item.participant2Id}">
-                  {{ getParticipantName(item.participant2Id) }}
-                </span>
-              </div>
+              <v-tooltip :text="getMatchParticipantsTooltip(item)">
+                <template #activator="{ props }">
+                  <div
+                    v-bind="props"
+                    class="d-flex flex-column py-1 schedule-participants-cell"
+                  >
+                    <span
+                      :class="{ 'font-weight-bold text-success': item.winnerId === item.participant1Id }"
+                      class="schedule-participant-line"
+                    >
+                      {{ getParticipantName(item.participant1Id) }}
+                    </span>
+                    <span
+                      :class="{ 'font-weight-bold text-success': item.winnerId === item.participant2Id }"
+                      class="schedule-participant-line"
+                    >
+                      {{ getParticipantName(item.participant2Id) }}
+                    </span>
+                  </div>
+                </template>
+              </v-tooltip>
             </template>
 
             <template #item.score="{ item }">
@@ -1569,7 +1705,7 @@ async function advanceState(): Promise<void> {
 
             <template #item.scheduledTime="{ item }">
               <div
-                v-if="item.scheduledTime"
+                v-if="getMatchScheduleTime(item)"
                 class="d-flex align-center text-caption"
               >
                 <v-icon
@@ -1578,27 +1714,44 @@ async function advanceState(): Promise<void> {
                 >
                   mdi-clock-outline
                 </v-icon>
-                {{ new Date(item.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+                {{ new Date(getMatchScheduleTime(item)!).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
               </div>
+              <span
+                v-else
+                class="text-grey-lighten-1 text-caption"
+              >-</span>
+            </template>
+
+            <template #item.scheduleVisibility="{ item }">
+              <v-chip
+                size="x-small"
+                variant="flat"
+                :color="getMatchScheduleStateColor(item)"
+                :prepend-icon="getMatchScheduleStateIcon(item)"
+                class="schedule-public-chip"
+              >
+                {{ getMatchScheduleStateLabel(item) }}
+              </v-chip>
             </template>
 
             <template #item.status="{ item }">
-              <v-chip
-                size="small"
-                :color="quickFilters.find(f => f.value === item.status)?.color || (item.status === 'completed' ? 'success' : 'grey')"
-                variant="flat"
-                class="text-uppercase font-weight-bold"
-                style="font-size: 10px; height: 20px;"
-              >
-                {{ item.status.replace('_', ' ') }}
-              </v-chip>
+              <div class="d-flex flex-column align-start ga-1 py-1">
+                <v-chip
+                  size="small"
+                  :color="getStatusColor(item.status)"
+                  variant="flat"
+                  class="text-uppercase font-weight-bold"
+                  style="font-size: 10px; height: 20px;"
+                >
+                  {{ item.status.replace('_', ' ') }}
+                </v-chip>
+              </div>
             </template>
 
             <template #item.actions="{ item }">
               <div class="d-flex justify-end gap-1">
-                <!-- Actions available based on status -->
                 <v-btn
-                  v-if="item.status === 'ready' || item.status === 'in_progress'"
+                  v-if="getPrimaryRowAction(item) === 'score'"
                   size="small"
                   color="primary"
                   variant="tonal"
@@ -1609,7 +1762,7 @@ async function advanceState(): Promise<void> {
                 </v-btn>
                  
                 <v-btn
-                  v-if="!item.courtId && (item.status === 'scheduled' || item.status === 'ready')"
+                  v-else-if="getPrimaryRowAction(item) === 'assign'"
                   size="small"
                   color="secondary"
                   variant="tonal"
@@ -1618,6 +1771,24 @@ async function advanceState(): Promise<void> {
                 >
                   Assign
                 </v-btn>
+                <v-tooltip
+                  v-else-if="shouldShowBlockedAssign(item)"
+                  :text="getMatchAssignBlockersText(item)"
+                >
+                  <template #activator="{ props }">
+                    <span v-bind="props">
+                      <v-btn
+                        size="small"
+                        color="grey"
+                        variant="tonal"
+                        prepend-icon="mdi-lock-outline"
+                        disabled
+                      >
+                        Assign
+                      </v-btn>
+                    </span>
+                  </template>
+                </v-tooltip>
                  
                 <v-menu>
                   <template #activator="{ props }">
@@ -1625,14 +1796,45 @@ async function advanceState(): Promise<void> {
                       icon="mdi-dots-vertical"
                       variant="text"
                       size="small"
+                      :aria-label="`More actions for match ${item.id}`"
                       v-bind="props"
                     />
                   </template>
                   <v-list density="compact">
                     <v-list-item
+                      v-if="canScoreMatch(item) && getPrimaryRowAction(item) !== 'score'"
+                      prepend-icon="mdi-scoreboard"
+                      title="Score"
+                      @click="openScoreDialog(item.id)"
+                    />
+                    <v-list-item
+                      v-if="canAssignCourtToMatch(item) && getPrimaryRowAction(item) !== 'assign'"
+                      prepend-icon="mdi-court-sport"
+                      title="Assign Court"
+                      @click="openAssignCourtDialog(item)"
+                    />
+                    <v-list-item
+                      v-if="canAdminAssignAnyway(item)"
+                      prepend-icon="mdi-alert-decagram-outline"
+                      title="Assign Anyway (Admin)"
+                      @click="openAssignCourtDialog(item, { ignoreCheckInGate: true })"
+                    />
+                    <v-list-item
+                      v-if="shouldShowBlockedAssign(item) && !canAdminAssignAnyway(item)"
+                      prepend-icon="mdi-lock-outline"
+                      :title="getMatchAssignBlockersText(item)"
+                      disabled
+                    />
+                    <v-list-item
                       prepend-icon="mdi-pencil"
                       title="Edit Schedule"
                       @click="openScheduleDialog(item)"
+                    />
+                    <v-list-item
+                      v-if="canOpenSchedulePublishNow(item)"
+                      prepend-icon="mdi-calendar-check-outline"
+                      title="Schedule + Publish Now"
+                      @click="openSchedulePublishNowDialog(item)"
                     />
                     <v-list-item 
                       v-if="item.status !== 'completed' && item.status !== 'walkover'"
@@ -1676,7 +1878,6 @@ async function advanceState(): Promise<void> {
         </div>
       </div>
 
-      <!-- TOURNEY-101: VIEW MODE: COMMAND CENTER (Court Grid + Queue + Alerts) -->
       <div
         v-else-if="viewMode === 'command'"
         class="fill-height d-flex flex-column bg-background"
@@ -1695,12 +1896,11 @@ async function advanceState(): Promise<void> {
                 border
                 class="command-center-controls"
               >
-                <!-- Row 1: Title + primary action -->
                 <div class="d-flex align-center px-4 py-3 gap-3">
                   <div class="d-flex flex-column">
                     <span class="text-subtitle-2 font-weight-bold">Command Center</span>
                     <span class="text-caption text-medium-emphasis">
-                      Schedule, assign, and monitor match flow from one place.
+                      Re-schedule, assign, and monitor match flow from one place.
                     </span>
                   </div>
                   <v-spacer />
@@ -1711,10 +1911,9 @@ async function advanceState(): Promise<void> {
                     prepend-icon="mdi-calendar-clock"
                     @click="openAutoScheduleDialog"
                   >
-                    Auto-Schedule
+                    Re-Schedule
                   </v-btn>
                 </div>
-                <!-- Row 2: Automation toggles + court/queue status -->
                 <div class="d-flex align-center px-4 py-2 gap-4 border-t">
                   <v-switch
                     :model-value="autoAssignEnabled"
@@ -1725,22 +1924,13 @@ async function advanceState(): Promise<void> {
                     label="Auto-assign"
                     @update:model-value="toggleAutoAssign(!!$event)"
                   />
-                  <v-switch
-                    :model-value="autoStartEnabled"
-                    density="compact"
-                    hide-details
-                    inset
-                    color="success"
-                    label="Auto-start"
-                    @update:model-value="toggleAutoStart(!!$event)"
-                  />
                   <v-spacer />
                   <v-chip
                     size="small"
-                    :color="courts.filter(c => c.status === 'in_use').length === courts.length ? 'error' : 'success'"
+                    :color="courtsInUse.length === courts.length ? 'error' : 'success'"
                     variant="tonal"
                   >
-                    Courts {{ courts.filter(c => c.status === 'available').length }} free / {{ courts.length }}
+                    Courts {{ availableCourts.length }} free / {{ courts.length }}
                   </v-chip>
                   <v-chip
                     size="small"
@@ -1751,16 +1941,6 @@ async function advanceState(): Promise<void> {
                   </v-chip>
                 </div>
               </v-card>
-            </v-col>
-
-            <v-col
-              cols="12"
-              class="pa-1"
-            >
-              <RunningStatusBoard
-                :summary="runningStatusSummary"
-                :category-statuses="filteredCategoryStageStatuses"
-              />
             </v-col>
 
             <v-col
@@ -1788,7 +1968,7 @@ async function advanceState(): Promise<void> {
                     variant="tonal"
                     color="success"
                   >
-                    {{ courts.filter(c => c.status === 'available').length }} Available
+                    {{ availableCourts.length }} Available
                   </v-chip>
                   <v-chip
                     size="x-small"
@@ -1796,7 +1976,7 @@ async function advanceState(): Promise<void> {
                     color="info"
                     class="ml-1"
                   >
-                    {{ courts.filter(c => c.status === 'in_use').length }} In Use
+                    {{ courtsInUse.length }} In Use
                   </v-chip>
                 </div>
                 <div class="command-section-body">
@@ -1821,13 +2001,14 @@ async function advanceState(): Promise<void> {
                 <v-card
                   variant="flat"
                   border
-                  class="command-feed-card"
+                  class="command-feed-card command-feed-queue"
                 >
                   <ready-queue
                     :matches="pendingMatches"
                     :categories="categories"
                     :get-participant-name="getParticipantName"
                     :get-category-name="getCategoryName"
+                    :enable-assign="false"
                     @select="selectMatchFromQueue"
                     @assign="openAssignCourtDialogFromQueue"
                   />
@@ -1836,7 +2017,7 @@ async function advanceState(): Promise<void> {
                 <v-card
                   variant="flat"
                   border
-                  class="command-feed-card"
+                  class="command-feed-card command-feed-alerts"
                 >
                   <alerts-panel
                     :courts="courts"
@@ -1855,14 +2036,25 @@ async function advanceState(): Promise<void> {
       </div>
     </div>
 
-    <!-- Dialogs -->
     <AssignCourtDialog
       v-model="showAssignCourtDialog"
       :match="selectedMatch"
       :initial-court-id="selectedCourtId"
       :tournament-id="tournamentId"
       :courts="courts"
+      :ignore-check-in-gate="assignIgnoreCheckInGate"
       @assigned="showAssignCourtDialog = false"
+    />
+
+    <SelectMatchForCourtDialog
+      v-model="showSelectMatchForCourtDialog"
+      :court-id="selectedCourtId"
+      :court-name="courts.find(c => c.id === selectedCourtId)?.name ?? ''"
+      :matches="assignablePendingMatches"
+      :tournament-id="tournamentId"
+      :get-participant-name="getParticipantName"
+      :get-category-name="getCategoryName"
+      @assigned="showSelectMatchForCourtDialog = false"
     />
 
     <AutoScheduleDialog
@@ -1881,6 +2073,58 @@ async function advanceState(): Promise<void> {
       @saved="showScheduleDialog = false"
     />
 
+    <BaseDialog
+      v-model="showSchedulePublishNowDialog"
+      title="Schedule + Publish Now"
+      max-width="500"
+      @cancel="showSchedulePublishNowDialog = false"
+    >
+      <div v-if="schedulePublishMatch">
+        <div class="text-body-2 mb-3">
+          {{ getMatchDisplayName(schedulePublishMatch) }}
+        </div>
+        <v-text-field
+          v-model="schedulePublishStart"
+          type="datetime-local"
+          label="Planned Start Time"
+          variant="outlined"
+          class="mb-2"
+        />
+        <v-alert
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-2"
+        >
+          Publishing unlocks assignment and shows planned time on Public Schedule.
+        </v-alert>
+      </div>
+      <template #actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :disabled="schedulePublishLoading"
+          @click="setSchedulePublishToDefault"
+        >
+          Now + {{ emergencyScheduleBufferMinutes }} min
+        </v-btn>
+        <v-btn
+          variant="text"
+          :disabled="schedulePublishLoading"
+          @click="showSchedulePublishNowDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="primary"
+          :loading="schedulePublishLoading"
+          @click="confirmSchedulePublishNow"
+        >
+          Save + Publish
+        </v-btn>
+      </template>
+    </BaseDialog>
+
     <ManualScoreDialog
       v-if="tournament"
       v-model="showManualScoreDialog"
@@ -1891,7 +2135,6 @@ async function advanceState(): Promise<void> {
       @saved="showManualScoreDialog = false"
     />
 
-    <!-- Unschedule Confirmation Dialog -->
     <BaseDialog
       v-model="showUnscheduleDialog"
       title="Unschedule Match?"
@@ -1919,15 +2162,45 @@ async function advanceState(): Promise<void> {
       </template>
     </BaseDialog>
 
-    <!-- Release Court Confirmation -->
     <BaseDialog
       v-model="showReleaseDialog"
       title="Release Court?"
       max-width="400"
       @cancel="showReleaseDialog = false"
     >
-      <p class="text-body-1">
+      <p
+        v-if="releaseTargetMatch?.status === 'in_progress'"
+        class="text-body-1"
+      >
+        This match is on court. Releasing will move it back to the ready queue.
+      </p>
+      <p
+        v-else
+        class="text-body-1"
+      >
         Are you sure you want to release this court? If a match is currently assigned, it will be unscheduled.
+      </p>
+      <v-radio-group
+        v-if="releaseHasInProgressScores"
+        v-model="releaseScoreHandling"
+        color="primary"
+        hide-details
+        class="mt-3"
+      >
+        <v-radio
+          value="keep"
+          label="Keep scores and continue later"
+        />
+        <v-radio
+          value="clear"
+          label="Clear scores and restart match"
+        />
+      </v-radio-group>
+      <p
+        v-if="releaseHasInProgressScores && releaseScoreHandling === 'clear'"
+        class="text-caption text-warning mt-2"
+      >
+        Scores will be removed before this match returns to the ready queue.
       </p>
       <template #actions>
         <v-spacer />
@@ -1974,7 +2247,6 @@ async function advanceState(): Promise<void> {
       </template>
     </BaseDialog>
 
-    <!-- Consistency Check Confirmation -->
     <BaseDialog
       v-model="showConsistencyDialog"
       title="Run Diagnostics?"
@@ -2000,13 +2272,73 @@ async function advanceState(): Promise<void> {
         </v-btn>
       </template>
     </BaseDialog>
+
+    <v-dialog
+      v-model="showCompleteTournamentDialog"
+      max-width="480"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon
+            color="warning"
+            class="mr-2"
+          >
+            mdi-flag-checkered
+          </v-icon>
+          Complete Tournament?
+        </v-card-title>
+        <v-card-text>
+          <v-alert
+            v-if="stats.total - stats.completed > 0"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+          >
+            <strong>{{ stats.total - stats.completed }} matches are not yet completed</strong>
+            ({{ stats.inProgress }} in progress, {{ stats.total - stats.completed - stats.inProgress }} pending).
+            Completing the tournament now will finalize all results.
+          </v-alert>
+          <v-alert
+            v-else
+            type="success"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+          >
+            All {{ stats.total }} matches are completed. The tournament is ready to finalize.
+          </v-alert>
+          <p class="text-body-2 text-medium-emphasis">
+            This action marks the tournament as finished. Results will become final and no further scoring will be possible.
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="showCompleteTournamentDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="warning"
+            variant="flat"
+            :loading="advanceLoading"
+            prepend-icon="mdi-flag-checkered"
+            @click="confirmCompleteTournament"
+          >
+            Complete Tournament
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <style lang="scss" scoped>
 @use '@/styles/variables.scss' as *;
 
-// Compact Header
 .text-gradient {
   color: $primary-base;
   display: inline-block;
@@ -2022,7 +2354,6 @@ async function advanceState(): Promise<void> {
   }
 }
 
-// Stats Grid
 .stat-card {
   height: 100%;
   border: 1px solid rgba($border, 0.5);
@@ -2036,7 +2367,6 @@ async function advanceState(): Promise<void> {
     border-color: rgba($primary-base, 0.3);
   }
 
-  // Background decoration
   &::before {
     content: '';
     position: absolute;
@@ -2068,7 +2398,6 @@ async function advanceState(): Promise<void> {
     transform: scale(1.1) rotate(5deg);
   }
 
-  // Variants
   &.stat-primary {
     .stat-icon-wrapper {
       background: rgba($primary-base, 0.1);
@@ -2113,7 +2442,6 @@ async function advanceState(): Promise<void> {
   color: $primary-base;
 }
 
-// Global Polish
 .v-btn {
   text-transform: none !important;
   letter-spacing: 0.3px;
@@ -2121,6 +2449,56 @@ async function advanceState(): Promise<void> {
 
 .match-control-container {
   height: calc(100vh - 64px); // Adjust based on app header
+}
+
+.schedule-controls-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+}
+
+.schedule-toolbar-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.schedule-public-toggle :deep(.v-btn__content) {
+  font-size: 0.75rem;
+}
+
+.schedule-legend :deep(.v-chip) {
+  font-weight: $font-weight-medium;
+}
+
+.schedule-public-chip {
+  font-weight: $font-weight-bold;
+  letter-spacing: 0.2px;
+}
+
+.schedule-participants-cell {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.schedule-participant-line {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  line-height: 1.2;
+}
+
+:deep(.schedule-table .v-table__wrapper > table > thead > tr > th) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgb(var(--v-theme-surface));
+}
+
+:deep(.schedule-table .v-table__wrapper > table > tbody > tr > td) {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
 }
 
 .command-center-controls {
@@ -2144,6 +2522,23 @@ async function advanceState(): Promise<void> {
   background: rgba($primary-base, 0.02);
 }
 
+.progress-strip {
+  min-height: 28px;
+  gap: 8px;
+}
+
+.progress-track-wrapper {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.progress-track {
+  width: 100%;
+  min-width: 0;
+}
+
 .command-section-body {
   flex: 1;
   min-height: 0;
@@ -2161,21 +2556,45 @@ async function advanceState(): Promise<void> {
 
 .command-feed-card {
   display: flex;
-  flex: 1;
-  min-height: 280px;
   min-width: 0;
   overflow: hidden;
   background: rgb(var(--v-theme-surface));
   border-radius: 10px;
 }
 
+.command-feed-queue {
+  flex: 1 1 0;
+  min-height: 220px;
+}
+
+.command-feed-alerts {
+  flex: 0 1 auto;
+  min-height: 120px;
+  max-height: 280px;
+}
+
 @media (max-width: 960px) {
+  .schedule-toolbar-actions {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0 !important;
+  }
+
+  .schedule-public-toggle {
+    width: 100%;
+  }
+
   .command-section-card {
     min-height: 420px;
   }
 
-  .command-feed-card {
+  .command-feed-queue {
     min-height: 300px;
+  }
+
+  .command-feed-alerts {
+    min-height: 120px;
+    max-height: 260px;
   }
 }
 

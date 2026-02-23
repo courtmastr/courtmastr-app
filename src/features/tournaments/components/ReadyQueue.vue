@@ -27,27 +27,19 @@ const emit = defineEmits<{
   assign: [ref: QueueMatchRef];
 }>();
 
-// Sort ready matches by priority:
-// 1. Round (lower first)
-// 2. Match number
-// 3. Scheduled time (if available)
+// Sort queue by planned time first so released matches return to planned slot.
+// Fallback to legacy scheduledTime, then round and match number.
 const sortedMatches = computed(() => {
   return [...props.matches]
     .filter(m => m.status === 'ready' || m.status === 'scheduled')
     .sort((a, b) => {
-      // Priority 1: Round
+      const aTime = (a.plannedStartAt ?? a.scheduledTime)?.getTime() ?? Number.POSITIVE_INFINITY;
+      const bTime = (b.plannedStartAt ?? b.scheduledTime)?.getTime() ?? Number.POSITIVE_INFINITY;
+      if (aTime !== bTime) return aTime - bTime;
+
       if (a.round !== b.round) return a.round - b.round;
-      
-      // Priority 2: Match number
       if (a.matchNumber !== b.matchNumber) return a.matchNumber - b.matchNumber;
-      
-      // Priority 3: Scheduled time (earlier first)
-      if (a.scheduledTime && b.scheduledTime) {
-        return a.scheduledTime.getTime() - b.scheduledTime.getTime();
-      }
-      if (a.scheduledTime) return -1;
-      if (b.scheduledTime) return 1;
-      
+
       return 0;
     });
 });

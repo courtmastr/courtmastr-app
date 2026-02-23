@@ -87,6 +87,7 @@ export interface PoolLevelParticipant {
   poolRank: number;
   globalRank: number;
   seed: number | null;
+  matchesWon: number;
   matchPoints: number;
   winRate: number;
   pointDifference: number;
@@ -414,6 +415,7 @@ function rankPools(
         poolRank: index + 1,
         globalRank: 0,
         seed: registration?.seed ?? null,
+        matchesWon: entry.matchesWon,
         matchPoints: entry.matchPoints,
         winRate: entry.winRate,
         pointDifference: entry.pointDifference,

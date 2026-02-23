@@ -22,32 +22,26 @@ const emit = defineEmits<{
   release: [courtId: string];
 }>();
 
-const { getMatchStatusColor, getMatchStatusLabel, formatMatchDuration } = useMatchDisplay();
+const { formatMatchDuration } = useMatchDisplay();
 const { getParticipantName } = useParticipantResolver();
 
-const statusColor = computed(() => {
-  switch (props.court.status) {
-    case 'in_use':
-      return 'success';
-    case 'maintenance':
-      return 'warning';
-    case 'available':
-    default:
-      return 'grey';
+// Derived visual state from court status + match status for clearer ops communication
+const visualState = computed(() => {
+  if (props.court.status === 'maintenance') {
+    return { label: 'BLOCKED', color: 'warning', borderClass: 'court-card--blocked' };
   }
+  if (props.court.status === 'in_use') {
+    if (props.match?.status === 'in_progress') {
+      return { label: 'LIVE', color: 'success', borderClass: 'court-card--live' };
+    }
+    return { label: 'READY', color: 'info', borderClass: 'court-card--ready' };
+  }
+  return { label: 'FREE', color: 'default', borderClass: 'court-card--free' };
 });
 
-const statusLabel = computed(() => {
-  switch (props.court.status) {
-    case 'in_use':
-      return 'In Use';
-    case 'maintenance':
-      return 'Maintenance';
-    case 'available':
-    default:
-      return 'Available';
-  }
-});
+// Keep these as aliases for template use
+const statusColor = computed(() => visualState.value.color);
+const statusLabel = computed(() => visualState.value.label);
 
 const hasMatch = computed(() => !!props.match);
 
@@ -71,7 +65,7 @@ const currentScore = computed(() => {
 
 <template>
   <v-card
-    :class="['court-card', `court-card--${court.status}`]"
+    :class="['court-card', visualState.borderClass]"
     variant="outlined"
     :color="statusColor"
     density="compact"
@@ -107,22 +101,17 @@ const currentScore = computed(() => {
         v-if="hasMatch"
         class="match-info"
       >
-        <!-- Match Status Badge -->
+        <!-- Elapsed time -->
         <div class="d-flex align-center mb-2">
-          <v-chip
-            :color="getMatchStatusColor(match!)"
-            size="x-small"
-            variant="tonal"
-            label
-            class="mr-2"
-          >
-            {{ getMatchStatusLabel(match!) }}
-          </v-chip>
           <span
-            v-if="matchDuration && matchDuration > 0"
-            class="text-caption text-medium-emphasis"
+            v-if="matchDuration && matchDuration > 0 && match?.status === 'in_progress'"
+            class="text-caption font-weight-medium"
+            :class="matchDuration > 50 ? 'text-warning' : 'text-medium-emphasis'"
           >
-            {{ formatMatchDuration(matchDuration) }}
+            <v-icon
+              size="10"
+              class="mr-1"
+            >mdi-timer-outline</v-icon>{{ formatMatchDuration(matchDuration) }}
           </span>
         </div>
 
@@ -140,7 +129,9 @@ const currentScore = computed(() => {
             </div>
           </div>
           <div class="d-flex align-center justify-space-between">
-            <div class="vs text-caption text-medium-emphasis flex-grow-1 text-center">vs</div>
+            <div class="vs text-caption text-medium-emphasis flex-grow-1 text-center">
+              vs
+            </div>
             <div
               v-if="currentScore && match?.status === 'in_progress'"
               class="text-caption text-medium-emphasis ml-2 flex-shrink-0 text-right"
@@ -229,7 +220,7 @@ const currentScore = computed(() => {
           </v-btn>
         </div>
       </template>
-      <template v-else-if="court.status === 'available'">
+      <template v-else-if="court.status === 'available' || !court.status">
         <v-btn
           variant="outlined"
           color="success"
@@ -265,17 +256,21 @@ const currentScore = computed(() => {
   transition: all 0.2s ease;
 }
 
-.court-card--in_use {
+.court-card--live {
   border-left: 4px solid rgb(var(--v-theme-success));
 }
 
-.court-card--available {
-  border-left: 4px solid rgb(var(--v-theme-grey));
+.court-card--ready {
+  border-left: 4px solid rgb(var(--v-theme-info));
 }
 
-.court-card--maintenance {
+.court-card--free {
+  border-left: 4px solid rgba(var(--v-border-color), 0.3);
+}
+
+.court-card--blocked {
   border-left: 4px solid rgb(var(--v-theme-warning));
-  opacity: 0.8;
+  opacity: 0.75;
 }
 
 .match-info {

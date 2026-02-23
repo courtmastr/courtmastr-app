@@ -516,7 +516,10 @@ function clearFilters() {
 
         <template #expanded-row="{ columns, item }">
           <tr>
-            <td :colspan="columns.length" class="bg-grey-lighten-5 pa-4">
+            <td
+              :colspan="columns.length"
+              class="bg-grey-lighten-5 pa-4"
+            >
               <div class="d-flex flex-wrap gap-4 text-body-2">
                 <div><strong>Skill Level:</strong> {{ item.skillLevel || 5 }} / 10</div>
                 <div><strong>Email:</strong> {{ item.email || 'No email' }}</div>

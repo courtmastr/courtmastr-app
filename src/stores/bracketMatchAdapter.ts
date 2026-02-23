@@ -77,14 +77,35 @@ export function adaptBracketsMatchToLegacyMatch(
     participants: Participant[] | null,
     categoryId: string,
     tournamentId: string,
-    structureMaps?: MatchStructureMaps
+    structureMaps?: MatchStructureMaps,
+    options?: { includeTBD?: boolean }
 ): Match | null {
     const hasOpponent1 = bracketsMatch.opponent1?.id != null;
     const hasOpponent2 = bracketsMatch.opponent2?.id != null;
 
     if (!hasOpponent1 && !hasOpponent2) {
-        // Skip logging - too many TBD matches
-        return null;
+        // Return a placeholder match for TBD matches when explicitly requested
+        // (used by the time-first scheduler to assign placeholder time slots)
+        if (!options?.includeTBD) return null;
+        const roundNumber = resolveRoundNumber(bracketsMatch, structureMaps);
+        const bracketType = resolveBracketType(bracketsMatch, structureMaps);
+        const matchNumber = toPositiveNumber(bracketsMatch.number) ?? 1;
+        const groupId = bracketsMatch.group_id != null ? String(bracketsMatch.group_id) : undefined;
+        return {
+            id: String(bracketsMatch.id),
+            tournamentId,
+            categoryId,
+            round: roundNumber,
+            matchNumber,
+            bracketPosition: { bracket: bracketType, round: roundNumber, position: matchNumber },
+            participant1Id: undefined,
+            participant2Id: undefined,
+            status: 'ready',
+            scores: [],
+            groupId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        } as Match;
     }
 
     const roundNumber = resolveRoundNumber(bracketsMatch, structureMaps);
@@ -109,19 +130,36 @@ export function adaptBracketsMatchToLegacyMatch(
       p.id == bracketsMatch.opponent2?.id
     );
 
+    // Debug logging for missing participants
+    if (!participant1 && bracketsMatch.opponent1?.id) {
+      console.warn(`[adaptBracketsMatch] Participant1 not found for match ${bracketsMatch.id}:`, {
+        opponent1Id: bracketsMatch.opponent1?.id,
+        availableParticipants: participants?.map(p => p.id),
+        categoryId
+      });
+    }
+    if (!participant2 && bracketsMatch.opponent2?.id) {
+      console.warn(`[adaptBracketsMatch] Participant2 not found for match ${bracketsMatch.id}:`, {
+        opponent2Id: bracketsMatch.opponent2?.id,
+        availableParticipants: participants?.map(p => p.id),
+        categoryId
+      });
+    }
+
     // participant.name contains the registration ID (Firestore document ID)
     // participant.id is just the numeric brackets-manager ID
     const participant1Id = participant1?.name || bracketsMatch.opponent1?.registrationId || undefined;
     const participant2Id = participant2?.name || bracketsMatch.opponent2?.registrationId || undefined;
 
+    // Extract winner from opponent.result for both completed and in-progress matches
     let winnerId: string | undefined;
-    if (bracketsMatch.status === 4) {
-        if (bracketsMatch.opponent1?.result === 'win') {
-            winnerId = participant1Id;
-        } else if (bracketsMatch.opponent2?.result === 'win') {
-            winnerId = participant2Id;
-        }
+    if (bracketsMatch.opponent1?.result === 'win') {
+        winnerId = participant1Id;
+    } else if (bracketsMatch.opponent2?.result === 'win') {
+        winnerId = participant2Id;
     }
+
+    const groupId = bracketsMatch.group_id != null ? String(bracketsMatch.group_id) : undefined;
 
     return {
         id: String(bracketsMatch.id),
@@ -139,9 +177,10 @@ export function adaptBracketsMatchToLegacyMatch(
         winnerId,
         status,
         scores: [],
+        groupId,
         createdAt: new Date(),
         updatedAt: new Date(),
-    };
+    } as Match;
 }
 
 function toMapKey(value: string | number | null | undefined): string | null {
@@ -268,9 +307,10 @@ export function adaptBracketsMatches(
     participants: Participant[] | null,
     categoryId: string,
     tournamentId: string,
-    structureMaps?: MatchStructureMaps
+    structureMaps?: MatchStructureMaps,
+    options?: { includeTBD?: boolean }
 ): Match[] {
     return bracketsMatches
-        .map(bm => adaptBracketsMatchToLegacyMatch(bm, registrations, participants, categoryId, tournamentId, structureMaps))
+        .map(bm => adaptBracketsMatchToLegacyMatch(bm, registrations, participants, categoryId, tournamentId, structureMaps, options))
         .filter((m): m is Match => m !== null);
 }

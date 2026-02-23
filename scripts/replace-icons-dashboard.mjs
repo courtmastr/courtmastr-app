@@ -57,7 +57,7 @@ Object.keys(btnIconMap).forEach(mdi => {
     const comp = btnIconMap[mdi];
     content = content.replace(new RegExp(`prepend-icon="${mdi}"`, 'g'), `>\n            <template #prepend><${comp} :size="18" /></template`);
     // fix syntax if we injected it improperly:
-    content = content.replace(/>\n            <template #prepend><[a-zA-Z]+ :size="18" \/><\/template>/g, match => match.replace('</template', '</template>'));
+    content = content.replace(/>\n {12}<template #prepend><[a-zA-Z]+ :size="18" \/><\/template>/g, match => match.replace('</template', '</template>'));
 });
 // Need to handle self-closing v-btns and nested props better.
 // Actually, it's safer to use manual regex for each button block.

@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { differenceInMinutes } from 'date-fns';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useDurationFormatter } from '@/composables/useDurationFormatter';
 import CourtSummary from './CourtSummary.vue';
 
 interface Court {
@@ -39,6 +40,7 @@ const emit = defineEmits<{
 }>();
 
 const { getMatchupString } = useParticipantResolver();
+const { formatDuration } = useDurationFormatter();
 
 function getCourtColor(court: Court): string {
   if (!court.status || court.status === 'available') return 'success';
@@ -55,7 +57,7 @@ function getCurrentMatch(court: Court): Match | null {
 function getMatchDuration(match: Match): string {
   if (!match.startedAt) return '';
   const minutes = differenceInMinutes(new Date(), match.startedAt);
-  return `${minutes} min`;
+  return formatDuration(minutes);
 }
 </script>
 

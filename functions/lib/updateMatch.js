@@ -143,6 +143,39 @@ exports.updateMatch = functions.https.onCall(async (request) => {
                 console.warn(`⚠️  [updateMatch] Bracket winner ID ${bracketWinnerId} does not match opponent1 (${opponent1Id}) or opponent2 (${opponent2Id})`);
                 throw new Error(`Winner participant ID ${bracketWinnerId} does not match either opponent in match ${matchId}`);
             }
+            if (scores && scores.length > 0 && opponent1Id && opponent2Id) {
+                console.log('🎮 [updateMatch] Creating match_game documents for', scores.length, 'games');
+                for (let i = 0; i < scores.length; i++) {
+                    const game = scores[i];
+                    const gameNumber = i + 1;
+                    let gameWinner1 = 'loss';
+                    let gameWinner2 = 'loss';
+                    if (game.score1 > game.score2) {
+                        gameWinner1 = 'win';
+                    }
+                    else if (game.score2 > game.score1) {
+                        gameWinner2 = 'win';
+                    }
+                    const matchGameData = {
+                        stage_id: matchData.stage_id,
+                        parent_id: matchId,
+                        number: gameNumber,
+                        status: 4,
+                        opponent1: {
+                            id: opponent1Id,
+                            score: game.score1,
+                            result: gameWinner1,
+                        },
+                        opponent2: {
+                            id: opponent2Id,
+                            score: game.score2,
+                            result: gameWinner2,
+                        },
+                    };
+                    await manager.storage.insert('match_game', matchGameData);
+                    console.log(`✅ [updateMatch] Created match_game ${gameNumber}:`, { parent_id: matchId, gameNumber, score1: game.score1, score2: game.score2 });
+                }
+            }
         }
         console.log('🚀 [updateMatch] Calling manager.update.match with updateData:', updateData);
         await manager.update.match(updateData);

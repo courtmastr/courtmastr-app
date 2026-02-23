@@ -16,6 +16,7 @@ import {
   where,
   Timestamp,
   serverTimestamp,
+  setDoc,
 } from '@/services/firebase';
 import type { Court, Match, Registration } from '@/types';
 import {
@@ -24,6 +25,7 @@ import {
   type BracketsMatch,
   type Participant,
 } from '@/stores/bracketMatchAdapter';
+import { scheduleTimes, saveTimedSchedule, type TimeScheduleConfig } from './useTimeScheduler';
 
 // ============================================
 // Types
@@ -33,7 +35,9 @@ export interface ScheduleConfig {
   startTime: Date;
   endTime?: Date;
   matchDurationMinutes: number;
+  bufferMinutes?: number;
   minRestTimeMinutes: number;
+  concurrency?: number;  // defaults to courts.length when courts provided
   courts: Court[];
 }
 
@@ -84,6 +88,12 @@ export function useMatchScheduler() {
       courtIds?: string[];
       startTime?: Date;
       respectDependencies?: boolean;
+      matchDurationMinutes?: number;
+      bufferMinutes?: number;
+      concurrency?: number;
+      reflowMode?: boolean;
+      allowPublishedChanges?: boolean;
+      includeAssignedMatches?: boolean;
     }
   ): Promise<ScheduleResult> {
     loading.value = true;
@@ -110,9 +120,11 @@ export function useMatchScheduler() {
       progress.value = 10;
 
       // 2. Get courts
+      // Bug B fix: only count 'available' courts for concurrency; do not count in_use courts
+      // as they are already occupied and cannot take new assignments at schedule time.
       let courtsQuery = query(
         collection(db, 'tournaments', tournamentId, 'courts'),
-        where('status', 'in', ['available', 'in_use'])
+        where('status', 'in', ['available'])
       );
 
       if (options.courtIds && options.courtIds.length > 0) {
@@ -185,7 +197,8 @@ export function useMatchScheduler() {
 
         console.log('[scheduleMatches] Starting adaptation of', bracketsMatches.length, 'matches');
 
-        // Adapt brackets-manager matches to legacy format
+        // Adapt brackets-manager matches to legacy format.
+        // includeTBD=true so we get placeholder matches for future bracket rounds.
         adaptedMatches = [];
         for (const bMatch of bracketsMatches) {
           const adapted = adaptBracketsMatchToLegacyMatch(
@@ -194,7 +207,8 @@ export function useMatchScheduler() {
             participants,
             options.categoryId,
             tournamentId,
-            structureMaps
+            structureMaps,
+            { includeTBD: true }
           );
 
           if (adapted) {
@@ -233,18 +247,37 @@ export function useMatchScheduler() {
           });
         }
 
-        // Filter matches ready for scheduling
+        // Filter matches ready for time scheduling:
+        // - Never touch completed/walkover/cancelled
+        // - Respect lockedTime manual overrides
+        // - In reflow mode, keep safe defaults unless explicitly overridden
+        // TBD matches (no participants) are intentionally included for placeholder slots.
         matches = adaptedMatches.filter(m => {
-          // Include matches that are:
-          // 1. Not yet completed or walkover
-          // 2. Don't already have a court assignment or scheduled time
-          // Note: We include TBD matches (without participants yet) as they need time slots
-          const isSchedulable =
-            m.status !== 'completed' &&
-            m.status !== 'walkover' &&
-            !m.courtId &&
-            !m.scheduledTime;
-          return isSchedulable;
+          const scoreData = matchScoresMap.get(m.id);
+          if (scoreData?.lockedTime === true) return false; // Bug D fix: skip locked matches
+
+          const status = String(m.status || '');
+          if (status === 'completed' || status === 'walkover' || status === 'cancelled') {
+            return false;
+          }
+
+          if (options.reflowMode === true) {
+            const isPublished = scoreData?.scheduleStatus === 'published' || Boolean(scoreData?.publishedAt);
+            if (isPublished && options.allowPublishedChanges !== true) {
+              return false;
+            }
+
+            const hasAssignedCourt = Boolean(scoreData?.courtId || m.courtId);
+            if (hasAssignedCourt && options.includeAssignedMatches !== true) {
+              return false;
+            }
+
+            if (status === 'in_progress') {
+              return false;
+            }
+          }
+
+          return true;
         });
 
         console.log(`[scheduleMatches] Found ${matches.length} schedulable matches out of ${adaptedMatches.length} adapted`);
@@ -270,43 +303,66 @@ export function useMatchScheduler() {
 
       progress.value = 40;
 
-      // 4. Generate schedule
+      // 4. Time-first scheduling (court-independent)
       const startTime = options.startTime || new Date();
-      const endTime = tournament?.endDate?.toDate?.() || new Date(startTime.getTime() + 24 * 60 * 60 * 1000);
+      const endTime = tournament?.endDate?.toDate?.() || undefined;
 
-      const config: ScheduleConfig = {
+      const matchDurationMinutes =
+        options.matchDurationMinutes ?? settings.matchDurationMinutes ?? 30;
+      const bufferMinutes = options.bufferMinutes ?? settings.bufferMinutes ?? 0;
+      const concurrency = options.concurrency ?? (courts.length || 1);
+
+      const timeConfig: TimeScheduleConfig = {
         startTime,
         endTime,
-        matchDurationMinutes: settings.matchDurationMinutes || 30,
-        minRestTimeMinutes: settings.minRestTimeMinutes || 15,
-        courts,
+        matchDurationMinutes,
+        bufferMinutes,
+        concurrency,
+        minRestTimeMinutes: settings.minRestTimeMinutes ?? 15,
       };
 
-      console.log('[scheduleMatches] Scheduling configuration:', {
+      console.log('[scheduleMatches] Time-first scheduling configuration:', {
         categoryId: options.categoryId,
         matchCount: matches.length,
-        courts: courts.length,
-        startTime: config.startTime,
-        respectDependencies: options.respectDependencies,
-        sampleMatches: matches.slice(0, 3).map(m => ({
-          id: m.id,
-          round: m.round,
-          matchNumber: m.matchNumber,
-          participant1Id: m.participant1Id,
-          participant2Id: m.participant2Id,
-        }))
+        concurrency,
+        matchDurationMinutes,
+        bufferMinutes,
+        startTime,
       });
 
-      const schedule = generateSchedule(matches, config, options.respectDependencies !== false);
+      const timeResult = scheduleTimes(matches, timeConfig);
 
       progress.value = 70;
 
-      if (options.levelId) {
-        await saveSchedule(tournamentId, options.categoryId, schedule.scheduled, options.levelId);
-      } else {
-        await saveSchedule(tournamentId, options.categoryId, schedule.scheduled);
-      }
+      await saveTimedSchedule(
+        tournamentId,
+        options.categoryId,
+        timeResult,
+        options.levelId
+      );
       progress.value = 100;
+
+      // Return result in the existing ScheduleResult shape for backward compat
+      const schedule: ScheduleResult = {
+        scheduled: timeResult.planned.map((p, i) => ({
+          matchId: p.matchId,
+          courtId: '',         // time-first: no court assigned
+          courtNumber: 0,
+          scheduledTime: p.plannedStartAt,
+          estimatedEndTime: p.plannedEndAt,
+          sequence: i + 1,
+        })),
+        unscheduled: timeResult.unscheduled,
+        stats: {
+          totalMatches: timeResult.stats.totalMatches,
+          scheduledCount: timeResult.stats.plannedCount,
+          unscheduledCount: timeResult.stats.unscheduledCount,
+          courtUtilization: 0,
+          estimatedDuration: timeResult.stats.estimatedEndTime
+            ? Math.ceil((timeResult.stats.estimatedEndTime.getTime() - startTime.getTime()) / 60_000)
+            : 0,
+        },
+      };
 
       return schedule;
 
@@ -379,6 +435,10 @@ export function useMatchScheduler() {
         batch.update(matchDoc.ref, {
           courtId: null,
           scheduledTime: null,
+          plannedStartAt: null,
+          plannedEndAt: null,
+          scheduleStatus: null,
+          scheduleVersion: null,
           updatedAt: serverTimestamp(),
         });
         cleared++;
@@ -411,242 +471,3 @@ export function useMatchScheduler() {
 // ============================================
 // Scheduling Algorithm
 // ============================================
-
-import { setDoc } from 'firebase/firestore';
-
-function generateSchedule(
-  matches: any[],
-  config: ScheduleConfig,
-  respectDependencies: boolean
-): ScheduleResult {
-  const scheduled: ScheduledMatch[] = [];
-  const unscheduled: UnscheduledMatch[] = [];
-
-  const courtAvailability = new Map<string, Date>();
-  for (const court of config.courts) {
-    courtAvailability.set(court.id, config.startTime);
-  }
-
-  const participantSchedule = new Map<string, Date>();
-  const scheduledMatchIds = new Set<string>();
-
-  /**
-   * Extract participant IDs from match
-   * Uses participant1Id/participant2Id (from brackets-manager)
-   */
-  const getMatchParticipantIds = (match: any): string[] => {
-    const ids: string[] = [];
-    if (match.participant1Id) ids.push(match.participant1Id);
-    if (match.participant2Id) ids.push(match.participant2Id);
-    return ids;
-  };
-
-  /**
-   * Group matches by round number
-   */
-  const matchesByRound = new Map<number, any[]>();
-  for (const match of matches) {
-    if (!matchesByRound.has(match.round)) {
-      matchesByRound.set(match.round, []);
-    }
-    matchesByRound.get(match.round)!.push(match);
-  }
-
-  const sortedRounds = Array.from(matchesByRound.keys()).sort((a, b) => a - b);
-
-  let sequence = 1;
-  let lastEndTime = config.startTime;
-  const latestEnd = config.endTime || new Date(config.startTime.getTime() + 12 * 60 * 60 * 1000);
-
-  /**
-   * Process rounds sequentially (round 1, then round 2, etc.)
-   */
-  for (const round of sortedRounds) {
-    const roundMatches = matchesByRound.get(round)!;
-
-    /**
-     * Sort matches within round by priority:
-     * 1. Ready matches first (both participants present)
-     * 2. Then by position (matchNumber)
-     */
-    const sortedMatches = roundMatches.sort((a, b) => {
-      const aReady = a.participant1Id && a.participant2Id ? 1 : 0;
-      const bReady = b.participant1Id && b.participant2Id ? 1 : 0;
-      if (aReady !== bReady) return bReady - aReady;
-      return (a.matchNumber || a.position || 0) - (b.matchNumber || b.position || 0);
-    });
-
-    for (const match of sortedMatches) {
-      const matchId = match.id;
-      const participantIds = getMatchParticipantIds(match);
-
-      // Skip TBD matches (no participants)
-      if (participantIds.length === 0 && match.status === 0) {
-        unscheduled.push({ matchId, reason: 'Waiting for participants (TBD match)' });
-        continue;
-      }
-
-      /**
-       * CRITICAL: Check bracket dependencies
-       * Feeding match = match where nextMatchId === currentMatch.id
-       * If feeding matches are unscheduled, skip this match
-       */
-      if (respectDependencies) {
-        const feedingMatches = matches.filter(
-          (m) => m.nextMatchId === match.id && !scheduledMatchIds.has(m.id)
-        );
-        if (feedingMatches.length > 0) {
-          unscheduled.push({
-            matchId,
-            reason: `Waiting for ${feedingMatches.length} feeding match(es) to complete`,
-            details: { feedingMatchIds: feedingMatches.map((m) => m.id) }
-          });
-          continue;
-        }
-      }
-
-      /**
-       * Calculate earliest start time based on participant rest
-       * Rest time = minRestTimeMinutes * 60 * 1000 milliseconds
-       */
-      let earliestStart = config.startTime;
-      let restViolation = false;
-      let restViolationDetails: { participantId: string; restEndTime: Date } | null = null;
-
-      for (const pid of participantIds) {
-        const lastEnd = participantSchedule.get(pid);
-        if (lastEnd) {
-          const restEnd = new Date(lastEnd.getTime() + config.minRestTimeMinutes * 60 * 1000);
-          if (restEnd > earliestStart) {
-            earliestStart = restEnd;
-            if (restEnd > latestEnd) {
-              restViolation = true;
-              restViolationDetails = { participantId: pid, restEndTime: restEnd };
-            }
-          }
-        }
-      }
-
-      if (restViolation && restViolationDetails) {
-        unscheduled.push({
-          matchId,
-          reason: `Participant needs ${config.minRestTimeMinutes}-minute rest until ${restViolationDetails.restEndTime.toLocaleTimeString()}, but tournament ends at ${latestEnd.toLocaleTimeString()}`,
-          details: { participantId: restViolationDetails.participantId, restEndTime: restViolationDetails.restEndTime, tournamentEndTime: latestEnd }
-        });
-        continue;
-      }
-
-      /**
-       * Try all courts, pick earliest available
-       * Court selection: Find court with earliest available time
-       */
-      let bestCourt: Court | null = null;
-      let bestStartTime = new Date(latestEnd.getTime());
-
-      for (const court of config.courts) {
-        const availableTime = courtAvailability.get(court.id) || config.startTime;
-        const potentialStart = new Date(Math.max(availableTime.getTime(), earliestStart.getTime()));
-        if (potentialStart < bestStartTime) {
-          bestStartTime = potentialStart;
-          bestCourt = court;
-        }
-      }
-
-      if (!bestCourt) {
-        unscheduled.push({ matchId, reason: 'No available courts' });
-        continue;
-      }
-
-      const endTime = new Date(bestStartTime.getTime() + config.matchDurationMinutes * 60 * 1000);
-
-      /**
-       * Time window: Must end before tournament end time
-       */
-      if (endTime > latestEnd) {
-        unscheduled.push({
-          matchId,
-          reason: `No available time slot. Match would end at ${endTime.toLocaleTimeString()}, but tournament ends at ${latestEnd.toLocaleTimeString()}`,
-          details: { estimatedEnd: endTime, tournamentEnd: latestEnd }
-        });
-        continue;
-      }
-
-      /**
-       * Write to schedule with fields: courtId, scheduledTime, sequence, updatedAt
-       */
-      scheduled.push({
-        matchId,
-        courtId: bestCourt.id,
-        courtNumber: bestCourt.number,
-        scheduledTime: bestStartTime,
-        estimatedEndTime: endTime,
-        sequence: sequence++,
-      });
-
-      scheduledMatchIds.add(matchId);
-      courtAvailability.set(bestCourt.id, endTime);
-      for (const pid of participantIds) {
-        participantSchedule.set(pid, endTime);
-      }
-      if (endTime > lastEndTime) {
-        lastEndTime = endTime;
-      }
-    }
-  }
-
-  const totalMatches = matches.length;
-  const scheduledCount = scheduled.length;
-  const unscheduledCount = unscheduled.length;
-  const duration = lastEndTime.getTime() - config.startTime.getTime();
-  const estimatedDuration = Math.ceil(duration / (1000 * 60));
-  const totalCourtMinutes = config.courts.length * estimatedDuration;
-  const usedMinutes = scheduledCount * config.matchDurationMinutes;
-  const courtUtilization = totalCourtMinutes > 0
-    ? Math.round((usedMinutes / totalCourtMinutes) * 100)
-    : 0;
-
-  return {
-    scheduled,
-    unscheduled,
-    stats: {
-      totalMatches,
-      scheduledCount,
-      unscheduledCount,
-      courtUtilization: Math.min(courtUtilization, 100),
-      estimatedDuration,
-    },
-  };
-}
-
-async function saveSchedule(
-  tournamentId: string,
-  categoryId: string,
-  scheduled: ScheduledMatch[],
-  levelId?: string
-): Promise<void> {
-  const batch = writeBatch(db);
-
-  for (const slot of scheduled) {
-    const matchScoresPath = levelId
-      ? `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}/match_scores`
-      : `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
-    const scoreRef = doc(
-      db,
-      matchScoresPath,
-      slot.matchId
-    );
-    batch.set(
-      scoreRef,
-      {
-        courtId: slot.courtId,
-        scheduledTime: Timestamp.fromDate(slot.scheduledTime),
-        sequence: slot.sequence,
-        status: 'scheduled',
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-  }
-
-  await batch.commit();
-}
