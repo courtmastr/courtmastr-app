@@ -1,0 +1,442 @@
+/* ============================================
+   OBS Broadcast Overlay Styles
+   Professional score bug for streaming
+   ============================================ */
+
+/* Reset and transparent foundation */
+html.obs-page,
+html.obs-page body,
+html.obs-page #app {
+  background: transparent !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  height: 100vh;
+  width: 100vw;
+  font-family: 'Roboto', 'Arial', sans-serif;
+}
+
+/* ============================================
+   SCORE BUG - Compact horizontal overlay
+   Position: typically bottom corner
+   ============================================ */
+
+.obs-score-bug {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: stretch;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  will-change: transform;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Dark theme (default) */
+.obs-score-bug--dark {
+  background: linear-gradient(135deg, rgba(20, 20, 25, 0.95), rgba(30, 30, 35, 0.9));
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Light theme */
+.obs-score-bug--light {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(245, 245, 250, 0.9));
+  color: #1a1a1a;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Team section (left and right) */
+.score-bug-team {
+  display: flex;
+  align-items: center;
+  padding: 16px 24px;
+  min-width: 200px;
+}
+
+.score-bug-team--left {
+  justify-content: flex-end;
+  text-align: right;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.score-bug-team--right {
+  justify-content: flex-start;
+  text-align: left;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Player/Team name */
+.score-bug-name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* Games won indicator (small badge) */
+.score-bug-games {
+  font-size: 14px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin: 0 12px;
+  min-width: 28px;
+  text-align: center;
+}
+
+.obs-score-bug--dark .score-bug-games {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.obs-score-bug--light .score-bug-games {
+  background: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+/* Current points - LARGE */
+.score-bug-points {
+  font-size: 42px;
+  font-weight: 900;
+  min-width: 56px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Center section - VS or Live indicator */
+.score-bug-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  min-width: 80px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.score-bug-vs {
+  font-size: 14px;
+  font-weight: 800;
+  opacity: 0.5;
+  letter-spacing: 2px;
+}
+
+/* Live indicator */
+.score-bug-live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #4caf50;
+}
+
+.score-bug-live-dot {
+  width: 8px;
+  height: 8px;
+  background: #4caf50;
+  border-radius: 50%;
+  animation: live-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.9); }
+}
+
+/* Court name badge */
+.score-bug-court {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.obs-score-bug--dark .score-bug-court {
+  background: rgba(20, 20, 25, 0.95);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.obs-score-bug--light .score-bug-court {
+  background: rgba(255, 255, 255, 0.95);
+  color: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Match info (category/round) */
+.score-bug-info {
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+/* Loading state */
+.score-bug-loading {
+  padding: 20px 40px;
+  font-size: 16px;
+  opacity: 0.7;
+}
+
+/* ============================================
+   MULTI-MATCH OVERLAY (Side-by-side bugs)
+   For showing 2-3 matches simultaneously
+   ============================================ */
+
+.obs-multi-bug {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.obs-multi-bug .obs-score-bug {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  transform: none;
+  font-size: 16px;
+}
+
+.obs-multi-bug .score-bug-team {
+  padding: 14px 20px;
+  min-width: 160px;
+}
+
+.obs-multi-bug .score-bug-name {
+  font-size: 17px;
+  max-width: 160px;
+}
+
+.obs-multi-bug .score-bug-points {
+  font-size: 36px;
+  min-width: 48px;
+}
+
+.obs-multi-bug .score-bug-center {
+  padding: 10px 16px;
+  min-width: 70px;
+}
+
+/* ============================================
+   MINIMAL SCORE TICKER
+   For showing many matches in a row
+   ============================================ */
+
+.obs-ticker {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(90deg, rgba(10, 10, 15, 0.98), rgba(20, 20, 25, 0.95));
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.obs-ticker--light {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.98), rgba(245, 245, 250, 0.95));
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.ticker-match {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+  gap: 12px;
+}
+
+.ticker-names {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ticker-score {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticker-live {
+  color: #4caf50;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* ============================================
+   FULL SCREEN SCOREBOARD (for dedicated scene)
+   ============================================ */
+
+.obs-full-scoreboard {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 60px 80px;
+  box-sizing: border-box;
+}
+
+.obs-full-scoreboard--dark {
+  background: linear-gradient(135deg, rgba(15, 15, 20, 0.97), rgba(25, 25, 30, 0.95));
+  color: #fff;
+}
+
+.obs-full-scoreboard--light {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(245, 245, 250, 0.95));
+  color: #1a1a1a;
+}
+
+.scoreboard-header {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.scoreboard-title {
+  font-size: 48px;
+  font-weight: 800;
+  margin: 0 0 12px 0;
+  letter-spacing: -0.5px;
+}
+
+.scoreboard-subtitle {
+  font-size: 20px;
+  opacity: 0.6;
+  font-weight: 500;
+}
+
+.scoreboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 24px;
+  overflow-y: auto;
+}
+
+.scoreboard-card {
+  border-radius: 16px;
+  padding: 24px;
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.obs-full-scoreboard--dark .scoreboard-card {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.obs-full-scoreboard--light .scoreboard-card {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.card-court {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.8;
+}
+
+.card-category {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.5;
+}
+
+.card-team {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+
+.card-team-name {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.card-score {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.card-games {
+  font-size: 15px;
+  font-weight: 700;
+  opacity: 0.5;
+  min-width: 24px;
+  text-align: center;
+}
+
+.card-points {
+  font-size: 32px;
+  font-weight: 900;
+  min-width: 48px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Hide scrollbars but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Position variants */
+.position-bottom-left { left: 40px; right: auto; transform: none; }
+.position-bottom-right { left: auto; right: 40px; transform: none; }
+.position-top-left { top: 40px; bottom: auto; left: 40px; right: auto; transform: none; }
+.position-top-right { top: 40px; bottom: auto; left: auto; right: 40px; transform: none; }

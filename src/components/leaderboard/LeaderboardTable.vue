@@ -32,6 +32,7 @@ const compactHeaders = computed(() => {
     { key: 'status', title: 'Status', width: '110px' },
     { key: 'matchPoints', title: 'MP', width: '70px', align: 'center' as const },
     { key: 'record', title: 'W-L', width: '80px', align: 'center' as const },
+    { key: 'played', title: 'Played', width: '75px', align: 'center' as const },
     { key: 'games', title: 'Games', width: '90px', align: 'center' as const },
     { key: 'points', title: 'Pts For/Ag', width: '110px', align: 'center' as const },
     { key: 'pointDiff', title: 'Pts +/-', width: '80px', align: 'center' as const },
@@ -71,6 +72,18 @@ function diffColorClass(val: number): string {
   return 'text-medium-emphasis';
 }
 
+const STEP_LABELS_SHORT: Record<string, string> = {
+  head_to_head: 'Head-to-Head result',
+  game_difference: 'Game Difference/match',
+  point_difference: 'Point Difference/match',
+  equal: 'Equal Standing',
+  match_wins: 'Match Wins',
+};
+
+function fmt(val: number): string {
+  return val > 0 ? `+${val}` : String(val);
+}
+
 function statusLabel(entry: LeaderboardEntry): string {
   if (entry.matchesPlayed === 0) return 'Awaiting';
   if (entry.eliminated) return 'Eliminated';
@@ -98,6 +111,74 @@ function statusColor(entry: LeaderboardEntry): string {
     show-expand
     item-value="participantName"
   >
+    <!-- Column header tooltips -->
+    <template #header.matchPoints>
+      <v-tooltip
+        location="top"
+        max-width="260"
+        text="Match Points — Win=2, Loss=1, Walkover Win=2. Primary ranking key (BWF Art. 16.1)"
+      >
+        <template #activator="{ props: tp }">
+          <span
+            v-bind="tp"
+            class="cursor-help"
+          >
+            MP <v-icon size="12">mdi-information-outline</v-icon>
+          </span>
+        </template>
+      </v-tooltip>
+    </template>
+
+    <template #header.played>
+      <v-tooltip
+        location="top"
+        max-width="260"
+        text="Matches Played — includes walkover wins from BYE slots. All players in the same pool play the same number of matches."
+      >
+        <template #activator="{ props: tp }">
+          <span
+            v-bind="tp"
+            class="cursor-help"
+          >
+            Played <v-icon size="12">mdi-information-outline</v-icon>
+          </span>
+        </template>
+      </v-tooltip>
+    </template>
+
+    <template #header.games>
+      <v-tooltip
+        location="top"
+        max-width="280"
+        text="Games Won-Lost. Game Difference (GD) is Tiebreaker #2 after MP tie — normalized per match to be fair across pools of different sizes."
+      >
+        <template #activator="{ props: tp }">
+          <span
+            v-bind="tp"
+            class="cursor-help"
+          >
+            Games <v-icon size="12">mdi-information-outline</v-icon>
+          </span>
+        </template>
+      </v-tooltip>
+    </template>
+
+    <template #header.pointDiff>
+      <v-tooltip
+        location="top"
+        max-width="300"
+        text="Point Difference (PD) = Points For minus Points Against. Tiebreaker #3. Walkovers count as 0-0 and are excluded from PD. Normalized per match played for fairness across pools."
+      >
+        <template #activator="{ props: tp }">
+          <span
+            v-bind="tp"
+            class="cursor-help"
+          >
+            Pts +/- <v-icon size="12">mdi-information-outline</v-icon>
+          </span>
+        </template>
+      </v-tooltip>
+    </template>
     <template #item.rank="{ item }">
       <div
         v-if="item.matchesPlayed === 0"
@@ -165,6 +246,10 @@ function statusColor(entry: LeaderboardEntry): string {
 
     <template #item.record="{ item }">
       <span>{{ item.matchesWon }}-{{ item.matchesLost }}</span>
+    </template>
+
+    <template #item.played="{ item }">
+      <span class="text-medium-emphasis">{{ item.matchesPlayed }}</span>
     </template>
 
     <template #item.games="{ item }">
@@ -265,6 +350,67 @@ function statusColor(entry: LeaderboardEntry): string {
                 </v-card>
               </v-col>
             </v-row>
+
+            <!-- Tiebreaker receipt — only shown if this entry was in a resolved tie -->
+            <div
+              v-if="resolutionMap.has(item.registrationId) &&
+                resolutionMap.get(item.registrationId)!.resolvedValues?.length === 2"
+              class="mt-3"
+            >
+              <div class="text-subtitle-2 mb-2 font-weight-medium">
+                <v-icon
+                  icon="mdi-scale-balance"
+                  size="16"
+                  color="warning"
+                  class="mr-1"
+                />
+                Tiebreaker Receipt
+              </div>
+
+              <!-- Determine which entry is "this" player and which is "the other" -->
+              <template
+                v-for="res in [resolutionMap.get(item.registrationId)!]"
+                :key="res.tiedRank"
+              >
+                <v-alert
+                  type="warning"
+                  variant="tonal"
+                  density="compact"
+                  class="text-caption"
+                >
+                  <!-- Winner line -->
+                  <span class="font-weight-bold">
+                    {{ res.resolvedValues![0].participantName }}
+                  </span>
+                  ranked higher by
+                  <strong>{{ STEP_LABELS_SHORT[res.step] }}</strong>
+
+                  <!-- Metric chips inline -->
+                  <div class="d-flex flex-wrap gap-1 mt-1">
+                    <v-chip
+                      v-for="(metric, i) in res.resolvedValues![0].metrics"
+                      :key="i"
+                      size="x-small"
+                      :color="metric.decided ? 'success' : metric.tied ? 'grey' : 'default'"
+                      :variant="metric.decided ? 'flat' : 'tonal'"
+                    >
+                      {{ metric.label }}:
+                      {{ fmt(res.resolvedValues![0].metrics[i].value) }}
+                      {{ metric.tied ? '=' : metric.decided ? '>' : '' }}
+                      {{ fmt(res.resolvedValues![1].metrics[i].value) }}
+                      <v-icon
+                        v-if="metric.decided"
+                        size="10"
+                        class="ml-1"
+                      >
+                        mdi-check
+                      </v-icon>
+                    </v-chip>
+                  </div>
+                </v-alert>
+              </template>
+            </div>
+
             <div
               v-if="item.firstMatchAt || item.lastMatchAt"
               class="mt-3 text-caption text-medium-emphasis"

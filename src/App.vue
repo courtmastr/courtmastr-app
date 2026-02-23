@@ -1,13 +1,29 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import AppLayout from '@/components/layout/AppLayout.vue';
 
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
+const route = useRoute();
 
 const isLoading = computed(() => authStore.loading);
+const isObsOverlay = computed(() => route.meta.obsOverlay as boolean);
+
+// Toggle 'obs-page' class on <html> based on route meta for OBS overlay transparency
+watch(
+  isObsOverlay,
+  (isObs) => {
+    if (isObs) {
+      document.documentElement.classList.add('obs-page');
+    } else {
+      document.documentElement.classList.remove('obs-page');
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -25,8 +41,11 @@ const isLoading = computed(() => authStore.loading);
       />
     </v-overlay>
 
-    <!-- Main layout -->
-    <AppLayout v-if="!isLoading" />
+    <!-- Main layout (hidden for OBS overlay routes) -->
+    <AppLayout v-if="!isLoading && !isObsOverlay" />
+    
+    <!-- OBS overlay content (no navigation) -->
+    <router-view v-if="!isLoading && isObsOverlay" />
 
     <!-- Toast notifications -->
     <v-snackbar

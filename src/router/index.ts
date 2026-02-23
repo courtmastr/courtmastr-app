@@ -244,6 +244,20 @@ const routes: RouteRecordRaw[] = [
     redirect: '/tournaments',
   },
 
+  // OBS Overlay routes (no auth, transparent background)
+  {
+    path: '/obs/:tournamentId/match/:matchId',
+    name: 'obs-score-bug',
+    component: () => import('@/features/obs/views/ObsScoreBugView.vue'),
+    meta: { requiresAuth: false, obsOverlay: true },
+  },
+  {
+    path: '/obs/:tournamentId/scoreboard',
+    name: 'obs-scoreboard',
+    component: () => import('@/features/obs/views/ObsScoreboardView.vue'),
+    meta: { requiresAuth: false, obsOverlay: true },
+  },
+
   // Catch-all 404
   {
     path: '/:pathMatch(.*)*',
@@ -266,6 +280,12 @@ const router = createRouter({
 // Navigation guards
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
+
+  // Skip all auth checks for OBS overlay routes
+  if (to.meta.obsOverlay) {
+    next();
+    return;
+  }
 
   // Wait for auth to initialize
   if (authStore.loading) {
