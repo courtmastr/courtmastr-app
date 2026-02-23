@@ -4,7 +4,7 @@
   date: "2026-02-23"
   fingerprint: "2078f8ff"
   command: "npm run lint:log"
-  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-13-54-47.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-23-14-28-01.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 637073f2
   title: build:log fails on existing unused import in tournaments export utility
   status: "✅ fixed"

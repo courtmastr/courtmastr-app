@@ -2045,6 +2045,72 @@ rg -n "releaseScoreHandling|clearInProgressState: shouldClearInProgressState|ret
 
 ---
 
+### CP-044: Pool Scheduling Must Block Missing Pool Brackets Before Running Scheduler
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-23 |
+| **Source Bug** | Pool-to-elimination categories showed contradictory scheduling feedback (`0 scheduled` success + warning) and still exposed `Schedule Times` in overflow before bracket generation |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const result = await runSequentialSchedule(start);
+lastResult.value = { totalScheduled: result.stats.scheduledCount, ... };
+
+if (result.stats.scheduledCount === 0) {
+  const poolCategoriesWithNoStage = selectedCategories.value.filter(
+    (category) => category.format === 'pool_to_elimination' && category.poolStageId == null
+  );
+  if (poolCategoriesWithNoStage.length > 0) {
+    notificationStore.showToast('warning', 'Pool brackets not generated ...');
+  }
+}
+```
+```vue
+<v-list-item
+  v-if="isScheduleAvailable(stats)"
+  title="Schedule Times"
+/>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const poolCategoriesWithNoStage = selectedCategories.value.filter(
+  (category) => category.format === 'pool_to_elimination' && category.poolStageId == null
+);
+if (poolCategoriesWithNoStage.length > 0) {
+  notificationStore.showToast('warning', 'Pool brackets not generated ...');
+  return;
+}
+
+loading.value = true;
+const result = await runSequentialSchedule(start);
+```
+```vue
+<v-list-item
+  v-if="isScheduleAvailable(stats) && !(stats.resolvedFormat === 'pool_to_elimination' && stats.category.poolStageId == null)"
+  title="Schedule Times"
+/>
+```
+
+**Rule:** For `pool_to_elimination`, scheduling entry points must be blocked until `poolStageId` exists. The scheduler dialog must preflight this before executing scheduling logic so users see one clear warning and no contradictory `0 scheduled` draft/success state.
+
+**Detection:**
+```bash
+if rg -n -U "if \\(result\\.stats\\.scheduledCount === 0\\)[\\s\\S]*pool_to_elimination" src/features/tournaments/dialogs/AutoScheduleDialog.vue; then
+  echo "Violation: pool bracket guard runs after scheduler result"
+fi
+if rg -n "v-if=\"isScheduleAvailable\\(stats\\)\"$" src/features/tournaments/components/CategoryRegistrationStats.vue; then
+  echo "Violation: Schedule Times menu not gated by poolStageId"
+fi
+rg -n "const poolCategoriesWithNoStage = selectedCategories\\.value\\.filter" src/features/tournaments/dialogs/AutoScheduleDialog.vue
+rg -n "pool_to_elimination' && stats\\.category\\.poolStageId == null" src/features/tournaments/components/CategoryRegistrationStats.vue
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
