@@ -1,5 +1,4 @@
 import { ref, onUnmounted } from 'vue';
-import type { Transaction } from 'firebase/firestore';
 import {
   db,
   collection,
@@ -7,20 +6,103 @@ import {
   where,
   onSnapshot,
   getDocs,
-  orderBy,
-  limit,
   doc,
-  runTransaction,
-  serverTimestamp,
+  getDoc,
+  Timestamp,
 } from '@/services/firebase';
+import { useMatchStore } from '@/stores/matches';
+
+interface QueueCandidate {
+  matchId: string;
+  categoryId: string;
+  levelId?: string;
+  queuePosition: number;
+  plannedStartAtMs: number;
+}
+
+function asTimestampMs(value: unknown): number {
+  if (value instanceof Date) return value.getTime();
+  if (value instanceof Timestamp) return value.toDate().getTime();
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function isPublished(data: Record<string, unknown>): boolean {
+  return data.scheduleStatus === 'published' || Boolean(data.publishedAt);
+}
+
+function hasPlannedTime(data: Record<string, unknown>): boolean {
+  return Boolean(data.plannedStartAt || data.scheduledTime);
+}
 
 export function useAutoAssignment(tournamentId: string) {
+  const matchStore = useMatchStore();
   const enabled = ref(true);
   const paused = ref(false);
   const processing = ref(false);
   const lastAssignment = ref<Date | null>(null);
 
   let courtsUnsubscribe: (() => void) | null = null;
+
+  async function loadQueueCandidates(): Promise<QueueCandidate[]> {
+    const categorySnap = await getDocs(collection(db, `tournaments/${tournamentId}/categories`));
+    const candidates: QueueCandidate[] = [];
+
+    for (const categoryDoc of categorySnap.docs) {
+      const categoryId = categoryDoc.id;
+
+      const baseQueueSnap = await getDocs(
+        query(
+          collection(db, `tournaments/${tournamentId}/categories/${categoryId}/match_scores`),
+          where('status', '==', 'scheduled'),
+          where('courtId', '==', null)
+        )
+      );
+
+      for (const matchDoc of baseQueueSnap.docs) {
+        const data = matchDoc.data() as Record<string, unknown>;
+        if (!hasPlannedTime(data) || !isPublished(data)) continue;
+
+        candidates.push({
+          matchId: matchDoc.id,
+          categoryId,
+          queuePosition: Number(data.queuePosition ?? Number.MAX_SAFE_INTEGER),
+          plannedStartAtMs: asTimestampMs(data.plannedStartAt ?? data.scheduledTime),
+        });
+      }
+
+      const levelSnap = await getDocs(collection(db, `tournaments/${tournamentId}/categories/${categoryId}/levels`));
+      for (const levelDoc of levelSnap.docs) {
+        const levelId = levelDoc.id;
+        const levelQueueSnap = await getDocs(
+          query(
+            collection(db, `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}/match_scores`),
+            where('status', '==', 'scheduled'),
+            where('courtId', '==', null)
+          )
+        );
+
+        for (const matchDoc of levelQueueSnap.docs) {
+          const data = matchDoc.data() as Record<string, unknown>;
+          if (!hasPlannedTime(data) || !isPublished(data)) continue;
+
+          candidates.push({
+            matchId: matchDoc.id,
+            categoryId,
+            levelId,
+            queuePosition: Number(data.queuePosition ?? Number.MAX_SAFE_INTEGER),
+            plannedStartAtMs: asTimestampMs(data.plannedStartAt ?? data.scheduledTime),
+          });
+        }
+      }
+    }
+
+    candidates.sort((a, b) => {
+      if (a.queuePosition !== b.queuePosition) return a.queuePosition - b.queuePosition;
+      return a.plannedStartAtMs - b.plannedStartAtMs;
+    });
+
+    return candidates;
+  }
 
   function start() {
     const courtsQuery = query(
@@ -31,7 +113,7 @@ export function useAutoAssignment(tournamentId: string) {
     courtsUnsubscribe = onSnapshot(courtsQuery, async (snapshot) => {
       if (!enabled.value || paused.value || processing.value) return;
 
-      const availableCourts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const availableCourts = snapshot.docs.map((courtDoc) => ({ id: courtDoc.id, ...courtDoc.data() }));
 
       for (const court of availableCourts) {
         if (!enabled.value || paused.value || processing.value) break;
@@ -44,43 +126,34 @@ export function useAutoAssignment(tournamentId: string) {
     processing.value = true;
 
     try {
-      await runTransaction(db, async (transaction: Transaction) => {
-        const courtRef = doc(db, `tournaments/${tournamentId}/courts`, courtId);
-        const courtDoc = await transaction.get(courtRef);
+      const courtRef = doc(db, `tournaments/${tournamentId}/courts`, courtId);
+      const courtDoc = await getDoc(courtRef);
+      if (!courtDoc.exists() || courtDoc.data().status !== 'available') {
+        return;
+      }
 
-        if (!courtDoc.exists() || courtDoc.data().status !== 'available') {
-          throw new Error('Court no longer available');
+      const candidates = await loadQueueCandidates();
+      if (candidates.length === 0) return;
+
+      for (const candidate of candidates) {
+        try {
+          await matchStore.assignCourt(
+            tournamentId,
+            candidate.matchId,
+            courtId,
+            candidate.categoryId,
+            candidate.levelId
+          );
+          lastAssignment.value = new Date();
+          return;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : '';
+          if (message.includes('Blocked:')) {
+            continue;
+          }
+          throw error;
         }
-
-        const queueQuery = query(
-          collection(db, `tournaments/${tournamentId}/match_scores`),
-          where('status', '==', 'scheduled'),
-          where('courtId', '==', null),
-          orderBy('queuePosition', 'asc'),
-          limit(1)
-        );
-
-        const queueSnapshot = await getDocs(queueQuery);
-        if (queueSnapshot.empty) return;
-
-        const matchDoc = queueSnapshot.docs[0];
-
-        transaction.update(doc(db, `tournaments/${tournamentId}/match_scores`, matchDoc.id), {
-          courtId,
-          status: 'ready',
-          assignedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-
-        transaction.update(courtRef, {
-          status: 'in_use',
-          currentMatchId: matchDoc.id,
-          assignedMatchId: matchDoc.id,
-          updatedAt: serverTimestamp(),
-        });
-      });
-
-      lastAssignment.value = new Date();
+      }
     } catch (error) {
       console.error('Error assigning match to court:', error);
     } finally {
