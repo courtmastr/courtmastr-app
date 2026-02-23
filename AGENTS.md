@@ -360,8 +360,9 @@ test('example', async ({ page, agentBrowser }) => {
 
 This is a **living document** of anti-patterns and correct patterns learned from bug fixes. All agents MUST:
 
-1. **Read before coding** — Scan relevant categories for known anti-patterns.
-2. **Update after fixing bugs** — Run `/capture-pattern` workflow (see `.agent/workflows/capture-pattern.md`).
+1. **Read BEFORE PLANNING** — Before creating any implementation plan, scan relevant pattern categories. Patterns contain detection commands and known pitfalls that will change your approach.
+2. **Apply during coding** — Follow the correct patterns and avoid documented anti-patterns.
+3. **Update after fixing bugs** — Run `/capture-pattern` workflow (see `.agent/workflows/capture-pattern.md`).
 
 ### Post-Fix Protocol (Mandatory)
 
