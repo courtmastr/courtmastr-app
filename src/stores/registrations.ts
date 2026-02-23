@@ -14,6 +14,7 @@ import {
   orderBy,
   onSnapshot,
   serverTimestamp,
+  writeBatch,
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
 import type { Registration, RegistrationStatus, Player } from '@/types';
@@ -392,7 +393,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
   ): Promise<void> {
     await updateRegistrationStatus(tournamentId, registrationId, 'approved', approvedBy);
   }
-  
+
   // Mark registration as no-show
   async function markNoShowRegistration(
     tournamentId: string,
@@ -401,13 +402,13 @@ export const useRegistrationStore = defineStore('registrations', () => {
   ): Promise<void> {
     const registration = registrations.value.find(r => r.id === registrationId);
     const participantName = registration?.teamName || registration?.playerId || registrationId;
-    
+
     await updateRegistrationStatus(tournamentId, registrationId, 'no_show', markedBy);
-    
+
     const auditStore = useAuditStore();
     const authStore = useAuthStore();
     const actor = authStore.currentUser;
-    
+
     if (actor) {
       await auditStore.logRegistrationNoShow(
         tournamentId,
@@ -416,7 +417,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
       );
     }
   }
-  
+
   // Undo no-show (return to approved)
   async function undoNoShowRegistration(
     tournamentId: string,
@@ -425,13 +426,13 @@ export const useRegistrationStore = defineStore('registrations', () => {
   ): Promise<void> {
     const registration = registrations.value.find(r => r.id === registrationId);
     const participantName = registration?.teamName || registration?.playerId || registrationId;
-    
+
     await updateRegistrationStatus(tournamentId, registrationId, 'approved', approvedBy);
-    
+
     const auditStore = useAuditStore();
     const authStore = useAuthStore();
     const actor = authStore.currentUser;
-    
+
     if (actor) {
       await auditStore.logRegistrationNoShow(
         tournamentId,
@@ -440,7 +441,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
       );
     }
   }
-  
+
   // Assign bib number to registration
   async function assignBibNumber(
     tournamentId: string,
@@ -497,6 +498,31 @@ export const useRegistrationStore = defineStore('registrations', () => {
       );
     } catch (err) {
       console.error('Error updating seed:', err);
+      throw err;
+    }
+  }
+
+  // Batch update seeds efficiently using writeBatch
+  async function batchUpdateSeeds(
+    tournamentId: string,
+    updates: { registrationId: string; seed: number | null }[]
+  ): Promise<void> {
+    if (!updates.length) return;
+
+    try {
+      const batch = writeBatch(db);
+      for (const update of updates) {
+        const ref = doc(db, `tournaments/${tournamentId}/registrations`, update.registrationId);
+        batch.update(ref, {
+          seed: update.seed,
+          updatedAt: serverTimestamp(),
+        });
+      }
+      await batch.commit();
+
+      // We do not need to manually update local state since we use onSnapshot for registrations.
+    } catch (err) {
+      console.error('Error batch updating seeds:', err);
       throw err;
     }
   }
@@ -587,6 +613,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
     reinstateRegistration,
     setSeed,
     updateSeed,
+    batchUpdateSeeds,
     updatePaymentStatus,
     deleteRegistration,
     getPlayerById,
