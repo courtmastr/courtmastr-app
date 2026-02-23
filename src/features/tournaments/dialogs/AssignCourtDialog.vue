@@ -53,7 +53,7 @@ async function assignCourt() {
     );
     notificationStore.showToast(
       'success',
-      props.ignoreCheckInGate ? 'Court assigned with admin override' : 'Court assigned - match ready!'
+      props.ignoreCheckInGate ? 'Court assigned with admin override' : 'Court assigned - match is now live'
     );
     emit('assigned');
     emit('update:modelValue', false);
