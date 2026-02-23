@@ -11,11 +11,12 @@ import {
   UserPlus, Play, CalendarClock, Check, Trash2,
   Users, QrCode,
   PlayCircle, Medal, ArrowRightCircle, Megaphone, CheckCheck,
-  UserCheck, GitFork
+  UserCheck, GitFork, Download, Printer
 } from 'lucide-vue-next';
 import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
+import { exportTournamentMatchesToCSV } from '../utils/export';
 import OrganizerChecklist from '../components/OrganizerChecklist.vue';
 import ActiveMatchesSection from '../components/ActiveMatchesSection.vue';
 import ReadyQueue from '../components/ReadyQueue.vue';
@@ -255,6 +256,28 @@ async function handleDeleteTournament() {
     deleteLoading.value = false;
   }
 }
+
+function handlePrint() {
+  window.print();
+}
+
+function handleExport() {
+  if (!tournament.value || matches.value.length === 0) {
+    notificationStore.showToast('info', 'No matches available to export');
+    return;
+  }
+  exportTournamentMatchesToCSV(
+    tournament.value.name,
+    matches.value,
+    getCategoryName,
+    getParticipantName,
+    (d) => {
+      if (!d) return '';
+      return formatDate(typeof d === 'string' ? new Date(d) : d);
+    }
+  );
+  notificationStore.showToast('success', 'Tournament data exported successfully');
+}
 </script>
 
 <template>
@@ -305,6 +328,28 @@ async function handleDeleteTournament() {
           v-if="isAdmin"
           class="d-flex gap-2"
         >
+          <v-btn
+            variant="outlined"
+            color="secondary"
+            class="d-none d-sm-flex"
+            @click="handlePrint"
+          >
+            <template #prepend>
+              <Printer :size="18" />
+            </template>
+            Print Dashboard
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            color="secondary"
+            class="d-none d-sm-flex"
+            @click="handleExport"
+          >
+            <template #prepend>
+              <Download :size="18" />
+            </template>
+            Export (CSV)
+          </v-btn>
           <v-btn
             variant="outlined"
             color="primary"
