@@ -1709,15 +1709,17 @@ rg -n "matchesWon" src/composables/usePoolLeveling.ts
 | Field | Value |
 |-------|-------|
 | **Added** | 2026-02-22 |
-| **Source Bug** | Categories cards skipped/incorrectly completed schedule phase and public schedule leaked court-oriented assumptions |
+| **Source Bug** | Categories cards could deadlock on `Schedule` when no matches existed yet, and public schedule leaked court-oriented assumptions |
 | **Severity** | High |
 | **Status** | ✅ Active |
 
 **Anti-Pattern (❌):**
 ```typescript
-// Lifecycle tied to setup/check-in/bracket status only
-if (category.checkInOpen || checkedIn > 0) return 'checkin';
-if (category.status === 'active') return 'elimination';
+const allPlanned = categoryMatches.length > 0 &&
+  categoryMatches.every((match) => Boolean(match.plannedStartAt));
+const scheduleDone = schedulePublished || allPlanned;
+
+// With 0 matches, scheduleDone stays false forever (Generate Bracket stays blocked)
 ```
 ```vue
 <!-- Public schedule shows court metadata -->
@@ -1730,8 +1732,7 @@ const categoryMatches = matches.filter((match) => match.categoryId === category.
 const schedulePublished = categoryMatches.some(
   (match) => match.scheduleStatus === 'published' || Boolean(match.publishedAt)
 );
-const allPlanned = categoryMatches.length > 0 &&
-  categoryMatches.every((match) => Boolean(match.plannedStartAt));
+const allPlanned = categoryMatches.every((match) => Boolean(match.plannedStartAt));
 const scheduleDone = schedulePublished || allPlanned;
 
 if (!scheduleDone && categoryMatches.length > 0) return 'schedule';
@@ -1742,14 +1743,15 @@ if (!scheduleDone && categoryMatches.length > 0) return 'schedule';
 <v-list-item-subtitle>{{ roundLabel }}</v-list-item-subtitle>
 ```
 
-**Rule:** The Categories lifecycle must include `Schedule` between Setup and Check-in, and compute completion from category match schedule fields (`scheduleStatus`/`publishedAt` preferred, `plannedStartAt` fallback). Public schedule views must not render courts/court IDs.
+**Rule:** The Categories lifecycle must include `Schedule` between Setup and Check-in, and compute completion from category match schedule fields (`scheduleStatus`/`publishedAt` preferred, `plannedStartAt` fallback). `allPlanned` must use `every()` without a `length > 0` guard so empty match lists are vacuously complete and bracket generation is not blocked. Public schedule views must not render courts/court IDs.
 
 **Detection:**
 ```bash
 if ! rg -q "type PhaseKey = 'setup' \\| 'schedule' \\| 'checkin'" src/features/tournaments/components/CategoryRegistrationStats.vue; then
   echo "Violation: Schedule phase missing from category lifecycle"
 fi
-rg -n "scheduleStatus === 'published'|plannedStartAt" src/features/tournaments/components/CategoryRegistrationStats.vue
+rg -n "categoryMatches\\.length > 0 && categoryMatches\\.every\\(\\(match\\) => Boolean\\(match\\.plannedStartAt\\)\\)" src/features/tournaments/components/CategoryRegistrationStats.vue
+rg -n "scheduleStatus === 'published'|plannedStartAt|scheduleDone" src/features/tournaments/components/CategoryRegistrationStats.vue
 if rg -n "courtId|courtName|\\bCourt\\b" src/features/public/views/PublicScheduleView.vue; then
   echo "Violation: Public schedule leaks court fields"
 fi
@@ -1987,6 +1989,58 @@ function isScheduleAvailable(stats: CategoryStats): boolean {
 **Detection:**
 ```bash
 rg -n "function isScheduleAvailable\\(stats: CategoryStats\\).*matchesCount > 0" src/features/tournaments/components/CategoryRegistrationStats.vue
+```
+
+---
+
+### CP-043: Court Assignment Must Move Matches to `in_progress`, and Release Must Prompt Keep vs Clear Scores
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-23 |
+| **Source Bug** | Public Schedule "Now Playing" stayed empty while matches were already on courts because assignment left status at `ready`; release always cleared in-progress scores without operator choice |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// Assignment leaves match in queue-like status
+batch.set(doc(db, matchScoresPath, matchId), {
+  courtId,
+  status: 'ready',
+}, { merge: true });
+```
+```typescript
+// Release path always clears in-progress state
+await matchStore.unscheduleMatch(tournamentId, matchId, categoryId, courtId, levelId, {
+  clearInProgressState: match.status === 'in_progress',
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+// Assignment means match is on court/live
+batch.set(doc(db, matchScoresPath, matchId), {
+  courtId,
+  status: 'in_progress',
+  startedAt: serverTimestamp(),
+}, { merge: true });
+```
+```typescript
+// Release asks operator to keep or clear scores, then returns to ready queue
+const shouldClearInProgressState = match.status === 'in_progress' && releaseScoreHandling.value === 'clear';
+await matchStore.unscheduleMatch(tournamentId, matchId, categoryId, courtId, levelId, {
+  clearInProgressState: shouldClearInProgressState,
+  returnStatus: 'ready',
+});
+```
+
+**Rule:** In operational views, "on court" must map to `in_progress` so public live panels and court state remain consistent. Releasing an in-progress match must explicitly ask whether scores are preserved or cleared before returning to `ready`.
+
+**Detection:**
+```bash
+rg -n "assignMatchToCourt|status: 'in_progress'|startedAt: serverTimestamp\\(\\)" src/stores/matches.ts src/stores/tournaments.ts
+rg -n "releaseScoreHandling|clearInProgressState: shouldClearInProgressState|returnStatus: 'ready'" src/features/tournaments/views/MatchControlView.vue
 ```
 
 ---
