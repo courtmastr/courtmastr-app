@@ -90,28 +90,45 @@ const features = [
           class="hero-image-col pl-md-8 mt-10 mt-md-0"
         >
           <div class="dashboard-mockup rounded-lg overflow-hidden border">
-            <img src="/app-screenshot.png" alt="CourtMaster Live Match Control" class="w-100 h-auto d-block" style="object-fit: cover;" />
+            <img
+              src="/app-screenshot.png"
+              alt="CourtMaster Live Match Control"
+              class="w-100 h-auto d-block"
+              style="object-fit: cover;"
+            >
           </div>
         </v-col>
       </v-row>
 
-      <v-divider class="my-8"></v-divider>
+      <v-divider class="my-8" />
 
       <!-- Credibility Section -->
       <v-row class="credibility-section py-4 mb-4">
         <v-col cols="12">
           <div class="d-flex flex-column flex-md-row justify-space-around align-center text-center gap-8">
             <div class="stat-block">
-              <div class="text-h4 font-weight-bold text-primary mb-1">Reliable</div>
-              <div class="text-subtitle-2 text-grey-darken-1 text-uppercase letter-spacing-1">Cloud Infrastructure</div>
+              <div class="text-h4 font-weight-bold text-primary mb-1">
+                Reliable
+              </div>
+              <div class="text-subtitle-2 text-grey-darken-1 text-uppercase letter-spacing-1">
+                Cloud Infrastructure
+              </div>
             </div>
             <div class="stat-block">
-              <div class="text-h4 font-weight-bold text-primary mb-1">Real-Time</div>
-              <div class="text-subtitle-2 text-grey-darken-1 text-uppercase letter-spacing-1">Match Synchronization</div>
+              <div class="text-h4 font-weight-bold text-primary mb-1">
+                Real-Time
+              </div>
+              <div class="text-subtitle-2 text-grey-darken-1 text-uppercase letter-spacing-1">
+                Match Synchronization
+              </div>
             </div>
             <div class="stat-block">
-              <div class="text-h4 font-weight-bold text-primary mb-1">Secure</div>
-              <div class="text-subtitle-2 text-grey-darken-1 text-uppercase letter-spacing-1">Role-Based Access</div>
+              <div class="text-h4 font-weight-bold text-primary mb-1">
+                Secure
+              </div>
+              <div class="text-subtitle-2 text-grey-darken-1 text-uppercase letter-spacing-1">
+                Role-Based Access
+              </div>
             </div>
           </div>
         </v-col>
@@ -140,7 +157,10 @@ const features = [
           class="feature-col px-4"
         >
           <div class="feature-item text-center">
-            <div class="icon-wrapper bg-grey-lighten-4 mx-auto mb-4 d-flex align-center justify-center rounded-circle border" style="width: 64px; height: 64px;">
+            <div
+              class="icon-wrapper bg-grey-lighten-4 mx-auto mb-4 d-flex align-center justify-center rounded-circle border"
+              style="width: 64px; height: 64px;"
+            >
               <component
                 :is="feature.icon"
                 :size="32"

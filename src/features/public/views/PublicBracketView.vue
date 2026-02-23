@@ -53,9 +53,18 @@ watch(selectedCategory, async (categoryId) => {
     <!-- Header -->
     <v-row class="mb-4">
       <v-col cols="12">
-        <div v-if="tournament" class="pa-6 rounded-lg bg-primary text-white mb-6">
+        <div
+          v-if="tournament"
+          class="pa-6 rounded-lg bg-primary text-white mb-6"
+        >
           <div class="d-flex align-center gap-4">
-            <v-icon size="40" color="white" class="opacity-80">mdi-tournament</v-icon>
+            <v-icon
+              size="40"
+              color="white"
+              class="opacity-80"
+            >
+              mdi-tournament
+            </v-icon>
             <div>
               <h1 class="text-h4 font-weight-bold mb-1">
                 {{ tournament.name }}
@@ -98,7 +107,9 @@ watch(selectedCategory, async (categoryId) => {
     <template v-else>
       <!-- Category + Level Selection -->
       <div class="bracket-filters mb-4">
-        <div class="bracket-filters__label">Category</div>
+        <div class="bracket-filters__label">
+          Category
+        </div>
         <div class="bracket-filters__controls">
           <v-select
             v-model="selectedCategory"

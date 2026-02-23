@@ -362,7 +362,10 @@ function getMatchScore(match: Match): string {
                 >
                   {{ item.rank }}
                 </v-avatar>
-                <span v-else class="text-medium-emphasis">—</span>
+                <span
+                  v-else
+                  class="text-medium-emphasis"
+                >—</span>
               </template>
               <template #item.name="{ item }">
                 <span class="font-weight-medium">{{ item.name }}</span>
