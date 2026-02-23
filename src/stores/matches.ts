@@ -159,6 +159,7 @@ export const useMatchStore = defineStore('matches', () => {
 
   interface UnscheduleOptions {
     clearInProgressState?: boolean;
+    returnStatus?: 'scheduled' | 'ready';
   }
 
   interface AssignmentValidationData {
@@ -1108,7 +1109,8 @@ export const useMatchStore = defineStore('matches', () => {
       doc(db, matchScoresPath, matchId),
       {
         courtId,
-        status: 'ready',
+        status: 'in_progress',
+        startedAt: serverTimestamp(),
         assignedAt: serverTimestamp(),
         queuePosition: null,
         updatedAt: serverTimestamp(),
@@ -1137,8 +1139,7 @@ export const useMatchStore = defineStore('matches', () => {
       { status: 'ready', updatedAt: serverTimestamp() },
       { merge: true }
     );
-    // Note: Do NOT set court status to 'in_use' here.
-    // The court only becomes in_use when startMatch() is called.
+    // Legacy helper for scheduled flows; court assignment drives on-court state.
   }
 
   async function calculateWinner(
@@ -1380,11 +1381,11 @@ export const useMatchStore = defineStore('matches', () => {
       courtId: null,
       plannedCourtId: null,
       lockedTime: false,
-      status: 'scheduled',
+      status: options.returnStatus ?? 'scheduled',
       updatedAt: serverTimestamp(),
     };
 
-    if (options.clearInProgressState || match?.status === 'in_progress') {
+    if (options.clearInProgressState === true) {
       matchUpdate.startedAt = null;
       matchUpdate.completedAt = null;
       matchUpdate.calledAt = null;

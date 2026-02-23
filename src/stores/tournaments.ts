@@ -696,7 +696,8 @@ export const useTournamentStore = defineStore('tournaments', () => {
       doc(db, matchScoresPath, matchId),
       {
         courtId,
-        status: 'ready',
+        status: 'in_progress',
+        startedAt: serverTimestamp(),
         assignedAt: serverTimestamp(),
         queuePosition: null,
         updatedAt: serverTimestamp(),
