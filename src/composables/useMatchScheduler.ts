@@ -91,6 +91,9 @@ export function useMatchScheduler() {
       matchDurationMinutes?: number;
       bufferMinutes?: number;
       concurrency?: number;
+      reflowMode?: boolean;
+      allowPublishedChanges?: boolean;
+      includeAssignedMatches?: boolean;
     }
   ): Promise<ScheduleResult> {
     loading.value = true;
@@ -245,13 +248,36 @@ export function useMatchScheduler() {
         }
 
         // Filter matches ready for time scheduling:
-        // - Not yet completed or walkover
-        // - Not locked (lockedTime=true means manual override survives re-run)
+        // - Never touch completed/walkover/cancelled
+        // - Respect lockedTime manual overrides
+        // - In reflow mode, keep safe defaults unless explicitly overridden
         // TBD matches (no participants) are intentionally included for placeholder slots.
         matches = adaptedMatches.filter(m => {
           const scoreData = matchScoresMap.get(m.id);
           if (scoreData?.lockedTime === true) return false; // Bug D fix: skip locked matches
-          return m.status !== 'completed' && m.status !== 'walkover';
+
+          const status = String(m.status || '');
+          if (status === 'completed' || status === 'walkover' || status === 'cancelled') {
+            return false;
+          }
+
+          if (options.reflowMode === true) {
+            const isPublished = scoreData?.scheduleStatus === 'published' || Boolean(scoreData?.publishedAt);
+            if (isPublished && options.allowPublishedChanges !== true) {
+              return false;
+            }
+
+            const hasAssignedCourt = Boolean(scoreData?.courtId || m.courtId);
+            if (hasAssignedCourt && options.includeAssignedMatches !== true) {
+              return false;
+            }
+
+            if (status === 'in_progress') {
+              return false;
+            }
+          }
+
+          return true;
         });
 
         console.log(`[scheduleMatches] Found ${matches.length} schedulable matches out of ${adaptedMatches.length} adapted`);
