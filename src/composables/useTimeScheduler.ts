@@ -230,10 +230,12 @@ export async function publishSchedule(
   tournamentId: string,
   categoryIds: string[],
   publishedBy: string,
-  levelId?: string
+  levelId?: string,
+  options: { force?: boolean } = {}
 ): Promise<{ publishedCount: number }> {
   let publishedCount = 0;
   const batch = writeBatch(db);
+  const force = options.force === true;
 
   for (const categoryId of categoryIds) {
     const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
@@ -241,7 +243,7 @@ export async function publishSchedule(
 
     for (const d of snap.docs) {
       const data = d.data();
-      if (data.plannedStartAt && data.scheduleStatus !== 'published') {
+      if (data.plannedStartAt && (force || data.scheduleStatus !== 'published')) {
         batch.update(d.ref, {
           scheduleStatus: 'published',
           publishedAt: serverTimestamp(),
@@ -255,6 +257,40 @@ export async function publishSchedule(
 
   await batch.commit();
   return { publishedCount };
+}
+
+/**
+ * Unpublish: flip scheduleStatus from 'published' → 'draft' for match_scores
+ * docs that currently expose a published schedule.
+ */
+export async function unpublishSchedule(
+  tournamentId: string,
+  categoryIds: string[],
+  levelId?: string
+): Promise<{ unpublishedCount: number }> {
+  let unpublishedCount = 0;
+  const batch = writeBatch(db);
+
+  for (const categoryId of categoryIds) {
+    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
+    const snap = await getDocs(collection(db, matchScoresPath));
+
+    for (const d of snap.docs) {
+      const data = d.data();
+      if (data.plannedStartAt && (data.scheduleStatus === 'published' || data.publishedAt)) {
+        batch.update(d.ref, {
+          scheduleStatus: 'draft',
+          publishedAt: null,
+          publishedBy: null,
+          updatedAt: serverTimestamp(),
+        });
+        unpublishedCount++;
+      }
+    }
+  }
+
+  await batch.commit();
+  return { unpublishedCount };
 }
 
 // ============================================================
@@ -307,12 +343,13 @@ export function useTimeScheduler() {
     tournamentId: string,
     categoryIds: string[],
     publishedBy: string,
-    levelId?: string
+    levelId?: string,
+    options: { force?: boolean } = {}
   ): Promise<{ publishedCount: number }> {
     loading.value = true;
     error.value = null;
     try {
-      return await publishSchedule(tournamentId, categoryIds, publishedBy, levelId);
+      return await publishSchedule(tournamentId, categoryIds, publishedBy, levelId, options);
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Publish failed';
       throw err;
@@ -321,5 +358,22 @@ export function useTimeScheduler() {
     }
   }
 
-  return { loading, error, scheduleCategory, publish };
+  async function unpublish(
+    tournamentId: string,
+    categoryIds: string[],
+    levelId?: string
+  ): Promise<{ unpublishedCount: number }> {
+    loading.value = true;
+    error.value = null;
+    try {
+      return await unpublishSchedule(tournamentId, categoryIds, levelId);
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unpublish failed';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  return { loading, error, scheduleCategory, publish, unpublish };
 }
