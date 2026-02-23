@@ -1604,6 +1604,393 @@ rg -n "isActive|lastLoginAt|autoAssignEnabled|calledAt|categoryName|courtName|Ma
 
 ---
 
+### CP-035: Categories Page Must Use Card-Only Category UI with Category-Level Format Mapping
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-22 |
+| **Source Bug** | Categories screen duplicated category representation and showed misleading format labels/actions |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<!-- Duplicate category UIs on same screen -->
+<category-management />
+<v-list>
+  <v-list-item v-for="category in categories" />
+</v-list>
+
+<!-- Separate card grid repeats the same categories -->
+<category-registration-stats />
+```
+```typescript
+// Display assumes one property and defaults silently
+const formatLabel = FORMAT_LABELS[category.format] || 'Single Elimination';
+```
+```vue
+<!-- Multiple cramped action buttons at card bottom -->
+<v-card-actions>
+  <v-btn>Manage</v-btn>
+  <v-btn>Seeds</v-btn>
+  <v-btn>Open Check-in</v-btn>
+</v-card-actions>
+```
+
+**Correct Pattern (✅):**
+```vue
+<!-- Keep one category representation: cards only -->
+<category-management /> <!-- header + dialogs only -->
+<category-registration-stats /> <!-- single source of category cards -->
+```
+```typescript
+// Resolve format/type from category-level fields before rendering chips
+const resolvedFormat = resolveCategoryFormat(category);
+const resolvedType = resolveCategoryType(category);
+```
+```vue
+<!-- One visible primary CTA + top-right overflow menu for secondary actions -->
+<v-card-title>
+  <v-menu><v-list-item title="Manage" /></v-menu>
+</v-card-title>
+<v-card-actions>
+  <v-btn block>{{ primaryActionLabel }}</v-btn>
+</v-card-actions>
+```
+
+**Rule:** On Tournament Categories page, categories must appear only in card grid (no duplicate top list). Cards must render format/type from category-level data mapping, and expose secondary actions through a header menu while keeping one always-visible primary CTA.
+
+**Detection:**
+```bash
+rg -n "Category List|v-list-item\\s+v-for=\\\"category in categories\\\"" src/features/tournaments/components/CategoryManagement.vue
+rg -n "FORMAT_LABELS\\[stats\\.category\\.format\\]|FORMAT_LABELS\\[category\\.format\\]\\s*\\|\\|\\s*'Single Elimination'" src/features/tournaments/components/CategoryRegistrationStats.vue src/features/tournaments/components/CategoryManagement.vue
+rg -n "<v-card-actions>[\\s\\S]*Manage[\\s\\S]*Seeds[\\s\\S]*Open Check-in" src/features/tournaments/components/CategoryRegistrationStats.vue
+```
+
+---
+
+### CP-036: Pool Standings `W` Column Must Show Match Wins (Not Derived Composite Score)
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-22 |
+| **Source Bug** | Pool schedule table displayed `W` values like `600/333/133` instead of win counts |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<!-- W column multiplies unrelated metrics -->
+<td>{{ (participant.winRate * participant.matchPoints).toFixed(0) }}</td>
+```
+
+**Correct Pattern (✅):**
+```typescript
+// Carry explicit match wins from aggregate stats
+participant.matchesWon = entry.matchesWon;
+```
+```vue
+<!-- W column renders actual number of wins -->
+<td>{{ participant.matchesWon }}</td>
+```
+
+**Rule:** In pool standings UI, `W` must be bound to explicit match wins (`matchesWon`). Do not compute `W` from `winRate`, `matchPoints`, or other composite values.
+
+**Detection:**
+```bash
+rg -n "winRate\\s*\\*\\s*p\\.matchPoints|winRate\\s*\\*\\s*participant\\.matchPoints" src/features/tournaments/components/PoolSchedulePanel.vue
+rg -n "matchesWon" src/composables/usePoolLeveling.ts
+```
+
+---
+
+### CP-037: Category Lifecycle Must Derive `Schedule` Step From Match-Level Schedule Fields
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-22 |
+| **Source Bug** | Categories cards skipped/incorrectly completed schedule phase and public schedule leaked court-oriented assumptions |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// Lifecycle tied to setup/check-in/bracket status only
+if (category.checkInOpen || checkedIn > 0) return 'checkin';
+if (category.status === 'active') return 'elimination';
+```
+```vue
+<!-- Public schedule shows court metadata -->
+<td>{{ match.courtName || '—' }}</td>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const categoryMatches = matches.filter((match) => match.categoryId === category.id);
+const schedulePublished = categoryMatches.some(
+  (match) => match.scheduleStatus === 'published' || Boolean(match.publishedAt)
+);
+const allPlanned = categoryMatches.length > 0 &&
+  categoryMatches.every((match) => Boolean(match.plannedStartAt));
+const scheduleDone = schedulePublished || allPlanned;
+
+if (!scheduleDone && categoryMatches.length > 0) return 'schedule';
+```
+```vue
+<!-- Public participant schedule: time/category/opponent only -->
+<v-list-item-title>{{ matchup }}</v-list-item-title>
+<v-list-item-subtitle>{{ roundLabel }}</v-list-item-subtitle>
+```
+
+**Rule:** The Categories lifecycle must include `Schedule` between Setup and Check-in, and compute completion from category match schedule fields (`scheduleStatus`/`publishedAt` preferred, `plannedStartAt` fallback). Public schedule views must not render courts/court IDs.
+
+**Detection:**
+```bash
+if ! rg -q "type PhaseKey = 'setup' \\| 'schedule' \\| 'checkin'" src/features/tournaments/components/CategoryRegistrationStats.vue; then
+  echo "Violation: Schedule phase missing from category lifecycle"
+fi
+rg -n "scheduleStatus === 'published'|plannedStartAt" src/features/tournaments/components/CategoryRegistrationStats.vue
+if rg -n "courtId|courtName|\\bCourt\\b" src/features/public/views/PublicScheduleView.vue; then
+  echo "Violation: Public schedule leaks court fields"
+fi
+```
+
+---
+
+### CP-038: Match Control Schedule Table Must Use Public-State Quick Filters, Time-First Sort, and One Primary Row Action
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-22 |
+| **Source Bug** | All Matches view buried public visibility state, defaulted to non-time sorting, and showed cramped dual action buttons |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const scheduleFilters = ref({
+  status: 'all',
+  sortBy: 'round',
+  sortDesc: false,
+});
+```
+```vue
+<!-- Both primary actions can appear in a single row -->
+<v-btn v-if="item.status === 'ready' || item.status === 'in_progress'">Score</v-btn>
+<v-btn v-if="!item.courtId && (item.status === 'scheduled' || item.status === 'ready')">Assign</v-btn>
+```
+```vue
+<!-- Public state is low-emphasis and easy to miss -->
+<v-chip variant="tonal" color="grey">Not Scheduled</v-chip>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const scheduleFilters = ref({
+  status: 'all',
+  publicState: 'all',
+  sortBy: 'time',
+  sortDesc: false,
+});
+```
+```typescript
+function getPrimaryRowAction(match: Match): 'score' | 'assign' | null {
+  if (!match.courtId && (match.status === 'scheduled' || match.status === 'ready')) return 'assign';
+  if (match.status === 'ready' || match.status === 'in_progress') return 'score';
+  return null;
+}
+```
+```vue
+<!-- High-contrast public chip + quick filter toggle -->
+<v-btn-toggle v-model="scheduleFilters.publicState" mandatory />
+<v-chip variant="flat" :color="getMatchScheduleStateColor(item)" :prepend-icon="getMatchScheduleStateIcon(item)">
+  {{ getMatchScheduleStateLabel(item) }}
+</v-chip>
+```
+
+**Rule:** In Match Control → All Matches, default sorting must be planned time ascending (`plannedStartAt` fallback), public state must be filterable with quick toggles (`All/Published/Draft/Not Scheduled`), and each row must expose only one visible primary CTA (`Score` or `Assign`) with secondary actions in the overflow menu.
+
+**Detection:**
+```bash
+rg -n "sortBy:\\s*'round'" src/features/tournaments/views/MatchControlView.vue
+rg -n "v-if=\"item\\.status === 'ready' \\|\\| item\\.status === 'in_progress'\"|v-if=\"!item\\.courtId && \\(item\\.status === 'scheduled' \\|\\| item\\.status === 'ready'\\)\"" src/features/tournaments/views/MatchControlView.vue
+rg -n "scheduleFilters\\.publicState|getPrimaryRowAction|getMatchScheduleStateIcon" src/features/tournaments/views/MatchControlView.vue
+```
+
+---
+
+### CP-039: Court Assignment Must Enforce `Scheduled + Published + Checked-In` Gate (With Admin-Only Check-In Override)
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-22 |
+| **Source Bug** | Match Control allowed assignment for draft/not-published matches, breaking organizer lifecycle expectations |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+function canAssign(match: Match): boolean {
+  return !match.courtId && (match.status === 'scheduled' || match.status === 'ready');
+}
+```
+```typescript
+// Assignment mutates planning time fields
+await setDoc(matchRef, {
+  courtId,
+  scheduledTime: Timestamp.fromDate(new Date()),
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+const blockers = await getAssignmentBlockers(tournamentId, matchId, categoryId, levelId, options);
+if (blockers.length > 0) throw new Error(blockers.join(' | '));
+```
+```typescript
+// Assign = operational only; planned time remains source-of-truth schedule
+await setDoc(matchRef, {
+  courtId,
+  status: 'ready',
+  assignedAt: serverTimestamp(),
+}, { merge: true });
+```
+```typescript
+// Admin override only bypasses check-in gate
+if (options.ignoreCheckInGate && authStore.currentUser?.role !== 'admin') {
+  throw new Error('Blocked: Only admins can assign anyway when players are not checked-in');
+}
+```
+
+**Rule:** Both manual and auto-assignment must require three gates: match is scheduled (`plannedStartAt`/fallback), schedule is published, and both participants are checked in. Admin override may bypass only the check-in gate. Assignment must not rewrite planned schedule timestamps.
+
+**Detection:**
+```bash
+rg -n "Blocked: Not scheduled|Blocked: Not published|Blocked: Players not checked-in|ignoreCheckInGate" src/stores/matches.ts src/features/tournaments/views/MatchControlView.vue
+rg -n "assignMatchToCourt|assignedAt|plannedStartAt|scheduledTime" src/stores/matches.ts
+```
+
+---
+
+### CP-040: Use One Scheduling Entry Point in UI (`useMatchScheduler.scheduleMatches`)
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-22 |
+| **Source Bug** | Categories and Command Center used different scheduling wrappers, causing workflow drift and confusion |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// Categories view directly uses time scheduler wrapper
+await timeScheduler.scheduleCategory(tournamentId, categoryId, matches, config, levelId);
+```
+```typescript
+// Command Center uses a different wrapper
+await scheduler.scheduleMatches(tournamentId, { categoryId, startTime, concurrency });
+```
+
+**Correct Pattern (✅):**
+```typescript
+// Both Categories and Command Center call the same orchestration function
+await scheduler.scheduleMatches(tournamentId, {
+  categoryId,
+  levelId,
+  startTime,
+  matchDurationMinutes,
+  bufferMinutes,
+  concurrency,
+  respectDependencies: false,
+});
+```
+
+**Rule:** UI scheduling actions (category card schedule, command center re-schedule, dashboard generate schedule) must go through `useMatchScheduler.scheduleMatches`. `useTimeScheduler` remains the engine utility layer and publish/unpublish helper, not a separate UI entrypoint. In multi-category mode:
+`sequential` = categories run one after another with shared pool;
+`parallel_partitioned` = categories run in same time window with explicit per-category court budgets.
+
+**Detection:**
+```bash
+rg -n "scheduleCategory\\(" src/features/tournaments/views/CategoriesView.vue src/features/tournaments/dialogs/AutoScheduleDialog.vue src/features/tournaments/views/TournamentDashboardView.vue
+rg -n "scheduleMatches\\(" src/features/tournaments/views/CategoriesView.vue src/features/tournaments/dialogs/AutoScheduleDialog.vue src/features/tournaments/views/TournamentDashboardView.vue
+rg -n "parallel_partitioned|setCategoryBudget|Court Partition" src/features/tournaments/dialogs/AutoScheduleDialog.vue
+```
+
+---
+
+### CP-041: Never Query Tournament Root `/match_scores`; Always Use Category/Level Scope
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-23 |
+| **Source Bug** | Legacy root `/tournaments/{id}/match_scores` queries drifted from category-scoped data model and bypassed scheduling gates |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const queueQuery = query(
+  collection(db, `tournaments/${tournamentId}/match_scores`),
+  where('status', '==', 'scheduled')
+);
+```
+
+**Correct Pattern (✅):**
+```typescript
+const queueQuery = query(
+  collection(db, `tournaments/${tournamentId}/categories/${categoryId}/match_scores`),
+  where('status', '==', 'scheduled')
+);
+```
+```typescript
+const levelQuery = query(
+  collection(db, `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}/match_scores`),
+  where('status', '==', 'scheduled')
+);
+```
+
+**Rule:** Operational match data must be read/written via category/level scoped paths. Root tournament `/match_scores` paths are deprecated and must not be used for queueing, auto-assignment, or consistency checks.
+
+**Detection:**
+```bash
+rg -n "tournaments/\\$\\{tournamentId\\}/match_scores" src/composables src/stores src/features --glob "*.ts" --glob "*.vue"
+```
+
+---
+
+### CP-042: Do Not Hide Schedule Actions Based Only on `matchesCount`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-23 |
+| **Source Bug** | Category menu/CTA lost `Schedule` action even after setup because match cache count was 0 |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+function isScheduleAvailable(stats: CategoryStats): boolean {
+  return stats.matchesCount > 0;
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+function isScheduleAvailable(stats: CategoryStats): boolean {
+  if (stats.category.status === 'completed') return false;
+  return stats.matchesCount > 0 || stats.ready >= 2 || stats.checkInStarted || hasBracket(stats);
+}
+```
+
+**Rule:** Schedule entry points (menu + primary CTA) must stay available once a category is operationally ready (setup/check-in/bracket context), even if in-memory match cache is temporarily empty.
+
+**Detection:**
+```bash
+rg -n "function isScheduleAvailable\\(stats: CategoryStats\\).*matchesCount > 0" src/features/tournaments/components/CategoryRegistrationStats.vue
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
