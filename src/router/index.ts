@@ -31,7 +31,6 @@ const MatchControl = () => import('@/features/tournaments/views/MatchControlView
 
 // Public views
 const PublicBracket = () => import('@/features/public/views/PublicBracketView.vue');
-const PublicLiveScores = () => import('@/features/public/views/PublicLiveScoresView.vue');
 const PublicScoring = () => import('@/features/public/views/PublicScoringView.vue');
 const PublicSchedule = () => import('@/features/public/views/PublicScheduleView.vue');
 
@@ -66,7 +65,13 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/tournaments/:tournamentId/live',
     name: 'public-live-scores',
-    component: PublicLiveScores,
+    redirect: to => ({
+      path: `/tournaments/${to.params.tournamentId}/schedule`,
+      query: {
+        ...to.query,
+        view: 'display',
+      },
+    }),
     meta: { requiresAuth: false },
   },
   {
