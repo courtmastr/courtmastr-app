@@ -1545,173 +1545,176 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
             </v-slide-y-transition>
           </v-card-text>
 
-           <v-data-table
-             v-model:selected="selectedRegistrations"
-             :items="filteredRegistrations"
-             :headers="[
-               { title: 'Participant', key: 'participant', sortable: true },
-               { title: 'Category', key: 'category', sortable: true },
-               { title: 'Status', key: 'status', sortable: true },
-               { title: 'Actions', key: 'actions', sortable: false },
-             ]"
-             :loading="loading"
-             class="elevation-1"
-             show-expand
-             item-value="id"
-             show-select
-           >
-             <template #item.participant="{ item }">
-               <div class="d-flex align-center py-2">
-                 <v-avatar
-                   size="36"
-                   color="primary"
-                   class="mr-3"
-                 >
-                   <span class="text-caption">{{ getPlayerName(item.playerId).charAt(0) }}</span>
-                 </v-avatar>
-                 <div>
-                   <div class="font-weight-medium">
-                     {{ getParticipantDisplay(item) }}
-                   </div>
-                   <div class="text-caption text-grey">
-                     {{ item.partnerPlayerId ? 'Doubles' : 'Singles' }}
-                   </div>
-                 </div>
-               </div>
-             </template>
-             <template #item.category="{ item }">
-               <v-chip
-                 size="small"
-                 variant="outlined"
-               >
-                 {{ getCategoryName(item.categoryId) }}
-               </v-chip>
-               <div class="text-caption text-grey">
-                 {{ getCategory(item.categoryId)?.format ? FORMAT_LABELS[getCategory(item.categoryId)!.format] : '' }}
-               </div>
-             </template>
-             <template #item.status="{ item }">
-               <v-chip
-                 :color="getStatusColor(item.status)"
-                 :prepend-icon="getStatusIcon(item.status)"
-                 size="small"
-               >
-                 {{ item.status }}
-               </v-chip>
-             </template>
-             <template #item.actions="{ item }">
-               <div class="d-flex justify-end">
-                 <!-- Pending actions -->
-                 <template v-if="item.status === 'pending'">
-                   <v-btn
-                     icon="mdi-check"
-                     size="small"
-                     color="success"
-                     variant="text"
-                     title="Approve"
-                     @click="approveRegistration(item.id)"
-                   />
-                   <v-btn
-                     icon="mdi-close"
-                     size="small"
-                     color="error"
-                     variant="text"
-                     title="Reject"
-                     @click="rejectRegistration(item.id)"
-                   />
-                 </template>
+          <v-data-table
+            v-model:selected="selectedRegistrations"
+            :items="filteredRegistrations"
+            :headers="[
+              { title: 'Participant', key: 'participant', sortable: true },
+              { title: 'Category', key: 'category', sortable: true },
+              { title: 'Status', key: 'status', sortable: true },
+              { title: 'Actions', key: 'actions', sortable: false },
+            ]"
+            :loading="loading"
+            class="elevation-1"
+            show-expand
+            item-value="id"
+            show-select
+          >
+            <template #item.participant="{ item }">
+              <div class="d-flex align-center py-2">
+                <v-avatar
+                  size="36"
+                  color="primary"
+                  class="mr-3"
+                >
+                  <span class="text-caption">{{ getPlayerName(item.playerId).charAt(0) }}</span>
+                </v-avatar>
+                <div>
+                  <div class="font-weight-medium">
+                    {{ getParticipantDisplay(item) }}
+                  </div>
+                  <div class="text-caption text-grey">
+                    {{ item.partnerPlayerId ? 'Doubles' : 'Singles' }}
+                  </div>
+                </div>
+              </div>
+            </template>
+            <template #item.category="{ item }">
+              <v-chip
+                size="small"
+                variant="outlined"
+              >
+                {{ getCategoryName(item.categoryId) }}
+              </v-chip>
+              <div class="text-caption text-grey">
+                {{ getCategory(item.categoryId)?.format ? FORMAT_LABELS[getCategory(item.categoryId)!.format] : '' }}
+              </div>
+            </template>
+            <template #item.status="{ item }">
+              <v-chip
+                :color="getStatusColor(item.status)"
+                :prepend-icon="getStatusIcon(item.status)"
+                size="small"
+              >
+                {{ item.status }}
+              </v-chip>
+            </template>
+            <template #item.actions="{ item }">
+              <div class="d-flex justify-end">
+                <!-- Pending actions -->
+                <template v-if="item.status === 'pending'">
+                  <v-btn
+                    icon="mdi-check"
+                    size="small"
+                    color="success"
+                    variant="text"
+                    title="Approve"
+                    @click="approveRegistration(item.id)"
+                  />
+                  <v-btn
+                    icon="mdi-close"
+                    size="small"
+                    color="error"
+                    variant="text"
+                    title="Reject"
+                    @click="rejectRegistration(item.id)"
+                  />
+                </template>
 
-                 <!-- Approved actions -->
-                 <template v-if="item.status === 'approved'">
-                   <v-btn
-                     icon="mdi-check-decagram"
-                     size="small"
-                     color="info"
-                     variant="text"
-                     title="Check In"
-                     @click="checkInRegistration(item.id)"
-                   />
-                   <v-btn
-                     icon="mdi-account-remove"
-                     size="small"
-                     color="grey"
-                     variant="text"
-                     title="Withdraw"
-                     @click="withdrawRegistration(item.id)"
-                   />
-                 </template>
+                <!-- Approved actions -->
+                <template v-if="item.status === 'approved'">
+                  <v-btn
+                    icon="mdi-check-decagram"
+                    size="small"
+                    color="info"
+                    variant="text"
+                    title="Check In"
+                    @click="checkInRegistration(item.id)"
+                  />
+                  <v-btn
+                    icon="mdi-account-remove"
+                    size="small"
+                    color="grey"
+                    variant="text"
+                    title="Withdraw"
+                    @click="withdrawRegistration(item.id)"
+                  />
+                </template>
 
-                 <!-- Checked in - can only withdraw -->
-                 <template v-if="item.status === 'checked_in'">
-                   <v-chip
-                     size="x-small"
-                     color="success"
-                     variant="tonal"
-                     class="mr-2"
-                   >
-                     <v-icon
-                       start
-                       size="12"
-                     >
-                       mdi-check
-                     </v-icon>
-                     Ready
-                   </v-chip>
-                   <v-btn
-                     icon="mdi-undo-variant"
-                     size="small"
-                     color="warning"
-                     variant="text"
-                     title="Undo Check-In"
-                     @click="undoCheckInRegistration(item.id)"
-                   />
-                   <v-btn
-                     icon="mdi-account-remove"
-                     size="small"
-                     color="grey"
-                     variant="text"
-                     title="Withdraw"
-                     @click="withdrawRegistration(item.id)"
-                   />
-                 </template>
+                <!-- Checked in - can only withdraw -->
+                <template v-if="item.status === 'checked_in'">
+                  <v-chip
+                    size="x-small"
+                    color="success"
+                    variant="tonal"
+                    class="mr-2"
+                  >
+                    <v-icon
+                      start
+                      size="12"
+                    >
+                      mdi-check
+                    </v-icon>
+                    Ready
+                  </v-chip>
+                  <v-btn
+                    icon="mdi-undo-variant"
+                    size="small"
+                    color="warning"
+                    variant="text"
+                    title="Undo Check-In"
+                    @click="undoCheckInRegistration(item.id)"
+                  />
+                  <v-btn
+                    icon="mdi-account-remove"
+                    size="small"
+                    color="grey"
+                    variant="text"
+                    title="Withdraw"
+                    @click="withdrawRegistration(item.id)"
+                  />
+                </template>
 
-                 <!-- Withdrawn actions -->
-                 <template v-if="item.status === 'withdrawn'">
-                   <v-btn
-                     icon="mdi-account-plus"
-                     size="small"
-                     color="success"
-                     variant="text"
-                     title="Reinstate"
-                     @click="reinstateRegistration(item.id)"
-                   />
-                 </template>
-               </div>
-             </template>
-             <template #expanded-row="{ columns, item }">
-               <tr>
-                 <td :colspan="columns.length" class="bg-grey-lighten-5 pa-4">
-                   <div class="d-flex flex-wrap gap-4 text-body-2">
-                     <div>
-                       <strong>Payment:</strong> 
-                       <v-chip
-                         :color="getPaymentColor(item.paymentStatus)"
-                         size="small"
-                         class="cursor-pointer"
-                         @click="togglePaymentStatus(item)"
-                       >
-                         {{ item.paymentStatus || 'unpaid' }}
-                       </v-chip>
-                     </div>
-                     <div v-if="item.seed">
-                       <strong>Seed:</strong> #{{ item.seed }}
-                     </div>
-                     <div><strong>Registered:</strong> {{ formatDate(item.createdAt) }}</div>
-                   </div>
-                 </td>
-               </tr>
-             </template>
-           </v-data-table>
+                <!-- Withdrawn actions -->
+                <template v-if="item.status === 'withdrawn'">
+                  <v-btn
+                    icon="mdi-account-plus"
+                    size="small"
+                    color="success"
+                    variant="text"
+                    title="Reinstate"
+                    @click="reinstateRegistration(item.id)"
+                  />
+                </template>
+              </div>
+            </template>
+            <template #expanded-row="{ columns, item }">
+              <tr>
+                <td
+                  :colspan="columns.length"
+                  class="bg-grey-lighten-5 pa-4"
+                >
+                  <div class="d-flex flex-wrap gap-4 text-body-2">
+                    <div>
+                      <strong>Payment:</strong> 
+                      <v-chip
+                        :color="getPaymentColor(item.paymentStatus)"
+                        size="small"
+                        class="cursor-pointer"
+                        @click="togglePaymentStatus(item)"
+                      >
+                        {{ item.paymentStatus || 'unpaid' }}
+                      </v-chip>
+                    </div>
+                    <div v-if="item.seed">
+                      <strong>Seed:</strong> #{{ item.seed }}
+                    </div>
+                    <div><strong>Registered:</strong> {{ formatDate(item.createdAt) }}</div>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </v-data-table>
         </v-card>
       </v-tabs-window-item>
 
