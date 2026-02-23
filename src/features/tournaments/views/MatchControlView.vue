@@ -65,9 +65,6 @@ interface MatchControlScheduleSettings {
 const scheduleSettings = computed<MatchControlScheduleSettings>(
   () => (tournament.value?.settings ?? {}) as MatchControlScheduleSettings
 );
-const autoReadyMinutesBefore = computed(() =>
-  Math.max(0, Number(scheduleSettings.value.autoReadyLeadMinutes ?? scheduleSettings.value.bufferMinutes ?? 5))
-);
 const emergencyScheduleBufferMinutes = computed(() =>
   Math.max(1, Number(scheduleSettings.value.emergencyScheduleBufferMinutes ?? scheduleSettings.value.bufferMinutes ?? 10))
 );
@@ -140,6 +137,7 @@ const selectedMatch = ref<Match | null>(null);
 const selectedCourtId = ref<string | null>(null);
 const assignIgnoreCheckInGate = ref(false);
 const releaseTargetMatch = ref<Match | null>(null);
+const releaseScoreHandling = ref<'keep' | 'clear'>('keep');
 const showSchedulePublishNowDialog = ref(false);
 const schedulePublishMatch = ref<Match | null>(null);
 const schedulePublishStart = ref('');
@@ -186,8 +184,15 @@ watch(showAssignCourtDialog, (open) => {
 watch(showReleaseDialog, (open) => {
   if (!open) {
     releaseTargetMatch.value = null;
+    releaseScoreHandling.value = 'keep';
   }
 });
+
+const releaseHasInProgressScores = computed(() =>
+  releaseTargetMatch.value?.status === 'in_progress' &&
+  Array.isArray(releaseTargetMatch.value.scores) &&
+  releaseTargetMatch.value.scores.length > 0
+);
 
 watch(showSchedulePublishNowDialog, (open) => {
   if (!open) {
@@ -228,8 +233,6 @@ watch(viewMode, (mode) => {
   });
 });
 
-const currentTime = ref(new Date());
-let autoReadyInterval: ReturnType<typeof setInterval> | null = null;
 const pendingMatches = computed(() => {
   let result = matches.value.filter(
     (m) => (m.status === 'ready' || m.status === 'scheduled') &&
@@ -260,35 +263,6 @@ const enrichedPendingMatches = computed(() => {
   })) as any;
 });
 
-const scheduledWithCourtMatches = computed(() => {
-  let result = matches.value.filter(
-    (m) => m.status === 'scheduled' && m.participant1Id && m.participant2Id && m.courtId
-  );
-  if (selectedCategory.value !== 'all') {
-    result = result.filter((m) => m.categoryId === selectedCategory.value);
-  }
-  return result.sort((a, b) => {
-    const timeA = getMatchScheduleTime(a)?.getTime() ?? 0;
-    const timeB = getMatchScheduleTime(b)?.getTime() ?? 0;
-    if (timeA !== timeB) return timeA - timeB;
-    return a.round - b.round || a.matchNumber - b.matchNumber;
-  });
-});
-
-function isMatchDue(match: Match): boolean {
-  const scheduleTime = getMatchScheduleTime(match);
-  if (!scheduleTime) return false;
-  const readyTime = scheduleTime.getTime() - autoReadyMinutesBefore.value * 60_000;
-  return currentTime.value.getTime() >= readyTime;
-}
-
-const readyMatches = computed(() => {
-  let result = matches.value.filter((m) => m.status === 'ready');
-  if (selectedCategory.value !== 'all') {
-    result = result.filter((m) => m.categoryId === selectedCategory.value);
-  }
-  return result;
-});
 const filteredMatches = computed(() => {
   let result = [...matches.value];
 
@@ -519,29 +493,6 @@ const tournamentHealth = computed(() => {
   return { label: 'Healthy', color: 'success', icon: 'mdi-check-circle' };
 });
 
-async function checkAndMarkDueMatches(): Promise<void> {
-  currentTime.value = new Date();
-  for (const match of scheduledWithCourtMatches.value.filter(isMatchDue)) {
-    try {
-      await matchStore.markMatchReady(tournamentId.value, match.id, match.categoryId, match.levelId);
-
-      const courtName = getCourtName(match.courtId);
-      activityStore.logMatchReady(
-        tournamentId.value,
-        match.id,
-        getParticipantName(match.participant1Id),
-        getParticipantName(match.participant2Id),
-        courtName,
-        getCategoryName(match.categoryId)
-      ).catch((err) => console.warn('Activity logging failed:', err));
-
-      notificationStore.showToast('info', `${getMatchDisplayName(match)} is ready on ${courtName}`);
-    } catch (error) {
-      console.error('Failed to auto-ready match:', error);
-    }
-  }
-}
-
 onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
   tournamentStore.subscribeTournament(tournamentId.value);
@@ -550,9 +501,6 @@ onMounted(async () => {
   registrationStore.subscribePlayers(tournamentId.value);
   activityStore.subscribeActivities(tournamentId.value);
 
-  autoReadyInterval = setInterval(checkAndMarkDueMatches, 30_000);
-  checkAndMarkDueMatches();
-
   setTimeout(() => matchStore.checkAndFixConsistency(tournamentId.value), 2000);
 });
 
@@ -560,10 +508,6 @@ onUnmounted(() => {
   tournamentStore.unsubscribeAll();
   matchStore.unsubscribeAll();
   activityStore.unsubscribe();
-  if (autoReadyInterval) {
-    clearInterval(autoReadyInterval);
-    autoReadyInterval = null;
-  }
 });
 
 function getCategoryName(categoryId: string): string {
@@ -616,7 +560,7 @@ function getMatchParticipantsTooltip(match: Match): string {
 }
 
 function canScoreMatch(match: Match): boolean {
-  return match.status === 'ready' || match.status === 'in_progress';
+  return match.status === 'in_progress';
 }
 
 function hasAssignmentEligibleStatus(match: Match): boolean {
@@ -719,6 +663,7 @@ async function releaseCourt(courtId: string) {
       (match.status === 'in_progress' || match.status === 'ready' || match.status === 'scheduled')
     ) ?? null;
   }
+  releaseScoreHandling.value = 'keep';
 
   courtToReleaseId.value = courtId;
   openDialog('release');
@@ -743,9 +688,6 @@ function setSchedulePublishToDefault(): void {
 function canOpenSchedulePublishNow(match: Match): boolean {
   return getMatchScheduleState(match) !== 'published' || !getMatchScheduleTime(match);
 }
-
-const releaseNeedsForce = computed(() => releaseTargetMatch.value?.status === 'in_progress');
-const releaseBlockedByRole = computed(() => releaseNeedsForce.value && !isAdmin.value);
 
 async function confirmSchedulePublishNow(): Promise<void> {
   if (!schedulePublishMatch.value) return;
@@ -789,7 +731,7 @@ async function confirmSchedulePublishNow(): Promise<void> {
   }
 }
 
-async function confirmReleaseCourt(forceRelease = false) {
+async function confirmReleaseCourt() {
   if (!courtToReleaseId.value) return;
 
   const courtId = courtToReleaseId.value;
@@ -801,31 +743,27 @@ async function confirmReleaseCourt(forceRelease = false) {
   if (!court) return;
 
   const match = releaseTargetMatch.value;
-  if (match?.status === 'in_progress' && !forceRelease) {
-    notificationStore.showToast('warning', 'Blocked: match in progress');
-    return;
-  }
-  if (match?.status === 'in_progress' && !isAdmin.value) {
-    notificationStore.showToast('warning', 'Blocked: Only admin can force release in-progress matches');
-    return;
-  }
 
   try {
     if (court.currentMatchId) {
       if (match) {
+        const shouldClearInProgressState = match.status === 'in_progress' && releaseScoreHandling.value === 'clear';
         await matchStore.unscheduleMatch(
           tournamentId.value,
           match.id,
           match.categoryId,
           court.id,
           match.levelId,
-          { clearInProgressState: match.status === 'in_progress' }
+          {
+            clearInProgressState: shouldClearInProgressState,
+            returnStatus: 'ready',
+          }
         );
         notificationStore.showToast(
           'success',
-          match.status === 'in_progress'
-            ? 'Match stopped and returned to queue'
-            : 'Court released and match unscheduled'
+          shouldClearInProgressState
+            ? 'Court released, scores cleared, and match moved to ready queue'
+            : 'Court released and match moved to ready queue'
         );
         releaseTargetMatch.value = null;
         return;
@@ -885,26 +823,6 @@ function openScoreDialog(matchId: string): void {
 // Alias: "Force Complete" opens the same score dialog
 const openCompleteMatchDialog = openScoreDialog;
 
-async function startMatchInProgress(match: Match): Promise<void> {
-  try {
-    await matchStore.startMatch(tournamentId.value, match.id, match.categoryId, match.levelId);
-
-    const courtName = getCourtName(match.courtId);
-    activityStore.logMatchStarted(
-      tournamentId.value,
-      match.id,
-      getParticipantName(match.participant1Id),
-      getParticipantName(match.participant2Id),
-      courtName,
-      getCategoryName(match.categoryId)
-    ).catch((err) => console.warn('Activity logging failed:', err));
-
-    notificationStore.showToast('success', `Match started on ${courtName}`);
-  } catch (error) {
-    notificationStore.showToast('error', 'Failed to start match');
-  }
-}
-
 function openManualScoreDialog(match: Match): void {
   if (!match.participant1Id || !match.participant2Id) {
     console.error('[openManualScoreDialog] Match missing participants:', match.id);
@@ -952,32 +870,12 @@ async function confirmResetSchedule(): Promise<void> {
 }
 
 const autoAssignEnabled = ref(true);
-const autoStartEnabled = ref(false);
 
 watch(() => tournament.value?.settings, (settings) => {
   if (settings && typeof settings.autoAssignEnabled !== 'undefined') {
     autoAssignEnabled.value = settings.autoAssignEnabled;
   }
 }, { immediate: true });
-
-watch(() => readyMatches.value, async (newMatches) => {
-  if (autoStartEnabled.value && newMatches.length > 0) {
-    for (const match of newMatches) {
-      if (!match.courtId) continue;
-
-      const court = courts.value.find(c => c.id === match.courtId);
-      if (!court || court.status !== 'available') continue;
-
-      const scheduledTime = getMatchScheduleTime(match);
-      if (scheduledTime) {
-        const now = new Date();
-        if (scheduledTime.getTime() - now.getTime() > autoReadyMinutesBefore.value * 60_000) continue;
-      }
-
-      await startMatchInProgress(match);
-    }
-  }
-}, { deep: true, immediate: true });
 
 watch(
   [() => autoAssignEnabled.value, () => availableCourts.value, () => pendingMatches.value],
@@ -1080,16 +978,6 @@ function toggleAutoAssign(enabled: boolean): void {
       autoAssignEnabled: enabled,
     } as any,
   });
-}
-
-function toggleAutoStart(enabled: boolean): void {
-  autoStartEnabled.value = enabled;
-  if (enabled) {
-    notificationStore.showToast('success', 'Auto-start enabled');
-    readyMatches.value.forEach(m => startMatchInProgress(m));
-  } else {
-    notificationStore.showToast('info', 'Auto-start disabled');
-  }
 }
 
 const { advanceState: doAdvance, transitionTo, getNextState } = useTournamentStateAdvance(tournamentId);
@@ -1353,7 +1241,7 @@ async function confirmCompleteTournament(): Promise<void> {
               :matches="enrichedPendingMatches"
               :available-courts="availableCourts"
               :auto-assign-enabled="autoAssignEnabled"
-              :auto-start-enabled="autoStartEnabled"
+              :auto-start-enabled="false"
               :read-only="true"
             />
           </div>
@@ -2036,15 +1924,6 @@ async function confirmCompleteTournament(): Promise<void> {
                     label="Auto-assign"
                     @update:model-value="toggleAutoAssign(!!$event)"
                   />
-                  <v-switch
-                    :model-value="autoStartEnabled"
-                    density="compact"
-                    hide-details
-                    inset
-                    color="success"
-                    label="Auto-start"
-                    @update:model-value="toggleAutoStart(!!$event)"
-                  />
                   <v-spacer />
                   <v-chip
                     size="small"
@@ -2290,16 +2169,10 @@ async function confirmCompleteTournament(): Promise<void> {
       @cancel="showReleaseDialog = false"
     >
       <p
-        v-if="releaseBlockedByRole"
-        class="text-body-1 text-warning"
-      >
-        Blocked: match in progress. Only admin can force release.
-      </p>
-      <p
-        v-else-if="releaseNeedsForce"
+        v-if="releaseTargetMatch?.status === 'in_progress'"
         class="text-body-1"
       >
-        This match is in progress. Force release will stop the match, clear live progress, and return it to queue.
+        This match is on court. Releasing will move it back to the ready queue.
       </p>
       <p
         v-else
@@ -2307,20 +2180,41 @@ async function confirmCompleteTournament(): Promise<void> {
       >
         Are you sure you want to release this court? If a match is currently assigned, it will be unscheduled.
       </p>
+      <v-radio-group
+        v-if="releaseHasInProgressScores"
+        v-model="releaseScoreHandling"
+        color="primary"
+        hide-details
+        class="mt-3"
+      >
+        <v-radio
+          value="keep"
+          label="Keep scores and continue later"
+        />
+        <v-radio
+          value="clear"
+          label="Clear scores and restart match"
+        />
+      </v-radio-group>
+      <p
+        v-if="releaseHasInProgressScores && releaseScoreHandling === 'clear'"
+        class="text-caption text-warning mt-2"
+      >
+        Scores will be removed before this match returns to the ready queue.
+      </p>
       <template #actions>
         <v-spacer />
         <v-btn
           variant="text"
           @click="showReleaseDialog = false"
         >
-          {{ releaseBlockedByRole ? 'Close' : 'Cancel' }}
+          Cancel
         </v-btn>
         <v-btn
-          v-if="!releaseBlockedByRole"
           color="warning"
-          @click="confirmReleaseCourt(releaseNeedsForce)"
+          @click="confirmReleaseCourt"
         >
-          {{ releaseNeedsForce ? 'Force Release (Admin)' : 'Release' }}
+          Release
         </v-btn>
       </template>
     </BaseDialog>
