@@ -1,0 +1,34 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        firestore.get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Bug report screenshots
+    match /bug-reports/{userId}/{allPaths=**} {
+      // Allow users to upload their own bug report screenshots
+      allow create: if isAuthenticated()
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024  // Max 5MB
+        && request.resource.contentType.matches('image/.*');
+
+      // Allow anyone to read bug report screenshots (needed for GitHub issue embedding)
+      allow read: if true;
+
+      // Only admins can delete bug report screenshots
+      allow delete: if isAdmin();
+    }
+
+    // Default deny all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
