@@ -270,19 +270,33 @@ async function handleDeleteTournament() {
       <div class="d-flex flex-column flex-md-row align-md-center justify-space-between gap-4">
         <div>
           <div class="d-flex align-center mb-1">
-            <v-btn icon variant="text" density="comfortable" class="mr-2" @click="router.push('/tournaments')"><ArrowLeft :size="20" /></v-btn>
+            <v-btn
+              icon
+              variant="text"
+              density="comfortable"
+              class="mr-2"
+              @click="router.push('/tournaments')"
+            >
+              <ArrowLeft :size="20" />
+            </v-btn>
             <h1 class="text-h4 font-weight-bold text-gradient">
               {{ tournament.name }}
             </h1>
           </div>
           <div class="d-flex align-center text-body-2 text-grey-darken-1 ml-10">
-            <Calendar :size="16" class="mr-2" />
+            <Calendar
+              :size="16"
+              class="mr-2"
+            />
             {{ formatDate(tournament.startDate) }}
             <span
               v-if="tournament.location"
               class="mx-2"
             >•</span>
-            <MapPin :size="16" class="mr-2" />
+            <MapPin
+              :size="16"
+              class="mr-2"
+            />
             <span v-if="tournament.location">{{ tournament.location }}</span>
           </div>
         </div>
@@ -296,7 +310,9 @@ async function handleDeleteTournament() {
             color="primary"
             :to="`/tournaments/${tournamentId}/settings`"
           >
-            <template #prepend><SettingsIcon :size="18" /></template>
+            <template #prepend>
+              <SettingsIcon :size="18" />
+            </template>
             Settings
           </v-btn>
           <v-menu>
@@ -305,7 +321,9 @@ async function handleDeleteTournament() {
                 v-bind="props"
                 color="primary"
               >
-                <template #append><ChevronDown :size="18" /></template>
+                <template #append>
+                  <ChevronDown :size="18" />
+                </template>
                 Manage
               </v-btn>
             </template>
@@ -318,34 +336,59 @@ async function handleDeleteTournament() {
                 title="Open Registration"
                 @click="updateStatus('registration')"
               >
-                <template #prepend><UserPlus :size="18" class="mr-3 text-grey-darken-1" /></template>
+                <template #prepend>
+                  <UserPlus
+                    :size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
+                </template>
               </v-list-item>
               <v-list-item
                 v-if="tournament.status === 'registration'"
                 title="Start Tournament"
                 @click="updateStatus('active')"
               >
-                <template #prepend><Play :size="18" class="mr-3 text-grey-darken-1" /></template>
+                <template #prepend>
+                  <Play
+                    :size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
+                </template>
               </v-list-item>
               <v-list-item
                 title="Generate Schedule"
                 @click="generateSchedule"
               >
-                <template #prepend><CalendarClock :size="18" class="mr-3 text-grey-darken-1" /></template>
+                <template #prepend>
+                  <CalendarClock
+                    :size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
+                </template>
               </v-list-item>
               <v-list-item
                 v-if="tournament.status === 'active'"
                 title="Share Scoring Link"
                 @click="showScoringQrDialog = true"
               >
-                <template #prepend><QrCode :size="18" class="mr-3 text-grey-darken-1" /></template>
+                <template #prepend>
+                  <QrCode
+                    :size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
+                </template>
               </v-list-item>
               <v-list-item
                 v-if="tournament.status === 'active'"
                 title="Complete Tournament"
                 @click="showCompleteDialog = true"
               >
-                <template #prepend><Check :size="18" class="mr-3 text-grey-darken-1" /></template>
+                <template #prepend>
+                  <Check
+                    :size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
+                </template>
               </v-list-item>
               <v-divider class="my-1" />
               <v-list-item
@@ -353,7 +396,12 @@ async function handleDeleteTournament() {
                 base-color="error"
                 @click="showDeleteDialog = true"
               >
-                <template #prepend><Trash2 :size="18" class="mr-3 text-grey-darken-1" /></template>
+                <template #prepend>
+                  <Trash2
+                    :size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
+                </template>
               </v-list-item>
             </v-list>
           </v-menu>
@@ -411,7 +459,9 @@ async function handleDeleteTournament() {
             color="success"
             :to="`/tournaments/${tournamentId}/match-control`"
           >
-            <template #prepend><PlayCircle :size="18" /></template>
+            <template #prepend>
+              <PlayCircle :size="18" />
+            </template>
             Enter Match Control
           </v-btn>
           <!-- Other status CTAs -->
@@ -421,7 +471,9 @@ async function handleDeleteTournament() {
             color="primary"
             :to="`/tournaments/${tournamentId}/categories`"
           >
-            <template #prepend><GitFork :size="18" /></template>
+            <template #prepend>
+              <GitFork :size="18" />
+            </template>
             Setup Categories
           </v-btn>
           <v-btn
@@ -430,7 +482,9 @@ async function handleDeleteTournament() {
             color="primary"
             :to="`/tournaments/${tournamentId}/registrations`"
           >
-            <template #prepend><UserCheck :size="18" /></template>
+            <template #prepend>
+              <UserCheck :size="18" />
+            </template>
             Review Registrations
           </v-btn>
           <v-btn
@@ -439,7 +493,9 @@ async function handleDeleteTournament() {
             color="primary"
             :to="`/tournaments/${tournamentId}/brackets`"
           >
-            <template #prepend><Medal :size="18" /></template>
+            <template #prepend>
+              <Medal :size="18" />
+            </template>
             View Results
           </v-btn>
           <!-- Advance state (secondary) -->
@@ -450,7 +506,9 @@ async function handleDeleteTournament() {
             size="small"
             @click="advanceState"
           >
-            <template #prepend><ArrowRightCircle :size="18" /></template>
+            <template #prepend>
+              <ArrowRightCircle :size="18" />
+            </template>
             {{ getNextState(tournament.state) }}
           </v-btn>
           <!-- Revert to Live -->
@@ -461,7 +519,12 @@ async function handleDeleteTournament() {
             size="small"
             @click="transitionTo('LIVE')"
           >
-            <template #prepend><ArrowRightCircle :size="18" style="transform: rotate(180deg);" /></template>
+            <template #prepend>
+              <ArrowRightCircle
+                :size="18"
+                style="transform: rotate(180deg);"
+              />
+            </template>
             Revert to Live
           </v-btn>
         </div>
@@ -651,7 +714,10 @@ async function handleDeleteTournament() {
     <div class="mb-6">
       <div class="d-flex align-center mb-4">
         <h2 class="text-h5 font-weight-bold text-gradient-primary">
-          <Megaphone :size="20" class="mr-2" />
+          <Megaphone
+            :size="20"
+            class="mr-2"
+          />
           Live and Upcoming Matches
         </h2>
       </div>
@@ -778,51 +844,50 @@ async function handleDeleteTournament() {
       </v-col>
     </v-row>
 
-            <!-- Schedule Result Alert -->
-            <v-alert
-              v-if="scheduleResult && scheduleResult.unscheduled > 0"
-              type="warning"
-              variant="tonal"
-              closable
-              class="mt-4"
-              @click:close="scheduleResult = null"
-            >
-              <div class="d-flex align-center">
-                <v-icon
-                  icon="mdi-alert"
-                  class="mr-2"
-                />
-                <div class="font-weight-bold">
-                  {{ scheduleResult.unscheduled }} match(es) could not be scheduled
-                </div>
-              </div>
+    <!-- Schedule Result Alert -->
+    <v-alert
+      v-if="scheduleResult && scheduleResult.unscheduled > 0"
+      type="warning"
+      variant="tonal"
+      closable
+      class="mt-4"
+      @click:close="scheduleResult = null"
+    >
+      <div class="d-flex align-center">
+        <v-icon
+          icon="mdi-alert"
+          class="mr-2"
+        />
+        <div class="font-weight-bold">
+          {{ scheduleResult.unscheduled }} match(es) could not be scheduled
+        </div>
+      </div>
 
-              <v-divider class="my-2" />
+      <v-divider class="my-2" />
 
-              <v-list
-                density="compact"
-                class="bg-transparent"
-              >
-                <v-list-item
-                  v-for="item in scheduleResult.unscheduledDetails"
-                  :key="item.matchId"
-                  class="px-0"
-                >
-                  <template #prepend>
-                    <v-icon
-                      icon="mdi-information"
-                      size="small"
-                      color="warning"
-                    />
-                  </template>
-                  <v-list-item-title>Match ID: {{ item.matchId }}</v-list-item-title>
-                  <v-list-item-subtitle class="text-warning">
-                    {{ item.reason || 'Unknown reason' }}
-                  </v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </v-alert>
-
+      <v-list
+        density="compact"
+        class="bg-transparent"
+      >
+        <v-list-item
+          v-for="item in scheduleResult.unscheduledDetails"
+          :key="item.matchId"
+          class="px-0"
+        >
+          <template #prepend>
+            <v-icon
+              icon="mdi-information"
+              size="small"
+              color="warning"
+            />
+          </template>
+          <v-list-item-title>Match ID: {{ item.matchId }}</v-list-item-title>
+          <v-list-item-subtitle class="text-warning">
+            {{ item.reason || 'Unknown reason' }}
+          </v-list-item-subtitle>
+        </v-list-item>
+      </v-list>
+    </v-alert>
   </v-container>
 
   <!-- Loading State -->
