@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.healthCheck = exports.advanceWinner = exports.generateSchedule = exports.generateBracket = exports.updateMatch = void 0;
+exports.healthCheck = exports.advanceWinner = exports.generateSchedule = exports.generateBracket = exports.submitBugReport = exports.updateMatch = void 0;
 // Cloud Functions Entry Point
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
@@ -41,11 +41,13 @@ const brackets_manager_1 = require("brackets-manager");
 const bracket_1 = require("./bracket");
 const scheduling_1 = require("./scheduling");
 const updateMatch_1 = require("./updateMatch");
+const bugReport_1 = require("./bugReport");
 const firestore_adapter_1 = require("./storage/firestore-adapter");
 // Initialize Firebase Admin
 admin.initializeApp();
 const db = admin.firestore();
 exports.updateMatch = updateMatch_1.updateMatch;
+exports.submitBugReport = bugReport_1.submitBugReport;
 /**
  * Generate bracket for a tournament category
  */

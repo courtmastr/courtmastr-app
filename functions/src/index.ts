@@ -5,6 +5,7 @@ import { BracketsManager } from 'brackets-manager';
 import { generateBracket as createBracket } from './bracket';
 import { generateSchedule as createSchedule } from './scheduling';
 import { updateMatch as updateMatchFn } from './updateMatch';
+import { submitBugReport as submitBugReportFn } from './bugReport';
 import { FirestoreStorage } from './storage/firestore-adapter';
 
 // Initialize Firebase Admin
@@ -13,6 +14,7 @@ admin.initializeApp();
 const db = admin.firestore();
 
 export const updateMatch = updateMatchFn;
+export const submitBugReport = submitBugReportFn;
 
 /**
  * Generate bracket for a tournament category
