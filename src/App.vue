@@ -11,16 +11,15 @@ const route = useRoute();
 
 const isLoading = computed(() => authStore.loading);
 const isOverlayRoute = computed(() => route.meta.overlayPage === true);
-const isObsOverlay = computed(() => route.meta.obsOverlay as boolean);
 
-// Toggle 'obs-page' class on <html> based on route meta for OBS overlay transparency
+// Toggle 'overlay-page' class on <html> based on route meta for overlay transparency
 watch(
-  isObsOverlay,
-  (isObs) => {
-    if (isObs) {
-      document.documentElement.classList.add('obs-page');
+  isOverlayRoute,
+  (isOverlay) => {
+    if (isOverlay) {
+      document.documentElement.classList.add('overlay-page');
     } else {
-      document.documentElement.classList.remove('obs-page');
+      document.documentElement.classList.remove('overlay-page');
     }
   },
   { immediate: true }
@@ -43,11 +42,8 @@ watch(
       />
     </v-overlay>
 
-    <!-- Main layout (hidden for OBS overlay routes) -->
-    <AppLayout v-if="!isLoading && !isObsOverlay" />
-    
-    <!-- OBS overlay content (no navigation) -->
-    <router-view v-if="!isLoading && isObsOverlay" />
+    <!-- Main layout -->
+    <AppLayout v-if="!isLoading" />
 
     <!-- Toast notifications -->
     <v-snackbar
