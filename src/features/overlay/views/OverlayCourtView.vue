@@ -231,7 +231,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 40px 60px;
+  padding: 20px 40px;
   box-sizing: border-box;
   pointer-events: none;
   /* Scale down for browser preview - OBS ignores this */
@@ -248,11 +248,13 @@ onUnmounted(() => {
 /* BROADCAST STYLE SCOREBOARD */
 .broadcast-scoreboard {
   background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 3px 15px rgba(0, 0, 0, 0.12), 0 1px 6px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  min-width: 600px;
-  max-width: 900px;
+  min-width: 480px;
+  max-width: 750px;
+  transform: scale(0.85);
+  transform-origin: top center;
 }
 
 .broadcast-scoreboard.up-next {
@@ -269,13 +271,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
+  padding: 6px 16px;
   background: linear-gradient(90deg, #1a237e 0%, #283593 100%);
   color: white;
 }
 
 .broadcast-court {
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -283,7 +285,7 @@ onUnmounted(() => {
 }
 
 .broadcast-category {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
@@ -293,8 +295,8 @@ onUnmounted(() => {
 .broadcast-live-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
+  gap: 4px;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   color: #4caf50;
@@ -302,8 +304,8 @@ onUnmounted(() => {
 }
 
 .broadcast-live-badge .live-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   background: #4caf50;
   border-radius: 50%;
   animation: live-pulse 1.2s ease-in-out infinite;
@@ -325,8 +327,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px 30px;
-  gap: 40px;
+  padding: 12px 24px;
+  gap: 25px;
 }
 
 /* Player Sections */
@@ -347,31 +349,32 @@ onUnmounted(() => {
 .broadcast-player-info {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 }
 
 .broadcast-avatar {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%);
   color: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   font-weight: 800;
   letter-spacing: 0.05em;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
 }
 
 .broadcast-player-name {
-  font-size: 1.3rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #212121;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  max-width: 250px;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -382,18 +385,19 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%);
-  padding: 15px 40px;
-  border-radius: 8px;
+  padding: 10px 30px;
+  border-radius: 6px;
   border: 2px solid #e0e0e0;
+  flex-shrink: 0;
 }
 
 .broadcast-games-row {
   display: flex;
   align-items: center;
-  gap: 15px;
-  font-size: 1.4rem;
+  gap: 10px;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #424242;
 }
@@ -412,15 +416,15 @@ onUnmounted(() => {
 .broadcast-points-row {
   display: flex;
   align-items: center;
-  gap: 20px;
-  font-size: 3rem;
+  gap: 12px;
+  font-size: 2.2rem;
   font-weight: 900;
   color: #1a237e;
 }
 
 .broadcast-point {
   font-variant-numeric: tabular-nums;
-  min-width: 60px;
+  min-width: 45px;
   text-align: center;
   line-height: 1;
 }
@@ -430,13 +434,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 20px;
+  padding: 5px 16px;
   background: #fafafa;
   border-top: 1px solid #e0e0e0;
 }
 
 .broadcast-game-info {
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: #616161;
