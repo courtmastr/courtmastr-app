@@ -206,25 +206,35 @@
       </v-list>
     </template>
     <!-- OBS Score Bug Help Dialog -->
-    <v-dialog v-model="showObsHelpDialog" max-width="600">
+    <v-dialog
+      v-model="showObsHelpDialog"
+      max-width="600"
+    >
       <v-card>
         <v-card-title class="text-h5 pa-4">
-          <v-icon icon="mdi-video-marker" class="mr-2" />
+          <v-icon
+            icon="mdi-video-marker"
+            class="mr-2"
+          />
           OBS Score Bug URL
         </v-card-title>
         <v-card-text class="pa-4">
           <p class="mb-4">
             The Score Bug shows a single match score. Use it for featured matches on your stream.
           </p>
-          <v-alert type="info" variant="tonal" class="mb-4">
+          <v-alert
+            type="info"
+            variant="tonal"
+            class="mb-4"
+          >
             <strong>Scoreboard URL (All Matches):</strong><br>
-            <code>{{ `${window.location.origin}/obs/${currentTournamentId}/scoreboard` }}</code>
+            <code>{{ `${appOrigin}/obs/${currentTournamentId}/scoreboard` }}</code>
           </v-alert>
           <p class="text-body-2 mb-2">
             For a specific match, use this URL pattern:
           </p>
           <code class="d-block pa-2 bg-grey-lighten-3 rounded mb-4">
-            {{ `${window.location.origin}/obs/${currentTournamentId}/match/{matchId}?theme=dark` }}
+            {{ `${appOrigin}/obs/${currentTournamentId}/match/{matchId}?theme=dark` }}
           </code>
           <p class="text-caption text-grey">
             Replace <code>{matchId}</code> with the actual match ID from the match URL.
@@ -233,7 +243,10 @@
         </v-card-text>
         <v-card-actions class="pa-4">
           <v-spacer />
-          <v-btn color="primary" @click="showObsHelpDialog = false">
+          <v-btn
+            color="primary"
+            @click="showObsHelpDialog = false"
+          >
             Close
           </v-btn>
         </v-card-actions>
@@ -283,6 +296,8 @@ const smartBracketPath = computed(() => {
 
   return `/tournaments/${tournamentId}/categories/${categoryId}/smart-bracket`;
 });
+
+const appOrigin = computed(() => typeof window !== 'undefined' ? window.location.origin : '');
 
 const showObsHelpDialog = ref(false);
 async function handleLogout(): Promise<void> {

@@ -34,6 +34,12 @@ const PublicBracket = () => import('@/features/public/views/PublicBracketView.vu
 const PublicScoring = () => import('@/features/public/views/PublicScoringView.vue');
 const PublicSchedule = () => import('@/features/public/views/PublicScheduleView.vue');
 
+// Overlay views
+const OverlayCourtView = () => import('@/features/overlay/views/OverlayCourtView.vue');
+const OverlayTickerView = () => import('@/features/overlay/views/OverlayTickerView.vue');
+const OverlayBoardView = () => import('@/features/overlay/views/OverlayBoardView.vue');
+const OverlayLinksView = () => import('@/features/overlay/views/OverlayLinksView.vue');
+
 const routes: RouteRecordRaw[] = [
   // Public routes
   {
@@ -256,6 +262,31 @@ const routes: RouteRecordRaw[] = [
     name: 'obs-scoreboard',
     component: () => import('@/features/obs/views/ObsScoreboardView.vue'),
     meta: { requiresAuth: false, obsOverlay: true },
+  },
+
+  {
+    path: '/overlay/:tournamentId/court/:courtId',
+    name: 'overlay-court',
+    component: OverlayCourtView,
+    meta: { requiresAuth: false, overlayPage: true },
+  },
+  {
+    path: '/overlay/:tournamentId/ticker',
+    name: 'overlay-ticker',
+    component: OverlayTickerView,
+    meta: { requiresAuth: false, overlayPage: true },
+  },
+  {
+    path: '/overlay/:tournamentId/board',
+    name: 'overlay-board',
+    component: OverlayBoardView,
+    meta: { requiresAuth: false, overlayPage: true },
+  },
+  {
+    path: '/tournaments/:tournamentId/overlays',
+    name: 'overlay-links',
+    component: OverlayLinksView,
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
 
   // Catch-all 404

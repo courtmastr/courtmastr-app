@@ -96,7 +96,7 @@ onUnmounted(() => {
   <!-- Ticker Mode -->
   <div
     v-if="viewMode === 'ticker'"
-    :class="['obs-ticker', `obs-ticker--\${theme}`]"
+    :class="['obs-ticker', 'obs-ticker--' + theme]"
   >
     <div
       v-for="match in allMatches.slice(0, 6)"
@@ -107,24 +107,32 @@ onUnmounted(() => {
       <span class="ticker-score">
         {{ getCurrentGame(match).score1 }} - {{ getCurrentGame(match).score2 }}
       </span>
-      <span v-if="match.status === 'in_progress'" class="ticker-live">LIVE</span>
+      <span
+        v-if="match.status === 'in_progress'"
+        class="ticker-live"
+      >LIVE</span>
     </div>
   </div>
 
   <!-- Full Scoreboard Mode -->
   <div
     v-else
-    :class="['obs-full-scoreboard', `obs-full-scoreboard--\${theme}`]"
+    :class="['obs-full-scoreboard', 'obs-full-scoreboard--' + theme]"
   >
     <div class="scoreboard-header">
-      <h1 class="scoreboard-title">{{ tournament?.name || 'Live Scores' }}</h1>
+      <h1 class="scoreboard-title">
+        {{ tournament?.name || 'Live Scores' }}
+      </h1>
       <div class="scoreboard-subtitle">
         {{ inProgressMatches.length }} Live Matches
         <span v-if="readyMatches.length"> | {{ readyMatches.length }} Up Next</span>
       </div>
     </div>
 
-    <div v-if="loading" class="scoreboard-grid">
+    <div
+      v-if="loading"
+      class="scoreboard-grid"
+    >
       <div class="scoreboard-card">
         <div class="card-team">
           <span class="card-team-name">Loading...</span>
@@ -132,7 +140,10 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div v-else-if="allMatches.length === 0" class="scoreboard-grid">
+    <div
+      v-else-if="allMatches.length === 0"
+      class="scoreboard-grid"
+    >
       <div class="scoreboard-card">
         <div class="card-team">
           <span class="card-team-name">No matches in progress</span>
@@ -140,7 +151,10 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div v-else class="scoreboard-grid">
+    <div
+      v-else
+      class="scoreboard-grid"
+    >
       <!-- Live Matches -->
       <div
         v-for="match in inProgressMatches"
@@ -160,7 +174,10 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="card-team" style="opacity: 0.7; font-size: 0.9em;">
+        <div
+          class="card-team"
+          style="opacity: 0.7; font-size: 0.9em;"
+        >
           <span class="card-team-name">{{ getParticipant2Name(match) }}</span>
           <div class="card-score">
             <span class="card-games">{{ getGamesWon(match, match.participant2Id) }}</span>

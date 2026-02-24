@@ -1,0 +1,55 @@
+html.overlay-page,
+html.overlay-page body,
+html.overlay-page #app {
+  background: transparent !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden !important;
+}
+
+html.overlay-page {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden !important;
+}
+
+.overlay-tile {
+  background: rgba(0, 0, 0, 0.82);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #ffffff;
+}
+
+.live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #4caf50;
+  display: inline-block;
+  animation: overlay-live-pulse 1.2s ease-in-out infinite;
+}
+
+.overlay-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+}
+
+.overlay-idle {
+  opacity: 0.45;
+}
+
+@keyframes overlay-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}

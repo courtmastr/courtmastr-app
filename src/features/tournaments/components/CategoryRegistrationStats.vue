@@ -268,6 +268,7 @@ const emit = defineEmits<{
   (e: 'generate-bracket', categoryId: string): void;
   (e: 'create-levels', categoryId: string): void;
   (e: 'regenerate-bracket', categoryId: string): void;
+  (e: 'regenerate-pools', categoryId: string): void;
   (e: 'manage-registrations', categoryId: string): void;
   (e: 'manage-seeds', categoryId: string): void;
   (e: 'edit-category', category: Category): void;
@@ -398,6 +399,24 @@ function canGenerateBracket(stats: CategoryStats): boolean {
   return true;
 }
 
+function canRegeneratePools(stats: CategoryStats): boolean {
+  return isPoolFormat(stats) && 
+         !!stats.category.poolPhase && 
+         !stats.schedulePublished;
+}
+
+function canRegenerateLevels(stats: CategoryStats): boolean {
+  return isPoolFormat(stats) && 
+         stats.category.poolPhase === 'elimination' && 
+         !stats.schedulePublished;
+}
+
+function canRegenerateBracket(stats: CategoryStats): boolean {
+  return !isPoolFormat(stats) && 
+         hasBracket(stats) && 
+         !stats.schedulePublished;
+}
+
 function canDeleteCategory(stats: CategoryStats): boolean {
   return stats.category.status === 'setup';
 }
@@ -489,7 +508,7 @@ function getPrimaryAction(stats: CategoryStats): PrimaryAction {
 
   if (canGenerateBracket(stats)) {
     return {
-      label: 'Generate Bracket',
+      label: isPoolFormat(stats) ? 'Generate Pools' : 'Generate Bracket',
       icon: 'mdi-tournament',
       color: 'primary',
       event: 'generate-bracket',
@@ -681,8 +700,26 @@ const categoryCardsWithAction = computed(() =>
                 <v-list-item
                   v-if="canGenerateBracket(stats)"
                   prepend-icon="mdi-tournament"
-                  title="Generate Bracket"
+                  :title="isPoolFormat(stats) ? 'Generate Pools' : 'Generate Bracket'"
                   @click="emit('generate-bracket', stats.category.id)"
+                />
+                <v-list-item
+                  v-if="canRegenerateBracket(stats)"
+                  prepend-icon="mdi-refresh"
+                  title="Regenerate Bracket"
+                  @click="emit('regenerate-bracket', stats.category.id)"
+                />
+                <v-list-item
+                  v-if="canRegeneratePools(stats)"
+                  prepend-icon="mdi-refresh"
+                  title="Regenerate Pools"
+                  @click="emit('regenerate-pools', stats.category.id)"
+                />
+                <v-list-item
+                  v-if="canRegenerateLevels(stats)"
+                  prepend-icon="mdi-layers-triple-outline"
+                  title="Regenerate Levels"
+                  @click="emit('create-levels', stats.category.id)"
                 />
                 <v-list-item
                   v-if="hasBracket(stats)"
@@ -693,14 +730,8 @@ const categoryCardsWithAction = computed(() =>
                 <v-list-item
                   v-if="needsLevelGeneration(stats)"
                   prepend-icon="mdi-layers-triple"
-                  title="Create Levels"
+                  title="Generate Levels"
                   @click="emit('create-levels', stats.category.id)"
-                />
-                <v-list-item
-                  v-if="stats.category.status === 'active'"
-                  prepend-icon="mdi-refresh"
-                  title="Regenerate Bracket"
-                  @click="emit('regenerate-bracket', stats.category.id)"
                 />
                 <v-divider class="my-1" />
                 <v-list-item
@@ -926,7 +957,7 @@ const categoryCardsWithAction = computed(() =>
                   prepend-icon="mdi-layers-triple"
                   @click="emit('create-levels', stats.category.id)"
                 >
-                  Create Levels
+                  Generate Levels
                 </v-btn>
               </div>
             </v-alert>

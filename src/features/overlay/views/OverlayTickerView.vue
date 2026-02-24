@@ -1,0 +1,296 @@
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted } from 'vue';
+import { useRoute } from 'vue-router';
+import { useMatchStore } from '@/stores/matches';
+import { useTournamentStore } from '@/stores/tournaments';
+import { useRegistrationStore } from '@/stores/registrations';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import type { GameScore, Match } from '@/types';
+import '../overlay.css';
+
+interface TickerItem {
+  key: string;
+  courtName: string;
+  state: 'live' | 'ready' | 'idle';
+  participant1Name?: string;
+  participant2Name?: string;
+  score1?: number;
+  score2?: number;
+  gameNumber?: number;
+}
+
+const route = useRoute();
+const matchStore = useMatchStore();
+const tournamentStore = useTournamentStore();
+const registrationStore = useRegistrationStore();
+const { getParticipantName } = useParticipantResolver();
+
+const tournamentId = computed(() => route.params.tournamentId as string);
+const speed = computed(() => route.query.speed as string | undefined);
+
+const scrollDuration = computed(() => {
+  if (speed.value === 'slow') return 90;
+  if (speed.value === 'fast') return 30;
+  return 60;
+});
+
+const getCurrentGame = (match: Match): GameScore => {
+  if (match.scores.length === 0) {
+    return {
+      gameNumber: 1,
+      score1: 0,
+      score2: 0,
+      isComplete: false,
+    };
+  }
+  return match.scores[match.scores.length - 1];
+};
+
+const tickerItems = computed<TickerItem[]>(() => {
+  if (tournamentStore.courts.length === 0) {
+    return [
+      {
+        key: 'no-courts',
+        courtName: 'No Courts Configured',
+        state: 'idle',
+      },
+    ];
+  }
+
+  return tournamentStore.courts.map((court) => {
+    const liveMatch = matchStore.matches.find(
+      (match) => match.courtId === court.id && match.status === 'in_progress'
+    );
+
+    if (liveMatch) {
+      const currentGame = getCurrentGame(liveMatch);
+      return {
+        key: `live-${court.id}-${liveMatch.id}`,
+        courtName: court.name,
+        state: 'live',
+        participant1Name: getParticipantName(liveMatch.participant1Id),
+        participant2Name: getParticipantName(liveMatch.participant2Id),
+        score1: currentGame.score1,
+        score2: currentGame.score2,
+        gameNumber: currentGame.gameNumber || 1,
+      };
+    }
+
+    const readyMatch = matchStore.matches.find(
+      (match) => match.courtId === court.id && match.status === 'ready'
+    );
+
+    if (readyMatch) {
+      return {
+        key: `ready-${court.id}-${readyMatch.id}`,
+        courtName: court.name,
+        state: 'ready',
+        participant1Name: getParticipantName(readyMatch.participant1Id),
+        participant2Name: getParticipantName(readyMatch.participant2Id),
+      };
+    }
+
+    return {
+      key: `idle-${court.id}`,
+      courtName: court.name,
+      state: 'idle',
+    };
+  });
+});
+
+const duplicatedTickerItems = computed(() => [...tickerItems.value, ...tickerItems.value]);
+
+onMounted(async () => {
+  document.documentElement.classList.add('overlay-page');
+  await tournamentStore.fetchTournament(tournamentId.value);
+  tournamentStore.subscribeTournament(tournamentId.value);
+  matchStore.subscribeAllMatches(tournamentId.value);
+  registrationStore.subscribeRegistrations(tournamentId.value);
+  registrationStore.subscribePlayers(tournamentId.value);
+});
+
+onUnmounted(() => {
+  document.documentElement.classList.remove('overlay-page');
+  tournamentStore.unsubscribeAll();
+  matchStore.unsubscribeAll();
+  registrationStore.unsubscribeAll();
+});
+</script>
+
+<template>
+  <div class="overlay-ticker-canvas">
+    <div class="overlay-ticker-bar">
+      <div class="overlay-ticker-badge">
+        🏸 LIVE
+      </div>
+      <div class="overlay-ticker-track-wrap">
+        <div
+          class="overlay-ticker-track"
+          :style="{ '--ticker-duration': `${scrollDuration}s` }"
+        >
+          <div
+            v-for="(item, index) in duplicatedTickerItems"
+            :key="`${item.key}-${index}`"
+            class="overlay-ticker-item"
+            :class="{ 'overlay-idle': item.state === 'idle' }"
+          >
+            <template v-if="item.state === 'live'">
+              <span class="live-dot" />
+              <span class="overlay-ticker-court">{{ item.courtName }}</span>
+              <span class="overlay-ticker-player">{{ item.participant1Name }}</span>
+              <span class="overlay-ticker-score overlay-score">
+                {{ item.score1 }} <span class="overlay-ticker-dot">·</span> {{ item.score2 }}
+              </span>
+              <span class="overlay-ticker-player">{{ item.participant2Name }}</span>
+              <span class="overlay-ticker-game">G{{ item.gameNumber }}</span>
+              <span class="overlay-ticker-live-badge">LIVE</span>
+            </template>
+
+            <template v-else-if="item.state === 'ready'">
+              <span class="overlay-ticker-court">{{ item.courtName }}</span>
+              <span class="overlay-ticker-player">{{ item.participant1Name }}</span>
+              <span class="overlay-ticker-vs">vs</span>
+              <span class="overlay-ticker-player">{{ item.participant2Name }}</span>
+              <span class="overlay-ticker-ready-badge">UP NEXT</span>
+            </template>
+
+            <template v-else>
+              <span class="overlay-ticker-court">{{ item.courtName }}</span>
+              <span class="overlay-ticker-idle-text">IDLE</span>
+            </template>
+
+            <span class="overlay-ticker-separator">│</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.overlay-ticker-canvas {
+  position: fixed;
+  inset: 0;
+  width: 1920px;
+  height: 1080px;
+  pointer-events: none;
+}
+
+.overlay-ticker-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 1920px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.88);
+  border-top: 2px solid rgba(126, 217, 87, 0.6);
+  overflow: hidden;
+}
+
+.overlay-ticker-badge {
+  flex: 0 0 auto;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+  color: #7ed957;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.overlay-ticker-track-wrap {
+  flex: 1;
+  overflow: hidden;
+}
+
+.overlay-ticker-track {
+  width: max-content;
+  min-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: overlay-ticker-scroll var(--ticker-duration, 60s) linear infinite;
+}
+
+.overlay-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.overlay-ticker-court {
+  color: #7ed957;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+}
+
+.overlay-ticker-player {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.overlay-ticker-score {
+  color: #ffffff;
+}
+
+.overlay-ticker-dot {
+  opacity: 0.7;
+}
+
+.overlay-ticker-game {
+  color: rgba(255, 255, 255, 0.76);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.overlay-ticker-live-badge {
+  color: #4caf50;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 0.75rem;
+}
+
+.overlay-ticker-ready-badge {
+  color: rgba(255, 193, 7, 0.92);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+}
+
+.overlay-ticker-vs {
+  color: rgba(255, 255, 255, 0.65);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+}
+
+.overlay-ticker-idle-text {
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.overlay-ticker-separator {
+  color: rgba(255, 255, 255, 0.44);
+}
+
+@keyframes overlay-ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+</style>

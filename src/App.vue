@@ -10,6 +10,7 @@ const notificationStore = useNotificationStore();
 const route = useRoute();
 
 const isLoading = computed(() => authStore.loading);
+const isOverlayRoute = computed(() => route.meta.overlayPage === true);
 const isObsOverlay = computed(() => route.meta.obsOverlay as boolean);
 
 // Toggle 'obs-page' class on <html> based on route meta for OBS overlay transparency
@@ -27,7 +28,8 @@ watch(
 </script>
 
 <template>
-  <v-app>
+  <router-view v-if="isOverlayRoute" />
+  <v-app v-else>
     <!-- Loading overlay -->
     <v-overlay
       v-model="isLoading"
