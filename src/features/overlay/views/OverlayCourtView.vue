@@ -59,6 +59,19 @@ const participant2Name = computed(() =>
   getParticipantName(displayMatch.value?.participant2Id)
 );
 
+// Get player initials from name
+const getInitials = (name: string): string => {
+  if (!name || name === 'Unknown') return '?';
+  const parts = name.split(/[\s/]+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  // For doubles: take first letter of first name and first letter of second name
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+};
+
+const player1Initials = computed(() => getInitials(participant1Name.value));
+const player2Initials = computed(() => getInitials(participant2Name.value));
+
 const currentGame = computed<GameScore>(() => {
   const match = liveMatch.value;
   if (!match || match.scores.length === 0) {
@@ -112,61 +125,100 @@ onUnmounted(() => {
 
 <template>
   <div class="overlay-court-canvas">
-    <section
-      class="overlay-tile overlay-court-tile"
-      :class="{ 'overlay-idle': tileState === 'idle' }"
+    <!-- BROADCAST STYLE SCOREBOARD - Top Center -->
+    <div
+      v-if="tileState === 'live'"
+      class="broadcast-scoreboard"
     >
-      <header class="overlay-court-header">
-        <span class="overlay-court-name">{{ courtName }}</span>
-        <span class="overlay-court-category">{{ categoryName }}</span>
-      </header>
+      <!-- Top Bar with Court and Category -->
+      <div class="broadcast-header">
+        <span class="broadcast-court">{{ courtName }}</span>
+        <span class="broadcast-category">{{ categoryName }}</span>
+        <span class="broadcast-live-badge">
+          <span class="live-dot" />
+          LIVE
+        </span>
+      </div>
 
-      <template v-if="tileState === 'live'">
-        <div class="overlay-score-grid">
-          <div class="overlay-score-row">
-            <span class="overlay-player-name">{{ participant1Name }}</span>
-            <span class="overlay-games-won overlay-score">{{ gamesWon.participant1Games }}</span>
-            <span class="overlay-live-points overlay-score">{{ currentGame.score1 }}</span>
-          </div>
-          <div class="overlay-score-row">
-            <span class="overlay-player-name">{{ participant2Name }}</span>
-            <span class="overlay-games-won overlay-score">{{ gamesWon.participant2Games }}</span>
-            <span class="overlay-live-points overlay-score">{{ currentGame.score2 }}</span>
+      <!-- Main Score Area -->
+      <div class="broadcast-body">
+        <!-- Player 1 Section -->
+        <div class="broadcast-player-section player-left">
+          <div class="broadcast-player-info">
+            <div class="broadcast-avatar">
+              {{ player1Initials }}
+            </div>
+            <div class="broadcast-player-name">
+              {{ participant1Name }}
+            </div>
           </div>
         </div>
-        <footer class="overlay-court-footer">
-          <span>GAME {{ currentGame.gameNumber || 1 }}</span>
-          <span class="overlay-live-indicator">
-            <span class="live-dot" />
-            LIVE
-          </span>
-        </footer>
-      </template>
 
-      <template v-else-if="tileState === 'ready'">
-        <div class="overlay-up-next">
-          <div class="overlay-up-next-player">
-            {{ participant1Name }}
+        <!-- Score Section -->
+        <div class="broadcast-score-section">
+          <div class="broadcast-games-row">
+            <span class="broadcast-game">{{ gamesWon.participant1Games }}</span>
+            <span class="broadcast-divider">-</span>
+            <span class="broadcast-game">{{ gamesWon.participant2Games }}</span>
           </div>
-          <div class="overlay-up-next-vs">
-            vs
-          </div>
-          <div class="overlay-up-next-player">
-            {{ participant2Name }}
+          <div class="broadcast-points-row">
+            <span class="broadcast-point">{{ currentGame.score1 }}</span>
+            <span class="broadcast-divider">:</span>
+            <span class="broadcast-point">{{ currentGame.score2 }}</span>
           </div>
         </div>
-        <footer class="overlay-court-footer">
-          <span>UP NEXT</span>
-          <span class="overlay-ready-badge">READY</span>
-        </footer>
-      </template>
 
-      <template v-else>
-        <div class="overlay-idle-body">
-          IDLE
+        <!-- Player 2 Section -->
+        <div class="broadcast-player-section player-right">
+          <div class="broadcast-player-info">
+            <div class="broadcast-player-name">
+              {{ participant2Name }}
+            </div>
+            <div class="broadcast-avatar">
+              {{ player2Initials }}
+            </div>
+          </div>
         </div>
-      </template>
-    </section>
+      </div>
+
+      <!-- Bottom Bar with Game Info -->
+      <div class="broadcast-footer">
+        <span class="broadcast-game-info">GAME {{ currentGame.gameNumber || 1 }}</span>
+      </div>
+    </div>
+
+    <!-- UP NEXT STATE -->
+    <div
+      v-else-if="tileState === 'ready'"
+      class="broadcast-scoreboard up-next"
+    >
+      <div class="broadcast-header">
+        <span class="broadcast-court">{{ courtName }}</span>
+        <span class="broadcast-category">{{ categoryName }}</span>
+      </div>
+      <div class="broadcast-up-next-body">
+        <div class="broadcast-up-next-players">
+          <span class="broadcast-up-next-name">{{ participant1Name }}</span>
+          <span class="broadcast-up-next-vs">VS</span>
+          <span class="broadcast-up-next-name">{{ participant2Name }}</span>
+        </div>
+        <div class="broadcast-up-next-badge">UP NEXT</div>
+      </div>
+    </div>
+
+    <!-- IDLE STATE -->
+    <div
+      v-else
+      class="broadcast-scoreboard idle"
+    >
+      <div class="broadcast-header">
+        <span class="broadcast-court">{{ courtName }}</span>
+      </div>
+      <div class="broadcast-idle-body">
+        <span class="broadcast-idle-text">IDLE</span>
+        <span class="broadcast-idle-subtext">Waiting for match</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -177,8 +229,9 @@ onUnmounted(() => {
   width: 1920px;
   height: 1080px;
   display: flex;
-  align-items: flex-end;
-  padding: 32px;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 60px;
   box-sizing: border-box;
   pointer-events: none;
   /* Scale down for browser preview - OBS ignores this */
@@ -192,122 +245,269 @@ onUnmounted(() => {
   }
 }
 
-.overlay-court-tile {
-  width: 380px;
-  min-height: 212px;
-  display: flex;
-  flex-direction: column;
+/* BROADCAST STYLE SCOREBOARD */
+.broadcast-scoreboard {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  min-width: 600px;
+  max-width: 900px;
 }
 
-.overlay-court-header {
+.broadcast-scoreboard.up-next {
+  background: linear-gradient(180deg, #fff8e1 0%, #ffecb3 100%);
+}
+
+.broadcast-scoreboard.idle {
+  background: linear-gradient(180deg, #eceff1 0%, #cfd8dc 100%);
+  opacity: 0.9;
+}
+
+/* Header */
+.broadcast-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 10px 20px;
+  background: linear-gradient(90deg, #1a237e 0%, #283593 100%);
+  color: white;
 }
 
-.overlay-court-name {
-  color: #7ed957;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 0.95rem;
+.broadcast-court {
+  font-size: 1rem;
   font-weight: 800;
-}
-
-.overlay-court-category {
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
-
-.overlay-score-grid {
-  padding: 10px 16px 6px;
-}
-
-.overlay-score-row {
-  display: grid;
-  grid-template-columns: 1fr 52px 82px;
-  align-items: center;
-  min-height: 52px;
-}
-
-.overlay-player-name {
-  font-size: 1.02rem;
-  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  white-space: nowrap;
+  color: #7ed957;
+}
+
+.broadcast-category {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.broadcast-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #4caf50;
+  text-transform: uppercase;
+}
+
+.broadcast-live-badge .live-dot {
+  width: 8px;
+  height: 8px;
+  background: #4caf50;
+  border-radius: 50%;
+  animation: live-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+}
+
+/* Body */
+.broadcast-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 30px;
+  gap: 40px;
+}
+
+/* Player Sections */
+.broadcast-player-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.broadcast-player-section.player-left {
+  justify-content: flex-end;
+}
+
+.broadcast-player-section.player-right {
+  justify-content: flex-start;
+}
+
+.broadcast-player-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.broadcast-avatar {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.broadcast-player-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #212121;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  max-width: 250px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.overlay-games-won {
+/* Score Section */
+.broadcast-score-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%);
+  padding: 15px 40px;
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+}
+
+.broadcast-games-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #424242;
+}
+
+.broadcast-game {
+  font-variant-numeric: tabular-nums;
+  min-width: 24px;
   text-align: center;
-  font-size: 1.35rem;
 }
 
-.overlay-live-points {
-  text-align: right;
-  font-size: 2rem;
+.broadcast-divider {
+  color: #9e9e9e;
+  font-weight: 500;
+}
+
+.broadcast-points-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 3rem;
+  font-weight: 900;
+  color: #1a237e;
+}
+
+.broadcast-point {
+  font-variant-numeric: tabular-nums;
+  min-width: 60px;
+  text-align: center;
   line-height: 1;
 }
 
-.overlay-court-footer {
-  margin-top: auto;
-  padding: 10px 16px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
+/* Footer */
+.broadcast-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 0.84rem;
+  justify-content: center;
+  padding: 8px 20px;
+  background: #fafafa;
+  border-top: 1px solid #e0e0e0;
+}
+
+.broadcast-game-info {
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
+  color: #616161;
   text-transform: uppercase;
 }
 
-.overlay-live-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: #4caf50;
-}
-
-.overlay-up-next {
+/* UP NEXT STATE */
+.broadcast-up-next-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 18px 16px 14px;
+  align-items: center;
+  padding: 30px 40px;
+  gap: 20px;
 }
 
-.overlay-up-next-player {
-  font-size: 1.02rem;
+.broadcast-up-next-players {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+
+.broadcast-up-next-name {
+  font-size: 1.5rem;
   font-weight: 700;
+  color: #212121;
   text-transform: uppercase;
-  white-space: nowrap;
+  max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.overlay-up-next-vs {
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.overlay-ready-badge {
-  color: rgba(255, 193, 7, 0.9);
-}
-
-.overlay-idle-body {
-  margin-top: 16px;
-  padding: 24px 16px;
-  text-align: center;
-  font-size: 1.1rem;
+.broadcast-up-next-vs {
+  font-size: 1.2rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
-  color: rgba(255, 255, 255, 0.6);
+  color: #ff8f00;
+  letter-spacing: 0.1em;
+}
+
+.broadcast-up-next-badge {
+  background: linear-gradient(90deg, #ff8f00 0%, #ff6f00 100%);
+  color: white;
+  padding: 10px 30px;
+  border-radius: 20px;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(255, 143, 0, 0.3);
+}
+
+/* IDLE STATE */
+.broadcast-idle-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px;
+  gap: 10px;
+}
+
+.broadcast-idle-text {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: #78909c;
+  text-transform: uppercase;
+}
+
+.broadcast-idle-subtext {
+  font-size: 1rem;
+  color: #90a4ae;
+  font-weight: 600;
 }
 </style>
