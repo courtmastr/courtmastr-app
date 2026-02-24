@@ -318,6 +318,12 @@ router.beforeEach(async (to, _from, next) => {
     return;
   }
 
+  // Skip all auth checks for overlay page routes
+  if (to.meta.overlayPage) {
+    next();
+    return;
+  }
+
   // Wait for auth to initialize
   if (authStore.loading) {
     await authStore.initAuth();
