@@ -466,6 +466,15 @@ onUnmounted(() => {
   background: radial-gradient(circle at top left, #1b2440 0%, #090c15 52%, #06080f 100%);
   overflow: hidden;
   font-family: 'Roboto', 'Arial', sans-serif;
+  /* Scale down for browser preview - OBS ignores this */
+  transform-origin: top left;
+  transform: scale(calc(100vw / 1920));
+}
+
+@media screen and (max-width: 1920px) {
+  .overlay-board-page {
+    transform: scale(calc(100vw / 1920));
+  }
 }
 
 .board-header {
@@ -792,7 +801,7 @@ onUnmounted(() => {
 }
 
 .board-footer {
-  height: 44px;
+  height: 68px;
   border-top: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(0, 0, 0, 0.52);
   overflow: hidden;
@@ -800,14 +809,14 @@ onUnmounted(() => {
 
 .board-footer-track-wrap {
   width: 100%;
-  height: 100%;
+  height: 68px;
   overflow: hidden;
 }
 
 .board-footer-track {
   width: max-content;
   min-width: 100%;
-  height: 100%;
+  height: 68px;
   display: inline-flex;
   align-items: center;
   animation: board-footer-scroll var(--ticker-duration, 60s) linear infinite;
@@ -817,16 +826,17 @@ onUnmounted(() => {
 .board-footer-item {
   display: inline-flex;
   align-items: center;
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
   color: rgba(255, 255, 255, 0.9);
-  padding-left: 16px;
+  padding-left: 24px;
 }
 
 .board-footer-item::after {
   content: " │";
   color: rgba(255, 255, 255, 0.42);
-  padding-left: 16px;
+  padding-left: 24px;
 }
 
 @keyframes board-footer-scroll {

@@ -174,6 +174,15 @@ onUnmounted(() => {
   width: 1920px;
   height: 1080px;
   pointer-events: none;
+  /* Scale down for browser preview - OBS ignores this */
+  transform-origin: top left;
+  transform: scale(calc(100vw / 1920));
+}
+
+@media screen and (max-width: 1920px) {
+  .overlay-ticker-canvas {
+    transform: scale(calc(100vw / 1920));
+  }
 }
 
 .overlay-ticker-bar {
@@ -181,11 +190,11 @@ onUnmounted(() => {
   bottom: 0;
   left: 0;
   width: 1920px;
-  height: 56px;
+  height: 72px;
   display: flex;
   align-items: center;
   background: rgba(0, 0, 0, 0.88);
-  border-top: 2px solid rgba(126, 217, 87, 0.6);
+  border-top: 3px solid rgba(126, 217, 87, 0.7);
   overflow: hidden;
 }
 
@@ -195,12 +204,12 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 18px;
+  padding: 0 24px;
   border-right: 1px solid rgba(255, 255, 255, 0.22);
   color: #7ed957;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.11em;
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -221,18 +230,19 @@ onUnmounted(() => {
 .overlay-ticker-item {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  font-size: 0.84rem;
-  font-weight: 700;
+  gap: 14px;
+  padding: 0 20px;
+  font-size: 1.1rem;
+  font-weight: 800;
   letter-spacing: 0.01em;
 }
 
 .overlay-ticker-court {
   color: #7ed957;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   font-weight: 800;
+  font-size: 1.05rem;
 }
 
 .overlay-ticker-player {
@@ -242,6 +252,8 @@ onUnmounted(() => {
 
 .overlay-ticker-score {
   color: #ffffff;
+  font-size: 1.2rem;
+  font-weight: 900;
 }
 
 .overlay-ticker-dot {

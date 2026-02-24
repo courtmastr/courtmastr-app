@@ -181,6 +181,15 @@ onUnmounted(() => {
   padding: 32px;
   box-sizing: border-box;
   pointer-events: none;
+  /* Scale down for browser preview - OBS ignores this */
+  transform-origin: top left;
+  transform: scale(calc(100vw / 1920));
+}
+
+@media screen and (max-width: 1920px) {
+  .overlay-court-canvas {
+    transform: scale(calc(100vw / 1920));
+  }
 }
 
 .overlay-court-tile {
