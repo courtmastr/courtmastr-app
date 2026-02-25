@@ -65,6 +65,8 @@ const settings = ref({
   mustWinBy: 2,
   maxPoints: 30 as number | null,
 });
+const sponsors = ref<string[]>([]);
+const newSponsor = ref('');
 
 const initialScoringConfig = ref<ScoringConfig>(sanitizeScoringConfig(settings.value));
 const categoryScoringOverrides = ref<Record<string, CategoryScoringOverrideForm>>({});
@@ -232,6 +234,8 @@ watch([tournament, categories], ([t, nextCategories]) => {
     });
     categoryScoringOverrides.value = categoryOverrides;
     initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryOverrides);
+    // Populate sponsors
+    sponsors.value = t.sponsors ?? [];
   }
 }, { immediate: true });
 
@@ -261,6 +265,7 @@ async function saveSettings() {
         ? new Date(registrationDeadline.value)
         : undefined,
       settings: settings.value,
+      sponsors: sponsors.value,
     });
 
     await Promise.all(
@@ -342,6 +347,17 @@ async function removeOrganizerFromTournament(userId: string): Promise<void> {
     organizerLoading.value = false;
   }
 }
+// Sponsor management
+function addSponsor(): void {
+  if (!newSponsor.value.trim()) return;
+  sponsors.value.push(newSponsor.value.trim());
+  newSponsor.value = '';
+}
+
+function removeSponsor(index: number): void {
+  sponsors.value.splice(index, 1);
+}
+
 
 const showDeleteDialog = ref(false);
 const typedDeleteName = ref('');
@@ -813,6 +829,78 @@ async function confirmDelete() {
             />
           </v-card-text>
         </v-card>
+        <!-- Sponsor Management -->
+        <v-card class="mb-4">
+          <v-card-title>
+            <v-icon start>
+              mdi-domain
+            </v-icon>
+            Tournament Sponsors
+          </v-card-title>
+          <v-card-text>
+            <v-alert
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="mb-4"
+            >
+              Sponsors will be displayed in the tournament board overlay.
+            </v-alert>
+            <!-- Current sponsors list -->
+            <v-list
+              v-if="sponsors.length > 0"
+              lines="one"
+              class="mb-4"
+            >
+              <v-list-item
+                v-for="(sponsor, index) in sponsors"
+                :key="index"
+                :title="sponsor"
+                prepend-icon="mdi-domain"
+              >
+                <template #append>
+                  <v-btn
+                    icon="mdi-close"
+                    variant="text"
+                    size="small"
+                    color="error"
+                    title="Remove sponsor"
+                    @click="removeSponsor(index)"
+                  />
+                </template>
+              </v-list-item>
+            </v-list>
+            <p
+              v-else
+              class="text-medium-emphasis text-body-2 mb-4"
+            >
+              No sponsors added yet.
+            </p>
+
+            <!-- Add sponsor -->
+            <div class="d-flex align-center gap-2">
+              <v-text-field
+                v-model="newSponsor"
+                label="Add sponsor"
+                placeholder="e.g., YONEX, LI-NING..."
+                variant="outlined"
+                density="compact"
+                clearable
+                hide-details
+                @keyup.enter="addSponsor"
+              />
+              <v-btn
+                color="primary"
+                variant="elevated"
+                :disabled="!newSponsor?.trim()"
+                @click="addSponsor"
+              >
+                Add
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
+
 
         <!-- Actions -->
         <div class="d-flex justify-end">

@@ -5,55 +5,49 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useAnnouncements } from '@/composables/useAnnouncements';
 import type { Court, GameScore, Match } from '@/types';
 import '../overlay.css';
 
-interface CourtCardState {
+interface CourtBoardCard {
   court: Court;
   liveMatch: Match | null;
   readyMatch: Match | null;
+  displayMatch: Match | null;
 }
 
-const COURTS_PER_PAGE = 6;
-const CAROUSEL_INTERVAL_MS = 8000;
+const COURTS_PER_PAGE = 4;
+const CAROUSEL_INTERVAL_MS = 9000;
 
 const route = useRoute();
 const matchStore = useMatchStore();
 const tournamentStore = useTournamentStore();
 const registrationStore = useRegistrationStore();
 const { getParticipantName } = useParticipantResolver();
+const { activeAnnouncements, subscribeAnnouncements } = useAnnouncements();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
-const speed = computed(() => route.query.speed as string | undefined);
-
-const carouselPage = ref(0);
-const now = ref(new Date());
-
-let carouselInterval: ReturnType<typeof setInterval> | null = null;
-let clockInterval: ReturnType<typeof setInterval> | null = null;
-
-const scrollDuration = computed(() => {
-  if (speed.value === 'slow') return 90;
-  if (speed.value === 'fast') return 30;
-  return 60;
-});
-
-const shouldUseCarousel = computed(() => tournamentStore.courts.length > COURTS_PER_PAGE);
-const totalCourtPages = computed(() =>
-  Math.max(1, Math.ceil(tournamentStore.courts.length / COURTS_PER_PAGE))
+const tournamentName = computed(() =>
+  tournamentStore.currentTournament?.name?.trim() || 'TOURNAMENT BOARD'
 );
 
-const visibleCourts = computed<Court[]>(() => {
-  if (!shouldUseCarousel.value) {
-    return tournamentStore.courts;
-  }
-  const start = carouselPage.value * COURTS_PER_PAGE;
-  return tournamentStore.courts.slice(start, start + COURTS_PER_PAGE);
-});
+const courts = computed(() => tournamentStore.courts);
+const carouselPage = ref(0);
+let carouselInterval: ReturnType<typeof setInterval> | null = null;
 
-const courtGridColumns = computed(() => {
-  if (tournamentStore.courts.length <= 4) return 2;
-  return 3;
+const shouldUseCarousel = computed(() => courts.value.length > COURTS_PER_PAGE);
+const totalCourtPages = computed(() =>
+  Math.max(1, Math.ceil(courts.value.length / COURTS_PER_PAGE))
+);
+const carouselRangeLabel = computed(() => {
+  if (courts.value.length === 0) return 'COURTS 0 OF 0';
+  const start = carouselPage.value * COURTS_PER_PAGE + 1;
+  const end = Math.min((carouselPage.value + 1) * COURTS_PER_PAGE, courts.value.length);
+  return `COURTS ${start}-${end} OF ${courts.value.length}`;
+});
+const visibleCourts = computed(() => {
+  const start = carouselPage.value * COURTS_PER_PAGE;
+  return courts.value.slice(start, start + COURTS_PER_PAGE);
 });
 
 const getLiveMatchOnCourt = (courtId: string): Match | null =>
@@ -66,17 +60,28 @@ const getReadyMatchOnCourt = (courtId: string): Match | null =>
     (match) => match.courtId === courtId && match.status === 'ready'
   ) ?? null;
 
-const visibleCourtStates = computed<CourtCardState[]>(() =>
-  visibleCourts.value.map((court) => ({
-    court,
-    liveMatch: getLiveMatchOnCourt(court.id),
-    readyMatch: getReadyMatchOnCourt(court.id),
-  }))
+const courtCards = computed<CourtBoardCard[]>(() =>
+  visibleCourts.value.map((court) => {
+    const liveMatch = getLiveMatchOnCourt(court.id);
+    const readyMatch = getReadyMatchOnCourt(court.id);
+
+    return {
+      court,
+      liveMatch,
+      readyMatch,
+      displayMatch: liveMatch ?? readyMatch,
+    };
+  })
 );
 
 const getCategoryName = (match: Match | null): string => {
   if (!match) return '';
   return tournamentStore.categories.find((category) => category.id === match.categoryId)?.name ?? 'Match';
+};
+
+const getCourtLabel = (courtId: string | undefined): string => {
+  if (!courtId) return 'COURT TBA';
+  return courts.value.find((court) => court.id === courtId)?.name?.toUpperCase() ?? 'COURT TBA';
 };
 
 const getCurrentGame = (match: Match): GameScore => {
@@ -91,10 +96,7 @@ const getCurrentGame = (match: Match): GameScore => {
   return match.scores[match.scores.length - 1];
 };
 
-const getGamesWon = (
-  match: Match,
-  participantId: string | undefined
-): number => {
+const getGamesWon = (match: Match, participantId: string | undefined): number => {
   if (!participantId) return 0;
   return match.scores.reduce((count, game) => {
     if (!game.isComplete) return count;
@@ -110,98 +112,14 @@ const upNextMatches = computed<Match[]>(() =>
       const bTime = b.plannedStartAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
       return aTime !== bTime ? aTime - bTime : a.matchNumber - b.matchNumber;
     })
-    .slice(0, 6)
-);
-
-const recentResults = computed<Match[]>(() =>
-  matchStore.matches
-    .filter((match) => match.status === 'completed' || match.status === 'walkover')
-    .sort((a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0))
-    .slice(0, 5)
-);
-
-const totalMatches = computed(() => matchStore.matches.length);
-const completedMatches = computed(() =>
-  matchStore.matches.filter(
-    (match) => match.status === 'completed' || match.status === 'walkover'
-  ).length
-);
-const liveMatches = computed(() =>
-  matchStore.matches.filter((match) => match.status === 'in_progress').length
-);
-const progressPercent = computed(() => {
-  if (totalMatches.value === 0) return 0;
-  return Math.round((completedMatches.value / totalMatches.value) * 100);
-});
-
-function getResultString(match: Match): string {
-  return match.scores
-    .filter((game) => game.isComplete)
-    .map((game) => `${game.score1}-${game.score2}`)
-    .join(', ');
-}
-
-const getWinnerName = (match: Match): string => {
-  if (match.winnerId) {
-    return getParticipantName(match.winnerId);
-  }
-  return 'Winner TBD';
-};
-
-const getLoserName = (match: Match): string => {
-  if (match.winnerId === match.participant1Id) {
-    return getParticipantName(match.participant2Id);
-  }
-  if (match.winnerId === match.participant2Id) {
-    return getParticipantName(match.participant1Id);
-  }
-  return 'Opponent';
-};
-
-const footerTickerItems = computed<string[]>(() => {
-  const courtsWithLiveMatch = tournamentStore.courts
-    .map((court) => ({
-      court,
-      match: getLiveMatchOnCourt(court.id),
-    }))
-    .filter((entry): entry is { court: Court; match: Match } => entry.match !== null);
-
-  const liveItems = courtsWithLiveMatch.map(({ court, match }) => {
-    const currentGame = getCurrentGame(match);
-    const participant1Name = getParticipantName(match.participant1Id);
-    const participant2Name = getParticipantName(match.participant2Id);
-    return `${court.name}: ${participant1Name} ${currentGame.score1} · ${currentGame.score2} ${participant2Name}  G${currentGame.gameNumber || 1} LIVE`;
-  });
-
-  const resultItems = recentResults.value
     .slice(0, 3)
-    .map((match) => `RESULT: ${getWinnerName(match)} wins · ${getResultString(match) || 'Walkover'}`);
-
-  const items = [...liveItems, ...resultItems];
-  return items.length > 0 ? items : ['Waiting for live match data'];
-});
-
-const duplicatedFooterTickerItems = computed(() => [
-  ...footerTickerItems.value,
-  ...footerTickerItems.value,
-]);
-
-const clockLabel = computed(() =>
-  now.value.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
 );
 
-const formatPlannedTime = (match: Match): string => {
-  if (!match.plannedStartAt) return '--:--';
-  return match.plannedStartAt.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-};
+const sponsors = computed(() => tournamentStore.currentTournament?.sponsors ?? []);
+const sponsorsText = computed(() => {
+  if (sponsors.value.length === 0) return 'SPONSORS: NO SPONSORS LISTED';
+  return `SPONSORS: ${sponsors.value.join(', ')}`;
+});
 
 const stopCarousel = (): void => {
   if (carouselInterval) {
@@ -222,47 +140,26 @@ const startCarousel = (): void => {
   }, CAROUSEL_INTERVAL_MS);
 };
 
-const startClock = (): void => {
-  if (clockInterval) {
-    clearInterval(clockInterval);
+watch([shouldUseCarousel, totalCourtPages], () => {
+  if (carouselPage.value >= totalCourtPages.value) {
+    carouselPage.value = 0;
   }
-  clockInterval = setInterval(() => {
-    now.value = new Date();
-  }, 1000);
-};
-
-const stopClock = (): void => {
-  if (clockInterval) {
-    clearInterval(clockInterval);
-    clockInterval = null;
-  }
-};
-
-watch(
-  () => tournamentStore.courts.length,
-  () => {
-    if (carouselPage.value >= totalCourtPages.value) {
-      carouselPage.value = 0;
-    }
-    startCarousel();
-  }
-);
+  startCarousel();
+}, { immediate: true });
 
 onMounted(async () => {
   document.documentElement.classList.add('overlay-page');
-  startClock();
   await tournamentStore.fetchTournament(tournamentId.value);
   tournamentStore.subscribeTournament(tournamentId.value);
   matchStore.subscribeAllMatches(tournamentId.value);
   registrationStore.subscribeRegistrations(tournamentId.value);
   registrationStore.subscribePlayers(tournamentId.value);
-  startCarousel();
+  subscribeAnnouncements(tournamentId.value);
 });
 
 onUnmounted(() => {
   document.documentElement.classList.remove('overlay-page');
   stopCarousel();
-  stopClock();
   tournamentStore.unsubscribeAll();
   matchStore.unsubscribeAll();
   registrationStore.unsubscribeAll();
@@ -272,183 +169,158 @@ onUnmounted(() => {
 <template>
   <div class="overlay-board-page">
     <header class="board-header">
-      <div class="board-header-title">
-        🏸 {{ tournamentStore.currentTournament?.name || 'Tournament Board' }}
-      </div>
-      <div class="board-header-meta">
-        <span class="board-live-count">
-          <span class="live-dot" />
-          {{ liveMatches }} LIVE
-        </span>
-        <span class="board-complete-count">{{ completedMatches }}/{{ totalMatches }} complete</span>
-        <div class="board-progress">
-          <div
-            class="board-progress-fill"
-            :style="{ width: `${progressPercent}%` }"
-          />
-        </div>
-        <span class="board-clock">{{ clockLabel }}</span>
+      <h1 class="tournament-name">
+        {{ tournamentName }}
+      </h1>
+      <div
+        v-if="shouldUseCarousel"
+        class="carousel-meta"
+      >
+        {{ carouselRangeLabel }}
       </div>
     </header>
 
     <main class="board-body">
       <section class="board-courts">
-        <div
-          class="board-court-grid"
-          :style="{ gridTemplateColumns: `repeat(${courtGridColumns}, minmax(0, 1fr))` }"
-        >
+        <div class="courts-grid">
           <article
-            v-for="courtState in visibleCourtStates"
-            :key="courtState.court.id"
-            class="board-court-card"
+            v-for="card in courtCards"
+            :key="card.court.id"
+            class="court-card"
             :class="{
-              'board-court-card--live': courtState.liveMatch,
-              'board-court-card--idle': !courtState.liveMatch && !courtState.readyMatch
+              'court-card--live': card.liveMatch,
+              'court-card--ready': !card.liveMatch && card.readyMatch,
             }"
           >
-            <header class="board-court-card-header">
-              <span class="board-court-name">{{ courtState.court.name }}</span>
-              <span class="board-court-category">
-                {{ getCategoryName(courtState.liveMatch ?? courtState.readyMatch) }}
-              </span>
+            <header class="court-card-header">
+              <span class="court-name">{{ card.court.name.toUpperCase() }}</span>
+              <span class="court-category">{{ getCategoryName(card.displayMatch) }}</span>
             </header>
 
-            <template v-if="courtState.liveMatch">
-              <div class="board-live-score">
-                <div class="board-live-row">
-                  <span class="board-player-name">
-                    {{ getParticipantName(courtState.liveMatch.participant1Id) }}
-                  </span>
-                  <span class="board-games overlay-score">
-                    {{ getGamesWon(courtState.liveMatch, courtState.liveMatch.participant1Id) }}
-                  </span>
-                  <span class="board-points overlay-score">
-                    {{ getCurrentGame(courtState.liveMatch).score1 }}
-                  </span>
+            <div class="court-card-body">
+              <template v-if="card.liveMatch">
+                <div class="match-row">
+                  <span class="player-name">{{ getParticipantName(card.liveMatch.participant1Id) }}</span>
+                  <div class="score-group">
+                    <span class="games-score">{{ getGamesWon(card.liveMatch, card.liveMatch.participant1Id) }}</span>
+                    <span class="current-score">{{ getCurrentGame(card.liveMatch).score1 }}</span>
+                  </div>
                 </div>
-                <div class="board-live-row">
-                  <span class="board-player-name">
-                    {{ getParticipantName(courtState.liveMatch.participant2Id) }}
-                  </span>
-                  <span class="board-games overlay-score">
-                    {{ getGamesWon(courtState.liveMatch, courtState.liveMatch.participant2Id) }}
-                  </span>
-                  <span class="board-points overlay-score">
-                    {{ getCurrentGame(courtState.liveMatch).score2 }}
-                  </span>
+                <div class="match-row">
+                  <span class="player-name">{{ getParticipantName(card.liveMatch.participant2Id) }}</span>
+                  <div class="score-group">
+                    <span class="games-score">{{ getGamesWon(card.liveMatch, card.liveMatch.participant2Id) }}</span>
+                    <span class="current-score">{{ getCurrentGame(card.liveMatch).score2 }}</span>
+                  </div>
                 </div>
-              </div>
-              <div class="board-live-footer">
-                <span>G{{ getCurrentGame(courtState.liveMatch).gameNumber || 1 }}</span>
-                <span class="board-live-tag">
-                  <span class="live-dot" />
-                  LIVE
-                </span>
-              </div>
-            </template>
+              </template>
 
-            <template v-else-if="courtState.readyMatch">
-              <div class="board-ready-body">
-                <div class="board-ready-name">
-                  {{ getParticipantName(courtState.readyMatch.participant1Id) }}
+              <template v-else-if="card.readyMatch">
+                <div class="match-row">
+                  <span class="player-name">{{ getParticipantName(card.readyMatch.participant1Id) }}</span>
+                  <div class="score-group">
+                    <span class="games-score">0</span>
+                    <span class="current-score">0</span>
+                  </div>
                 </div>
-                <div class="board-ready-vs">
-                  vs
+                <div class="match-row">
+                  <span class="player-name">{{ getParticipantName(card.readyMatch.participant2Id) }}</span>
+                  <div class="score-group">
+                    <span class="games-score">0</span>
+                    <span class="current-score">0</span>
+                  </div>
                 </div>
-                <div class="board-ready-name">
-                  {{ getParticipantName(courtState.readyMatch.participant2Id) }}
-                </div>
-                <div class="board-ready-tag">
-                  UP NEXT
-                </div>
-              </div>
-            </template>
+              </template>
 
-            <template v-else>
-              <div class="board-idle-body">
-                IDLE
-              </div>
-            </template>
+              <template v-else>
+                <div class="idle-row">
+                  <span class="idle-text">Waiting for match...</span>
+                </div>
+              </template>
+            </div>
+
+            <footer class="court-card-footer">
+              <span
+                v-if="card.liveMatch"
+                class="live-indicator"
+              >
+                <span class="live-dot" /> LIVE
+              </span>
+              <span
+                v-else-if="card.readyMatch"
+                class="ready-indicator"
+              >UP NEXT</span>
+              <span
+                v-else
+                class="idle-indicator"
+              >IDLE</span>
+            </footer>
           </article>
-        </div>
-
-        <div
-          v-if="shouldUseCarousel"
-          class="board-carousel-dots"
-        >
-          <span
-            v-for="pageNumber in totalCourtPages"
-            :key="`page-dot-${pageNumber}`"
-            class="board-carousel-dot"
-            :class="{ 'board-carousel-dot--active': pageNumber - 1 === carouselPage }"
-          />
         </div>
       </section>
 
-      <aside class="board-side-panel">
-        <section class="board-panel-card">
-          <h2 class="board-panel-title">
+      <aside class="board-sidebar">
+        <section class="sidebar-card">
+          <h2 class="sidebar-title">
             UP NEXT
           </h2>
-          <div
-            v-for="match in upNextMatches"
-            :key="`next-${match.id}-${match.categoryId}`"
-            class="board-up-next-row"
-          >
-            <span class="board-up-next-time">{{ formatPlannedTime(match) }}</span>
-            <div class="board-up-next-text">
-              <span>{{ getParticipantName(match.participant1Id) }} vs {{ getParticipantName(match.participant2Id) }}</span>
-              <span class="board-up-next-category">{{ getCategoryName(match) }}</span>
+          <div class="up-next-list">
+            <div
+              v-for="match in upNextMatches"
+              :key="`next-${match.id}`"
+              class="up-next-item"
+            >
+              <div class="up-next-court-category">
+                {{ getCourtLabel(match.courtId) }}: {{ getCategoryName(match) }}
+              </div>
+              <div class="up-next-players">
+                {{ getParticipantName(match.participant1Id) }}
+                <span class="up-next-vs">vs</span>
+                {{ getParticipantName(match.participant2Id) }}
+              </div>
             </div>
-          </div>
-          <div
-            v-if="upNextMatches.length === 0"
-            class="board-empty-state"
-          >
-            No upcoming matches
+            <div
+              v-if="upNextMatches.length === 0"
+              class="empty-state"
+            >
+              No upcoming matches
+            </div>
           </div>
         </section>
 
-        <section class="board-panel-card">
-          <h2 class="board-panel-title">
-            RECENT RESULTS
+        <section class="sidebar-card announcements-card">
+          <h2 class="sidebar-title">
+            TOURNAMENT ANNOUNCEMENTS
           </h2>
-          <div
-            v-for="match in recentResults"
-            :key="`result-${match.id}-${match.categoryId}`"
-            class="board-result-row"
-          >
-            <div class="board-result-winner">
-              ✓ {{ getWinnerName(match) }} def {{ getLoserName(match) }}
+          <div class="announcements-list">
+            <div
+              v-for="announcement in activeAnnouncements.slice(0, 3)"
+              :key="announcement.id"
+              class="announcement-item"
+            >
+              {{ announcement.text }}
             </div>
-            <div class="board-result-score">
-              {{ getResultString(match) || 'Walkover' }}
+            <div
+              v-if="activeAnnouncements.length === 0"
+              class="empty-state"
+            >
+              No announcements
             </div>
-          </div>
-          <div
-            v-if="recentResults.length === 0"
-            class="board-empty-state"
-          >
-            No completed matches yet
           </div>
         </section>
       </aside>
     </main>
 
     <footer class="board-footer">
-      <div class="board-footer-track-wrap">
-        <div
-          class="board-footer-track"
-          :style="{ '--ticker-duration': `${scrollDuration}s` }"
-        >
-          <span
-            v-for="(item, index) in duplicatedFooterTickerItems"
-            :key="`footer-item-${index}-${item}`"
-            class="board-footer-item"
-          >
-            {{ item }}
-          </span>
-        </div>
+      <div
+        class="sponsors-ticker"
+        :class="{ 'sponsors-ticker--scroll': sponsors.length > 0 }"
+      >
+        <span class="sponsors-text">{{ sponsorsText }}</span>
+        <span
+          v-if="sponsors.length > 0"
+          class="sponsors-text"
+        >{{ sponsorsText }}</span>
       </div>
     </footer>
   </div>
@@ -462,388 +334,403 @@ onUnmounted(() => {
   height: 1080px;
   display: flex;
   flex-direction: column;
-  color: #ffffff;
-  background: radial-gradient(circle at top left, #1b2440 0%, #090c15 52%, #06080f 100%);
+  color: #e8f2fb;
+  font-family: 'Barlow Semi Condensed', 'Rajdhani', 'Trebuchet MS', sans-serif;
   overflow: hidden;
-  font-family: 'Roboto', 'Arial', sans-serif;
-  /* Scale down for browser preview - OBS ignores this */
   transform-origin: top left;
-  transform: scale(calc(100vw / 1920));
+  transform: scale(min(calc(100vw / 1920px), calc(100vh / 1080px)));
+  background:
+    radial-gradient(circle at 14% 9%, rgba(57, 143, 214, 0.22), transparent 42%),
+    radial-gradient(circle at 84% 16%, rgba(26, 109, 176, 0.2), transparent 44%),
+    radial-gradient(circle at 48% 78%, rgba(8, 53, 98, 0.55), transparent 54%),
+    linear-gradient(145deg, #020b1b 0%, #05172f 48%, #041326 100%);
+  isolation: isolate;
 }
 
-@media screen and (max-width: 1920px) {
-  .overlay-board-page {
-    transform: scale(calc(100vw / 1920));
-  }
+.overlay-board-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(120deg, rgba(125, 181, 223, 0.04) 0, rgba(125, 181, 223, 0.04) 1px, transparent 1px, transparent 26px),
+    repeating-linear-gradient(0deg, rgba(125, 181, 223, 0.02) 0, rgba(125, 181, 223, 0.02) 1px, transparent 1px, transparent 20px);
+  opacity: 0.28;
+  pointer-events: none;
+  mix-blend-mode: screen;
 }
 
 .board-header {
-  height: 64px;
+  position: relative;
+  z-index: 1;
+  height: 98px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(6, 8, 15, 0.86);
+  align-items: flex-end;
+  gap: 20px;
+  padding: 0 72px 18px;
+  border-bottom: 1px solid rgba(149, 201, 236, 0.22);
+  background: linear-gradient(180deg, rgba(3, 12, 29, 0.42) 0%, rgba(3, 12, 29, 0.08) 100%);
 }
 
-.board-header-title {
-  font-size: 1.36rem;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.tournament-name {
+  margin: 0;
+  font-size: 4.6rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.012em;
+  color: rgba(235, 246, 255, 0.95);
+  text-transform: uppercase;
 }
 
-.board-header-meta {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 620px;
-  justify-content: flex-end;
-}
-
-.board-live-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #4caf50;
-  font-size: 0.84rem;
-  font-weight: 800;
+.carousel-meta {
+  margin-bottom: 6px;
+  font-size: 1.5rem;
+  line-height: 1;
+  font-weight: 600;
   letter-spacing: 0.08em;
-}
-
-.board-complete-count {
-  color: rgba(255, 255, 255, 0.84);
-  font-size: 0.86rem;
-  font-weight: 700;
-}
-
-.board-progress {
-  width: 220px;
-  height: 10px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.board-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #7ed957 0%, #4caf50 100%);
-}
-
-.board-clock {
-  min-width: 60px;
-  text-align: right;
-  font-size: 0.96rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  color: rgba(156, 208, 243, 0.92);
+  text-transform: uppercase;
 }
 
 .board-body {
+  position: relative;
+  z-index: 1;
   flex: 1;
   display: flex;
-  min-height: 0;
+  align-items: flex-start;
+  gap: 42px;
+  padding: 32px 72px 18px;
+  box-sizing: border-box;
 }
 
 .board-courts {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 16px 16px 10px 20px;
   min-width: 0;
 }
 
-.board-court-grid {
-  flex: 1;
+.courts-grid {
   display: grid;
-  gap: 14px;
-  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 338px;
+  gap: 28px 32px;
 }
 
-.board-court-card {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.04);
+.court-card,
+.sidebar-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 180px;
-}
-
-.board-court-card--live {
-  border-color: rgba(76, 175, 80, 0.5);
-  background: rgba(76, 175, 80, 0.06);
-}
-
-.board-court-card--idle {
-  opacity: 0.38;
-}
-
-.board-court-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.board-court-name {
-  color: #7ed957;
-  font-size: 0.9rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.board-court-category {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.76rem;
-  white-space: nowrap;
-}
-
-.board-live-score {
-  margin-top: 10px;
-}
-
-.board-live-row {
-  display: grid;
-  grid-template-columns: 1fr 38px 68px;
-  gap: 6px;
-  align-items: center;
-  min-height: 42px;
-}
-
-.board-player-name {
-  font-size: 0.96rem;
-  font-weight: 700;
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  border-radius: 34px;
+  border: 1px solid rgba(108, 168, 215, 0.3);
+  background: linear-gradient(128deg, rgba(15, 61, 97, 0.72) 0%, rgba(8, 35, 66, 0.9) 52%, rgba(14, 62, 104, 0.66) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(166, 214, 248, 0.09),
+    inset 0 -28px 56px rgba(3, 13, 28, 0.48),
+    0 24px 42px rgba(1, 7, 17, 0.45);
+  backdrop-filter: blur(8px);
 }
 
-.board-games {
-  text-align: center;
-  font-size: 1.1rem;
+.court-card::after,
+.sidebar-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 74% 12%, rgba(96, 188, 246, 0.12), transparent 36%);
 }
 
-.board-points {
-  text-align: right;
-  font-size: 1.65rem;
-  line-height: 1;
+.court-card--live {
+  border-color: rgba(89, 199, 126, 0.46);
+  box-shadow:
+    inset 0 0 0 1px rgba(145, 230, 169, 0.16),
+    inset 0 -28px 56px rgba(3, 13, 28, 0.5),
+    0 20px 36px rgba(1, 7, 17, 0.45),
+    0 0 46px rgba(52, 164, 91, 0.2);
 }
 
-.board-live-footer {
-  margin-top: auto;
+.court-card--ready {
+  border-color: rgba(131, 178, 220, 0.42);
+}
+
+.court-card-header {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding-top: 8px;
-  font-size: 0.78rem;
+  align-items: flex-end;
+  gap: 18px;
+  padding: 24px 30px 18px;
+  border-bottom: 1px solid rgba(149, 201, 236, 0.23);
+}
+
+.court-name {
+  font-size: 3.2rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  color: #57bdea;
   text-transform: uppercase;
 }
 
-.board-live-tag {
+.court-category {
+  font-size: 2.05rem;
+  line-height: 1.08;
+  font-weight: 500;
+  color: rgba(234, 244, 252, 0.7);
+}
+
+.court-card-body {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.match-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  min-height: 90px;
+  padding: 0 30px;
+  border-bottom: 1px solid rgba(149, 201, 236, 0.18);
+}
+
+.match-row:last-child {
+  border-bottom: none;
+}
+
+.player-name {
+  font-size: 2.1rem;
+  font-weight: 500;
+  color: #f3f9ff;
+  line-height: 1.14;
+  letter-spacing: 0.004em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.score-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 28px;
+  min-width: 136px;
+}
+
+.games-score,
+.current-score {
+  min-width: 36px;
+  text-align: right;
+  font-size: 3.2rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.games-score {
+  font-weight: 500;
+  color: rgba(226, 239, 251, 0.64);
+}
+
+.current-score {
+  font-weight: 650;
+  color: #ffffff;
+}
+
+.idle-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.idle-text {
+  font-size: 2rem;
+  letter-spacing: 0.03em;
+  color: rgba(223, 236, 247, 0.5);
+}
+
+.court-card-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 58px;
+  padding: 0 30px;
+  border-top: 1px solid rgba(149, 201, 236, 0.2);
+  background: linear-gradient(180deg, rgba(5, 19, 38, 0.18) 0%, rgba(5, 19, 38, 0.48) 100%);
+}
+
+.live-indicator,
+.ready-indicator,
+.idle-indicator {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 1.7rem;
+  font-weight: 600;
+}
+
+.live-indicator {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  color: #4caf50;
+  gap: 10px;
+  color: #4fda7d;
 }
 
-.board-ready-body {
-  margin-top: 16px;
+.live-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #4fda7d;
+  box-shadow: 0 0 12px rgba(79, 218, 125, 0.55);
+  animation: board-live-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes board-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.78);
+  }
+}
+
+.ready-indicator {
+  color: rgba(115, 185, 244, 0.9);
+}
+
+.idle-indicator {
+  color: rgba(223, 236, 247, 0.45);
+}
+
+.board-sidebar {
+  width: 390px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 28px;
 }
 
-.board-ready-name {
-  font-size: 0.94rem;
+.sidebar-card {
+  min-height: 312px;
+  padding: 22px 26px;
+}
+
+.sidebar-title {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(149, 201, 236, 0.22);
+  font-size: 2.15rem;
+  line-height: 1;
   font-weight: 700;
-  white-space: nowrap;
+  letter-spacing: 0.01em;
+  color: #57bdea;
+}
+
+.up-next-list,
+.announcements-list {
+  position: relative;
+  z-index: 1;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.up-next-item,
+.announcement-item {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(149, 201, 236, 0.18);
+}
+
+.up-next-item:last-child,
+.announcement-item:last-child {
+  border-bottom: none;
+}
+
+.up-next-court-category {
+  font-size: 1.36rem;
+  line-height: 1.24;
+  color: rgba(243, 250, 255, 0.9);
+}
+
+.up-next-players {
+  margin-top: 8px;
+  font-size: 1.62rem;
+  line-height: 1.22;
+  color: #f7fbff;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.board-ready-vs {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.up-next-vs {
+  margin: 0 6px;
+  font-size: 1.45rem;
+  color: rgba(219, 234, 247, 0.75);
 }
 
-.board-ready-tag {
-  margin-top: 10px;
-  color: rgba(255, 193, 7, 0.85);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+.announcement-item {
+  font-size: 1.6rem;
+  line-height: 1.24;
+  color: #f5fbff;
 }
 
-.board-idle-body {
-  margin: auto 0;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: 0.11em;
-}
-
-.board-carousel-dots {
-  margin-top: 10px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-}
-
-.board-carousel-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.28);
-}
-
-.board-carousel-dot--active {
-  background: #7ed957;
-}
-
-.board-side-panel {
-  width: 420px;
-  padding: 16px 20px 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.board-panel-card {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 12px;
-  min-height: 0;
-}
-
-.board-panel-title {
-  margin: 0 0 10px;
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.board-up-next-row {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 8px;
-  align-items: start;
-  padding: 6px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.board-up-next-row:first-of-type {
-  border-top: 0;
-}
-
-.board-up-next-time {
-  color: rgba(255, 193, 7, 0.85);
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-align: right;
-  padding-top: 2px;
-}
-
-.board-up-next-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.86rem;
-  font-weight: 700;
-}
-
-.board-up-next-category {
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.76rem;
-}
-
-.board-result-row {
-  padding: 6px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.board-result-row:first-of-type {
-  border-top: 0;
-}
-
-.board-result-winner {
-  font-size: 0.86rem;
-  font-weight: 700;
-}
-
-.board-result-score {
-  margin-top: 2px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-.board-empty-state {
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.82rem;
-  padding-top: 6px;
+.empty-state {
+  padding: 22px 0;
+  font-size: 1.38rem;
+  color: rgba(224, 238, 248, 0.52);
 }
 
 .board-footer {
-  height: 68px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(0, 0, 0, 0.52);
-  overflow: hidden;
-}
-
-.board-footer-track-wrap {
-  width: 100%;
-  height: 68px;
-  overflow: hidden;
-}
-
-.board-footer-track {
-  width: max-content;
-  min-width: 100%;
-  height: 68px;
-  display: inline-flex;
+  position: relative;
+  z-index: 1;
+  height: 72px;
+  display: flex;
   align-items: center;
-  animation: board-footer-scroll var(--ticker-duration, 60s) linear infinite;
+  overflow: hidden;
+  border-top: 1px solid rgba(138, 191, 230, 0.35);
+  background: linear-gradient(180deg, rgba(7, 25, 46, 0.88) 0%, rgba(4, 16, 34, 0.96) 100%);
+}
+
+.sponsors-ticker {
+  display: flex;
+  align-items: center;
   white-space: nowrap;
 }
 
-.board-footer-item {
-  display: inline-flex;
-  align-items: center;
-  font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.9);
-  padding-left: 24px;
+.sponsors-ticker--scroll {
+  animation: sponsors-marquee 42s linear infinite;
 }
 
-.board-footer-item::after {
-  content: " │";
-  color: rgba(255, 255, 255, 0.42);
-  padding-left: 24px;
+.sponsors-text {
+  padding: 0 56px;
+  font-size: 2.05rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  color: rgba(241, 248, 255, 0.94);
 }
 
-@keyframes board-footer-scroll {
-  from {
+.sponsors-ticker:not(.sponsors-ticker--scroll) .sponsors-text {
+  padding: 0 32px;
+}
+
+@keyframes sponsors-marquee {
+  0% {
     transform: translateX(0);
   }
-  to {
+  100% {
     transform: translateX(-50%);
   }
 }

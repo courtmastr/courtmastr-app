@@ -196,7 +196,6 @@
         />
       </v-list>
     </template>
-
   </v-navigation-drawer>
 </template>
 

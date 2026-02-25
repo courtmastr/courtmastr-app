@@ -104,16 +104,23 @@ onUnmounted(() => {
 <template>
   <div :class="['obs-score-bug', `obs-score-bug--${theme}`, position]">
     <template v-if="loading">
-      <div class="score-bug-loading">Loading...</div>
+      <div class="score-bug-loading">
+        Loading...
+      </div>
     </template>
 
     <template v-else-if="error || !match">
-      <div class="score-bug-loading">{{ error || 'No Match' }}</div>
+      <div class="score-bug-loading">
+        {{ error || 'No Match' }}
+      </div>
     </template>
 
     <template v-else>
       <!-- Court badge -->
-      <div v-if="courtName" class="score-bug-court">
+      <div
+        v-if="courtName"
+        class="score-bug-court"
+      >
         {{ courtName }}
       </div>
 
@@ -145,7 +152,10 @@ onUnmounted(() => {
       </div>
 
       <!-- Category info -->
-      <div v-if="categoryName" class="score-bug-info">
+      <div
+        v-if="categoryName"
+        class="score-bug-info"
+      >
         {{ categoryName }}
       </div>
     </template>

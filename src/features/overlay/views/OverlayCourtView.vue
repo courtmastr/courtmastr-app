@@ -202,7 +202,9 @@ onUnmounted(() => {
           <span class="broadcast-up-next-vs">VS</span>
           <span class="broadcast-up-next-name">{{ participant2Name }}</span>
         </div>
-        <div class="broadcast-up-next-badge">UP NEXT</div>
+        <div class="broadcast-up-next-badge">
+          UP NEXT
+        </div>
       </div>
     </div>
 

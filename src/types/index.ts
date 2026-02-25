@@ -46,6 +46,7 @@ export interface Tournament {
   settings: TournamentSettings;
   createdBy: string;
   organizerIds?: string[];
+  sponsors?: string[]; // Tournament sponsors for overlay display
   createdAt: Date;
   updatedAt: Date;
 }
