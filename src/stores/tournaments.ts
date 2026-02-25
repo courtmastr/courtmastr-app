@@ -1246,9 +1246,28 @@ export const useTournamentStore = defineStore('tournaments', () => {
     loading.value = true;
     error.value = null;
     try {
-      // Delete the existing pool stage completely
+      // Step 1: Delete the existing pool stage completely
       await bracketGen.deleteBracket(tournamentId, categoryId);
-      // Re-generate fresh pools
+
+      // Step 2: Clear all derived pool state from the category document.
+      // This MUST happen before generateBracket() so no stale state survives
+      // a regeneration. poolCompletedAt being non-null would ghost the category
+      // into the 'levels' phase even with no pool matches present.
+      await updateDoc(
+        doc(db, `tournaments/${tournamentId}/categories`, categoryId),
+        {
+          poolCompletedAt: null,
+          levelingStatus: null,
+          levelingEnabled: null,
+          levelCount: null,
+          levelsVersion: null,
+          poolPhase: 'pool',
+          eliminationStageId: null,
+          updatedAt: serverTimestamp(),
+        }
+      );
+
+      // Step 3: Regenerate fresh pools
       const result = await bracketGen.generateBracket(tournamentId, categoryId);
       const category = categories.value.find((c) => c.id === categoryId);
       const auditStore = useAuditStore();

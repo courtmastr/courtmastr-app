@@ -2111,6 +2111,59 @@ rg -n "pool_to_elimination' && stats\\.category\\.poolStageId == null" src/featu
 
 ---
 
+### CP-045: Category Phase Detection Must Be Match-Scope Aware (Pool/Level/Elim)
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-25 |
+| **Source Bug** | Category cards got stuck in wrong lifecycle step because one global `scheduleDone` flag and one generic bracket check were reused across pool, level, and elimination phases |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const scheduleDone = schedulePublished || allPlannedTimes;
+if (scheduleDone) return 'elimination';
+
+function hasBracketForCategory(category: Category): boolean {
+  return category.poolStageId != null || category.stageId != null || category.eliminationStageId != null;
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+const poolMatches = categoryMatches.filter((m) => Boolean(m.groupId) && !m.levelId);
+const levelMatches = categoryMatches.filter((m) => Boolean(m.levelId));
+const elimMatches = categoryMatches.filter((m) => !m.groupId && !m.levelId);
+
+const poolMatchesScheduled = poolMatches.length > 0 && poolMatches.every((m) => Boolean(m.plannedStartAt));
+const levelMatchesScheduled = levelMatches.length > 0 && levelMatches.every((m) => Boolean(m.plannedStartAt));
+const elimMatchesScheduled = elimMatches.length > 0 && elimMatches.every((m) => Boolean(m.plannedStartAt));
+
+const poolSchedulePublished = poolMatches.some((m) => Boolean(m.publishedAt) || m.scheduleStatus === 'published');
+const levelSchedulePublished = levelMatches.some((m) => Boolean(m.publishedAt) || m.scheduleStatus === 'published');
+const elimSchedulePublished = elimMatches.some((m) => Boolean(m.publishedAt) || m.scheduleStatus === 'published');
+
+function hasPoolStage(category: Category): boolean {
+  return category.poolStageId != null;
+}
+
+function hasEliminationBracket(category: Category): boolean {
+  return category.eliminationStageId != null || category.stageId != null;
+}
+```
+
+**Rule:** Category lifecycle phase logic must derive schedule/publish/complete state per match scope (`pool`, `level`, `elim`) and must not treat `poolStageId` as proof that elimination bracket exists.
+
+**Detection:**
+```bash
+rg -n "scheduleDone|hasPlannedTimes|allPlannedTimes|schedulePublished|hasBracketForCategory" src/features/tournaments/components/CategoryRegistrationStats.vue
+rg -n "poolMatchesScheduled|levelMatchesScheduled|elimMatchesScheduled|poolSchedulePublished|levelSchedulePublished|elimSchedulePublished" src/features/tournaments/components/CategoryRegistrationStats.vue
+rg -n "poolCompletedAt: null|levelingStatus: null|levelCount: null|levelsVersion: null|poolPhase: 'pool'|eliminationStageId: null" src/stores/tournaments.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
