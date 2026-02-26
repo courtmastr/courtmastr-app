@@ -81,6 +81,14 @@
         />
         <v-list-item
           v-if="isOrganizer"
+          :to="`/tournaments/${currentTournamentId}/checkin`"
+          prepend-icon="mdi-account-check"
+          title="Check-in"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
           :to="`/tournaments/${currentTournamentId}/live-view`"
           prepend-icon="mdi-monitor-eye"
           title="Live View"

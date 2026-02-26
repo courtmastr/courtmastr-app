@@ -1,3 +1,6 @@
+import { computed, onMounted, onUnmounted, ref, type ComputedRef, type Ref } from 'vue';
+import type { Match, Registration } from '@/types';
+
 export type ScanInput =
   | { kind: 'registration'; value: string }
   | { kind: 'bib'; value: number };
@@ -147,5 +150,305 @@ export const createUndoState = (): UndoState => {
     bulkTokens,
     startItemUndo,
     startBulkUndo,
+  };
+};
+
+export interface FrontDeskUrgentItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  startsInLabel?: string;
+  canCheckIn: boolean;
+}
+
+export interface FrontDeskRecentItem {
+  id: string;
+  name: string;
+  detail: string;
+  canUndo: boolean;
+  undoRemainingMs: number;
+}
+
+export interface FrontDeskBulkRow {
+  id: string;
+  name: string;
+  category: string;
+  bibNumber?: number | null;
+  status: Registration['status'];
+}
+
+interface FrontDeskRecentRecord {
+  id: string;
+  name: string;
+  bibNumber?: number | null;
+  checkedInAtMs: number;
+  undoExpiresAtMs: number;
+}
+
+export interface ProcessScanOptions {
+  bibStartFrom?: number;
+}
+
+export interface ProcessScanResult {
+  registrationId: string;
+  name: string;
+  bibNumber?: number | null;
+}
+
+export interface BulkCheckInResult extends BatchRunResult {
+  bulkUndoToken: BulkUndoToken | null;
+}
+
+export interface UseFrontDeskCheckInWorkflowOptions {
+  registrations: Ref<Registration[]>;
+  matches: Ref<Match[]>;
+  getParticipantName: (registrationId: string) => string;
+  getCategoryName: (categoryId: string) => string;
+  checkInRegistration: (registrationId: string) => Promise<void>;
+  undoCheckInRegistration: (registrationId: string) => Promise<void>;
+  assignBibNumber: (registrationId: string, bibNumber: number) => Promise<void>;
+}
+
+const formatTime = (date: Date): string => date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+const formatMinutesLabel = (minutes: number): string => {
+  if (minutes <= 1) return 'Plays now';
+  return `Plays in ${minutes} min`;
+};
+
+const getMatchStartTime = (match: Match): Date | undefined => match.plannedStartAt ?? match.scheduledTime;
+
+const isCheckInEligibleStatus = (status: Registration['status']): boolean =>
+  status === 'approved' || status === 'checked_in' || status === 'no_show';
+
+export const useFrontDeskCheckInWorkflow = (
+  options: UseFrontDeskCheckInWorkflowOptions
+): {
+  urgentItems: ComputedRef<FrontDeskUrgentItem[]>;
+  recentItems: ComputedRef<FrontDeskRecentItem[]>;
+  bulkRows: ComputedRef<FrontDeskBulkRow[]>;
+  stats: ComputedRef<FrontDeskStats>;
+  bulkUndoToken: Ref<BulkUndoToken | null>;
+  processScan: (raw: string, scanOptions?: ProcessScanOptions) => Promise<ProcessScanResult>;
+  checkInOne: (registrationId: string, bibStartFrom?: number) => Promise<ProcessScanResult>;
+  bulkCheckIn: (registrationIds: string[], bibStartFrom?: number) => Promise<BulkCheckInResult>;
+  undoItem: (registrationId: string) => Promise<void>;
+  undoBulk: () => Promise<BatchRunResult>;
+} => {
+  const undoState = createUndoState();
+  const nowMs = ref(Date.now());
+  const recentRecords = ref<FrontDeskRecentRecord[]>([]);
+  const bulkUndoToken = ref<BulkUndoToken | null>(null);
+
+  let tickTimer: ReturnType<typeof setInterval> | null = null;
+
+  onMounted(() => {
+    tickTimer = setInterval(() => {
+      nowMs.value = Date.now();
+    }, 500);
+  });
+
+  onUnmounted(() => {
+    if (tickTimer) {
+      clearInterval(tickTimer);
+      tickTimer = null;
+    }
+  });
+
+  const eligibleRegistrations = computed(() =>
+    options.registrations.value.filter((registration) => isCheckInEligibleStatus(registration.status))
+  );
+
+  const stats = computed(() => {
+    const approved = eligibleRegistrations.value.filter((registration) => registration.status === 'approved').length;
+    const checkedIn = eligibleRegistrations.value.filter((registration) => registration.status === 'checked_in').length;
+    const noShow = eligibleRegistrations.value.filter((registration) => registration.status === 'no_show').length;
+    return computeFrontDeskStats({ approved, checkedIn, noShow });
+  });
+
+  const urgentItems = computed<FrontDeskUrgentItem[]>(() => {
+    const now = nowMs.value;
+    const windowEnd = now + 30 * 60_000;
+    const byRegistration = new Map<string, { startAtMs: number; categoryId: string }>();
+
+    for (const match of options.matches.value) {
+      const start = getMatchStartTime(match);
+      if (!start) continue;
+      const startAtMs = start.getTime();
+      if (startAtMs < now || startAtMs > windowEnd) continue;
+      if (match.status === 'completed' || match.status === 'walkover' || match.status === 'cancelled') continue;
+
+      const participantIds = [match.participant1Id, match.participant2Id].filter(Boolean) as string[];
+      for (const registrationId of participantIds) {
+        const existing = byRegistration.get(registrationId);
+        if (!existing || startAtMs < existing.startAtMs) {
+          byRegistration.set(registrationId, {
+            startAtMs,
+            categoryId: match.categoryId,
+          });
+        }
+      }
+    }
+
+    return [...byRegistration.entries()]
+      .map(([registrationId, data]) => {
+        const registration = options.registrations.value.find((item) => item.id === registrationId);
+        const canCheckIn = registration?.status === 'approved';
+        const minutesAway = Math.max(0, Math.ceil((data.startAtMs - now) / 60_000));
+        return {
+          id: registrationId,
+          title: options.getParticipantName(registrationId),
+          subtitle: `${formatTime(new Date(data.startAtMs))} • ${options.getCategoryName(data.categoryId)}`,
+          startsInLabel: formatMinutesLabel(minutesAway),
+          canCheckIn,
+          startAtMs: data.startAtMs,
+        };
+      })
+      .sort((a, b) => {
+        if (a.canCheckIn !== b.canCheckIn) return a.canCheckIn ? -1 : 1;
+        return a.startAtMs - b.startAtMs;
+      })
+      .map(({ startAtMs, ...item }) => item);
+  });
+
+  const recentItems = computed<FrontDeskRecentItem[]>(() =>
+    recentRecords.value.map((record) => {
+      const remaining = Math.max(0, record.undoExpiresAtMs - nowMs.value);
+      const timeLabel = new Date(record.checkedInAtMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const bibLabel = record.bibNumber ? `Bib ${record.bibNumber}` : 'No bib';
+      return {
+        id: record.id,
+        name: record.name,
+        detail: `${bibLabel} • ${timeLabel}`,
+        canUndo: remaining > 0,
+        undoRemainingMs: remaining,
+      };
+    })
+  );
+
+  const bulkRows = computed<FrontDeskBulkRow[]>(() =>
+    eligibleRegistrations.value
+      .map((registration) => ({
+        id: registration.id,
+        name: options.getParticipantName(registration.id),
+        category: options.getCategoryName(registration.categoryId),
+        bibNumber: registration.bibNumber,
+        status: registration.status,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  );
+
+  const resolveRegistration = (raw: string): Registration => {
+    const parsed = parseScanInput(raw);
+    if (!parsed) throw new Error('No matching participant for scanned code');
+
+    if (parsed.kind === 'registration') {
+      const registration = eligibleRegistrations.value.find((item) => item.id === parsed.value);
+      if (!registration) throw new Error('No matching participant for scanned code');
+      return registration;
+    }
+
+    const candidates = eligibleRegistrations.value.filter((item) => item.bibNumber === parsed.value);
+    if (candidates.length === 0) throw new Error('No matching participant for scanned code');
+    if (candidates.length > 1) throw new Error('Ambiguous bib number. Multiple participants found');
+    return candidates[0];
+  };
+
+  const assignBibIfNeeded = async (registration: Registration, bibStartFrom: number): Promise<number | null> => {
+    if (registration.bibNumber && registration.bibNumber > 0) return registration.bibNumber;
+
+  const usedBibs = eligibleRegistrations.value
+      .map((item) => item.bibNumber)
+      .filter((value): value is number => value != null && value > 0);
+    const nextBib = assignSmallestAvailableBib(usedBibs, bibStartFrom);
+    await options.assignBibNumber(registration.id, nextBib);
+    return nextBib;
+  };
+
+  const pushRecentCheckIn = (registration: Registration, bibNumber: number | null): void => {
+    const token = undoState.startItemUndo(registration.id, 5000);
+    const nextRecord: FrontDeskRecentRecord = {
+      id: registration.id,
+      name: options.getParticipantName(registration.id),
+      bibNumber,
+      checkedInAtMs: token.createdAtMs,
+      undoExpiresAtMs: token.expiresAtMs,
+    };
+
+    recentRecords.value = [nextRecord, ...recentRecords.value.filter((record) => record.id !== registration.id)].slice(0, 5);
+  };
+
+  const checkInOne = async (registrationId: string, bibStartFrom = 101): Promise<ProcessScanResult> => {
+    const registration = eligibleRegistrations.value.find((item) => item.id === registrationId);
+    if (!registration) throw new Error('No matching participant for scanned code');
+    if (registration.status === 'checked_in') throw new Error('Already checked in');
+    if (registration.status !== 'approved') throw new Error('Only approved participants can be checked in');
+
+    const bibNumber = await assignBibIfNeeded(registration, bibStartFrom);
+    await options.checkInRegistration(registration.id);
+    pushRecentCheckIn(registration, bibNumber);
+
+    return {
+      registrationId: registration.id,
+      name: options.getParticipantName(registration.id),
+      bibNumber,
+    };
+  };
+
+  const processScan = async (raw: string, scanOptions: ProcessScanOptions = {}): Promise<ProcessScanResult> => {
+    const registration = resolveRegistration(raw);
+    return checkInOne(registration.id, scanOptions.bibStartFrom ?? 101);
+  };
+
+  const bulkCheckIn = async (registrationIds: string[], bibStartFrom = 101): Promise<BulkCheckInResult> => {
+    const runBatch = makeBatchRunner(async (registrationId: string) => {
+      await checkInOne(registrationId, bibStartFrom);
+    });
+
+    const result = await runBatch(registrationIds);
+    bulkUndoToken.value = result.successIds.length > 0 ? undoState.startBulkUndo(result.successIds, 10000) : null;
+
+    return {
+      ...result,
+      bulkUndoToken: bulkUndoToken.value,
+    };
+  };
+
+  const undoItem = async (registrationId: string): Promise<void> => {
+    const recent = recentItems.value.find((item) => item.id === registrationId);
+    if (!recent) throw new Error('Undo target not found');
+    if (!recent.canUndo) throw new Error('Undo window expired');
+
+    await options.undoCheckInRegistration(registrationId);
+    recentRecords.value = recentRecords.value.filter((record) => record.id !== registrationId);
+  };
+
+  const undoBulk = async (): Promise<BatchRunResult> => {
+    if (!bulkUndoToken.value) throw new Error('No bulk undo available');
+    if (bulkUndoToken.value.expiresAtMs <= nowMs.value) {
+      bulkUndoToken.value = null;
+      throw new Error('Bulk undo window expired');
+    }
+
+    const runBatch = makeBatchRunner(async (registrationId: string) => {
+      await options.undoCheckInRegistration(registrationId);
+    });
+
+    const result = await runBatch(bulkUndoToken.value.registrationIds);
+    bulkUndoToken.value = null;
+    return result;
+  };
+
+  return {
+    urgentItems,
+    recentItems,
+    bulkRows,
+    stats,
+    bulkUndoToken,
+    processScan,
+    checkInOne,
+    bulkCheckIn,
+    undoItem,
+    undoBulk,
   };
 };

@@ -159,6 +159,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
+    path: '/tournaments/:tournamentId/checkin',
+    name: 'tournament-checkin',
+    component: () => import('@/features/checkin/views/FrontDeskCheckInView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
     path: '/tournaments/:tournamentId/live-view',
     name: 'match-live-view',
     redirect: to => `/tournaments/${to.params.tournamentId}/match-control?view=queue`,
