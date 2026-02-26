@@ -1863,13 +1863,20 @@ if (options.ignoreCheckInGate && authStore.currentUser?.role !== 'admin') {
   throw new Error('Blocked: Only admins can assign anyway when players are not checked-in');
 }
 ```
+```typescript
+const blocked = stats.value.pending - assignablePendingMatches.value.length;
+if (tournamentHealth.value.label === 'Backlog' && blocked > 0 && assignablePendingMatches.value.length === 0) {
+  return `${stats.value.pending} matches waiting - all blocked (players not checked in). Go to Check-in to mark players as present, or use "Assign Anyway (Admin)" from a match row's dropdown.`;
+}
+```
 
-**Rule:** Both manual and auto-assignment must require three gates: match is scheduled (`plannedStartAt`/fallback), schedule is published, and both participants are checked in. Admin override may bypass only the check-in gate. Assignment must not rewrite planned schedule timestamps.
+**Rule:** Both manual and auto-assignment must require three gates: match is scheduled (`plannedStartAt`/fallback), schedule is published, and both participants are checked in. Admin override may bypass only the check-in gate. Assignment must not rewrite planned schedule timestamps. The Match Control health chip must explain when backlog is blocked by check-in so operators know to use Check-in or admin override.
 
 **Detection:**
 ```bash
 rg -n "Blocked: Not scheduled|Blocked: Not published|Blocked: Players not checked-in|ignoreCheckInGate" src/stores/matches.ts src/features/tournaments/views/MatchControlView.vue
 rg -n "assignMatchToCourt|assignedAt|plannedStartAt|scheduledTime" src/stores/matches.ts
+rg -n "healthTooltip|players not checked in|Assign Anyway \\(Admin\\)" src/features/tournaments/views/MatchControlView.vue
 ```
 
 ---
