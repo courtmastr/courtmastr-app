@@ -493,6 +493,24 @@ const tournamentHealth = computed(() => {
   return { label: 'Healthy', color: 'success', icon: 'mdi-check-circle' };
 });
 
+const healthTooltip = computed(() => {
+  const { label } = tournamentHealth.value;
+  const blocked = stats.value.pending - assignablePendingMatches.value.length;
+
+  if (label === 'Backlog') {
+    if (blocked > 0 && assignablePendingMatches.value.length === 0) {
+      return `${stats.value.pending} matches waiting - all blocked (players not checked in). Go to Check-in to mark players as present, or use "Assign Anyway (Admin)" from a match row's dropdown.`;
+    }
+    return `${stats.value.pending} matches ready to play but courts are idle. Assign matches to courts to keep pace.`;
+  }
+  if (label === 'Queue Building') {
+    return `Queue is growing (${stats.value.pending} waiting). Assign matches to available courts.`;
+  }
+  if (label === 'Healthy') return 'Good flow - courts are active and matches are progressing.';
+  if (label === 'Idle') return 'No matches are currently queued or in progress.';
+  return '';
+});
+
 onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
   tournamentStore.subscribeTournament(tournamentId.value);
@@ -1076,19 +1094,28 @@ async function confirmCompleteTournament(): Promise<void> {
       
       <v-spacer />
 
-      <v-chip
-        :color="tournamentHealth.color"
-        size="small"
-        variant="tonal"
-        class="mr-3 hidden-sm-and-down"
-        :prepend-icon="tournamentHealth.icon"
+      <v-tooltip
+        :text="healthTooltip"
+        location="bottom"
+        max-width="320"
       >
-        {{ tournamentHealth.label }}
-        <span
-          class="ml-1 text-caption"
-          style="opacity: 0.7"
-        >{{ stats.courtsInUse }}/{{ stats.totalCourts }} courts</span>
-      </v-chip>
+        <template #activator="{ props: tooltipProps }">
+          <v-chip
+            v-bind="tooltipProps"
+            :color="tournamentHealth.color"
+            size="small"
+            variant="tonal"
+            class="mr-3 hidden-sm-and-down"
+            :prepend-icon="tournamentHealth.icon"
+          >
+            {{ tournamentHealth.label }}
+            <span
+              class="ml-1 text-caption"
+              style="opacity: 0.7"
+            >{{ stats.courtsInUse }}/{{ stats.totalCourts }} courts</span>
+          </v-chip>
+        </template>
+      </v-tooltip>
 
       <div
         v-if="viewMode !== 'schedule'"
