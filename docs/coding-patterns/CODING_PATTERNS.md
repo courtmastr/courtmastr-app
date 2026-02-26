@@ -1863,13 +1863,20 @@ if (options.ignoreCheckInGate && authStore.currentUser?.role !== 'admin') {
   throw new Error('Blocked: Only admins can assign anyway when players are not checked-in');
 }
 ```
+```typescript
+const blocked = stats.value.pending - assignablePendingMatches.value.length;
+if (tournamentHealth.value.label === 'Backlog' && blocked > 0 && assignablePendingMatches.value.length === 0) {
+  return `${stats.value.pending} matches waiting - all blocked (players not checked in). Go to Check-in to mark players as present, or use "Assign Anyway (Admin)" from a match row's dropdown.`;
+}
+```
 
-**Rule:** Both manual and auto-assignment must require three gates: match is scheduled (`plannedStartAt`/fallback), schedule is published, and both participants are checked in. Admin override may bypass only the check-in gate. Assignment must not rewrite planned schedule timestamps.
+**Rule:** Both manual and auto-assignment must require three gates: match is scheduled (`plannedStartAt`/fallback), schedule is published, and both participants are checked in. Admin override may bypass only the check-in gate. Assignment must not rewrite planned schedule timestamps. The Match Control health chip must explain when backlog is blocked by check-in so operators know to use Check-in or admin override.
 
 **Detection:**
 ```bash
 rg -n "Blocked: Not scheduled|Blocked: Not published|Blocked: Players not checked-in|ignoreCheckInGate" src/stores/matches.ts src/features/tournaments/views/MatchControlView.vue
 rg -n "assignMatchToCourt|assignedAt|plannedStartAt|scheduledTime" src/stores/matches.ts
+rg -n "healthTooltip|players not checked in|Assign Anyway \\(Admin\\)" src/features/tournaments/views/MatchControlView.vue
 ```
 
 ---
@@ -2160,6 +2167,70 @@ function hasEliminationBracket(category: Category): boolean {
 rg -n "scheduleDone|hasPlannedTimes|allPlannedTimes|schedulePublished|hasBracketForCategory" src/features/tournaments/components/CategoryRegistrationStats.vue
 rg -n "poolMatchesScheduled|levelMatchesScheduled|elimMatchesScheduled|poolSchedulePublished|levelSchedulePublished|elimSchedulePublished" src/features/tournaments/components/CategoryRegistrationStats.vue
 rg -n "poolCompletedAt: null|levelingStatus: null|levelCount: null|levelsVersion: null|poolPhase: 'pool'|eliminationStageId: null" src/stores/tournaments.ts
+```
+
+---
+
+### CP-046: Front Desk Rapid Check-In Must Resolve Typed Participant Names and Bulk Rows Must Visually Mark Checked-In State
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-26 |
+| **Source Bug** | Front desk operators could not check in by typing participant name, and bulk list rows did not clearly show which participants were already checked in |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (parsed.kind === 'registration') {
+  const registration = eligibleRegistrations.value.find((item) => item.id === parsed.value);
+  if (!registration) throw new Error('No matching participant for scanned code');
+  return registration;
+}
+```
+```vue
+<v-list-item
+  v-for="row in rows"
+  :key="row.id"
+  :title="row.name"
+/>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const typedMatch = findRegistrationByTypedQuery(
+  parsed.value,
+  eligibleRegistrations.value,
+  options.getParticipantName
+);
+if (typedMatch.type === 'match') return matchedRegistration;
+if (typedMatch.type === 'ambiguous') {
+  throw new Error('Multiple participants match this name. Type more of the name or use bib number.');
+}
+```
+```vue
+<v-list-item
+  :class="[
+    'bulk-checkin-panel__row',
+    `bulk-checkin-panel__row--${row.status ?? 'unknown'}`
+  ]"
+>
+  <v-chip :color="getStatusColor(row.status)" variant="tonal">
+    {{ getStatusLabel(row.status) }}
+  </v-chip>
+</v-list-item>
+```
+
+**Rule:** Rapid check-in input must support typed participant-name resolution (with explicit ambiguity handling) in addition to scanned bib/ID values; bulk mode must make checked-in state obvious via both status chip and row styling.
+
+**Detection:**
+```bash
+if ! rg -n "findRegistrationByTypedQuery\\(" src/features/checkin/composables/useFrontDeskCheckInWorkflow.ts; then
+  echo "Violation: rapid check-in missing typed-name fallback"
+fi
+if ! rg -n "bulk-checkin-panel__row--checked_in|getStatusColor\\(row.status\\)|getStatusLabel\\(row.status\\)" src/features/checkin/components/BulkCheckInPanel.vue; then
+  echo "Violation: bulk checked-in rows are not visually differentiated"
+fi
 ```
 
 ---

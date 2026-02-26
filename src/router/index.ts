@@ -167,7 +167,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/tournaments/:tournamentId/checkin',
     name: 'tournament-checkin',
-    component: () => import('@/features/checkin/views/CheckInDashboardView.vue'),
+    component: () => import('@/features/checkin/views/FrontDeskCheckInView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
