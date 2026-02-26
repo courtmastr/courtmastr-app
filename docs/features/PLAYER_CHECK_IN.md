@@ -4,13 +4,15 @@
 
 A streamlined player check-in system for tournament day operations. Allows administrators to quickly check in participants as they arrive, manage no-shows, and get real-time visibility into attendance. Includes both admin bulk check-in interface and self-service mobile check-in options.
 
-**Status:** Partially Implemented (Backend Only)  
+**Status:** Admin Interface Implemented ✅ | Self-Service Kiosk MVP Implemented ✅ | QR Security Enhancements Pending
 **Priority:** High  
 **Effort Estimate:** 2 days  
 **Related Files:**
 - `/src/stores/registrations.ts` - Has `checkInRegistration()` function (lines 330-336)
 - `/src/types/index.ts` - RegistrationStatus includes 'checked_in' (line 126)
 - `/src/features/registration/views/RegistrationManagementView.vue` - Existing registration management
+- `/src/stores/matches.ts` - Contains `evaluateAssignmentBlockers` for court assignment gating
+- `/src/composables/useMatchScheduler.ts` - Handles rest time configuration
 
 ---
 
@@ -51,16 +53,23 @@ A streamlined player check-in system for tournament day operations. Allows admin
    );
    ```
 
+5. **Court Assignment Gating** (`/src/stores/matches.ts`)
+   - `evaluateAssignmentBlockers` checks if players are checked in before allowing court assignment
+   - Blocks assignment with error: "Blocked: Players not checked-in"
+
+6. **Rest Time Configuration** (`/src/composables/useMatchScheduler.ts`)
+   - `minRestTimeMinutes` setting (default: 15 minutes)
+   - Scheduler enforces rest time between matches for players in multiple categories
+
 ### What's Missing
 
-1. ❌ **No Dedicated Check-in UI** - Only available in general registration management
-2. ❌ **No Bulk Check-in** - Cannot check in multiple players at once
-3. ❌ **No Mobile Self Check-in** - Players cannot check themselves in
-4. ❌ **No QR Code Support** - No quick scanning capability
-5. ❌ **No Check-in Statistics** - No visibility into attendance rates
-6. ❌ **No Late Arrival Tracking** - No timestamps for check-in times
-7. ❌ **No No-Show Management** - Cannot mark players as no-shows
-8. ❌ **No Bib/Number Assignment** - Cannot assign player numbers during check-in
+1. ✅ **Admin Check-in Dashboard** - Standalone check-in interface at `/tournaments/:tournamentId/checkin`
+2. ✅ **Mobile/iPad Self Check-in (Search-First MVP)** - Public kiosk route with name search and participant disambiguation
+3. ✅ **Partner-Aware Self Check-in** - Player can check in self or self + linked partner
+4. ✅ **Partial Team Presence Model** - Registration flips to `checked_in` only when all required participants are present
+5. ❌ **QR Token Verification** - Secure signed QR payload validation still pending
+6. ❌ **Advanced Statistics** - Timeline view, hourly breakdown
+7. ❌ **Offline Kiosk Sync** - Queue/retry workflow still pending
 
 ---
 
@@ -206,9 +215,167 @@ interface Registration {
 }
 ```
 
-### Phase 2: Self-Service Check-in (1 day)
+### Phase 2: Court Assignment Integration (0.5 days)
 
-#### 2.1 Mobile Self Check-in
+#### 2.1 Check-In as Court Assignment Gate
+**Priority:** Critical  
+**Effort:** 0.25 days
+
+**Purpose:** Ensure matches are not assigned to courts unless participating players are physically present and checked in.
+
+**Rules:**
+- **Scheduling vs. Court Assignment:** Matches can be fully scheduled (assigned planned start time) even if players are not checked in
+- **Evaluation Mechanism:** When assigning a match to a court, system executes `evaluateAssignmentBlockers`
+- **Check-In Validation:** If any player in the match is not marked as `checked_in`, assignment is blocked with error: *"Blocked: Players not checked-in"*
+
+**Implementation:**
+```typescript
+// In /src/stores/matches.ts - evaluateAssignmentBlockers
+interface AssignmentGateOptions {
+  ignoreCheckInGate?: boolean;  // Admin bypass flag
+}
+
+async function evaluateAssignmentBlockers(
+  matchId: string,
+  options?: AssignmentGateOptions
+): Promise<string[]> {
+  const blockers: string[] = [];
+  
+  // Check if all players are checked in
+  if (!options?.ignoreCheckInGate) {
+    const allCheckedIn = await verifyAllPlayersCheckedIn(matchId);
+    if (!allCheckedIn) {
+      blockers.push('Blocked: Players not checked-in');
+    }
+  }
+  
+  // Check rest time between matches
+  const restTimeCheck = await verifyRestTime(matchId);
+  if (!restTimeCheck.valid) {
+    blockers.push(`Blocked: Player needs ${restTimeCheck.minutesRemaining} more minutes rest`);
+  }
+  
+  return blockers;
+}
+```
+
+#### 2.2 Admin Bypass (Force Assign)
+**Priority:** High  
+**Effort:** 0.25 days
+
+**Purpose:** Allow administrators to override the check-in gate when necessary (e.g., player is walking to court but hasn't been officially checked in).
+
+**Implementation:**
+```typescript
+// In AssignCourtDialog component
+interface AssignCourtDialogProps {
+  matchId: string;
+  availableCourts: Court[];
+}
+
+const forceAssign = ref(false);
+const blockers = ref<string[]>([]);
+
+async function attemptAssignment() {
+  const gateOptions: AssignmentGateOptions = {
+    ignoreCheckInGate: forceAssign.value,
+  };
+  
+  blockers.value = await evaluateAssignmentBlockers(matchId, gateOptions);
+  
+  if (blockers.value.length > 0 && !forceAssign.value) {
+    // Show warning dialog with option to force
+    showForceAssignWarning.value = true;
+    return;
+  }
+  
+  // Proceed with assignment
+  await assignMatchToCourt(matchId, selectedCourt.value, gateOptions);
+}
+```
+
+**UI Design:**
+```
+┌────────────────────────────────────────────────────┐
+│ Assign to Court                                    │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│ ⚠️ Warning: 1 player not checked in               │
+│    - John Smith (Men's Singles)                    │
+│                                                    │
+│ [✓] Force assign anyway (I confirm they're here)  │
+│                                                    │
+│ Select Court:                                      │
+│ [Court 1 ▼] [Court 2] [Court 3]                   │
+│                                                    │
+│        [Cancel]  [Assign to Court 1]              │
+└────────────────────────────────────────────────────┘
+```
+
+### Phase 3: Rest Time Management (0.25 days)
+
+#### 3.1 Time Between Games (Rest Time Consideration)
+**Priority:** High  
+**Effort:** 0.25 days
+
+**Purpose:** Since players can participate in multiple categories, ensure adequate rest time between their matches.
+
+**Rules:**
+- **Settings Configuration:** Required rest time configurable via `minRestTimeMinutes` in tournament settings
+- **Default:** 15 minutes if not explicitly set (`minRestTimeMinutes: settings.minRestTimeMinutes ?? 15`)
+- **Scheduler Integration:** During auto-scheduling, scheduler evaluates player's previous match completion time and ensures next match doesn't start until rest time has passed
+- **Manual Assignment Warning:** UI warns organizers if assigning player before minimum rest time, with option to force
+
+**Implementation:**
+```typescript
+// In /src/composables/useMatchScheduler.ts
+interface TimeScheduleConfig {
+  minRestTimeMinutes: number;
+  courtAvailability: CourtAvailability[];
+}
+
+async function scheduleMatch(
+  matchId: string,
+  config: TimeScheduleConfig
+): Promise<ScheduleResult> {
+  // Get all players in this match
+  const players = await getMatchPlayers(matchId);
+  
+  // Find earliest possible start time based on rest requirements
+  let earliestStart = new Date();
+  
+  for (const player of players) {
+    const lastMatchEnd = await getLastMatchEndTime(player.id);
+    if (lastMatchEnd) {
+      const requiredRestEnd = addMinutes(lastMatchEnd, config.minRestTimeMinutes);
+      earliestStart = max(earliestStart, requiredRestEnd);
+    }
+  }
+  
+  // Schedule match at earliestStart or later
+  return await findAvailableSlot(matchId, earliestStart, config);
+}
+```
+
+**UI Warning (Manual Assignment):**
+```
+┌────────────────────────────────────────────────────┐
+│ ⚠️ Rest Time Warning                               │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│ Jane Smith just finished a match 10 minutes ago   │
+│ on Court 2.                                        │
+│                                                    │
+│ Minimum rest time: 15 minutes                     │
+│ Time remaining: 5 minutes                         │
+│                                                    │
+│ [Wait for Rest Time]  [Assign Anyway]             │
+└────────────────────────────────────────────────────┘
+```
+
+### Phase 4: Self-Service Check-in (1 day)
+
+#### 4.1 Mobile Self Check-in
 **Priority:** High  
 **Effort:** 0.5 days
 
@@ -276,10 +443,10 @@ interface Registration {
 └─────────────────────────────┘
 ```
 
-**Route:** `/tournaments/:tournamentId/self-check-in`  
+**Route:** `/tournaments/:tournamentId/self-checkin`  
 **Component:** `/src/features/checkin/views/SelfCheckInView.vue`
 
-#### 2.2 QR Code Check-in
+#### 4.2 QR Code Check-in
 **Priority:** Medium  
 **Effort:** 0.5 days
 
@@ -378,7 +545,7 @@ src/
 
 // Self check-in (public)
 {
-  path: '/tournaments/:tournamentId/self-check-in',
+  path: '/tournaments/:tournamentId/self-checkin',
   name: 'self-check-in',
   component: () => import('@/features/checkin/views/SelfCheckInView.vue'),
   meta: { requiresAuth: false },
@@ -492,6 +659,27 @@ export interface QRCodeData {
   t: string;
   r: string;
   c: string;
+}
+
+// Court Assignment Integration Types
+export interface AssignmentGateOptions {
+  ignoreCheckInGate?: boolean;
+  ignoreRestTime?: boolean;
+}
+
+export interface AssignmentBlocker {
+  type: 'check_in' | 'rest_time' | 'court_unavailable';
+  message: string;
+  details?: {
+    playerName?: string;
+    minutesRemaining?: number;
+  };
+}
+
+export interface RestTimeConfig {
+  minRestTimeMinutes: number;
+  enforceInScheduling: boolean;
+  warnInManualAssignment: boolean;
 }
 ```
 
@@ -698,6 +886,71 @@ Add to `/firestore.indexes.json`:
 </template>
 ```
 
+### Assign Court Dialog with Check-In Gate
+
+```vue
+<template>
+  <v-dialog v-model="show" max-width="600">
+    <v-card>
+      <v-card-title>Assign to Court</v-card-title>
+      
+      <v-card-text>
+        <!-- Blockers Warning -->
+        <v-alert
+          v-if="blockers.length > 0"
+          type="warning"
+          class="mb-4"
+        >
+          <p class="font-weight-bold">Assignment blocked:</p>
+          <ul>
+            <li v-for="blocker in blockers" :key="blocker.type">
+              {{ blocker.message }}
+            </li>
+          </ul>
+        </v-alert>
+        
+        <!-- Force Assign Options -->
+        <v-checkbox
+          v-if="hasCheckInBlocker"
+          v-model="forceOptions.ignoreCheckInGate"
+          label="Force assign (players are here but not checked in)"
+          color="warning"
+        />
+        
+        <v-checkbox
+          v-if="hasRestTimeBlocker"
+          v-model="forceOptions.ignoreRestTime"
+          label="Assign anyway (ignore rest time requirement)"
+          color="warning"
+        />
+        
+        <!-- Court Selection -->
+        <v-select
+          v-model="selectedCourt"
+          :items="availableCourts"
+          item-title="name"
+          item-value="id"
+          label="Select Court"
+          class="mt-4"
+        />
+      </v-card-text>
+      
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="close">Cancel</v-btn>
+        <v-btn
+          color="primary"
+          :disabled="!canAssign"
+          @click="assign"
+        >
+          {{ isForceAssign ? 'Force Assign' : 'Assign to Court' }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>
+```
+
 ---
 
 ## Testing Requirements
@@ -707,6 +960,8 @@ Add to `/firestore.indexes.json`:
 - Bib number assignment
 - QR code generation/parsing
 - Stats calculation
+- Court assignment gating (`evaluateAssignmentBlockers`)
+- Rest time calculation
 
 ### E2E Tests
 - Admin can check in single player
@@ -715,29 +970,56 @@ Add to `/firestore.indexes.json`:
 - QR code check-in flow
 - No-show marking
 - Bib assignment
+- Court assignment blocked when players not checked in
+- Admin can force assign with bypass flag
+- Rest time warning appears for manual assignment
 
 ### Edge Cases
 - Duplicate check-in attempts
 - Check-in after tournament start
 - Lost QR codes
 - Network failures during check-in
+- Court assignment attempted before check-in
+- Player assigned to court before rest time elapsed
+- Force assign bypass verification
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] Admin can view all approved registrations
-- [ ] Admin can check in players individually
-- [ ] Admin can check in multiple players at once
+### Phase 1: Admin Check-In
+- [x] Admin can view all approved registrations
+- [x] Admin can check in players individually
+- [x] Admin can check in multiple players at once
 - [ ] Admin can mark players as no-shows
-- [ ] Admin can assign bib numbers
-- [ ] Real-time statistics update
-- [ ] Players can self check-in via mobile
+- [x] Admin can assign bib numbers
+- [x] Real-time statistics update
+- [x] Mobile-responsive design
+- [ ] Works offline with sync when reconnected
+
+### Phase 2: Court Assignment Integration
+- [ ] Court assignment blocked if any player not checked in
+- [ ] Error message clearly indicates which players need check-in
+- [ ] Admin can force assign with `ignoreCheckInGate` flag
+- [ ] Force assign requires explicit confirmation
+- [ ] Assignment gate works with auto-scheduler
+- [ ] Assignment gate works with manual assignment
+
+### Phase 3: Rest Time Management
+- [ ] Rest time configurable in tournament settings (default 15 min)
+- [ ] Auto-scheduler respects rest time between player matches
+- [ ] Manual assignment shows warning if rest time not met
+- [ ] Organizer can override rest time warning
+- [ ] Rest time calculated from match end or scheduled end
+
+### Phase 4: Self-Service Check-In
+- [x] Players can self check-in via mobile/iPad kiosk (search-first flow)
+- [x] Name disambiguation includes category + partner/team context
+- [x] Player can check in self or self + partner from selected registration
+- [x] Team registration is marked `checked_in` only when all required participants are present
 - [ ] QR codes generated for each registration
 - [ ] QR code scanning works for instant check-in
 - [ ] Undo check-in functionality works
-- [ ] Mobile-responsive design
-- [ ] Works offline with sync when reconnected
 
 ---
 
@@ -746,10 +1028,11 @@ Add to `/firestore.indexes.json`:
 - [Registration Management](../src/features/registration/) - Existing registration system
 - [User Management Dashboard](./USER_MANAGEMENT_DASHBOARD.md) - User administration
 - [Tournament Dashboard](../src/features/tournaments/) - Tournament operations
+- [Data Model Migration Rules](../migration/DATA_MODEL_MIGRATION_RULES.md) - Data model guidelines
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-02-14  
+**Document Version:** 2.1  
+**Last Updated:** 2026-02-26 (Added self-checkin kiosk MVP + participant presence model)
 **Author:** Sisyphus AI  
-**Status:** Draft - Ready for Implementation
+**Status:** In Progress (MVP delivered, QR/security hardening pending)
