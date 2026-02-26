@@ -6,6 +6,7 @@ import { generateBracket as createBracket } from './bracket';
 import { generateSchedule as createSchedule } from './scheduling';
 import { updateMatch as updateMatchFn } from './updateMatch';
 import { submitBugReport as submitBugReportFn } from './bugReport';
+import { searchSelfCheckInCandidates as searchSelfCheckInCandidatesFn, submitSelfCheckIn as submitSelfCheckInFn } from './selfCheckIn';
 import { FirestoreStorage } from './storage/firestore-adapter';
 
 // Initialize Firebase Admin
@@ -15,6 +16,8 @@ const db = admin.firestore();
 
 export const updateMatch = updateMatchFn;
 export const submitBugReport = submitBugReportFn;
+export const searchSelfCheckInCandidates = searchSelfCheckInCandidatesFn;
+export const submitSelfCheckIn = submitSelfCheckInFn;
 
 /**
  * Generate bracket for a tournament category
