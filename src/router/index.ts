@@ -93,6 +93,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false },
   },
   {
+    path: '/tournaments/:tournamentId/self-checkin',
+    name: 'self-check-in',
+    component: () => import('@/features/checkin/views/SelfCheckInView.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
     path: '/tournaments/:tournamentId/schedule',
     name: 'public-schedule',
     component: PublicSchedule,
@@ -156,6 +162,12 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/match-control',
     name: 'match-control',
     component: MatchControl,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/tournaments/:tournamentId/checkin',
+    name: 'tournament-checkin',
+    component: () => import('@/features/checkin/views/CheckInDashboardView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
