@@ -1,7 +1,8 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { FieldValue } from 'firebase-admin/firestore';
 
-const db = admin.firestore();
+const getDb = (): admin.firestore.Firestore => admin.firestore();
 
 interface RegistrationDoc {
   categoryId?: string;
@@ -50,6 +51,7 @@ const ensureStringArray = (value: unknown): string[] => {
 };
 
 export const searchSelfCheckInCandidates = functions.https.onCall(async (request) => {
+  const db = getDb();
   const tournamentId = String(request.data?.tournamentId || '').trim();
   const rawQuery = String(request.data?.query || '');
   const query = normalizeQuery(rawQuery);
@@ -118,6 +120,7 @@ export const searchSelfCheckInCandidates = functions.https.onCall(async (request
 });
 
 export const submitSelfCheckIn = functions.https.onCall(async (request) => {
+  const db = getDb();
   const tournamentId = String(request.data?.tournamentId || '').trim();
   const registrationId = String(request.data?.registrationId || '').trim();
   const participantIds = Array.from(new Set(ensureStringArray(request.data?.participantIds)));
@@ -179,11 +182,11 @@ export const submitSelfCheckIn = functions.https.onCall(async (request) => {
       status: nextStatus,
       isCheckedIn: allPresent,
       checkInSource: 'kiosk',
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     };
 
     if (allPresent && !registration.checkedInAt) {
-      updates.checkedInAt = admin.firestore.FieldValue.serverTimestamp();
+      updates.checkedInAt = FieldValue.serverTimestamp();
     }
 
     transaction.update(registrationRef, updates);

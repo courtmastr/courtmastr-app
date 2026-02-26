@@ -36,7 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.submitSelfCheckIn = exports.searchSelfCheckInCandidates = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const db = admin.firestore();
+const firestore_1 = require("firebase-admin/firestore");
+const getDb = () => admin.firestore();
 const normalizeQuery = (value) => value.trim().toLowerCase();
 const toDisplayName = (player) => {
     if (!player)
@@ -54,6 +55,7 @@ const ensureStringArray = (value) => {
 };
 exports.searchSelfCheckInCandidates = functions.https.onCall(async (request) => {
     var _a, _b;
+    const db = getDb();
     const tournamentId = String(((_a = request.data) === null || _a === void 0 ? void 0 : _a.tournamentId) || '').trim();
     const rawQuery = String(((_b = request.data) === null || _b === void 0 ? void 0 : _b.query) || '');
     const query = normalizeQuery(rawQuery);
@@ -107,6 +109,7 @@ exports.searchSelfCheckInCandidates = functions.https.onCall(async (request) => 
 });
 exports.submitSelfCheckIn = functions.https.onCall(async (request) => {
     var _a, _b, _c;
+    const db = getDb();
     const tournamentId = String(((_a = request.data) === null || _a === void 0 ? void 0 : _a.tournamentId) || '').trim();
     const registrationId = String(((_b = request.data) === null || _b === void 0 ? void 0 : _b.registrationId) || '').trim();
     const participantIds = Array.from(new Set(ensureStringArray((_c = request.data) === null || _c === void 0 ? void 0 : _c.participantIds)));
@@ -145,10 +148,10 @@ exports.submitSelfCheckIn = functions.https.onCall(async (request) => {
             status: nextStatus,
             isCheckedIn: allPresent,
             checkInSource: 'kiosk',
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
         };
         if (allPresent && !registration.checkedInAt) {
-            updates.checkedInAt = admin.firestore.FieldValue.serverTimestamp();
+            updates.checkedInAt = firestore_1.FieldValue.serverTimestamp();
         }
         transaction.update(registrationRef, updates);
         return {
