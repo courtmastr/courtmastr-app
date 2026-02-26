@@ -34,6 +34,8 @@ import type {
   TieBreakerStep,
   ExportFormat,
   ResolvedMatch,
+  TiebreakerEntryValues,
+  TiebreakerMetric,
 } from '@/types/leaderboard';
 import { exportLeaderboard } from '@/services/leaderboardExport';
 import { useMatchStore } from '@/stores/matches';
@@ -399,6 +401,7 @@ export function resolveTieGroup(
           description: 'Resolved by head-to-head match result',
           resolvedOrder: [winner.registrationId, loser.registrationId],
           headToHeadMatchId: h2h.id,
+          resolvedValues: buildResolvedValues(winner, loser, 'head_to_head'),
         },
       };
     }
@@ -406,26 +409,44 @@ export function resolveTieGroup(
   }
 
   // --- 3+ way (or unresolved 2-way): game difference (Art. 16.2.3) ---
-  const gameDiffGroups = groupByDescending(tiedEntries, (e) => e.gameDifference);
+  // Normalized per match played — prevents bye-pool teams being penalized
+  // for having fewer real matches than full-pool teams.
+  const gameDiffGroups = groupByDescending(
+    tiedEntries,
+    (e) => e.matchesPlayed > 0
+      ? Math.round((e.gameDifference / e.matchesPlayed) * 10) / 10
+      : 0
+  );
   if (gameDiffGroups.length > 1) {
     return resolvePartialTies(gameDiffGroups, allMatches, startRank, 'game_difference');
   }
 
   // --- Still tied: point difference (Art. 16.2.4) ---
-  const pointDiffGroups = groupByDescending(tiedEntries, (e) => e.pointDifference);
+  // Also normalized per match played for same reason.
+  const pointDiffGroups = groupByDescending(
+    tiedEntries,
+    (e) => e.matchesPlayed > 0
+      ? Math.round((e.pointDifference / e.matchesPlayed) * 10) / 10
+      : 0
+  );
   if (pointDiffGroups.length > 1) {
     return resolvePartialTies(pointDiffGroups, allMatches, startRank, 'point_difference');
   }
 
   // --- All tiebreakers exhausted: equal standing (Art. 16.2.4.2) ---
+  // Sort alphabetically so equal-standing display order is deterministic,
+  // not dependent on JavaScript Array.sort stability across engines
+  const alphabeticallySorted = [...tiedEntries].sort((a, b) =>
+    a.participantName.localeCompare(b.participantName)
+  );
   return {
-    resolved: tiedEntries,
+    resolved: alphabeticallySorted,
     resolution: {
       tiedRank: startRank,
       registrationIds: ids,
       step: 'equal',
-      description: 'All tiebreakers exhausted — equal standing awarded',
-      resolvedOrder: ids,
+      description: `${tiedEntries.length}-way equal standing — all tiebreakers exhausted. Order shown is alphabetical.`,
+      resolvedOrder: alphabeticallySorted.map((e) => e.registrationId),
     },
   };
 }
@@ -478,6 +499,13 @@ export function resolvePartialTies(
       ? `Partially resolved by ${resolvedBy}; sub-groups further processed`
       : `Resolved by ${resolvedBy}`,
     resolvedOrder,
+    resolvedValues: allIds.length === 2
+      ? buildResolvedValues(
+        groups.flat()[0],
+        groups.flat()[1],
+        resolvedBy
+      )
+      : undefined,
   };
 
   return { resolved: allResolved, resolution: baseResolution };
@@ -540,6 +568,57 @@ export function buildCategorySummaries(
       })),
     };
   });
+}
+
+/**
+ * Build the metric receipt for exactly 2 entries.
+ * Called at the moment of separation — captures all metrics
+ * up to and including the deciding one.
+ */
+export function buildResolvedValues(
+  a: LeaderboardEntry,
+  b: LeaderboardEntry,
+  decidingStep: TieBreakerStep
+): TiebreakerEntryValues[] {
+  const gdPerMatch = (e: LeaderboardEntry) =>
+    e.matchesPlayed > 0
+      ? Math.round((e.gameDifference / e.matchesPlayed) * 10) / 10
+      : 0;
+  const pdPerMatch = (e: LeaderboardEntry) =>
+    e.matchesPlayed > 0
+      ? Math.round((e.pointDifference / e.matchesPlayed) * 10) / 10
+      : 0;
+
+  const gdA = gdPerMatch(a);
+  const gdB = gdPerMatch(b);
+  const pdA = pdPerMatch(a);
+  const pdB = pdPerMatch(b);
+
+  const metricsFor = (e: LeaderboardEntry, gd: number, pd: number): TiebreakerMetric[] => [
+    {
+      label: 'Match Points',
+      value: e.matchPoints,
+      tied: a.matchPoints === b.matchPoints,
+      decided: decidingStep === 'match_wins',
+    },
+    {
+      label: 'GD / match',
+      value: gd,
+      tied: gdA === gdB,
+      decided: decidingStep === 'game_difference',
+    },
+    {
+      label: 'PD / match',
+      value: pd,
+      tied: pdA === pdB,
+      decided: decidingStep === 'point_difference',
+    },
+  ];
+
+  return [
+    { registrationId: a.registrationId, participantName: a.participantName, metrics: metricsFor(a, gdA, pdA) },
+    { registrationId: b.registrationId, participantName: b.participantName, metrics: metricsFor(b, gdB, pdB) },
+  ];
 }
 
 // ============================================

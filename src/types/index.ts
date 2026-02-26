@@ -46,6 +46,7 @@ export interface Tournament {
   settings: TournamentSettings;
   createdBy: string;
   organizerIds?: string[];
+  sponsors?: string[]; // Tournament sponsors for overlay display
   createdAt: Date;
   updatedAt: Date;
 }
@@ -261,6 +262,9 @@ export interface Registration {
   teamName?: string; // Display name for doubles teams
   status: RegistrationStatus;
   isCheckedIn?: boolean; // Fast-path check-in flag (set alongside status='checked_in')
+  participantPresence?: Record<string, boolean>; // Per-player presence map used by self check-in kiosk
+  checkInSource?: 'admin' | 'kiosk'; // Origin of latest check-in transition
+  checkedInAt?: Date; // Timestamp when registration became fully checked in
   paymentStatus?: PaymentStatus; // Payment tracking
   paymentNote?: string; // e.g., "Paid via Venmo", "Cash collected"
   seed?: number;

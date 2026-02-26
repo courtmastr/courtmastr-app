@@ -81,6 +81,14 @@
         />
         <v-list-item
           v-if="isOrganizer"
+          :to="`/tournaments/${currentTournamentId}/checkin`"
+          prepend-icon="mdi-account-check"
+          title="Check-in"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
           :to="`/tournaments/${currentTournamentId}/live-view`"
           prepend-icon="mdi-monitor-eye"
           title="Live View"
@@ -157,6 +165,14 @@
           :to="`/tournaments/${currentTournamentId}/score`"
           prepend-icon="mdi-scoreboard"
           title="Score Entry"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
+          :to="`/tournaments/${currentTournamentId}/overlays`"
+          prepend-icon="mdi-cast"
+          title="Overlay Links"
           rounded="lg"
           :ripple="false"
         />

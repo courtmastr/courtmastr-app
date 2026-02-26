@@ -1233,6 +1233,59 @@ export const useTournamentStore = defineStore('tournaments', () => {
     return result;
   }
 
+  /**
+   * Regenerate pools for a pool_to_elimination category.
+   * Deletes existing pool stage (all matches/groups/stages) then runs generateBracket
+   * to create fresh pool assignments. Only allowed before schedule is published.
+   */
+  async function regeneratePools(
+    tournamentId: string,
+    categoryId: string
+  ): Promise<{ success: boolean; matchCount: number }> {
+    const bracketGen = useBracketGenerator();
+    loading.value = true;
+    error.value = null;
+    try {
+      // Step 1: Delete the existing pool stage completely
+      await bracketGen.deleteBracket(tournamentId, categoryId);
+
+      // Step 2: Clear all derived pool state from the category document.
+      // This MUST happen before generateBracket() so no stale state survives
+      // a regeneration. poolCompletedAt being non-null would ghost the category
+      // into the 'levels' phase even with no pool matches present.
+      await updateDoc(
+        doc(db, `tournaments/${tournamentId}/categories`, categoryId),
+        {
+          poolCompletedAt: null,
+          levelingStatus: null,
+          levelingEnabled: null,
+          levelCount: null,
+          levelsVersion: null,
+          poolPhase: 'pool',
+          eliminationStageId: null,
+          updatedAt: serverTimestamp(),
+        }
+      );
+
+      // Step 3: Regenerate fresh pools
+      const result = await bracketGen.generateBracket(tournamentId, categoryId);
+      const category = categories.value.find((c) => c.id === categoryId);
+      const auditStore = useAuditStore();
+      await auditStore.logBracketGenerated(
+        tournamentId,
+        categoryId,
+        `${category?.name || categoryId} (Pools Regenerated)`
+      );
+      return result;
+    } catch (err) {
+      console.error('Error regenerating pools:', err);
+      error.value = err instanceof Error ? err.message : 'Failed to regenerate pools';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function generateSchedule(
     tournamentId: string,
     options: {
@@ -1391,6 +1444,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
     fetchCategoryLevels,
     generateCategoryLevels,
     regenerateBracket,
+    regeneratePools,
     generateSchedule,
     clearSchedule,
     updateMatchSchedule,

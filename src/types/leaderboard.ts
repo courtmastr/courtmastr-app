@@ -84,6 +84,19 @@ export interface CategorySummary {
   topThree: Pick<LeaderboardEntry, 'rank' | 'participantName' | 'matchesWon' | 'matchPoints'>[];
 }
 
+export interface TiebreakerMetric {
+  label: string;     // "Match Points" | "GD / match" | "PD / match"
+  value: number;
+  tied: boolean;     // true = equal, this step was skipped
+  decided: boolean;  // true = this metric broke the tie
+}
+
+export interface TiebreakerEntryValues {
+  registrationId: string;
+  participantName: string;
+  metrics: TiebreakerMetric[];
+}
+
 export interface TiebreakerResolution {
   tiedRank: number;
   registrationIds: string[];
@@ -91,6 +104,8 @@ export interface TiebreakerResolution {
   description: string;
   resolvedOrder: string[];
   headToHeadMatchId?: string;
+  // NEW — only populated for 2-entry resolutions
+  resolvedValues?: TiebreakerEntryValues[];
 }
 
 export interface LeaderboardOptions {

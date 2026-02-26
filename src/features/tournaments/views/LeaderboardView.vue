@@ -6,6 +6,7 @@ import type { LeaderboardOptions } from '@/types/leaderboard';
 import LeaderboardSummary from '@/components/leaderboard/LeaderboardSummary.vue';
 import LeaderboardFilters from '@/components/leaderboard/LeaderboardFilters.vue';
 import LeaderboardTable from '@/components/leaderboard/LeaderboardTable.vue';
+import LeaderboardExplainer from '@/components/leaderboard/LeaderboardExplainer.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -174,6 +175,7 @@ onMounted(() => {
 
     <!-- Table -->
     <template v-else-if="stage === 'done'">
+      <LeaderboardExplainer />
       <LeaderboardTable
         :entries="filteredEntries"
         :loading="false"

@@ -34,6 +34,12 @@ const PublicBracket = () => import('@/features/public/views/PublicBracketView.vu
 const PublicScoring = () => import('@/features/public/views/PublicScoringView.vue');
 const PublicSchedule = () => import('@/features/public/views/PublicScheduleView.vue');
 
+// Overlay views
+const OverlayCourtView = () => import('@/features/overlay/views/OverlayCourtView.vue');
+const OverlayTickerView = () => import('@/features/overlay/views/OverlayTickerView.vue');
+const OverlayBoardView = () => import('@/features/overlay/views/OverlayBoardView.vue');
+const OverlayLinksView = () => import('@/features/overlay/views/OverlayLinksView.vue');
+
 const routes: RouteRecordRaw[] = [
   // Public routes
   {
@@ -84,6 +90,12 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/register',
     name: 'self-registration',
     component: SelfRegistration,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/tournaments/:tournamentId/self-checkin',
+    name: 'self-check-in',
+    component: () => import('@/features/checkin/views/SelfCheckInView.vue'),
     meta: { requiresAuth: false },
   },
   {
@@ -150,6 +162,12 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/match-control',
     name: 'match-control',
     component: MatchControl,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/tournaments/:tournamentId/checkin',
+    name: 'tournament-checkin',
+    component: () => import('@/features/checkin/views/FrontDeskCheckInView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
@@ -244,6 +262,45 @@ const routes: RouteRecordRaw[] = [
     redirect: '/tournaments',
   },
 
+  // OBS Overlay routes (no auth, transparent background)
+  {
+    path: '/obs/:tournamentId/match/:matchId',
+    name: 'obs-score-bug',
+    component: () => import('@/features/obs/views/ObsScoreBugView.vue'),
+    meta: { requiresAuth: false, obsOverlay: true },
+  },
+  {
+    path: '/obs/:tournamentId/scoreboard',
+    name: 'obs-scoreboard',
+    component: () => import('@/features/obs/views/ObsScoreboardView.vue'),
+    meta: { requiresAuth: false, obsOverlay: true },
+  },
+
+  {
+    path: '/overlay/:tournamentId/court/:courtId',
+    name: 'overlay-court',
+    component: OverlayCourtView,
+    meta: { requiresAuth: false, overlayPage: true },
+  },
+  {
+    path: '/overlay/:tournamentId/ticker',
+    name: 'overlay-ticker',
+    component: OverlayTickerView,
+    meta: { requiresAuth: false, overlayPage: true },
+  },
+  {
+    path: '/overlay/:tournamentId/board',
+    name: 'overlay-board',
+    component: OverlayBoardView,
+    meta: { requiresAuth: false, overlayPage: true },
+  },
+  {
+    path: '/tournaments/:tournamentId/overlays',
+    name: 'overlay-links',
+    component: OverlayLinksView,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+
   // Catch-all 404
   {
     path: '/:pathMatch(.*)*',
@@ -266,6 +323,18 @@ const router = createRouter({
 // Navigation guards
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
+
+  // Skip all auth checks for OBS overlay routes
+  if (to.meta.obsOverlay) {
+    next();
+    return;
+  }
+
+  // Skip all auth checks for overlay page routes
+  if (to.meta.overlayPage) {
+    next();
+    return;
+  }
 
   // Wait for auth to initialize
   if (authStore.loading) {

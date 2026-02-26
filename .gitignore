@@ -45,3 +45,9 @@ e2e-report/
 test-results/
 test-screenshots/
 test-videos/
+.agent-browser
+uv.lock
+.axon
+.tmp
+.venv
+.vscode

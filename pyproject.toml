@@ -1,0 +1,9 @@
+[project]
+name = "courtmaster-v2"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "axoniq>=0.2.2",
+]

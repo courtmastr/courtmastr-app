@@ -440,8 +440,8 @@ describe('resolveTieGroup — two-way tie', () => {
   });
 
   it('falls through to game difference when no h2h match', () => {
-    const a = makeEntry('alice', 5, { gameDifference: 3 });
-    const b = makeEntry('bob', 5, { gameDifference: 1 });
+    const a = makeEntry('alice', 5, { matchesPlayed: 1, gameDifference: 3 });
+    const b = makeEntry('bob', 5, { matchesPlayed: 1, gameDifference: 1 });
 
     const { resolved, resolution } = resolveTieGroup([a, b], [], 1);
     expect(resolved[0].registrationId).toBe('alice');
@@ -474,9 +474,9 @@ describe('resolveTieGroup — three-way tie', () => {
   });
 
   it('falls through to point difference when game diff all equal', () => {
-    const a = makeEntry('a', 5, { gameDifference: 0, pointDifference: 10 });
-    const b = makeEntry('b', 5, { gameDifference: 0, pointDifference: 5 });
-    const c = makeEntry('c', 5, { gameDifference: 0, pointDifference: -2 });
+    const a = makeEntry('a', 5, { matchesPlayed: 1, gameDifference: 0, pointDifference: 10 });
+    const b = makeEntry('b', 5, { matchesPlayed: 1, gameDifference: 0, pointDifference: 5 });
+    const c = makeEntry('c', 5, { matchesPlayed: 1, gameDifference: 0, pointDifference: -2 });
 
     const { resolved, resolution } = resolveTieGroup([a, b, c], [], 1);
     expect(resolved.map((e) => e.registrationId)).toEqual(['a', 'b', 'c']);
@@ -532,9 +532,9 @@ describe('sortWithBWFTiebreaker', () => {
   });
 
   it('Scenario D: three-way tie, partial game diff then h2h subset', () => {
-    const alice = makeEntry('alice', 5, { gameDifference: 2 });
-    const bob = makeEntry('bob', 5, { gameDifference: 1 });
-    const charlie = makeEntry('charlie', 5, { gameDifference: 1 });
+    const alice = makeEntry('alice', 5, { matchesPlayed: 1, gameDifference: 2 });
+    const bob = makeEntry('bob', 5, { matchesPlayed: 1, gameDifference: 1 });
+    const charlie = makeEntry('charlie', 5, { matchesPlayed: 1, gameDifference: 1 });
     const h2h = makeMatch('m1', 'bob', 'charlie', 'bob', [[21, 18]]);
 
     const { sorted } = sortWithBWFTiebreaker([alice, bob, charlie], [h2h]);

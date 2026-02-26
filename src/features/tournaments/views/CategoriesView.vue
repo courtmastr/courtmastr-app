@@ -204,6 +204,32 @@ async function regenerateBracket(): Promise<void> {
   }
 }
 
+// Regenerate Pools dialog
+const showRegeneratePoolsDialog = ref(false);
+const regeneratePoolsCategoryId = ref<string | null>(null);
+const regeneratePoolsInProgress = ref(false);
+
+function confirmRegeneratePools(categoryId: string): void {
+  regeneratePoolsCategoryId.value = categoryId;
+  showRegeneratePoolsDialog.value = true;
+}
+
+async function regeneratePools(): Promise<void> {
+  if (!regeneratePoolsCategoryId.value) return;
+  regeneratePoolsInProgress.value = true;
+  try {
+    await tournamentStore.regeneratePools(tournamentId.value, regeneratePoolsCategoryId.value);
+    notificationStore.showToast('success', 'Pools regenerated successfully!');
+    showRegeneratePoolsDialog.value = false;
+  } catch (error) {
+    console.error('Failed to regenerate pools:', error);
+    notificationStore.showToast('error', 'Failed to regenerate pools');
+  } finally {
+    regeneratePoolsInProgress.value = false;
+    regeneratePoolsCategoryId.value = null;
+  }
+}
+
 async function refreshCategoryLevels(categoryId: string): Promise<void> {
   try {
     const levels = await tournamentStore.fetchCategoryLevels(tournamentId.value, categoryId);
@@ -378,6 +404,7 @@ function openSeedingDialog(categoryId: string): void {
       @generate-bracket="generateBracket"
       @create-levels="openCreateLevelsDialog"
       @regenerate-bracket="confirmRegenerateBracket"
+      @regenerate-pools="confirmRegeneratePools"
       @manage-registrations="openCategoryRegistrations"
       @manage-seeds="openSeedingDialog"
       @setup-category="openCategoryEdit"
@@ -488,6 +515,55 @@ function openSeedingDialog(categoryId: string): void {
           @click="regenerateBracket"
         >
           Regenerate Bracket
+        </v-btn>
+      </template>
+    </BaseDialog>
+
+    <BaseDialog
+      v-model="showRegeneratePoolsDialog"
+      title="Regenerate Pools?"
+      max-width="500"
+      @confirm="regeneratePools"
+      @cancel="showRegeneratePoolsDialog = false"
+    >
+      <div class="d-flex align-center">
+        <v-icon
+          color="warning"
+          class="mr-2"
+        >
+          mdi-alert
+        </v-icon>
+        <span>Regenerate Pools?</span>
+      </div>
+      <p class="mb-3">
+        This will clear all existing pool assignments and schedule times, then create fresh pools.
+      </p>
+      <v-alert
+        type="warning"
+        variant="tonal"
+        class="mb-3"
+      >
+        <strong>Warning:</strong> All pool match scores and schedule times will be lost.
+        Only do this before publishing the schedule.
+      </v-alert>
+      <p class="text-body-2 text-grey">
+        Seeding and registrations will be preserved.
+      </p>
+      <template #actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="showRegeneratePoolsDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="warning"
+          variant="flat"
+          :loading="regeneratePoolsInProgress"
+          @click="regeneratePools"
+        >
+          Regenerate Pools
         </v-btn>
       </template>
     </BaseDialog>

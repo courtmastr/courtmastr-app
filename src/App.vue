@@ -1,17 +1,34 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import AppLayout from '@/components/layout/AppLayout.vue';
 
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
+const route = useRoute();
 
 const isLoading = computed(() => authStore.loading);
+const isOverlayRoute = computed(() => route.meta.overlayPage === true);
+
+// Toggle 'overlay-page' class on <html> based on route meta for overlay transparency
+watch(
+  isOverlayRoute,
+  (isOverlay) => {
+    if (isOverlay) {
+      document.documentElement.classList.add('overlay-page');
+    } else {
+      document.documentElement.classList.remove('overlay-page');
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
-  <v-app>
+  <router-view v-if="isOverlayRoute" />
+  <v-app v-else>
     <!-- Loading overlay -->
     <v-overlay
       v-model="isLoading"

@@ -587,7 +587,7 @@ async function generateLevels(): Promise<void> {
         :disabled="!canGenerate"
         @click="generateLevels"
       >
-        Create Levels & Generate Brackets
+        Generate Levels
       </v-btn>
     </template>
   </BaseDialog>

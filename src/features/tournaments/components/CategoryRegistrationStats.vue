@@ -26,7 +26,6 @@ const categories = computed(() => tournamentStore.categories);
 const registrations = computed(() => registrationStore.registrations);
 const players = computed(() => registrationStore.players);
 
-// Defensive resolvers: Firestore documents may carry legacy field names.
 function resolveCategoryFormat(category: Category): TournamentFormat {
   const raw = category as unknown as Record<string, unknown>;
   for (const key of ['format', 'categoryFormat', 'bracketFormat', 'eliminationFormat']) {
@@ -49,7 +48,19 @@ function resolveCategoryType(category: Category): CategoryType {
   return 'singles';
 }
 
-type PhaseKey = 'setup' | 'schedule' | 'checkin' | 'pool' | 'levels' | 'elimination' | 'done';
+type PhaseKey =
+  | 'setup'
+  | 'schedule'
+  | 'publish'
+  | 'checkin'
+  | 'pool_schedule'
+  | 'pool_publish'
+  | 'pool_play'
+  | 'levels'
+  | 'level_schedule'
+  | 'level_publish'
+  | 'elimination'
+  | 'done';
 
 interface PhaseStep {
   key: PhaseKey;
@@ -62,12 +73,17 @@ interface CategoryStats {
   resolvedType: CategoryType;
   categoryMatches: Match[];
   matchesCount: number;
-  hasPlannedTimes: boolean;
-  allPlannedTimes: boolean;
-  schedulePublished: boolean;
-  scheduleDone: boolean;
-  checkInStarted: boolean;
-  hasBracket: boolean;
+  poolMatches: Match[];
+  levelMatches: Match[];
+  elimMatches: Match[];
+  poolMatchesScheduled: boolean;
+  levelMatchesScheduled: boolean;
+  elimMatchesScheduled: boolean;
+  poolSchedulePublished: boolean;
+  levelSchedulePublished: boolean;
+  elimSchedulePublished: boolean;
+  poolComplete: boolean;
+  checkInRequired: boolean;
   total: number;
   pending: number;
   approved: number;
@@ -78,7 +94,7 @@ interface CategoryStats {
   seeded: number;
   steps: PhaseStep[];
   currentPhase: PhaseKey;
-  currentPhaseIdx: number;
+  safePhaseIdx: number;
 }
 
 interface StatusChip {
@@ -109,65 +125,88 @@ interface PrimaryAction {
   disabledReason?: string;
 }
 
-interface PhaseContext {
-  categoryMatches: Match[];
-  hasBracket: boolean;
-  checkInStarted: boolean;
-  scheduleDone: boolean;
+function hasPoolStage(category: Category): boolean {
+  return category.poolStageId != null;
 }
 
-function getPhaseSteps(format: TournamentFormat): PhaseStep[] {
-  if (format === 'pool_to_elimination') {
-    return [
+function hasEliminationBracket(category: Category): boolean {
+  return category.eliminationStageId != null || category.stageId != null;
+}
+
+function getPhaseSteps(format: TournamentFormat, checkInRequired: boolean): PhaseStep[] {
+  if (format === 'pool_to_elimination' || format === 'round_robin') {
+    const steps: PhaseStep[] = [
       { key: 'setup', label: 'Setup' },
-      { key: 'schedule', label: 'Schedule' },
-      { key: 'checkin', label: 'Check-in' },
-      { key: 'pool', label: 'Pool Play' },
-      { key: 'levels', label: 'Levels' },
-      { key: 'elimination', label: 'Bracket' },
-      { key: 'done', label: 'Done' },
+      { key: 'pool_schedule', label: 'Schedule' },
+      { key: 'pool_publish', label: 'Publish' },
     ];
+    if (checkInRequired) {
+      steps.push({ key: 'checkin', label: 'Check-in' });
+    }
+    steps.push(
+      { key: 'pool_play', label: format === 'round_robin' ? 'Round Robin' : 'Pool Play' },
+      { key: 'levels', label: 'Levels' },
+      { key: 'level_schedule', label: 'L. Schedule' },
+      { key: 'level_publish', label: 'L. Publish' },
+      { key: 'elimination', label: 'Bracket' },
+      { key: 'done', label: 'Done' }
+    );
+    return steps;
   }
-  return [
+
+  const steps: PhaseStep[] = [
     { key: 'setup', label: 'Setup' },
     { key: 'schedule', label: 'Schedule' },
-    { key: 'checkin', label: 'Check-in' },
-    { key: 'elimination', label: 'Bracket' },
-    { key: 'done', label: 'Done' },
+    { key: 'publish', label: 'Publish' },
   ];
-}
-
-function hasBracketForCategory(category: Category, categoryMatches: Match[]): boolean {
-  if (category.status === 'active' || category.status === 'completed') return true;
-  if (category.stageId != null) return true;
-  if (category.poolStageId != null) return true;
-  if (category.eliminationStageId != null) return true;
-  return categoryMatches.length > 0;
+  if (checkInRequired) {
+    steps.push({ key: 'checkin', label: 'Check-in' });
+  }
+  steps.push(
+    { key: 'elimination', label: 'Bracket' },
+    { key: 'done', label: 'Done' }
+  );
+  return steps;
 }
 
 function getCurrentPhase(
   category: Category,
   format: TournamentFormat,
-  phaseContext: PhaseContext
+  ctx: {
+    poolMatches: Match[];
+    levelMatches: Match[];
+    elimMatches: Match[];
+    poolMatchesScheduled: boolean;
+    levelMatchesScheduled: boolean;
+    elimMatchesScheduled: boolean;
+    poolSchedulePublished: boolean;
+    levelSchedulePublished: boolean;
+    elimSchedulePublished: boolean;
+    poolComplete: boolean;
+    checkInRequired: boolean;
+  }
 ): PhaseKey {
   if (category.status === 'completed') return 'done';
 
-  if (phaseContext.categoryMatches.length === 0 && category.status === 'setup') return 'setup';
-  if (!phaseContext.scheduleDone && phaseContext.categoryMatches.length > 0) return 'schedule';
-  if (!phaseContext.checkInStarted && category.status === 'setup') return 'checkin';
-
-  if (format === 'pool_to_elimination') {
-    if (category.poolPhase === 'pool' || category.status === 'setup') return 'pool';
-    if (category.poolPhase === 'elimination') {
-      const levelMatches = phaseContext.categoryMatches.filter((match) => Boolean(match.levelId));
-      if (levelMatches.length === 0) return 'levels';
-      return 'elimination';
-    }
-    return 'pool';
+  if (format === 'pool_to_elimination' || format === 'round_robin') {
+    if (hasEliminationBracket(category)) return 'elimination';
+    if (ctx.levelSchedulePublished) return 'elimination';
+    if (ctx.levelMatchesScheduled && !ctx.levelSchedulePublished) return 'level_publish';
+    if (ctx.levelMatches.length > 0 && !ctx.levelMatchesScheduled) return 'level_schedule';
+    if (category.levelingStatus === 'generated' && ctx.levelMatches.length === 0) return 'level_schedule';
+    if (ctx.poolComplete) return 'levels';
+    if (ctx.poolSchedulePublished && !ctx.poolComplete) return 'pool_play';
+    if (ctx.poolMatchesScheduled && !ctx.poolSchedulePublished) return 'pool_publish';
+    if (ctx.poolMatches.length > 0 && !ctx.poolMatchesScheduled) return 'pool_schedule';
+    if (hasPoolStage(category) && ctx.poolMatches.length === 0) return 'pool_schedule';
+    return 'setup';
   }
 
-  if (phaseContext.hasBracket || category.status === 'active') return 'elimination';
-  return 'elimination';
+  if (ctx.elimSchedulePublished) return 'elimination';
+  if (ctx.elimMatchesScheduled && !ctx.elimSchedulePublished) return 'publish';
+  if (ctx.elimMatches.length > 0 && !ctx.elimMatchesScheduled) return 'schedule';
+  if (hasEliminationBracket(category)) return 'schedule';
+  return 'setup';
 }
 
 function phaseIndex(steps: PhaseStep[], key: PhaseKey): number {
@@ -199,22 +238,51 @@ const categoryStats = computed<CategoryStats[]>(() => {
     const total = categoryRegs.length;
     const ready = approved + checkedIn;
     const matchesCount = categoryMatches.length;
-    const hasPlannedTimes = categoryMatches.some((match) => Boolean(match.plannedStartAt));
-    const allPlannedTimes = categoryMatches.every((match) => Boolean(match.plannedStartAt));
-    const schedulePublished = categoryMatches.some(
-      (match) => match.scheduleStatus === 'published' || Boolean(match.publishedAt)
+
+    const poolMatches = categoryMatches.filter((m) => Boolean(m.groupId) && !m.levelId);
+    const levelMatches = categoryMatches.filter((m) => Boolean(m.levelId));
+    const elimMatches = categoryMatches.filter((m) => !m.groupId && !m.levelId);
+
+    const poolMatchesScheduled =
+      poolMatches.length > 0 && poolMatches.every((m) => Boolean(m.plannedStartAt));
+    const levelMatchesScheduled =
+      levelMatches.length > 0 && levelMatches.every((m) => Boolean(m.plannedStartAt));
+    const elimMatchesScheduled =
+      elimMatches.length > 0 && elimMatches.every((m) => Boolean(m.plannedStartAt));
+
+    const poolSchedulePublished = poolMatches.some(
+      (m) => Boolean(m.publishedAt) || m.scheduleStatus === 'published'
     );
-    const scheduleDone = schedulePublished || allPlannedTimes;
-    const checkInStarted = category.checkInOpen === true || checkedIn > 0;
-    const hasBracket = hasBracketForCategory(category, categoryMatches);
-    const steps = getPhaseSteps(resolvedFormat);
+    const levelSchedulePublished = levelMatches.some(
+      (m) => Boolean(m.publishedAt) || m.scheduleStatus === 'published'
+    );
+    const elimSchedulePublished = elimMatches.some(
+      (m) => Boolean(m.publishedAt) || m.scheduleStatus === 'published'
+    );
+
+    const poolComplete =
+      category.poolCompletedAt != null ||
+      (poolMatches.length > 0 &&
+        poolMatches.every((m) => ['completed', 'walkover', 'cancelled'].includes(m.status)));
+
+    const checkInRequired = category.checkInOpen === true || checkedIn > 0;
+
+    const steps = getPhaseSteps(resolvedFormat, checkInRequired);
     const currentPhase = getCurrentPhase(category, resolvedFormat, {
-      categoryMatches,
-      hasBracket,
-      checkInStarted,
-      scheduleDone,
+      poolMatches,
+      levelMatches,
+      elimMatches,
+      poolMatchesScheduled,
+      levelMatchesScheduled,
+      elimMatchesScheduled,
+      poolSchedulePublished,
+      levelSchedulePublished,
+      elimSchedulePublished,
+      poolComplete,
+      checkInRequired,
     });
     const currentPhaseIdx = phaseIndex(steps, currentPhase);
+    const safePhaseIdx = currentPhaseIdx === -1 ? 0 : currentPhaseIdx;
 
     return {
       category,
@@ -222,12 +290,17 @@ const categoryStats = computed<CategoryStats[]>(() => {
       resolvedType,
       categoryMatches,
       matchesCount,
-      hasPlannedTimes,
-      allPlannedTimes,
-      schedulePublished,
-      scheduleDone,
-      checkInStarted,
-      hasBracket,
+      poolMatches,
+      levelMatches,
+      elimMatches,
+      poolMatchesScheduled,
+      levelMatchesScheduled,
+      elimMatchesScheduled,
+      poolSchedulePublished,
+      levelSchedulePublished,
+      elimSchedulePublished,
+      poolComplete,
+      checkInRequired,
       total,
       pending,
       approved,
@@ -238,7 +311,7 @@ const categoryStats = computed<CategoryStats[]>(() => {
       seeded,
       steps,
       currentPhase,
-      currentPhaseIdx,
+      safePhaseIdx,
     };
   });
 });
@@ -268,6 +341,7 @@ const emit = defineEmits<{
   (e: 'generate-bracket', categoryId: string): void;
   (e: 'create-levels', categoryId: string): void;
   (e: 'regenerate-bracket', categoryId: string): void;
+  (e: 'regenerate-pools', categoryId: string): void;
   (e: 'manage-registrations', categoryId: string): void;
   (e: 'manage-seeds', categoryId: string): void;
   (e: 'edit-category', category: Category): void;
@@ -295,11 +369,7 @@ function getFormatLabel(stats: CategoryStats): string {
 }
 
 function isPoolFormat(stats: CategoryStats): boolean {
-  return stats.resolvedFormat === 'pool_to_elimination';
-}
-
-function hasBracket(stats: CategoryStats): boolean {
-  return stats.hasBracket;
+  return stats.resolvedFormat === 'pool_to_elimination' || stats.resolvedFormat === 'round_robin';
 }
 
 function hasPendingWarning(stats: CategoryStats): boolean {
@@ -312,30 +382,78 @@ function needsSeeding(stats: CategoryStats): boolean {
 
 function isScheduleAvailable(stats: CategoryStats): boolean {
   if (stats.category.status === 'completed') return false;
-  return stats.matchesCount > 0 || stats.ready >= 2 || stats.checkInStarted || hasBracket(stats);
+  if (stats.matchesCount > 0) return true;
+  if (hasPoolStage(stats.category) || hasEliminationBracket(stats.category)) return true;
+  if (stats.ready >= 2) return true;
+  return stats.checkInRequired;
 }
 
 function isScheduleComplete(stats: CategoryStats): boolean {
-  return stats.scheduleDone;
+  if (stats.currentPhase === 'done' || stats.currentPhase === 'elimination') return true;
+  if (isPoolFormat(stats)) {
+    if (['pool_publish', 'pool_play', 'levels', 'level_schedule', 'level_publish'].includes(stats.currentPhase)) {
+      return true;
+    }
+    if (stats.levelMatches.length > 0) return stats.levelMatchesScheduled;
+    if (stats.poolMatches.length > 0) return stats.poolMatchesScheduled;
+    return false;
+  }
+  if (stats.currentPhase === 'publish') return true;
+  return stats.elimMatchesScheduled;
 }
 
 function canPublishSchedule(stats: CategoryStats): boolean {
-  return stats.hasPlannedTimes || stats.matchesCount > 0;
+  if (!isScheduleAvailable(stats)) return false;
+  if (stats.currentPhase === 'pool_publish') {
+    return stats.poolMatchesScheduled && !stats.poolSchedulePublished;
+  }
+  if (stats.currentPhase === 'level_publish') {
+    return stats.levelMatchesScheduled && !stats.levelSchedulePublished;
+  }
+  if (stats.currentPhase === 'publish') {
+    return stats.elimMatchesScheduled && !stats.elimSchedulePublished;
+  }
+  if (isPoolFormat(stats) && stats.levelMatches.length > 0) {
+    return stats.levelMatchesScheduled && !stats.levelSchedulePublished;
+  }
+  if (isPoolFormat(stats) && stats.poolMatches.length > 0) {
+    return stats.poolMatchesScheduled && !stats.poolSchedulePublished;
+  }
+  return stats.elimMatchesScheduled && !stats.elimSchedulePublished;
 }
 
 function hasPublishedSchedule(stats: CategoryStats): boolean {
-  return stats.schedulePublished;
+  if (stats.currentPhase === 'level_schedule' || stats.currentPhase === 'level_publish') {
+    return stats.levelSchedulePublished;
+  }
+  if (stats.currentPhase === 'pool_schedule' || stats.currentPhase === 'pool_publish' || stats.currentPhase === 'pool_play') {
+    return stats.poolSchedulePublished;
+  }
+  if (stats.currentPhase === 'schedule' || stats.currentPhase === 'publish') {
+    return stats.elimSchedulePublished;
+  }
+  return stats.poolSchedulePublished || stats.levelSchedulePublished || stats.elimSchedulePublished;
 }
 
 function getPublicationChip(stats: CategoryStats): PublicationChip | null {
   if (!isScheduleAvailable(stats)) return null;
-  if (hasPublishedSchedule(stats)) {
-    return { label: 'Published', color: 'success' };
-  }
-  if (stats.hasPlannedTimes) {
+  if (hasPublishedSchedule(stats)) return { label: 'Published', color: 'success' };
+
+  if (stats.currentPhase === 'pool_publish' || stats.currentPhase === 'pool_play') {
     return { label: 'Not Published', color: 'warning' };
   }
-  return { label: 'Not Scheduled', color: 'grey' };
+  if (stats.currentPhase === 'level_publish' || stats.currentPhase === 'levels' || stats.currentPhase === 'level_schedule') {
+    return { label: 'Not Published', color: 'warning' };
+  }
+  if (stats.currentPhase === 'publish') {
+    return { label: 'Not Published', color: 'warning' };
+  }
+
+  const anyScheduled =
+    stats.poolMatchesScheduled || stats.levelMatchesScheduled || stats.elimMatchesScheduled;
+  return anyScheduled
+    ? { label: 'Not Published', color: 'warning' }
+    : { label: 'Not Scheduled', color: 'grey' };
 }
 
 function isPoolPanelExpanded(stats: CategoryStats): boolean {
@@ -346,22 +464,14 @@ function shouldShowCheckinNudge(stats: CategoryStats): boolean {
   if (stats.category.status !== 'setup') return false;
   if (stats.ready < 2) return false;
   if (!isScheduleComplete(stats)) return false;
-  return stats.checkInStarted === false;
+  return stats.checkInRequired === false;
 }
 
 function needsLevelGeneration(stats: CategoryStats): boolean {
-  const category = stats.category;
-  if (category.status !== 'active') return false;
-  if (stats.categoryMatches.length === 0) return false;
-
-  const finishedStatuses = new Set(['completed', 'walkover', 'cancelled']);
-  const hasUnfinished = stats.categoryMatches.some((match) => !finishedStatuses.has(match.status));
-  if (hasUnfinished) return false;
-
-  if (stats.resolvedFormat === 'pool_to_elimination' && category.poolPhase === 'pool') return true;
-  if (stats.resolvedFormat === 'round_robin' && !category.levelingStatus) return true;
-
-  return false;
+  if (!isPoolFormat(stats)) return false;
+  if (stats.currentPhase !== 'levels') return false;
+  if (hasEliminationBracket(stats.category)) return false;
+  return stats.levelMatches.length === 0;
 }
 
 function shouldShowLevelBanner(stats: CategoryStats): boolean {
@@ -392,10 +502,38 @@ function canToggleCheckin(stats: CategoryStats): boolean {
 function canGenerateBracket(stats: CategoryStats): boolean {
   if (stats.category.status !== 'setup') return false;
   if (stats.ready < 2) return false;
-  if (!isScheduleComplete(stats)) return false;
-  if (hasBracket(stats)) return false;
-  if (isPoolFormat(stats) && stats.category.checkInOpen === true) return false;
-  return true;
+  if (isPoolFormat(stats)) {
+    if (hasPoolStage(stats.category)) return false;
+    return stats.currentPhase === 'setup' || stats.currentPhase === 'pool_schedule';
+  }
+  if (hasEliminationBracket(stats.category)) return false;
+  return stats.currentPhase === 'setup' || stats.currentPhase === 'schedule';
+}
+
+function canRegeneratePools(stats: CategoryStats): boolean {
+  return (
+    (stats.resolvedFormat === 'pool_to_elimination' || stats.resolvedFormat === 'round_robin') &&
+    ['pool_schedule', 'pool_publish', 'pool_play'].includes(stats.currentPhase)
+  );
+}
+
+function canRegenerateLevels(stats: CategoryStats): boolean {
+  return (
+    (stats.resolvedFormat === 'pool_to_elimination' || stats.resolvedFormat === 'round_robin') &&
+    ['levels', 'level_schedule', 'level_publish'].includes(stats.currentPhase)
+  );
+}
+
+function canRegenerateBracket(stats: CategoryStats): boolean {
+  if (isPoolFormat(stats)) return false;
+  if (!hasEliminationBracket(stats.category)) return false;
+  return !stats.elimSchedulePublished;
+}
+
+function canViewBracket(stats: CategoryStats): boolean {
+  if (hasEliminationBracket(stats.category)) return true;
+  if (!isPoolFormat(stats)) return false;
+  return hasPoolStage(stats.category) || stats.poolMatches.length > 0 || stats.levelMatches.length > 0;
 }
 
 function canDeleteCategory(stats: CategoryStats): boolean {
@@ -403,22 +541,33 @@ function canDeleteCategory(stats: CategoryStats): boolean {
 }
 
 function getStatusChip(stats: CategoryStats): StatusChip {
-  if (stats.category.status === 'completed') {
-    return { label: 'Done', color: 'secondary' };
+  switch (stats.currentPhase) {
+    case 'done':
+      return { label: 'Done', color: 'secondary' };
+    case 'elimination':
+      return { label: 'Bracket', color: 'success' };
+    case 'level_publish':
+      return { label: 'Level Publish', color: 'warning' };
+    case 'level_schedule':
+      return { label: 'Level Schedule', color: 'primary' };
+    case 'levels':
+      return { label: 'Levels', color: 'success' };
+    case 'pool_play':
+      return { label: 'Pool Play', color: 'success' };
+    case 'pool_publish':
+      return { label: 'Pool Publish', color: 'warning' };
+    case 'pool_schedule':
+      return { label: 'Pool Schedule', color: 'primary' };
+    case 'publish':
+      return { label: 'Publish', color: 'warning' };
+    case 'schedule':
+      return { label: 'Schedule', color: 'primary' };
+    case 'checkin':
+      return { label: 'Check-in', color: 'info' };
+    case 'setup':
+    default:
+      return { label: 'Setup', color: 'grey' };
   }
-  if (needsLevelGeneration(stats)) {
-    return { label: 'Levels', color: 'success' };
-  }
-  if (hasBracket(stats)) {
-    return { label: 'Bracket', color: 'success' };
-  }
-  if (!isScheduleComplete(stats) && isScheduleAvailable(stats)) {
-    return { label: 'Schedule', color: 'primary' };
-  }
-  if (stats.checkInStarted) {
-    return { label: 'Check-in', color: 'info' };
-  }
-  return { label: 'Setup', color: 'grey' };
 }
 
 const togglingCheckin = ref<string | null>(null);
@@ -427,10 +576,7 @@ async function toggleCheckin(categoryId: string, open: boolean): Promise<void> {
   togglingCheckin.value = categoryId;
   try {
     await tournamentStore.toggleCategoryCheckin(props.tournamentId, categoryId, open);
-    notificationStore.showToast(
-      'success',
-      open ? 'Check-in is now open' : 'Check-in closed'
-    );
+    notificationStore.showToast('success', open ? 'Check-in is now open' : 'Check-in closed');
   } catch {
     notificationStore.showToast('error', 'Failed to update check-in status');
   } finally {
@@ -445,63 +591,128 @@ async function handleOpenCheckin(stats: CategoryStats): Promise<void> {
   emit('manage-registrations', stats.category.id);
 }
 
-function getPrimaryAction(stats: CategoryStats): PrimaryAction {
-  if (!isScheduleComplete(stats) && isScheduleAvailable(stats)) {
-    return {
-      label: 'Schedule',
-      icon: 'mdi-calendar-clock-outline',
-      color: 'primary',
-      event: 'schedule-times',
-    };
-  }
+function getPrimaryAction(stats: CategoryStats): PrimaryAction | null {
+  switch (stats.currentPhase) {
+    case 'setup':
+      return {
+        label:
+          stats.resolvedFormat === 'pool_to_elimination' || stats.resolvedFormat === 'round_robin'
+            ? 'Setup & Generate Pools'
+            : 'Setup Category',
+        icon: 'mdi-cog',
+        color: 'primary',
+        event: 'setup-category',
+      };
 
-  if (
-    isScheduleComplete(stats) &&
-    stats.category.status === 'setup' &&
-    !stats.checkInStarted &&
-    stats.ready >= 2
-  ) {
-    return {
-      label: 'Open Check-in',
-      icon: 'mdi-account-check-outline',
-      color: 'info',
-      event: 'open-checkin',
-    };
-  }
+    case 'schedule':
+      return {
+        label: 'Schedule Matches',
+        icon: 'mdi-calendar-clock',
+        color: 'primary',
+        event: 'schedule-times',
+      };
 
-  if (needsLevelGeneration(stats) && !isPoolPanelExpanded(stats)) {
-    return {
-      label: 'Create Levels',
-      icon: 'mdi-layers-triple',
-      color: 'success',
-      event: 'create-levels',
-    };
-  }
+    case 'publish':
+      return {
+        label: 'Publish Schedule',
+        icon: 'mdi-publish',
+        color: 'warning',
+        event: 'schedule-times',
+      };
 
-  if (hasBracket(stats)) {
-    return {
-      label: 'View Bracket',
-      icon: 'mdi-trophy-outline',
-      color: 'success',
-      event: 'view-bracket',
-    };
-  }
+    case 'pool_schedule':
+      return {
+        label: 'Schedule Pool Matches',
+        icon: 'mdi-calendar-clock',
+        color: 'primary',
+        event: 'schedule-times',
+      };
 
-  if (canGenerateBracket(stats)) {
-    return {
-      label: 'Generate Bracket',
-      icon: 'mdi-tournament',
-      color: 'primary',
-      event: 'generate-bracket',
-    };
-  }
+    case 'pool_publish':
+      return {
+        label: 'Publish Pool Schedule',
+        icon: 'mdi-publish',
+        color: 'warning',
+        event: 'schedule-times',
+      };
 
-  return {
-    label: 'Setup',
-    icon: 'mdi-cog-outline',
-    color: 'primary',
-    event: 'setup-category',
-  };
+    case 'checkin':
+      return {
+        label: 'Manage Check-in',
+        icon: 'mdi-clipboard-check',
+        color: 'info',
+        event: 'manage-registrations',
+      };
+
+    case 'pool_play':
+      return {
+        label: stats.resolvedFormat === 'round_robin' ? 'View Standings' : 'View Pools',
+        icon: 'mdi-table',
+        color: 'success',
+        event: 'view-bracket',
+      };
+
+    case 'levels': {
+      const ls = stats.category.levelingStatus;
+      if (!ls || ls === 'not_started') {
+        return {
+          label: 'Setup & Generate Levels',
+          icon: 'mdi-layers-plus',
+          color: 'primary',
+          event: 'create-levels',
+        };
+      }
+      if (ls === 'configured') {
+        return {
+          label: 'Generate Levels',
+          icon: 'mdi-layers',
+          color: 'primary',
+          event: 'create-levels',
+        };
+      }
+      return {
+        label: 'View Levels',
+        icon: 'mdi-layers-outline',
+        color: 'success',
+        event: 'view-bracket',
+      };
+    }
+
+    case 'level_schedule':
+      return {
+        label: 'Schedule Level Matches',
+        icon: 'mdi-calendar-clock',
+        color: 'primary',
+        event: 'schedule-times',
+      };
+
+    case 'level_publish':
+      return {
+        label: 'Publish Level Schedule',
+        icon: 'mdi-publish',
+        color: 'warning',
+        event: 'schedule-times',
+      };
+
+    case 'elimination':
+      return {
+        label: 'View Bracket',
+        icon: 'mdi-tournament',
+        color: 'success',
+        event: 'view-bracket',
+      };
+
+    case 'done':
+      return {
+        label: 'View Results',
+        icon: 'mdi-trophy',
+        color: 'success',
+        event: 'view-bracket',
+      };
+
+    default:
+      return null;
+  }
 }
 
 function handlePrimaryAction(action: PrimaryAction, stats: CategoryStats): void {
@@ -552,7 +763,13 @@ const summaryCards: SummaryCard[] = [
 const categoryCardsWithAction = computed(() =>
   categoryStats.value.map((stats) => ({
     stats,
-    action: getPrimaryAction(stats),
+    action:
+      getPrimaryAction(stats) ?? {
+        label: 'Setup Category',
+        icon: 'mdi-cog',
+        color: 'primary',
+        event: 'setup-category',
+      },
   }))
 );
 </script>
@@ -681,11 +898,29 @@ const categoryCardsWithAction = computed(() =>
                 <v-list-item
                   v-if="canGenerateBracket(stats)"
                   prepend-icon="mdi-tournament"
-                  title="Generate Bracket"
+                  :title="isPoolFormat(stats) ? 'Generate Pools' : 'Generate Bracket'"
                   @click="emit('generate-bracket', stats.category.id)"
                 />
                 <v-list-item
-                  v-if="hasBracket(stats)"
+                  v-if="canRegenerateBracket(stats)"
+                  prepend-icon="mdi-refresh"
+                  title="Regenerate Bracket"
+                  @click="emit('regenerate-bracket', stats.category.id)"
+                />
+                <v-list-item
+                  v-if="canRegeneratePools(stats)"
+                  prepend-icon="mdi-refresh"
+                  title="Regenerate Pools"
+                  @click="emit('regenerate-pools', stats.category.id)"
+                />
+                <v-list-item
+                  v-if="canRegenerateLevels(stats)"
+                  prepend-icon="mdi-layers-triple-outline"
+                  title="Regenerate Levels"
+                  @click="emit('create-levels', stats.category.id)"
+                />
+                <v-list-item
+                  v-if="canViewBracket(stats)"
                   prepend-icon="mdi-trophy-outline"
                   title="View Bracket"
                   @click="emit('view-bracket', stats.category)"
@@ -693,14 +928,8 @@ const categoryCardsWithAction = computed(() =>
                 <v-list-item
                   v-if="needsLevelGeneration(stats)"
                   prepend-icon="mdi-layers-triple"
-                  title="Create Levels"
+                  title="Generate Levels"
                   @click="emit('create-levels', stats.category.id)"
-                />
-                <v-list-item
-                  v-if="stats.category.status === 'active'"
-                  prepend-icon="mdi-refresh"
-                  title="Regenerate Bracket"
-                  @click="emit('regenerate-bracket', stats.category.id)"
                 />
                 <v-divider class="my-1" />
                 <v-list-item
@@ -761,13 +990,13 @@ const categoryCardsWithAction = computed(() =>
                   <div
                     class="step-dot"
                     :class="{
-                      'step-dot--done': idx < stats.currentPhaseIdx,
-                      'step-dot--active': idx === stats.currentPhaseIdx,
-                      'step-dot--future': idx > stats.currentPhaseIdx,
+                      'step-dot--done': idx < stats.safePhaseIdx,
+                      'step-dot--active': idx === stats.safePhaseIdx,
+                      'step-dot--future': idx > stats.safePhaseIdx,
                     }"
                   >
                     <v-icon
-                      v-if="idx < stats.currentPhaseIdx"
+                      v-if="idx < stats.safePhaseIdx"
                       size="10"
                       color="white"
                     >
@@ -779,7 +1008,7 @@ const categoryCardsWithAction = computed(() =>
                 <div
                   v-if="idx < stats.steps.length - 1"
                   class="step-connector"
-                  :class="{ 'step-connector--done': idx < stats.currentPhaseIdx }"
+                  :class="{ 'step-connector--done': idx < stats.safePhaseIdx }"
                 />
               </template>
             </div>
@@ -877,7 +1106,7 @@ const categoryCardsWithAction = computed(() =>
             </v-alert>
 
             <v-alert
-              v-if="isPoolFormat(stats) && stats.category.status === 'setup' && !hasBracket(stats) && stats.ready >= 2"
+              v-if="isPoolFormat(stats) && stats.category.status === 'setup' && !hasPoolStage(stats.category) && stats.ready >= 2"
               type="info"
               variant="tonal"
               density="compact"
@@ -890,7 +1119,7 @@ const categoryCardsWithAction = computed(() =>
             </v-alert>
 
             <v-alert
-              v-else-if="!isPoolFormat(stats) && stats.category.status === 'setup' && !hasBracket(stats) && getBracketInfo(stats).byes > 0 && stats.ready >= 2"
+              v-else-if="!isPoolFormat(stats) && stats.category.status === 'setup' && !hasEliminationBracket(stats.category) && getBracketInfo(stats).byes > 0 && stats.ready >= 2"
               type="info"
               variant="tonal"
               density="compact"
@@ -926,7 +1155,7 @@ const categoryCardsWithAction = computed(() =>
                   prepend-icon="mdi-layers-triple"
                   @click="emit('create-levels', stats.category.id)"
                 >
-                  Create Levels
+                  Generate Levels
                 </v-btn>
               </div>
             </v-alert>
