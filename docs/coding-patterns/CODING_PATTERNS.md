@@ -2164,6 +2164,70 @@ rg -n "poolCompletedAt: null|levelingStatus: null|levelCount: null|levelsVersion
 
 ---
 
+### CP-046: Front Desk Rapid Check-In Must Resolve Typed Participant Names and Bulk Rows Must Visually Mark Checked-In State
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-26 |
+| **Source Bug** | Front desk operators could not check in by typing participant name, and bulk list rows did not clearly show which participants were already checked in |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (parsed.kind === 'registration') {
+  const registration = eligibleRegistrations.value.find((item) => item.id === parsed.value);
+  if (!registration) throw new Error('No matching participant for scanned code');
+  return registration;
+}
+```
+```vue
+<v-list-item
+  v-for="row in rows"
+  :key="row.id"
+  :title="row.name"
+/>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const typedMatch = findRegistrationByTypedQuery(
+  parsed.value,
+  eligibleRegistrations.value,
+  options.getParticipantName
+);
+if (typedMatch.type === 'match') return matchedRegistration;
+if (typedMatch.type === 'ambiguous') {
+  throw new Error('Multiple participants match this name. Type more of the name or use bib number.');
+}
+```
+```vue
+<v-list-item
+  :class="[
+    'bulk-checkin-panel__row',
+    `bulk-checkin-panel__row--${row.status ?? 'unknown'}`
+  ]"
+>
+  <v-chip :color="getStatusColor(row.status)" variant="tonal">
+    {{ getStatusLabel(row.status) }}
+  </v-chip>
+</v-list-item>
+```
+
+**Rule:** Rapid check-in input must support typed participant-name resolution (with explicit ambiguity handling) in addition to scanned bib/ID values; bulk mode must make checked-in state obvious via both status chip and row styling.
+
+**Detection:**
+```bash
+if ! rg -n "findRegistrationByTypedQuery\\(" src/features/checkin/composables/useFrontDeskCheckInWorkflow.ts; then
+  echo "Violation: rapid check-in missing typed-name fallback"
+fi
+if ! rg -n "bulk-checkin-panel__row--checked_in|getStatusColor\\(row.status\\)|getStatusLabel\\(row.status\\)" src/features/checkin/components/BulkCheckInPanel.vue; then
+  echo "Violation: bulk checked-in rows are not visually differentiated"
+fi
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

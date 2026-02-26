@@ -209,6 +209,15 @@ export interface UseFrontDeskCheckInWorkflowOptions {
   assignBibNumber: (registrationId: string, bibNumber: number) => Promise<void>;
 }
 
+export interface TypedQueryCandidate {
+  id: string;
+}
+
+export type TypedQueryMatchResult =
+  | { type: 'match'; registrationId: string }
+  | { type: 'ambiguous'; registrationIds: string[] }
+  | { type: 'not_found' };
+
 const formatTime = (date: Date): string => date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 const formatMinutesLabel = (minutes: number): string => {
@@ -220,6 +229,36 @@ const getMatchStartTime = (match: Match): Date | undefined => match.plannedStart
 
 const isCheckInEligibleStatus = (status: Registration['status']): boolean =>
   status === 'approved' || status === 'checked_in' || status === 'no_show';
+
+const normalizeText = (value: string): string => value.trim().toLowerCase();
+
+export const findRegistrationByTypedQuery = (
+  query: string,
+  registrations: readonly TypedQueryCandidate[],
+  getParticipantName: (registrationId: string) => string
+): TypedQueryMatchResult => {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) return { type: 'not_found' };
+
+  const idMatch = registrations.find((registration) => normalizeText(registration.id) === normalizedQuery);
+  if (idMatch) {
+    return { type: 'match', registrationId: idMatch.id };
+  }
+
+  const matched = registrations.filter((registration) => normalizeText(getParticipantName(registration.id)).includes(normalizedQuery));
+  if (matched.length === 0) return { type: 'not_found' };
+
+  const exactNameMatches = matched.filter((registration) => normalizeText(getParticipantName(registration.id)) === normalizedQuery);
+  if (exactNameMatches.length === 1) {
+    return { type: 'match', registrationId: exactNameMatches[0].id };
+  }
+
+  if (matched.length === 1) {
+    return { type: 'match', registrationId: matched[0].id };
+  }
+
+  return { type: 'ambiguous', registrationIds: matched.map((registration) => registration.id) };
+};
 
 export const useFrontDeskCheckInWorkflow = (
   options: UseFrontDeskCheckInWorkflowOptions
@@ -344,8 +383,21 @@ export const useFrontDeskCheckInWorkflow = (
 
     if (parsed.kind === 'registration') {
       const registration = eligibleRegistrations.value.find((item) => item.id === parsed.value);
-      if (!registration) throw new Error('No matching participant for scanned code');
-      return registration;
+      if (registration) return registration;
+
+      const typedMatch = findRegistrationByTypedQuery(
+        parsed.value,
+        eligibleRegistrations.value,
+        options.getParticipantName
+      );
+      if (typedMatch.type === 'match') {
+        const matchedRegistration = eligibleRegistrations.value.find((item) => item.id === typedMatch.registrationId);
+        if (matchedRegistration) return matchedRegistration;
+      }
+      if (typedMatch.type === 'ambiguous') {
+        throw new Error('Multiple participants match this name. Type more of the name or use bib number.');
+      }
+      throw new Error('No matching participant for scanned code');
     }
 
     const candidates = eligibleRegistrations.value.filter((item) => item.bibNumber === parsed.value);

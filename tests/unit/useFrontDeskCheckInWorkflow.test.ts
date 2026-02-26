@@ -3,6 +3,7 @@ import {
   assignSmallestAvailableBib,
   createUndoState,
   computeFrontDeskStats,
+  findRegistrationByTypedQuery,
   makeBatchRunner,
   parseScanInput
 } from '@/features/checkin/composables/useFrontDeskCheckInWorkflow';
@@ -76,5 +77,53 @@ describe('createUndoState', () => {
     expect(itemToken.expiresInMs).toBe(5000);
     expect(bulkToken.registrationIds).toEqual(['r1', 'r2']);
     expect(bulkToken.expiresInMs).toBe(10000);
+  });
+});
+
+describe('findRegistrationByTypedQuery', () => {
+  const registrations = [
+    { id: 'reg-1', status: 'approved' },
+    { id: 'reg-2', status: 'approved' },
+    { id: 'reg-3', status: 'checked_in' },
+  ] as const;
+
+  const getParticipantName = (id: string): string => {
+    switch (id) {
+      case 'reg-1':
+        return 'Aanya Karthik';
+      case 'reg-2':
+        return 'Adhirai Maheshkumar';
+      case 'reg-3':
+        return 'Tejas Mayavanshi';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  it('matches a participant by unique full name', () => {
+    expect(findRegistrationByTypedQuery('aanya karthik', registrations, getParticipantName)).toEqual({
+      type: 'match',
+      registrationId: 'reg-1',
+    });
+  });
+
+  it('matches a participant by unique partial name', () => {
+    expect(findRegistrationByTypedQuery('tejas', registrations, getParticipantName)).toEqual({
+      type: 'match',
+      registrationId: 'reg-3',
+    });
+  });
+
+  it('returns ambiguous when multiple names match', () => {
+    expect(findRegistrationByTypedQuery('a', registrations, getParticipantName)).toEqual({
+      type: 'ambiguous',
+      registrationIds: ['reg-1', 'reg-2', 'reg-3'],
+    });
+  });
+
+  it('returns not_found when no name match exists', () => {
+    expect(findRegistrationByTypedQuery('unknown person', registrations, getParticipantName)).toEqual({
+      type: 'not_found',
+    });
   });
 });

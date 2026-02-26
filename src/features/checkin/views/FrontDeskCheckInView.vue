@@ -250,26 +250,26 @@ onUnmounted(() => {
         variant="outlined"
       >
         <v-card-text class="d-flex align-center ga-3 flex-wrap">
-        <v-chip
-          variant="tonal"
-          size="small"
-        >
+          <v-chip
+            variant="tonal"
+            size="small"
+          >
             Approved: {{ stats.approvedTotal }}
-        </v-chip>
+          </v-chip>
           <v-chip
             color="success"
             variant="tonal"
             size="small"
-        >
+          >
             Checked In: {{ stats.checkedIn }}
-        </v-chip>
+          </v-chip>
           <v-chip
             color="error"
             variant="tonal"
             size="small"
-        >
+          >
             No Show: {{ stats.noShow }}
-        </v-chip>
+          </v-chip>
           <v-spacer />
           <div class="d-flex align-center ga-3">
             <v-text-field

@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import type { RegistrationStatus } from '@/types';
+
 export interface BulkCheckInRow {
   id: string;
   name: string;
   category: string;
   bibNumber?: number | null;
-  status?: string;
+  status?: RegistrationStatus;
 }
 
 interface Props {
@@ -24,6 +26,20 @@ const emit = defineEmits<{
 }>();
 
 const isSelected = (registrationId: string): boolean => props.selectedIds.includes(registrationId);
+
+const getStatusLabel = (status?: RegistrationStatus): string => {
+  if (status === 'checked_in') return 'Checked In';
+  if (status === 'no_show') return 'No Show';
+  if (status === 'approved') return 'Approved';
+  return status ?? 'Unknown';
+};
+
+const getStatusColor = (status?: RegistrationStatus): string => {
+  if (status === 'checked_in') return 'success';
+  if (status === 'no_show') return 'error';
+  if (status === 'approved') return 'grey';
+  return 'default';
+};
 </script>
 
 <template>
@@ -60,6 +76,11 @@ const isSelected = (registrationId: string): boolean => props.selectedIds.includ
         <v-list-item
           v-for="row in rows"
           :key="row.id"
+          :data-testid="`bulk-row-${row.id}`"
+          :class="[
+            'bulk-checkin-panel__row',
+            `bulk-checkin-panel__row--${row.status ?? 'unknown'}`
+          ]"
           :title="row.name"
           :subtitle="row.category"
           @click="emit('toggleRow', row.id)"
@@ -75,8 +96,16 @@ const isSelected = (registrationId: string): boolean => props.selectedIds.includ
             <v-chip
               size="small"
               variant="tonal"
+              class="mr-2"
             >
               Bib: {{ row.bibNumber ?? '---' }}
+            </v-chip>
+            <v-chip
+              size="small"
+              :color="getStatusColor(row.status)"
+              variant="tonal"
+            >
+              {{ getStatusLabel(row.status) }}
             </v-chip>
           </template>
         </v-list-item>
@@ -94,5 +123,15 @@ const isSelected = (registrationId: string): boolean => props.selectedIds.includ
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+.bulk-checkin-panel__row--checked_in {
+  background: rgba(var(--v-theme-success), 0.08);
+  border-left: 4px solid rgb(var(--v-theme-success));
+}
+
+.bulk-checkin-panel__row--no_show {
+  background: rgba(var(--v-theme-error), 0.06);
+  border-left: 4px solid rgb(var(--v-theme-error));
 }
 </style>

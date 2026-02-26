@@ -31,7 +31,7 @@ const VListItemStub = defineComponent({
   },
   emits: ['click'],
   template: `
-    <div @click="$emit('click')">
+    <div v-bind="$attrs" @click="$emit('click')">
       <slot name="prepend" />
       <div>{{ title }}</div>
       <div>{{ subtitle }}</div>
@@ -71,5 +71,34 @@ describe('BulkCheckInPanel', () => {
     await button.trigger('click');
 
     expect(wrapper.emitted('bulkCheckIn')).toHaveLength(1);
+  });
+
+  it('styles checked-in rows with checked-in class', () => {
+    const wrapper = mount(BulkCheckInPanel, {
+      props: {
+        rows: [{
+          id: 'r1',
+          name: 'Tejas M.',
+          category: 'MD',
+          bibNumber: 102,
+          status: 'checked_in',
+        }],
+        selectedIds: [],
+      },
+      global: {
+        stubs: {
+          VCard: PassThroughStub,
+          VList: PassThroughStub,
+          VListItem: VListItemStub,
+          VBtn: VBtnStub,
+          VChip: PassThroughStub,
+          VSpacer: PassThroughStub,
+          VCheckboxBtn: PassThroughStub,
+        },
+      },
+    });
+
+    const row = wrapper.find('[data-testid="bulk-row-r1"]');
+    expect(row.classes()).toContain('bulk-checkin-panel__row--checked_in');
   });
 });
