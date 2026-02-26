@@ -13,4 +13,10 @@ describe('front desk check-in route', () => {
     expect(routeComponent).toBeTypeOf('function');
     expect(String(routeComponent)).toContain('FrontDeskCheckInView.vue');
   });
+
+  it('requires authenticated admin access', () => {
+    const route = router.getRoutes().find((item) => item.name === 'tournament-checkin');
+    expect(route?.meta.requiresAuth).toBe(true);
+    expect(route?.meta.requiresAdmin).toBe(true);
+  });
 });
