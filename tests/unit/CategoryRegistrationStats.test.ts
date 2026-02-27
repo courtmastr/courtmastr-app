@@ -324,4 +324,139 @@ describe('CategoryRegistrationStats primary CTA behavior', () => {
     await actionButton.trigger('click');
     expect(wrapper.emitted('schedule-times')?.[0]?.[0]).toMatchObject({ id: 'cat-1' });
   });
+
+  it('shows pool setup CTA before pool stage exists', () => {
+    runtime.categories = [
+      makeCategory({
+        name: 'Pool Setup',
+        format: 'pool_to_elimination',
+        poolStageId: null,
+      }),
+    ];
+    runtime.registrations = [makeRegistration('r1'), makeRegistration('r2')];
+
+    const wrapper = mountComponent();
+    const actionButton = getPrimaryActionButton(wrapper);
+
+    expect(actionButton.text()).toContain('Setup & Generate Pools');
+  });
+
+  it('shows pool scheduling CTA when pool stage exists but matches are not generated yet', () => {
+    runtime.categories = [
+      makeCategory({
+        name: 'Pool Schedule',
+        format: 'pool_to_elimination',
+        poolStageId: 10,
+      }),
+    ];
+    runtime.registrations = [makeRegistration('r1'), makeRegistration('r2')];
+
+    const wrapper = mountComponent();
+    const actionButton = getPrimaryActionButton(wrapper);
+
+    expect(actionButton.text()).toContain('Schedule Pool Matches');
+  });
+
+  it('shows pool publish CTA when pool matches are scheduled but not published', () => {
+    runtime.categories = [
+      makeCategory({
+        name: 'Pool Publish',
+        format: 'pool_to_elimination',
+        poolStageId: 10,
+      }),
+    ];
+    runtime.registrations = [makeRegistration('r1'), makeRegistration('r2')];
+    runtime.matches = [
+      makeMatch('m-pool-1', {
+        groupId: 'g-1',
+        status: 'ready',
+        plannedStartAt: baseDate,
+      }),
+    ];
+
+    const wrapper = mountComponent();
+    const actionButton = getPrimaryActionButton(wrapper);
+
+    expect(actionButton.text()).toContain('Publish Pool Schedule');
+  });
+
+  it('shows level publish CTA when level matches are scheduled but not published', () => {
+    runtime.categories = [
+      makeCategory({
+        name: 'Level Publish',
+        format: 'pool_to_elimination',
+        poolStageId: 10,
+        levelingStatus: 'generated',
+      }),
+    ];
+    runtime.registrations = [makeRegistration('r1'), makeRegistration('r2')];
+    runtime.matches = [
+      makeMatch('m-pool-1', {
+        groupId: 'g-1',
+        status: 'completed',
+      }),
+      makeMatch('m-level-1', {
+        levelId: 'level-1',
+        status: 'ready',
+        plannedStartAt: baseDate,
+      }),
+    ];
+
+    const wrapper = mountComponent();
+    const actionButton = getPrimaryActionButton(wrapper);
+
+    expect(actionButton.text()).toContain('Publish Level Schedule');
+  });
+
+  it('shows bracket CTA when elimination stage already exists', async () => {
+    runtime.categories = [
+      makeCategory({
+        name: 'Elimination',
+        format: 'pool_to_elimination',
+        poolStageId: 10,
+        eliminationStageId: 77,
+      }),
+    ];
+    runtime.registrations = [makeRegistration('r1'), makeRegistration('r2')];
+
+    const wrapper = mountComponent();
+    const actionButton = getPrimaryActionButton(wrapper);
+
+    expect(actionButton.text()).toContain('View Bracket');
+
+    await actionButton.trigger('click');
+    expect(wrapper.emitted('view-bracket')?.[0]?.[0]).toMatchObject({ id: 'cat-1' });
+  });
+
+  it('shows results CTA for completed categories', () => {
+    runtime.categories = [
+      makeCategory({
+        name: 'Completed',
+        format: 'single_elimination',
+        status: 'completed',
+      }),
+    ];
+    runtime.registrations = [makeRegistration('r1'), makeRegistration('r2')];
+
+    const wrapper = mountComponent();
+    const actionButton = getPrimaryActionButton(wrapper);
+
+    expect(actionButton.text()).toContain('View Results');
+  });
+
+  it('shows single-elimination schedule CTA when bracket exists but matches are not yet scheduled', () => {
+    runtime.categories = [
+      makeCategory({
+        name: 'Singles Schedule',
+        format: 'single_elimination',
+        stageId: 55,
+      }),
+    ];
+    runtime.registrations = [makeRegistration('r1'), makeRegistration('r2')];
+
+    const wrapper = mountComponent();
+    const actionButton = getPrimaryActionButton(wrapper);
+
+    expect(actionButton.text()).toContain('Schedule Matches');
+  });
 });
