@@ -3,6 +3,7 @@ import {
   SCHEDULE_DEFAULTS,
   SCHEDULE_CONSTRAINTS,
   SCHEDULE_FIELDS,
+  SCHEDULE_RULES,
   SCHEDULE_STATUS,
 } from '@/scheduling/scheduleRules';
 
@@ -35,5 +36,11 @@ describe('scheduleRules', () => {
 
   it('plannedStartAt is the canonical time field name', () => {
     expect(SCHEDULE_FIELDS.plannedStartAt).toBe('plannedStartAt');
+  });
+
+  it('algorithmic invariant flags are all true', () => {
+    for (const [key, value] of Object.entries(SCHEDULE_RULES) as [string, boolean][]) {
+      expect(value, `${key} must be true`).toBe(true);
+    }
   });
 });
