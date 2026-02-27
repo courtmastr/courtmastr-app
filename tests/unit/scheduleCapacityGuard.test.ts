@@ -4,7 +4,7 @@ import {
   buildOccupiedWindows,
   extractScheduledWindows,
   findCapacityConflict,
-} from '@/features/tournaments/dialogs/scheduleCapacityGuard';
+} from '@/scheduling/scheduleCapacityGuard';
 
 const baseDate = new Date('2026-02-27T09:00:00.000Z');
 
