@@ -2481,6 +2481,68 @@ fi
 
 ---
 
+### CP-052: BYE/TBD Semantics Must Be Centralized, and Scheduler Must Exclude BYE
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-27 |
+| **Source Bug** | Bracket views labeled BYE correctly but Match Control/Scheduler used separate logic, causing inconsistent TBD/BYE display and accidental BYE scheduling candidates |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// BracketView.vue / DoubleEliminationBracket.vue
+function isBye(match: Match, participantId: string | undefined): boolean {
+  const otherParticipant = participantId === match.participant1Id
+    ? match.participant2Id
+    : match.participant1Id;
+  return !!(otherParticipant && (match.status === 'completed' || match.winnerId));
+}
+
+function getParticipantName(registrationId: string | undefined, match?: Match): string {
+  if (!registrationId) return isBye(match!, registrationId) ? 'BYE' : 'TBD';
+  return resolveParticipantName(registrationId);
+}
+```
+```typescript
+// useMatchScheduler.ts
+matches = adaptedMatches.filter((m) => {
+  if (m.status === 'completed' || m.status === 'walkover' || m.status === 'cancelled') return false;
+  return true; // BYE match can still slip through here
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+import { useMatchSlotState } from '@/composables/useMatchSlotState';
+
+const { getSlotState, getSlotLabel, isSchedulableMatch } = useMatchSlotState();
+
+// UI display
+const label = getSlotLabel(match, 'participant2', getParticipantName); // BYE/TBD/resolved
+const isBye = getSlotState(match, 'participant2') === 'bye';
+
+// Scheduler gate
+matches = adaptedMatches.filter((m) => {
+  if (!isSchedulableMatch(m)) return false; // excludes BYE + terminal statuses
+  return true; // TBD remains schedulable
+});
+```
+
+**Rule:** All BYE/TBD slot classification must come from `useMatchSlotState`; components must not implement local BYE/TBD inference. Auto-scheduling must call `isSchedulableMatch` so BYE matches are never scheduled while TBD placeholders remain eligible.
+
+**Detection:**
+```bash
+rg -n "function isBye\\(|return 'BYE'|return 'TBD'" src/features/brackets/components/BracketView.vue src/features/brackets/components/DoubleEliminationBracket.vue
+
+if rg -n "includeTBD: true" src/composables/useMatchScheduler.ts >/dev/null && ! rg -n "isSchedulableMatch\\(m\\)" src/composables/useMatchScheduler.ts >/dev/null; then
+  echo "Violation: scheduler includes TBD placeholders but lacks centralized BYE exclusion gate"
+fi
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

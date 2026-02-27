@@ -453,3 +453,10 @@
   fingerprint: "d01fb7fb"
   command: "npm run test:log -- tests/unit/MatchControlView.assignments.test.ts"
   artifact_log: "docs/debug-kb/_artifacts/2026-02-27-15-36-33.vitest-tests-unit-MatchControlView-assignments-tes.log"
+- id: 38071083
+  title: build:log fails with repository-wide TypeScript baseline errors
+  status: "🟡 workaround"
+  date: "2026-02-27"
+  fingerprint: "38071083"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-15-41-34.vue-tsc-b.log"
