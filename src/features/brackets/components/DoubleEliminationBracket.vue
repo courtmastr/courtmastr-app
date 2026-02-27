@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useMatchSlotState } from '@/composables/useMatchSlotState';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match } from '@/types';
 import html2canvas from 'html2canvas';
@@ -15,6 +16,7 @@ const props = defineProps<{
 const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
 const { getParticipantName: resolveParticipantName } = useParticipantResolver();
+const { getSlotState, getSlotLabel } = useMatchSlotState();
 const { getMatchStatusColor } = useMatchDisplay();
 
 const loading = ref(true);
@@ -112,33 +114,16 @@ watch(
   }
 );
 
-function getParticipantName(registrationId: string | undefined, match?: Match): string {
-  if (!registrationId) {
-    // Check if this is a bye (other participant exists and match is completed with a winner)
-    if (match) {
-      const otherParticipant = registrationId === match.participant1Id
-        ? match.participant2Id
-        : match.participant1Id;
-      // If other participant exists and match is completed/has a winner, it's a bye
-      if (otherParticipant && (match.status === 'completed' || match.winnerId)) {
-        return 'BYE';
-      }
-    }
-    return 'TBD';
-  }
-
-  // Use centralized composable for name resolution
-  return resolveParticipantName(registrationId);
+function getParticipantDisplayName(match: Match, slot: 'participant1' | 'participant2'): string {
+  return getSlotLabel(match, slot, resolveParticipantName);
 }
 
-// Check if a slot is a bye
-function isBye(match: Match, participantId: string | undefined): boolean {
-  if (participantId) return false;
-  // It's a bye if the other participant exists and the match is completed
-  const otherParticipant = participantId === match.participant1Id
-    ? match.participant2Id
-    : match.participant1Id;
-  return !!(otherParticipant && (match.status === 'completed' || match.winnerId));
+function isSlotBye(match: Match, slot: 'participant1' | 'participant2'): boolean {
+  return getSlotState(match, slot) === 'bye';
+}
+
+function isSlotTbd(match: Match, slot: 'participant1' | 'participant2'): boolean {
+  return getSlotState(match, slot) === 'tbd';
 }
 
 
@@ -396,12 +381,12 @@ async function downloadBracket() {
                         class="participant"
                         :class="{
                           winner: isWinner(match, match.participant1Id),
-                          tbd: !match.participant1Id && !isBye(match, match.participant1Id),
-                          bye: isBye(match, match.participant1Id),
+                          tbd: isSlotTbd(match, 'participant1'),
+                          bye: isSlotBye(match, 'participant1'),
                         }"
                       >
                         <span class="participant-name">
-                          {{ getParticipantName(match.participant1Id, match) }}
+                          {{ getParticipantDisplayName(match, 'participant1') }}
                         </span>
                       </div>
                       <v-divider />
@@ -409,12 +394,12 @@ async function downloadBracket() {
                         class="participant"
                         :class="{
                           winner: isWinner(match, match.participant2Id),
-                          tbd: !match.participant2Id && !isBye(match, match.participant2Id),
-                          bye: isBye(match, match.participant2Id),
+                          tbd: isSlotTbd(match, 'participant2'),
+                          bye: isSlotBye(match, 'participant2'),
                         }"
                       >
                         <span class="participant-name">
-                          {{ getParticipantName(match.participant2Id, match) }}
+                          {{ getParticipantDisplayName(match, 'participant2') }}
                         </span>
                       </div>
                     </v-card>
@@ -473,12 +458,12 @@ async function downloadBracket() {
                         class="participant"
                         :class="{
                           winner: isWinner(match, match.participant1Id),
-                          tbd: !match.participant1Id && !isBye(match, match.participant1Id),
-                          bye: isBye(match, match.participant1Id),
+                          tbd: isSlotTbd(match, 'participant1'),
+                          bye: isSlotBye(match, 'participant1'),
                         }"
                       >
                         <span class="participant-name">
-                          {{ getParticipantName(match.participant1Id, match) }}
+                          {{ getParticipantDisplayName(match, 'participant1') }}
                         </span>
                       </div>
                       <v-divider />
@@ -486,12 +471,12 @@ async function downloadBracket() {
                         class="participant"
                         :class="{
                           winner: isWinner(match, match.participant2Id),
-                          tbd: !match.participant2Id && !isBye(match, match.participant2Id),
-                          bye: isBye(match, match.participant2Id),
+                          tbd: isSlotTbd(match, 'participant2'),
+                          bye: isSlotBye(match, 'participant2'),
                         }"
                       >
                         <span class="participant-name">
-                          {{ getParticipantName(match.participant2Id, match) }}
+                          {{ getParticipantDisplayName(match, 'participant2') }}
                         </span>
                       </div>
                     </v-card>
@@ -537,7 +522,11 @@ async function downloadBracket() {
                     </div>
                     <div
                       class="participant finals-participant"
-                      :class="{ winner: isWinner(match, match.participant1Id), tbd: !match.participant1Id }"
+                      :class="{
+                        winner: isWinner(match, match.participant1Id),
+                        tbd: isSlotTbd(match, 'participant1'),
+                        bye: isSlotBye(match, 'participant1'),
+                      }"
                     >
                       <v-icon
                         v-if="isWinner(match, match.participant1Id)"
@@ -546,7 +535,7 @@ async function downloadBracket() {
                       >
                         mdi-crown
                       </v-icon>
-                      <span>{{ getParticipantName(match.participant1Id, match) }}</span>
+                      <span>{{ getParticipantDisplayName(match, 'participant1') }}</span>
                       <v-chip
                         size="x-small"
                         variant="tonal"
@@ -561,7 +550,11 @@ async function downloadBracket() {
                     </div>
                     <div
                       class="participant finals-participant"
-                      :class="{ winner: isWinner(match, match.participant2Id), tbd: !match.participant2Id }"
+                      :class="{
+                        winner: isWinner(match, match.participant2Id),
+                        tbd: isSlotTbd(match, 'participant2'),
+                        bye: isSlotBye(match, 'participant2'),
+                      }"
                     >
                       <v-icon
                         v-if="isWinner(match, match.participant2Id)"
@@ -570,7 +563,7 @@ async function downloadBracket() {
                       >
                         mdi-crown
                       </v-icon>
-                      <span>{{ getParticipantName(match.participant2Id, match) }}</span>
+                      <span>{{ getParticipantDisplayName(match, 'participant2') }}</span>
                       <v-chip
                         size="x-small"
                         variant="tonal"

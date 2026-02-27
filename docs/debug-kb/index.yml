@@ -425,3 +425,10 @@
   fingerprint: "7722ef10"
   command: "npm run test:log -- tests/unit/useMatchSlotState.test.ts"
   artifact_log: "docs/debug-kb/_artifacts/2026-02-27-15-29-02.vitest-tests-unit-useMatchSlotState-test-ts.log"
+- id: 796256c1
+  title: Bracket slot-state rendering test fails because shallow stubs hide slot text
+  status: "✅ fixed"
+  date: "2026-02-27"
+  fingerprint: "796256c1"
+  command: "npm run test:log -- tests/unit/BracketSlotStateRendering.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-15-32-12.vitest-tests-unit-BracketSlotStateRendering-test-t.log"
