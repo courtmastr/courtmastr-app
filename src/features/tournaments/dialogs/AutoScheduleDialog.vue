@@ -9,13 +9,13 @@ import { clearTimedScheduleScopes, publishSchedule } from '@/composables/useTime
 import {
   resolveScheduleTargetsForCategory,
   type ScheduleTarget,
-} from './autoScheduleTargets';
+} from '@/scheduling/autoScheduleTargets';
 import {
   buildOccupiedWindows,
   extractScheduledWindows,
   findCapacityConflict,
   type OccupiedScheduleWindow,
-} from './scheduleCapacityGuard';
+} from '@/scheduling/scheduleCapacityGuard';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import type { Category, Court } from '@/types';
 
