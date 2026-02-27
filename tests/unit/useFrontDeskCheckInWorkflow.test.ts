@@ -1,11 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { defineComponent, ref } from 'vue';
+import { mount } from '@vue/test-utils';
+import type { Match, Registration } from '@/types';
 import {
   assignSmallestAvailableBib,
   createUndoState,
   computeFrontDeskStats,
   findRegistrationByTypedQuery,
   makeBatchRunner,
-  parseScanInput
+  parseScanInput,
+  useFrontDeskCheckInWorkflow,
 } from '@/features/checkin/composables/useFrontDeskCheckInWorkflow';
 
 describe('parseScanInput', () => {
@@ -77,6 +81,74 @@ describe('createUndoState', () => {
     expect(itemToken.expiresInMs).toBe(5000);
     expect(bulkToken.registrationIds).toEqual(['r1', 'r2']);
     expect(bulkToken.expiresInMs).toBe(10000);
+  });
+});
+
+describe('useFrontDeskCheckInWorkflow', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('expires item undo after 5s', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-02-27T12:00:00.000Z'));
+
+    const registrations = ref<Registration[]>([
+      {
+        id: 'reg-1',
+        tournamentId: 't1',
+        categoryId: 'cat-1',
+        participantType: 'player',
+        playerId: 'p1',
+        status: 'approved',
+        registeredBy: 'admin-1',
+        registeredAt: new Date('2026-02-27T10:00:00.000Z'),
+      },
+    ]);
+    const matches = ref<Match[]>([]);
+
+    const checkInRegistration = vi.fn(async (registrationId: string): Promise<void> => {
+      const registration = registrations.value.find((item) => item.id === registrationId);
+      if (registration) registration.status = 'checked_in';
+    });
+    const undoCheckInRegistration = vi.fn(async (registrationId: string): Promise<void> => {
+      const registration = registrations.value.find((item) => item.id === registrationId);
+      if (registration) registration.status = 'approved';
+    });
+    const assignBibNumber = vi.fn(async (registrationId: string, bibNumber: number): Promise<void> => {
+      const registration = registrations.value.find((item) => item.id === registrationId);
+      if (registration) registration.bibNumber = bibNumber;
+    });
+
+    let workflow: ReturnType<typeof useFrontDeskCheckInWorkflow> | null = null;
+
+    const Harness = defineComponent({
+      setup() {
+        workflow = useFrontDeskCheckInWorkflow({
+          registrations,
+          matches,
+          getParticipantName: () => 'Aanya Karthik',
+          getCategoryName: () => "Women's Singles",
+          checkInRegistration,
+          undoCheckInRegistration,
+          assignBibNumber,
+        });
+        return () => null;
+      },
+    });
+
+    const wrapper = mount(Harness);
+    expect(workflow).not.toBeNull();
+    if (!workflow) {
+      throw new Error('Workflow was not initialized');
+    }
+
+    await workflow.checkInOne('reg-1', 101);
+    vi.advanceTimersByTime(5100);
+
+    await expect(workflow.undoItem('reg-1')).rejects.toThrow(/Undo window expired/i);
+    expect(undoCheckInRegistration).not.toHaveBeenCalled();
+    wrapper.unmount();
   });
 });
 
