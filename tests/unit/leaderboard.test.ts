@@ -830,4 +830,34 @@ describe('generateLeaderboard', () => {
     expect(leaderboard.categories).toHaveLength(1);
     expect(leaderboard.categories![0].categoryId).toBe('cat1');
   });
+
+  it('shares equal standing rank when all tie-breakers are exhausted in category scope', async () => {
+    const categories = [makeCategory('cat1', 'round_robin')];
+    const players = [
+      makePlayer('p1', 'Alice', 'A'),
+      makePlayer('p2', 'Bob', 'B'),
+      makePlayer('p3', 'Cara', 'C'),
+    ];
+    const registrations = [
+      makeReg('r1', 'cat1', 'p1'),
+      makeReg('r2', 'cat1', 'p2'),
+      makeReg('r3', 'cat1', 'p3'),
+    ];
+    const matches = [
+      makeStoreMatch('m1', 'cat1', 'r1', 'r2', 'r1', [[21, 19]], 1),
+      makeStoreMatch('m2', 'cat1', 'r2', 'r3', 'r2', [[21, 19]], 2),
+      makeStoreMatch('m3', 'cat1', 'r3', 'r1', 'r3', [[21, 19]], 3),
+    ];
+
+    const leaderboard = await generateLeaderboard(
+      't1',
+      'cat1',
+      undefined,
+      { matches, registrations, categories, players }
+    );
+
+    expect(leaderboard.entries).toHaveLength(3);
+    expect(leaderboard.entries.every((entry) => entry.rank === 1)).toBe(true);
+    expect(leaderboard.tiebreakerResolutions[0].step).toBe('equal');
+  });
 });

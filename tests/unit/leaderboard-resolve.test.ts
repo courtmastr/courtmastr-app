@@ -99,6 +99,21 @@ describe('resolveMatches — participant ID resolution via participant.name', ()
     expect(result[0].participant2Id).toBe('reg-bob-direct');
   });
 
+  it('supports mixed resolution when only one side has registrationId enhancement', () => {
+    const matchDocs = [
+      makeMatchDoc('m1', 0, 3, {
+        reg1: 'reg-alice-direct',
+      }),
+    ];
+    const scoreDocs = [makeScoreDoc('m1', 'reg-alice-direct')];
+
+    const result = resolveMatches(CAT, participants, matchDocs, scoreDocs);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].participant1Id).toBe('reg-alice-direct');
+    expect(result[0].participant2Id).toBe('reg-dan');
+  });
+
   it('skips matches where participant IDs cannot be resolved', () => {
     // opponent IDs 10, 11 are not in participantMap
     const matchDocs = [makeMatchDoc('m1', 10, 11, { round: 1 })];

@@ -1,5 +1,33 @@
-import { describe, it, expect } from 'vitest';
-import { scheduleTimes, type SchedulableMatch, type TimeScheduleConfig } from '../../src/composables/useTimeScheduler';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockDeps = vi.hoisted(() => ({
+  collection: vi.fn(),
+  doc: vi.fn(),
+  getDocs: vi.fn(),
+  writeBatch: vi.fn(),
+  serverTimestamp: vi.fn(),
+  timestampFromDate: vi.fn((value: Date) => ({ __timestamp: value.toISOString() })),
+}));
+
+vi.mock('@/services/firebase', () => ({
+  db: { __name: 'mock-db' },
+  collection: mockDeps.collection,
+  doc: mockDeps.doc,
+  getDocs: mockDeps.getDocs,
+  writeBatch: mockDeps.writeBatch,
+  serverTimestamp: mockDeps.serverTimestamp,
+  Timestamp: {
+    fromDate: mockDeps.timestampFromDate,
+  },
+}));
+
+import {
+  publishSchedule,
+  scheduleTimes,
+  type SchedulableMatch,
+  type TimeScheduleConfig,
+  unpublishSchedule,
+} from '@/composables/useTimeScheduler';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -49,6 +77,14 @@ function buildPoolMatches(totalTeams: number, poolSize: number): SchedulableMatc
   }
   return matches;
 }
+
+const makeFirestoreSnapshot = (docs: Array<{ id: string; ref: string; data: Record<string, unknown> }>) => ({
+  docs: docs.map((entry) => ({
+    id: entry.id,
+    ref: entry.ref,
+    data: () => entry.data,
+  })),
+});
 
 // ──────────────────────────────────────────────────────────────────────────
 // Tests
@@ -211,4 +247,124 @@ describe('scheduleTimes — Time-First Scheduler', () => {
     expect(result.stats.estimatedEndTime?.getTime()).toBe(latestEnd?.getTime());
   });
 
+});
+
+describe('publish/unpublish schedule gates', () => {
+  beforeEach(() => {
+    mockDeps.collection.mockReset().mockImplementation((_db, path: string) => `collection:${path}`);
+    mockDeps.doc.mockReset().mockImplementation((_db, path: string, id: string) => `doc:${path}/${id}`);
+    mockDeps.getDocs.mockReset();
+    mockDeps.serverTimestamp.mockReset().mockReturnValue('SERVER_TS');
+    mockDeps.timestampFromDate.mockClear();
+    mockDeps.writeBatch.mockReset();
+  });
+
+  it('publishes only planned draft slots unless force=true', async () => {
+    const update = vi.fn();
+    const commit = vi.fn().mockResolvedValue(undefined);
+    mockDeps.writeBatch.mockReturnValue({
+      set: vi.fn(),
+      delete: vi.fn(),
+      update,
+      commit,
+    });
+    mockDeps.getDocs.mockResolvedValue(
+      makeFirestoreSnapshot([
+        {
+          id: 'm1',
+          ref: 'doc:match_scores/m1',
+          data: { plannedStartAt: new Date('2026-02-27T10:00:00.000Z'), scheduleStatus: 'draft' },
+        },
+        {
+          id: 'm2',
+          ref: 'doc:match_scores/m2',
+          data: { plannedStartAt: new Date('2026-02-27T11:00:00.000Z'), scheduleStatus: 'published' },
+        },
+        {
+          id: 'm3',
+          ref: 'doc:match_scores/m3',
+          data: { scheduleStatus: 'draft' },
+        },
+      ])
+    );
+
+    const normal = await publishSchedule('t1', ['cat-1'], 'admin-1');
+    expect(normal.publishedCount).toBe(1);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith(
+      'doc:match_scores/m1',
+      expect.objectContaining({
+        scheduleStatus: 'published',
+        publishedBy: 'admin-1',
+        updatedAt: 'SERVER_TS',
+      })
+    );
+    expect(commit).toHaveBeenCalledTimes(1);
+
+    update.mockClear();
+    commit.mockClear();
+
+    const forced = await publishSchedule('t1', ['cat-1'], 'admin-1', undefined, { force: true });
+    expect(forced.publishedCount).toBe(2);
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(update).toHaveBeenCalledWith(
+      'doc:match_scores/m2',
+      expect.objectContaining({
+        scheduleStatus: 'published',
+        publishedBy: 'admin-1',
+      })
+    );
+    expect(commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('unpublishes only matches that are currently public', async () => {
+    const update = vi.fn();
+    const commit = vi.fn().mockResolvedValue(undefined);
+    mockDeps.writeBatch.mockReturnValue({
+      set: vi.fn(),
+      delete: vi.fn(),
+      update,
+      commit,
+    });
+    mockDeps.getDocs.mockResolvedValue(
+      makeFirestoreSnapshot([
+        {
+          id: 'm1',
+          ref: 'doc:match_scores/m1',
+          data: { plannedStartAt: new Date('2026-02-27T10:00:00.000Z'), scheduleStatus: 'published' },
+        },
+        {
+          id: 'm2',
+          ref: 'doc:match_scores/m2',
+          data: { plannedStartAt: new Date('2026-02-27T11:00:00.000Z'), scheduleStatus: 'draft', publishedAt: new Date('2026-02-27T09:00:00.000Z') },
+        },
+        {
+          id: 'm3',
+          ref: 'doc:match_scores/m3',
+          data: { plannedStartAt: new Date('2026-02-27T12:00:00.000Z'), scheduleStatus: 'draft' },
+        },
+      ])
+    );
+
+    const result = await unpublishSchedule('t1', ['cat-1']);
+    expect(result.unpublishedCount).toBe(2);
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(update).toHaveBeenCalledWith(
+      'doc:match_scores/m1',
+      expect.objectContaining({
+        scheduleStatus: 'draft',
+        publishedAt: null,
+        publishedBy: null,
+      })
+    );
+    expect(update).toHaveBeenCalledWith(
+      'doc:match_scores/m2',
+      expect.objectContaining({
+        scheduleStatus: 'draft',
+        publishedAt: null,
+        publishedBy: null,
+      })
+    );
+    expect(commit).toHaveBeenCalledTimes(1);
+  });
 });
