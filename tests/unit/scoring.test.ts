@@ -157,6 +157,17 @@ describe('Badminton Scoring Rules', () => {
       expect(result.isComplete).toBe(true);
       expect(result.winnerId).toBe(2);
     });
+
+    it('should ignore incomplete games when determining match winner', () => {
+      const games: GameScore[] = [
+        { score1: 21, score2: 18, winnerId: 1, isComplete: true },
+        { score1: 21, score2: 19, winnerId: 1, isComplete: true },
+        { score1: 12, score2: 10, winnerId: 2, isComplete: false },
+      ];
+      const result = checkMatchComplete(games);
+      expect(result.isComplete).toBe(true);
+      expect(result.winnerId).toBe(1);
+    });
   });
 });
 
