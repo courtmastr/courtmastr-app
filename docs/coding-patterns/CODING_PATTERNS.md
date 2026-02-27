@@ -2235,6 +2235,43 @@ fi
 
 ---
 
+### CP-047: Shallow-Mounted Vuetify Error-State Tests Must Assert Reactive State (Not Nested Stub Text)
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-27 |
+| **Source Bug** | Public view tests failed even though not-found logic worked, because `wrapper.text()` did not include text rendered inside shallow-stubbed Vuetify components |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const wrapper = shallowMount(PublicScheduleView, {
+  global: { stubs: ['v-alert'] },
+});
+await flushPromises();
+expect(wrapper.text()).toContain('Tournament not found');
+```
+
+**Correct Pattern (✅):**
+```typescript
+const wrapper = shallowMount(PublicScheduleView, { global: { stubs } });
+await flushPromises();
+
+const vm = wrapper.vm as unknown as { notFound: boolean | { value: boolean } };
+expect(readBoolean(vm.notFound)).toBe(true);
+expect(mockDeps.subscribeTournament).not.toHaveBeenCalled();
+```
+
+**Rule:** When testing error/not-found branches in `shallowMount` tests with Vuetify stubs, assert reactive state and side effects (`notFound`, skipped subscriptions) instead of expecting nested UI text in `wrapper.text()`.
+
+**Detection:**
+```bash
+rg -n "wrapper\\.text\\(\\)\\.toContain\\('Tournament not found'\\)" tests/unit tests/integration --glob "*.test.ts"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
