@@ -25,6 +25,7 @@ import {
   type BracketsMatch,
   type Participant,
 } from '@/stores/bracketMatchAdapter';
+import { useMatchSlotState } from '@/composables/useMatchSlotState';
 import { scheduleTimes, saveTimedSchedule, type TimeScheduleConfig } from './useTimeScheduler';
 import { SCHEDULE_DEFAULTS, SCHEDULE_STATUS, SCHEDULE_FIELDS } from '@/scheduling/scheduleRules';
 
@@ -77,6 +78,7 @@ export function useMatchScheduler() {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const progress = ref(0);
+  const { isByeMatch, isSchedulableMatch } = useMatchSlotState();
 
   /**
    * Auto-schedule all ready matches for a tournament/category
@@ -251,6 +253,7 @@ export function useMatchScheduler() {
 
         // Filter matches ready for time scheduling:
         // - Never touch completed/walkover/cancelled
+        // - Never schedule BYE matches (non-playable auto-advance)
         // - Respect lockedTime manual overrides
         // - In reflow mode, keep safe defaults unless explicitly overridden
         // TBD matches (no participants) are intentionally included for placeholder slots.
@@ -258,11 +261,18 @@ export function useMatchScheduler() {
           const scoreData = matchScoresMap.get(m.id);
           if (scoreData?.lockedTime === true) return false; // Bug D fix: skip locked matches
 
-          const status = String(m.status || '');
-          if (status === 'completed' || status === 'walkover' || status === 'cancelled') {
+          if (!isSchedulableMatch(m)) {
+            if (isByeMatch(m)) {
+              console.log('[scheduleMatches] Skipping BYE match (not schedulable):', {
+                matchId: m.id,
+                categoryId: options.categoryId,
+                levelId: options.levelId,
+              });
+            }
             return false;
           }
 
+          const status = String(m.status || '');
           if (options.reflowMode === true) {
             const isPublished = scoreData?.scheduleStatus === SCHEDULE_STATUS.published || Boolean(scoreData?.publishedAt);
             if (isPublished && options.allowPublishedChanges !== true) {
