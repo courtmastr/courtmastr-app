@@ -1,3 +1,24 @@
+- id: 695ac768
+  title: lint:log fails on existing repository-wide ESLint baseline violations
+  status: "🟡 workaround"
+  date: "2026-02-27"
+  fingerprint: "695ac768"
+  command: "npm run lint:log -- src/features/tournaments/views/matchControlScheduleQuery.ts src/features/tournaments/views/CategoriesView.vue src/features/tournaments/views/MatchControlView.vue src/composables/useMatchScheduler.ts src/features/tournaments/dialogs/AutoScheduleDialog.vue src/features/tournaments/dialogs/scheduleCapacityGuard.ts tests/unit/scheduleCapacityGuard.test.ts tests/unit/AutoScheduleDialog.level-scope.test.ts tests/unit/CategoriesView.draft-schedule-routing.test.ts tests/unit/MatchControlView.assignments.test.ts tests/unit/CategoryRegistrationStats.pool-phase.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-08-15-03.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: ccf47aaa
+  title: lint:log fails on existing repository-wide ESLint baseline violations
+  status: "🟡 workaround"
+  date: "2026-02-27"
+  fingerprint: "ccf47aaa"
+  command: "npm run lint:log -- src/features/tournaments/components/CreateLevelsDialog.vue tests/unit/CreateLevelsDialog.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-06-28-28.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: cca91fca
+  title: lint:log fails on existing repository-wide ESLint baseline violations
+  status: "❌ unresolved"
+  date: "2026-02-27"
+  fingerprint: "cca91fca"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-05-37-01.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 13e03596
   title: build:log fails on front desk check-in refs/computed typing in composable and view
   status: "✅ fixed"

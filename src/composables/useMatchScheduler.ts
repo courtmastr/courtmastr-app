@@ -94,6 +94,7 @@ export function useMatchScheduler() {
       reflowMode?: boolean;
       allowPublishedChanges?: boolean;
       includeAssignedMatches?: boolean;
+      dryRun?: boolean;
     }
   ): Promise<ScheduleResult> {
     loading.value = true;
@@ -334,14 +335,6 @@ export function useMatchScheduler() {
 
       progress.value = 70;
 
-      await saveTimedSchedule(
-        tournamentId,
-        options.categoryId,
-        timeResult,
-        options.levelId
-      );
-      progress.value = 100;
-
       // Return result in the existing ScheduleResult shape for backward compat
       const schedule: ScheduleResult = {
         scheduled: timeResult.planned.map((p, i) => ({
@@ -363,6 +356,19 @@ export function useMatchScheduler() {
             : 0,
         },
       };
+
+      if (options.dryRun === true) {
+        progress.value = 100;
+        return schedule;
+      }
+
+      await saveTimedSchedule(
+        tournamentId,
+        options.categoryId,
+        timeResult,
+        options.levelId
+      );
+      progress.value = 100;
 
       return schedule;
 

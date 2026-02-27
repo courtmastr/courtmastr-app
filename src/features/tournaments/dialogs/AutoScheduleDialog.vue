@@ -5,7 +5,17 @@ import { useMatchStore } from '@/stores/matches';
 import { useNotificationStore } from '@/stores/notifications';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchScheduler, type ScheduleResult } from '@/composables/useMatchScheduler';
-import { publishSchedule } from '@/composables/useTimeScheduler';
+import { clearTimedScheduleScopes, publishSchedule } from '@/composables/useTimeScheduler';
+import {
+  resolveScheduleTargetsForCategory,
+  type ScheduleTarget,
+} from './autoScheduleTargets';
+import {
+  buildOccupiedWindows,
+  extractScheduledWindows,
+  findCapacityConflict,
+  type OccupiedScheduleWindow,
+} from './scheduleCapacityGuard';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import type { Category, Court } from '@/types';
 
@@ -122,6 +132,18 @@ const availableCourtCount = computed(() => activeCourtIds.value.length);
 const selectedCategories = computed(() =>
   props.categories.filter((category) => selectedCategoryIds.value.includes(category.id))
 );
+const categoryTargets = computed(() =>
+  selectedCategories.value.map((category) => ({
+    categoryId: category.id,
+    targets: resolveScheduleTargetsForCategory(category, matchStore.matches),
+  }))
+);
+const scheduleTargets = computed(() =>
+  categoryTargets.value.flatMap((entry) => entry.targets)
+);
+const replacesLevelSchedules = computed(() =>
+  scheduleTargets.value.some((target) => Boolean(target.levelId))
+);
 const isParallelPartitioned = computed(
   () => mode.value === 'parallel_partitioned' && selectedCategoryIds.value.length > 1
 );
@@ -171,9 +193,41 @@ interface DraftSummary {
 
 const lastResult = ref<DraftSummary | null>(null);
 const hasDraft = computed(() => Boolean(lastResult.value && lastResult.value.totalScheduled > 0));
+const MAX_CAPACITY_GUARD_ITERATIONS = 24;
 
 function getCategoryName(categoryId: string): string {
   return props.categories.find((category) => category.id === categoryId)?.name ?? categoryId;
+}
+
+function getTargetScopeLabel(target: ScheduleTarget): string {
+  if (!target.levelId) {
+    return getCategoryName(target.categoryId);
+  }
+  return `${getCategoryName(target.categoryId)} (${target.levelId})`;
+}
+
+function formatDateTime(date: Date): string {
+  return date.toLocaleString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function buildCapacityOccupiedWindows(): OccupiedScheduleWindow[] {
+  return buildOccupiedWindows(matchStore.matches, {
+    fallbackDurationMinutes: Math.max(1, matchDuration.value),
+    excludeScopes: scheduleTargets.value,
+  });
+}
+
+function notifyAdjustedStart(target: ScheduleTarget, from: Date, to: Date): void {
+  if (from.getTime() === to.getTime()) return;
+  notificationStore.showToast(
+    'warning',
+    `Start adjusted for ${getTargetScopeLabel(target)} from ${formatDateTime(from)} to ${formatDateTime(to)} to avoid overlap with existing draft/published schedule.`
+  );
 }
 
 function getDefaultStartTimeValue(): string {
@@ -300,13 +354,15 @@ watch(mode, (nextMode) => {
 });
 
 async function scheduleCategoryWithConfig(
-  categoryId: string,
+  target: ScheduleTarget,
   scheduleStart: Date,
   courtIds: string[],
-  categoryConcurrency: number
+  categoryConcurrency: number,
+  dryRun = false
 ): Promise<ScheduleResult> {
   return scheduler.scheduleMatches(props.tournamentId, {
-    categoryId,
+    categoryId: target.categoryId,
+    levelId: target.levelId,
     courtIds,
     startTime: scheduleStart,
     matchDurationMinutes: matchDuration.value,
@@ -316,7 +372,88 @@ async function scheduleCategoryWithConfig(
     reflowMode: isReflowContext.value,
     allowPublishedChanges: isReflowContext.value ? allowPublishedChanges.value : false,
     includeAssignedMatches: isReflowContext.value ? false : undefined,
+    dryRun,
   });
+}
+
+interface CapacityGuardRunResult {
+  result: ScheduleResult;
+  resolvedStart: Date;
+  shiftedFrom: Date | null;
+}
+
+async function runWithCapacityGuard(
+  target: ScheduleTarget,
+  requestedStart: Date,
+  courtIds: string[],
+  categoryConcurrency: number,
+  availableCapacity: number,
+  occupiedWindows: OccupiedScheduleWindow[]
+): Promise<CapacityGuardRunResult> {
+  const originalStart = new Date(requestedStart);
+  const scopedCapacity = Math.max(1, Math.floor(availableCapacity));
+
+  if (occupiedWindows.length === 0) {
+    const directResult = await scheduleCategoryWithConfig(
+      target,
+      originalStart,
+      courtIds,
+      categoryConcurrency
+    );
+    return {
+      result: directResult,
+      resolvedStart: originalStart,
+      shiftedFrom: null,
+    };
+  }
+
+  let candidateStart = new Date(originalStart);
+  for (let attempt = 0; attempt < MAX_CAPACITY_GUARD_ITERATIONS; attempt += 1) {
+    const dryRunResult = await scheduleCategoryWithConfig(
+      target,
+      candidateStart,
+      courtIds,
+      categoryConcurrency,
+      true
+    );
+
+    const candidateWindows = extractScheduledWindows(dryRunResult.scheduled);
+    if (candidateWindows.length === 0) {
+      const commitResult = await scheduleCategoryWithConfig(
+        target,
+        candidateStart,
+        courtIds,
+        categoryConcurrency
+      );
+      return {
+        result: commitResult,
+        resolvedStart: candidateStart,
+        shiftedFrom: candidateStart.getTime() === originalStart.getTime() ? null : originalStart,
+      };
+    }
+
+    const conflict = findCapacityConflict(occupiedWindows, candidateWindows, scopedCapacity);
+    if (!conflict) {
+      const commitResult = await scheduleCategoryWithConfig(
+        target,
+        candidateStart,
+        courtIds,
+        categoryConcurrency
+      );
+      return {
+        result: commitResult,
+        resolvedStart: candidateStart,
+        shiftedFrom: candidateStart.getTime() === originalStart.getTime() ? null : originalStart,
+      };
+    }
+
+    if (conflict.nextBoundaryMs <= candidateStart.getTime()) {
+      break;
+    }
+    candidateStart = new Date(conflict.nextBoundaryMs);
+  }
+
+  throw new Error('Unable to find non-conflicting schedule window with current court capacity');
 }
 
 async function runSequentialSchedule(start: Date): Promise<ScheduleResult> {
@@ -326,41 +463,46 @@ async function runSequentialSchedule(start: Date): Promise<ScheduleResult> {
   const allUnscheduled: ScheduleResult['unscheduled'] = [];
   let estimatedEndTime: Date | null = null;
   let nextStart = new Date(start);
+  const occupiedWindows = buildCapacityOccupiedWindows();
 
-  for (const categoryId of selectedCategoryIds.value) {
-    const result = await scheduleCategoryWithConfig(
-      categoryId,
+  for (const target of scheduleTargets.value) {
+    const capacityResult = await runWithCapacityGuard(
+      target,
       nextStart,
       activeCourtIds.value,
-      Math.max(1, effectiveConcurrency.value)
+      Math.max(1, effectiveConcurrency.value),
+      activeCourtIds.value.length,
+      occupiedWindows
     );
+    notifyAdjustedStart(target, nextStart, capacityResult.resolvedStart);
+    const result = capacityResult.result;
 
     totalScheduled += result.stats.scheduledCount;
     totalUnscheduled += result.stats.unscheduledCount;
     allScheduled.push(
       ...result.scheduled.map((item) => ({
         ...item,
-        matchId: `${getCategoryName(categoryId)} • ${item.matchId}`,
+        matchId: `${getTargetScopeLabel(target)} • ${item.matchId}`,
       }))
     );
     allUnscheduled.push(
       ...result.unscheduled.map((item) => ({
         ...item,
-        matchId: `${getCategoryName(categoryId)} • ${item.matchId}`,
+        matchId: `${getTargetScopeLabel(target)} • ${item.matchId}`,
       }))
     );
 
-    const categoryEnd = result.scheduled.reduce<Date | null>((latest, item) => {
+    const targetEnd = result.scheduled.reduce<Date | null>((latest, item) => {
       if (!latest || item.estimatedEndTime > latest) return item.estimatedEndTime;
       return latest;
     }, null);
 
-    if (categoryEnd && (!estimatedEndTime || categoryEnd > estimatedEndTime)) {
-      estimatedEndTime = categoryEnd;
+    if (targetEnd && (!estimatedEndTime || targetEnd > estimatedEndTime)) {
+      estimatedEndTime = targetEnd;
     }
 
-    if (categoryEnd) {
-      nextStart = new Date(categoryEnd.getTime() + breakTime.value * 60_000);
+    if (targetEnd) {
+      nextStart = new Date(targetEnd.getTime() + breakTime.value * 60_000);
     }
   }
 
@@ -390,6 +532,10 @@ async function runParallelPartitionedSchedule(start: Date): Promise<ScheduleResu
   let totalUnscheduled = 0;
   let estimatedEndTime: Date | null = null;
   let courtCursor = 0;
+  const occupiedWindows = buildCapacityOccupiedWindows();
+  const targetsByCategoryId = new Map(
+    categoryTargets.value.map((entry) => [entry.categoryId, entry.targets])
+  );
 
   for (const categoryId of selectedCategoryIds.value) {
     const courtBudget = getCategoryBudget(categoryId);
@@ -400,34 +546,51 @@ async function runParallelPartitionedSchedule(start: Date): Promise<ScheduleResu
       throw new Error(`No courts allocated for ${getCategoryName(categoryId)}`);
     }
 
-    const result = await scheduleCategoryWithConfig(
-      categoryId,
-      start,
-      partitionCourtIds,
-      partitionCourtIds.length
-    );
+    const targets = targetsByCategoryId.get(categoryId) || [{ categoryId }];
+    let categoryStart = new Date(start);
+    let categoryLatestEnd: Date | null = null;
 
-    totalScheduled += result.stats.scheduledCount;
-    totalUnscheduled += result.stats.unscheduledCount;
-    allScheduled.push(
-      ...result.scheduled.map((item) => ({
-        ...item,
-        matchId: `${getCategoryName(categoryId)} • ${item.matchId}`,
-      }))
-    );
-    allUnscheduled.push(
-      ...result.unscheduled.map((item) => ({
-        ...item,
-        matchId: `${getCategoryName(categoryId)} • ${item.matchId}`,
-      }))
-    );
+    for (const target of targets) {
+      const capacityResult = await runWithCapacityGuard(
+        target,
+        categoryStart,
+        partitionCourtIds,
+        partitionCourtIds.length,
+        partitionCourtIds.length,
+        occupiedWindows
+      );
+      notifyAdjustedStart(target, categoryStart, capacityResult.resolvedStart);
+      const result = capacityResult.result;
 
-    const categoryEnd = result.scheduled.reduce<Date | null>((latest, item) => {
-      if (!latest || item.estimatedEndTime > latest) return item.estimatedEndTime;
-      return latest;
-    }, null);
-    if (categoryEnd && (!estimatedEndTime || categoryEnd > estimatedEndTime)) {
-      estimatedEndTime = categoryEnd;
+      totalScheduled += result.stats.scheduledCount;
+      totalUnscheduled += result.stats.unscheduledCount;
+      allScheduled.push(
+        ...result.scheduled.map((item) => ({
+          ...item,
+          matchId: `${getTargetScopeLabel(target)} • ${item.matchId}`,
+        }))
+      );
+      allUnscheduled.push(
+        ...result.unscheduled.map((item) => ({
+          ...item,
+          matchId: `${getTargetScopeLabel(target)} • ${item.matchId}`,
+        }))
+      );
+
+      const targetEnd = result.scheduled.reduce<Date | null>((latest, item) => {
+        if (!latest || item.estimatedEndTime > latest) return item.estimatedEndTime;
+        return latest;
+      }, null);
+      if (targetEnd) {
+        categoryStart = new Date(targetEnd.getTime() + breakTime.value * 60_000);
+        if (!categoryLatestEnd || targetEnd > categoryLatestEnd) {
+          categoryLatestEnd = targetEnd;
+        }
+      }
+    }
+
+    if (categoryLatestEnd && (!estimatedEndTime || categoryLatestEnd > estimatedEndTime)) {
+      estimatedEndTime = categoryLatestEnd;
     }
   }
 
@@ -480,6 +643,14 @@ async function runSchedule() {
   lastResult.value = null;
 
   try {
+    const levelTargets = scheduleTargets.value.filter(
+      (target): target is ScheduleTarget & { levelId: string } => Boolean(target.levelId)
+    );
+
+    if (!isReflowContext.value && levelTargets.length > 0) {
+      await clearTimedScheduleScopes(props.tournamentId, levelTargets);
+    }
+
     const start = new Date(startTime.value);
     const result = isParallelPartitioned.value
       ? await runParallelPartitionedSchedule(start)
@@ -564,6 +735,16 @@ function formatTime(date: Date | null): string {
       class="mb-4"
     >
       {{ topInfoText }}
+    </v-alert>
+
+    <v-alert
+      v-if="replacesLevelSchedules && !isReflowContext"
+      type="warning"
+      variant="tonal"
+      density="comfortable"
+      class="mb-4"
+    >
+      Existing level schedule for selected categories will be replaced. Pool/base schedule remains unchanged.
     </v-alert>
 
     <v-select

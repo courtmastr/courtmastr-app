@@ -182,6 +182,18 @@ function viewPublicSchedule(category: Category): void {
   });
 }
 
+function viewDraftSchedule(category: Category): void {
+  router.push({
+    path: `/tournaments/${tournamentId.value}/match-control`,
+    query: {
+      view: 'schedule',
+      category: category.id,
+      publicState: 'draft',
+      scheduleLayout: 'full',
+    },
+  });
+}
+
 function confirmRegenerateBracket(categoryId: string): void {
   regenerateCategoryId.value = categoryId;
   showRegenerateBracketDialog.value = true;
@@ -412,6 +424,7 @@ function openSeedingDialog(categoryId: string): void {
       @delete-category="openCategoryDelete"
       @view-bracket="viewCategoryBracket"
       @view-public-schedule="viewPublicSchedule"
+      @view-draft-schedule="viewDraftSchedule"
       @schedule-times="openScheduleDialog"
       @publish-schedule="publishCategorySchedule"
       @republish-schedule="(category) => publishCategorySchedule(category, true)"

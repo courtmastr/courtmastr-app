@@ -26,6 +26,11 @@ import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvan
 import type { Match } from '@/types';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
+import {
+  parseScheduleQueryCategory,
+  parseScheduleQueryLayout,
+  parseScheduleQueryPublicState,
+} from './matchControlScheduleQuery';
 
 const route = useRoute();
 const router = useRouter();
@@ -232,6 +237,33 @@ watch(viewMode, (mode) => {
     },
   });
 });
+
+watch(
+  () => route.query.category,
+  (queryCategory) => {
+    const value = Array.isArray(queryCategory) ? queryCategory[0] : queryCategory;
+    selectedCategory.value = parseScheduleQueryCategory(value);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => route.query.publicState,
+  (queryPublicState) => {
+    const value = Array.isArray(queryPublicState) ? queryPublicState[0] : queryPublicState;
+    scheduleFilters.value.publicState = parseScheduleQueryPublicState(value);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => route.query.scheduleLayout,
+  (queryScheduleLayout) => {
+    const value = Array.isArray(queryScheduleLayout) ? queryScheduleLayout[0] : queryScheduleLayout;
+    scheduleViewMode.value = parseScheduleQueryLayout(value);
+  },
+  { immediate: true }
+);
 
 const pendingMatches = computed(() => {
   let result = matches.value.filter(

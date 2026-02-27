@@ -7,6 +7,7 @@ const runtimeState = {
   isAdmin: false,
   matches: [] as Match[],
   registrations: [] as Array<{ id: string; status?: string; isCheckedIn?: boolean }>,
+  routeQuery: {} as Record<string, unknown>,
 };
 
 const mockDeps = vi.hoisted(() => ({
@@ -31,7 +32,7 @@ const mockDeps = vi.hoisted(() => ({
 vi.mock('vue-router', () => ({
   useRoute: () => ({
     params: { tournamentId: 't1' },
-    query: {},
+    query: runtimeState.routeQuery,
   }),
   useRouter: () => ({
     push: mockDeps.routerPush,
@@ -149,6 +150,12 @@ vi.mock('@/composables/useTournamentStateAdvance', () => ({
 interface MatchControlAssignmentsVm {
   canAdminAssignAnyway: (match: Match) => boolean;
   openAssignCourtDialog: (match: Match, options?: { ignoreCheckInGate?: boolean }) => void;
+  viewMode: 'queue' | 'schedule' | 'command';
+  selectedCategory: string;
+  scheduleViewMode: 'compact' | 'full';
+  scheduleFilters: {
+    publicState: 'all' | 'published' | 'draft' | 'not_scheduled';
+  };
 }
 
 const makeMatch = (): Match => ({
@@ -231,6 +238,7 @@ describe('MatchControlView assignment actions', () => {
       { id: 'reg-1', status: 'approved' },
       { id: 'reg-2', status: 'approved' },
     ];
+    runtimeState.routeQuery = {};
 
     mockDeps.fetchTournament.mockReset().mockResolvedValue(undefined);
     mockDeps.subscribeTournament.mockReset();
@@ -276,5 +284,22 @@ describe('MatchControlView assignment actions', () => {
 
     expect(mockDeps.openDialog).toHaveBeenCalledWith('assignCourt');
     expect(mockDeps.showToast).not.toHaveBeenCalled();
+  });
+
+  it('hydrates schedule view + draft filters from query params', () => {
+    runtimeState.routeQuery = {
+      view: 'schedule',
+      category: 'cat-1',
+      publicState: 'draft',
+      scheduleLayout: 'full',
+    };
+
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as MatchControlAssignmentsVm;
+
+    expect(vm.viewMode).toBe('schedule');
+    expect(vm.selectedCategory).toBe('cat-1');
+    expect(vm.scheduleFilters.publicState).toBe('draft');
+    expect(vm.scheduleViewMode).toBe('full');
   });
 });

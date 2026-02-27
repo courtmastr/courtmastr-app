@@ -2272,6 +2272,215 @@ rg -n "wrapper\\.text\\(\\)\\.toContain\\('Tournament not found'\\)" tests/unit 
 
 ---
 
+### CP-048: Scripts Moved Under `scripts/` Must Resolve and Use Repo Root for Root-Level Commands
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-27 |
+| **Source Bug** | `start-dev-terminal.sh` failed after moving to `scripts/` because it ran root-level paths (`functions/`, `node_modules/.bin`) from `scripts/` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```bash
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
+cd functions && npm run build
+./node_modules/.bin/firebase emulators:start
+```
+
+**Correct Pattern (✅):**
+```bash
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+
+cd "$PROJECT_ROOT/functions" && npm run build
+cd "$PROJECT_ROOT"
+./node_modules/.bin/firebase emulators:start
+```
+
+**Rule:** Any script located in `scripts/` that invokes root-level folders (`functions/`, `node_modules/`, root `npm run`) must resolve `PROJECT_ROOT` from `SCRIPT_DIR/..` and execute those commands from repo root (or absolute root paths).
+
+**Detection:**
+```bash
+if rg -n 'cd "\\$SCRIPT_DIR"' scripts/start-dev-terminal.sh >/dev/null && rg -n '^cd functions|do script "cd '\\''\\$SCRIPT_DIR'\\''' scripts/start-dev-terminal.sh >/dev/null; then
+  echo "Violation: start-dev-terminal.sh still assumes it runs from repo root"
+fi
+rg -n 'PROJECT_ROOT=|cd "\\$PROJECT_ROOT/functions"|do script "cd '\\''\\$PROJECT_ROOT'\\''' scripts/start-dev-terminal.sh
+```
+
+---
+
+### CP-049: Dialog Open Watchers Must Handle `modelValue=true` on Initial Mount
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-27 |
+| **Source Bug** | Create Levels dialog opened with empty data until level count changed because preview load watcher did not run when mounted already open |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+watch(
+  () => props.modelValue,
+  async (isOpen) => {
+    if (!isOpen) return;
+    await reloadPreview();
+  }
+);
+// If component mounts with modelValue=true, callback never runs.
+```
+
+**Correct Pattern (✅):**
+```typescript
+watch(
+  () => props.modelValue,
+  async (isOpen) => {
+    if (!isOpen) return;
+    await reloadPreview();
+  },
+  { immediate: true }
+);
+```
+
+**Rule:** Any dialog/component that loads data when opened via `watch(() => props.modelValue, ...)` must support initial mount in already-open state (`modelValue=true`) by using `immediate: true` (or equivalent `onMounted` open-state check).
+
+**Detection:**
+```bash
+for f in $(rg -l "watch\\(\\s*\\(\\) => props\\.modelValue" src/features --glob "*.vue"); do
+  if ! rg -n -U "watch\\(\\s*\\(\\) => props\\.modelValue[\\s\\S]{0,260}immediate:\\s*true" "$f" >/dev/null; then
+    echo "Violation: modelValue watcher may miss initial open load => $f"
+  fi
+done
+```
+
+---
+
+### CP-050: Categories Must Expose Draft Schedule Via Match Control Deep Link
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-27 |
+| **Source Bug** | Category had draft scheduled matches but operators could only see "View Public Schedule" (published-only), so draft schedule was not visible |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<!-- Only published schedule entry is available -->
+<v-list-item
+  title="View Public Schedule"
+  :disabled="!hasPublishedSchedule(stats)"
+  @click="emit('view-public-schedule', stats.category)"
+/>
+```
+```typescript
+// No draft route handler
+// CategoriesView lacks @view-draft-schedule binding and match-control draft query routing.
+```
+
+**Correct Pattern (✅):**
+```vue
+<v-list-item
+  v-if="hasDraftSchedule(stats)"
+  title="View Draft Schedule"
+  @click="emit('view-draft-schedule', stats.category)"
+/>
+```
+```typescript
+function viewDraftSchedule(category: Category): void {
+  router.push({
+    path: `/tournaments/${tournamentId.value}/match-control`,
+    query: {
+      view: 'schedule',
+      category: category.id,
+      publicState: 'draft',
+      scheduleLayout: 'full',
+    },
+  });
+}
+```
+
+**Rule:** If a category has planned schedule entries that are not published, Categories UI must provide a "View Draft Schedule" action and deep-link into Match Control schedule view with `publicState=draft` scoped to the category.
+
+**Detection:**
+```bash
+if ! rg -n "view-draft-schedule" src/features/tournaments/components/CategoryRegistrationStats.vue >/dev/null; then
+  echo "Violation: missing draft schedule menu action in CategoryRegistrationStats"
+fi
+if ! rg -n "@view-draft-schedule=\"viewDraftSchedule\"|publicState:\\s*'draft'|scheduleLayout:\\s*'full'|view:\\s*'schedule'" src/features/tournaments/views/CategoriesView.vue >/dev/null; then
+  echo "Violation: missing draft schedule routing from CategoriesView"
+fi
+```
+
+---
+
+### CP-051: Scheduling Must Preflight Court Capacity Against Existing Draft/Published Windows
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-27 |
+| **Source Bug** | Re-running schedule could place a category into already occupied time windows from other categories, producing `0 matches scheduled` or overlapping drafts instead of shifting to next available time |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// Directly commits new schedule from requested start.
+const result = await scheduler.scheduleMatches(tournamentId, {
+  categoryId,
+  startTime,
+  concurrency,
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+const occupied = buildOccupiedWindows(matchStore.matches, {
+  fallbackDurationMinutes: matchDuration.value,
+  excludeScopes: scheduleTargets.value, // same scope can be replaced
+});
+
+const preview = await scheduler.scheduleMatches(tournamentId, {
+  categoryId,
+  levelId,
+  startTime: requestedStart,
+  concurrency,
+  dryRun: true,
+});
+
+const candidate = extractScheduledWindows(preview.scheduled);
+const conflict = findCapacityConflict(occupied, candidate, availableCapacity);
+if (conflict) {
+  requestedStart = new Date(conflict.nextBoundaryMs);
+}
+
+// Commit only after conflict-free preflight
+await scheduler.scheduleMatches(tournamentId, {
+  categoryId,
+  levelId,
+  startTime: requestedStart,
+  concurrency,
+});
+```
+
+**Rule:** Category scheduling flows must run a dry-run preflight and resolve start-time conflicts against existing draft/published windows before committing schedule changes. Same target scope may be excluded during reschedule.
+
+**Detection:**
+```bash
+if ! rg -n "buildOccupiedWindows\\(|extractScheduledWindows\\(|findCapacityConflict\\(" src/features/tournaments/dialogs/AutoScheduleDialog.vue >/dev/null; then
+  echo "Violation: AutoScheduleDialog missing capacity preflight guard"
+fi
+if ! rg -n "dryRun\\?: boolean|options\\.dryRun === true" src/composables/useMatchScheduler.ts >/dev/null; then
+  echo "Violation: useMatchScheduler missing dryRun support for capacity preflight"
+fi
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
