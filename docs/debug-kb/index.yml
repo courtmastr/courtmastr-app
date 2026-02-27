@@ -418,3 +418,10 @@
   fingerprint: "n/a"
   command: "cd functions && npm run build:log"
   artifact_log: "docs/debug-kb/_artifacts/2026-02-01-22-36-22.tsc.log"
+- id: 7722ef10
+  title: test:log fails because new useMatchSlotState module does not exist yet
+  status: "✅ fixed"
+  date: "2026-02-27"
+  fingerprint: "7722ef10"
+  command: "npm run test:log -- tests/unit/useMatchSlotState.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-15-29-02.vitest-tests-unit-useMatchSlotState-test-ts.log"
