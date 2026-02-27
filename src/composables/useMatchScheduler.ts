@@ -26,6 +26,7 @@ import {
   type Participant,
 } from '@/stores/bracketMatchAdapter';
 import { scheduleTimes, saveTimedSchedule, type TimeScheduleConfig } from './useTimeScheduler';
+import { SCHEDULE_DEFAULTS, SCHEDULE_STATUS, SCHEDULE_FIELDS } from '@/scheduling/scheduleRules';
 
 // ============================================
 // Types
@@ -114,8 +115,8 @@ export function useMatchScheduler() {
 
       const tournament = tournamentDoc.data();
       const settings = tournament?.settings || {
-        matchDurationMinutes: 30,
-        minRestTimeMinutes: 15,
+        matchDurationMinutes: SCHEDULE_DEFAULTS.matchDurationMinutes,
+        minRestTimeMinutes: SCHEDULE_DEFAULTS.minRestTimeMinutes,
       };
 
       progress.value = 10;
@@ -263,7 +264,7 @@ export function useMatchScheduler() {
           }
 
           if (options.reflowMode === true) {
-            const isPublished = scoreData?.scheduleStatus === 'published' || Boolean(scoreData?.publishedAt);
+            const isPublished = scoreData?.scheduleStatus === SCHEDULE_STATUS.published || Boolean(scoreData?.publishedAt);
             if (isPublished && options.allowPublishedChanges !== true) {
               return false;
             }
@@ -309,7 +310,7 @@ export function useMatchScheduler() {
       const endTime = tournament?.endDate?.toDate?.() || undefined;
 
       const matchDurationMinutes =
-        options.matchDurationMinutes ?? settings.matchDurationMinutes ?? 30;
+        options.matchDurationMinutes ?? settings.matchDurationMinutes ?? SCHEDULE_DEFAULTS.matchDurationMinutes;
       const bufferMinutes = options.bufferMinutes ?? settings.bufferMinutes ?? 0;
       const concurrency = options.concurrency ?? (courts.length || 1);
 
@@ -319,7 +320,7 @@ export function useMatchScheduler() {
         matchDurationMinutes,
         bufferMinutes,
         concurrency,
-        minRestTimeMinutes: settings.minRestTimeMinutes ?? 15,
+        minRestTimeMinutes: settings.minRestTimeMinutes ?? SCHEDULE_DEFAULTS.minRestTimeMinutes,
       };
 
       console.log('[scheduleMatches] Time-first scheduling configuration:', {
@@ -439,12 +440,12 @@ export function useMatchScheduler() {
       // Only clear if match hasn't started (no startedAt)
       if (!data.startedAt) {
         batch.update(matchDoc.ref, {
-          courtId: null,
+          [SCHEDULE_FIELDS.courtId]: null,
           scheduledTime: null,
-          plannedStartAt: null,
-          plannedEndAt: null,
-          scheduleStatus: null,
-          scheduleVersion: null,
+          [SCHEDULE_FIELDS.plannedStartAt]: null,
+          [SCHEDULE_FIELDS.plannedEndAt]: null,
+          [SCHEDULE_FIELDS.scheduleStatus]: null,
+          [SCHEDULE_FIELDS.scheduleVersion]: null,
           updatedAt: serverTimestamp(),
         });
         cleared++;
