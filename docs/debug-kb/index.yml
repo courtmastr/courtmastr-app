@@ -432,3 +432,24 @@
   fingerprint: "796256c1"
   command: "npm run test:log -- tests/unit/BracketSlotStateRendering.test.ts"
   artifact_log: "docs/debug-kb/_artifacts/2026-02-27-15-32-12.vitest-tests-unit-BracketSlotStateRendering-test-t.log"
+- id: 3bb69418
+  title: MatchControl BYE/TBD label test fails due fixture carrying participant2Id
+  status: "✅ fixed"
+  date: "2026-02-27"
+  fingerprint: "3bb69418"
+  command: "npm run test:log -- tests/unit/MatchControlView.assignments.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-15-34-36.vitest-tests-unit-MatchControlView-assignments-tes.log"
+- id: 20c8bab2
+  title: MatchControl BYE/TBD helper test returns TBD for expected BYE case
+  status: "✅ fixed"
+  date: "2026-02-27"
+  fingerprint: "20c8bab2"
+  command: "npm run test:log -- tests/unit/MatchControlView.assignments.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-15-35-22.vitest-tests-unit-MatchControlView-assignments-tes.log"
+- id: d01fb7fb
+  title: MatchControl BYE/TBD test fixture helper ignored overrides
+  status: "✅ fixed"
+  date: "2026-02-27"
+  fingerprint: "d01fb7fb"
+  command: "npm run test:log -- tests/unit/MatchControlView.assignments.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-15-36-33.vitest-tests-unit-MatchControlView-assignments-tes.log"

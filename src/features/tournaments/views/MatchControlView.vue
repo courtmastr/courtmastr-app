@@ -8,6 +8,7 @@ import { useNotificationStore } from '@/stores/notifications';
 import { useActivityStore } from '@/stores/activities';
 import { useAuthStore } from '@/stores/auth';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useMatchSlotState } from '@/composables/useMatchSlotState';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useDialogManager } from '@/composables/useDialogManager';
@@ -41,6 +42,7 @@ const notificationStore = useNotificationStore();
 const activityStore = useActivityStore();
 const authStore = useAuthStore();
 const { getParticipantName } = useParticipantResolver();
+const { getSlotLabel } = useMatchSlotState();
 const { getMatchDisplayName } = useMatchDisplay();
 const { open: openDialog, close: closeDialog, isOpen: isDialogOpen } = useDialogManager([
   'assignCourt', 'selectMatchForCourt', 'schedule', 'score', 'autoSchedule', 'release', 'reset', 'share'
@@ -313,8 +315,8 @@ const filteredMatches = computed(() => {
   if (scheduleFilters.value.searchQuery.trim()) {
     const query = scheduleFilters.value.searchQuery.toLowerCase();
     result = result.filter((m) => {
-      const p1Name = getParticipantName(m.participant1Id).toLowerCase();
-      const p2Name = getParticipantName(m.participant2Id).toLowerCase();
+      const p1Name = getMatchParticipantLabel(m, 'participant1').toLowerCase();
+      const p2Name = getMatchParticipantLabel(m, 'participant2').toLowerCase();
       const matchNumber = String(m.matchNumber);
       return p1Name.includes(query) || p2Name.includes(query) || matchNumber.includes(query);
     });
@@ -336,8 +338,8 @@ const filteredMatches = computed(() => {
         comparison = getCategoryName(a.categoryId).localeCompare(getCategoryName(b.categoryId));
         break;
       case 'participants': {
-        const aName = getParticipantName(a.participant1Id);
-        const bName = getParticipantName(b.participant1Id);
+        const aName = getMatchParticipantLabel(a, 'participant1');
+        const bName = getMatchParticipantLabel(b, 'participant1');
         comparison = aName.localeCompare(bName);
         break;
       }
@@ -577,6 +579,10 @@ function getBracketCode(match: Match): string {
   return 'WB';
 }
 
+function getMatchParticipantLabel(match: Match, slot: 'participant1' | 'participant2'): string {
+  return getSlotLabel(match, slot, getParticipantName);
+}
+
 function getMatchScheduleTime(match: Match): Date | undefined {
   return match.plannedStartAt ?? match.scheduledTime;
 }
@@ -606,7 +612,7 @@ function getMatchScheduleStateIcon(match: Match): string {
 }
 
 function getMatchParticipantsTooltip(match: Match): string {
-  return `${getParticipantName(match.participant1Id)} vs ${getParticipantName(match.participant2Id)}`;
+  return `${getMatchParticipantLabel(match, 'participant1')} vs ${getMatchParticipantLabel(match, 'participant2')}`;
 }
 
 function canScoreMatch(match: Match): boolean {
@@ -1012,7 +1018,7 @@ async function confirmUnschedule(): Promise<void> {
     activityStore.logActivity(
       tournamentId.value,
       'match_reassigned',
-      `Unscheduled: ${getParticipantName(match.participant1Id)} vs ${getParticipantName(match.participant2Id)}`
+      `Unscheduled: ${getMatchParticipantLabel(match, 'participant1')} vs ${getMatchParticipantLabel(match, 'participant2')}`
     );
   } catch (error) {
     console.error('Failed to unschedule:', error);
@@ -1469,18 +1475,18 @@ async function confirmCompleteTournament(): Promise<void> {
                       v-bind="props"
                       class="d-flex flex-column schedule-participants-cell"
                     >
-                      <span
-                        :class="{ 'font-weight-bold text-success': item.winnerId === item.participant1Id }"
-                        class="text-body-2 schedule-participant-line"
-                      >
-                        {{ getParticipantName(item.participant1Id) }}
-                      </span>
-                      <span
-                        :class="{ 'font-weight-bold text-success': item.winnerId === item.participant2Id }"
-                        class="text-body-2 schedule-participant-line"
-                      >
-                        {{ getParticipantName(item.participant2Id) }}
-                      </span>
+                    <span
+                      :class="{ 'font-weight-bold text-success': item.winnerId === item.participant1Id }"
+                      class="text-body-2 schedule-participant-line"
+                    >
+                      {{ getMatchParticipantLabel(item, 'participant1') }}
+                    </span>
+                    <span
+                      :class="{ 'font-weight-bold text-success': item.winnerId === item.participant2Id }"
+                      class="text-body-2 schedule-participant-line"
+                    >
+                      {{ getMatchParticipantLabel(item, 'participant2') }}
+                    </span>
                     </div>
                   </template>
                 </v-tooltip>
@@ -1719,13 +1725,13 @@ async function confirmCompleteTournament(): Promise<void> {
                       :class="{ 'font-weight-bold text-success': item.winnerId === item.participant1Id }"
                       class="schedule-participant-line"
                     >
-                      {{ getParticipantName(item.participant1Id) }}
+                      {{ getMatchParticipantLabel(item, 'participant1') }}
                     </span>
                     <span
                       :class="{ 'font-weight-bold text-success': item.winnerId === item.participant2Id }"
                       class="schedule-participant-line"
                     >
-                      {{ getParticipantName(item.participant2Id) }}
+                      {{ getMatchParticipantLabel(item, 'participant2') }}
                     </span>
                   </div>
                 </template>

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { shallowMount } from '@vue/test-utils';
 import type { Match } from '@/types';
 import MatchControlView from '@/features/tournaments/views/MatchControlView.vue';
+import { useMatchSlotState } from '@/composables/useMatchSlotState';
 
 const runtimeState = {
   isAdmin: false,
@@ -150,6 +151,8 @@ vi.mock('@/composables/useTournamentStateAdvance', () => ({
 interface MatchControlAssignmentsVm {
   canAdminAssignAnyway: (match: Match) => boolean;
   openAssignCourtDialog: (match: Match, options?: { ignoreCheckInGate?: boolean }) => void;
+  getMatchParticipantLabel: (match: Match, slot: 'participant1' | 'participant2') => string;
+  getMatchParticipantsTooltip: (match: Match) => string;
   viewMode: 'queue' | 'schedule' | 'command';
   selectedCategory: string;
   scheduleViewMode: 'compact' | 'full';
@@ -158,7 +161,7 @@ interface MatchControlAssignmentsVm {
   };
 }
 
-const makeMatch = (): Match => ({
+const makeMatch = (overrides: Partial<Match> = {}): Match => ({
   id: 'match-1',
   tournamentId: 't1',
   categoryId: 'cat-1',
@@ -177,6 +180,7 @@ const makeMatch = (): Match => ({
   scores: [],
   createdAt: new Date('2026-02-27T09:00:00.000Z'),
   updatedAt: new Date('2026-02-27T09:00:00.000Z'),
+  ...overrides,
 });
 
 const mountView = () =>
@@ -301,5 +305,34 @@ describe('MatchControlView assignment actions', () => {
     expect(vm.selectedCategory).toBe('cat-1');
     expect(vm.scheduleFilters.publicState).toBe('draft');
     expect(vm.scheduleViewMode).toBe('full');
+  });
+
+  it('maps missing slots to BYE/TBD labels via shared slot-state rules', () => {
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as MatchControlAssignmentsVm;
+    const slotState = useMatchSlotState();
+
+    const byeMatch = makeMatch({
+      participant1Id: 'reg-1',
+      winnerId: 'reg-1',
+      status: 'completed',
+    });
+    byeMatch.participant2Id = undefined;
+    const tbdMatch = makeMatch({
+      participant1Id: 'reg-1',
+      winnerId: undefined,
+      status: 'ready',
+    });
+    tbdMatch.participant2Id = undefined;
+
+    expect(byeMatch.participant2Id).toBeUndefined();
+    expect(tbdMatch.participant2Id).toBeUndefined();
+    expect(slotState.getSlotLabel(byeMatch, 'participant2', (registrationId) => registrationId || 'Unknown')).toBe('BYE');
+    expect(slotState.getSlotLabel(tbdMatch, 'participant2', (registrationId) => registrationId || 'Unknown')).toBe('TBD');
+
+    expect(vm.getMatchParticipantLabel(byeMatch, 'participant2')).toBe('BYE');
+    expect(vm.getMatchParticipantLabel(tbdMatch, 'participant2')).toBe('TBD');
+    expect(vm.getMatchParticipantsTooltip(byeMatch)).toContain('BYE');
+    expect(vm.getMatchParticipantsTooltip(tbdMatch)).toContain('TBD');
   });
 });
