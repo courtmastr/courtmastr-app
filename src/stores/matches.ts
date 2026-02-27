@@ -38,6 +38,10 @@ import {
 import { useAdvanceWinner } from '@/composables/useAdvanceWinner';
 import { useAuthStore } from '@/stores/auth';
 import { useAuditStore } from '@/stores/audit';
+import {
+  saveManualPlannedTime as saveManualPlannedTimeOp,
+  publishMatchSchedule as publishMatchScheduleOp,
+} from '@/scheduling/useScheduleStore';
 import type { ScoreCorrectionRecord } from '@/types/scoring';
 
 const USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER = false;
@@ -1556,19 +1560,15 @@ export const useMatchStore = defineStore('matches', () => {
     categoryId?: string,
     levelId?: string
   ): Promise<void> {
-    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
-    const plannedEndAt = new Date(plannedStartAt.getTime() + matchDurationMinutes * 60_000);
-    await setDoc(
-      doc(db, matchScoresPath, matchId),
-      {
-        plannedStartAt: Timestamp.fromDate(plannedStartAt),
-        plannedEndAt: Timestamp.fromDate(plannedEndAt),
-        scheduleStatus: 'draft',
-        lockedTime: locked,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+    await saveManualPlannedTimeOp({
+      tournamentId,
+      matchId,
+      categoryId,
+      levelId,
+      plannedStartAt,
+      matchDurationMinutes,
+      locked,
+    });
   }
 
   async function publishMatchSchedule(
@@ -1578,17 +1578,13 @@ export const useMatchStore = defineStore('matches', () => {
     levelId?: string,
     publishedBy = 'system'
   ): Promise<void> {
-    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
-    await setDoc(
-      doc(db, matchScoresPath, matchId),
-      {
-        scheduleStatus: 'published',
-        publishedAt: serverTimestamp(),
-        publishedBy,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+    await publishMatchScheduleOp({
+      tournamentId,
+      matchId,
+      categoryId,
+      levelId,
+      publishedBy,
+    });
   }
 
   return {

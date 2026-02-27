@@ -23,10 +23,19 @@ import MatchQueueList from '@/features/tournaments/components/MatchQueueList.vue
 import CourtGrid from '@/features/tournaments/components/CourtGrid.vue';
 import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
 import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
+import ScheduleGridView from '@/features/tournaments/components/ScheduleGridView.vue';
 import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
 import type { Match } from '@/types';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
+import {
+  buildScheduleExportRows,
+  downloadScheduleAsExcel,
+} from '@/features/tournaments/utils/scheduleExport';
+import {
+  buildDisplayCodeMap,
+  buildGlobalMatchKey,
+} from '@/features/tournaments/utils/matchDisplayIdentity';
 import {
   parseScheduleQueryCategory,
   parseScheduleQueryLayout,
@@ -573,6 +582,14 @@ function getCourtName(courtId: string | undefined): string {
   return court?.name || 'Unknown';
 }
 
+const displayCodeMap = computed<Map<string, string>>(() =>
+  buildDisplayCodeMap(matches.value, getCategoryName)
+);
+
+function getDisplayCode(match: Match): string {
+  return displayCodeMap.value.get(buildGlobalMatchKey(match)) ?? match.id;
+}
+
 function getBracketCode(match: Match): string {
   if (match.bracketPosition?.bracket === 'losers') return 'LB';
   if (match.bracketPosition?.bracket === 'finals') return 'F';
@@ -690,6 +707,17 @@ function getPrimaryRowAction(match: Match): 'score' | 'assign' | null {
 
 function openPublicSchedulePage(): void {
   router.push(`/tournaments/${tournamentId.value}/schedule`);
+}
+
+function handleExcelExport(): void {
+  const rows = buildScheduleExportRows(
+    filteredMatches.value,
+    (categoryId: string) => getCategoryName(categoryId),
+    (registrationId: string | undefined) => getParticipantName(registrationId),
+    (courtId: string | undefined) => getCourtName(courtId),
+    { allMatches: matches.value },
+  );
+  downloadScheduleAsExcel(rows, tournament.value?.name ?? 'tournament');
 }
 
 function openAssignCourtDialog(match: Match, options: { ignoreCheckInGate?: boolean } = {}): void {
@@ -1377,6 +1405,16 @@ async function confirmCompleteTournament(): Promise<void> {
                 >
                   Open Public Schedule
                 </v-btn>
+                <v-btn
+                  v-if="scheduleViewMode === 'full'"
+                  size="small"
+                  variant="outlined"
+                  color="success"
+                  prepend-icon="mdi-microsoft-excel"
+                  @click="handleExcelExport"
+                >
+                  Download Excel
+                </v-btn>
                 <v-btn-toggle
                   v-model="scheduleViewMode"
                   density="compact"
@@ -1444,7 +1482,8 @@ async function confirmCompleteTournament(): Promise<void> {
           <v-data-table
             :items="filteredMatches"
             :headers="[
-              { title: 'Match', key: 'match', width: '40%', sortable: false },
+              { title: 'Code', key: 'displayCode', width: '88px', sortable: false },
+              { title: 'Match', key: 'match', width: '34%', sortable: false },
               { title: 'Status', key: 'status', width: '100px', sortable: true },
               { title: 'Court', key: 'court', width: '120px', sortable: true },
               { title: 'Actions', key: 'actions', align: 'end', sortable: false },
@@ -1457,6 +1496,12 @@ async function confirmCompleteTournament(): Promise<void> {
             show-expand
             item-value="id"
           >
+            <template #item.displayCode="{ item }">
+              <span class="font-weight-bold text-primary text-caption">
+                {{ getDisplayCode(item) }}
+              </span>
+            </template>
+
             <template #item.match="{ item }">
               <div class="d-flex flex-column py-1">
                 <div class="d-flex align-center gap-2 mb-1">
@@ -1475,18 +1520,18 @@ async function confirmCompleteTournament(): Promise<void> {
                       v-bind="props"
                       class="d-flex flex-column schedule-participants-cell"
                     >
-                    <span
-                      :class="{ 'font-weight-bold text-success': item.winnerId === item.participant1Id }"
-                      class="text-body-2 schedule-participant-line"
-                    >
-                      {{ getMatchParticipantLabel(item, 'participant1') }}
-                    </span>
-                    <span
-                      :class="{ 'font-weight-bold text-success': item.winnerId === item.participant2Id }"
-                      class="text-body-2 schedule-participant-line"
-                    >
-                      {{ getMatchParticipantLabel(item, 'participant2') }}
-                    </span>
+                      <span
+                        :class="{ 'font-weight-bold text-success': item.winnerId === item.participant1Id }"
+                        class="text-body-2 schedule-participant-line"
+                      >
+                        {{ getMatchParticipantLabel(item, 'participant1') }}
+                      </span>
+                      <span
+                        :class="{ 'font-weight-bold text-success': item.winnerId === item.participant2Id }"
+                        class="text-body-2 schedule-participant-line"
+                      >
+                        {{ getMatchParticipantLabel(item, 'participant2') }}
+                      </span>
                     </div>
                   </template>
                 </v-tooltip>
@@ -1655,6 +1700,7 @@ async function confirmCompleteTournament(): Promise<void> {
                   class="bg-grey-lighten-5 pa-4"
                 >
                   <div class="d-flex flex-wrap gap-4 text-body-2">
+                    <div><strong>Code:</strong> {{ getDisplayCode(item) }}</div>
                     <div><strong>Match:</strong> {{ getBracketCode(item) }}-{{ item.matchNumber }}</div>
                     <div><strong>Round:</strong> {{ item.round }}</div>
                     <div><strong>Category:</strong> {{ getCategoryName(item.categoryId) }}</div>
@@ -1678,268 +1724,14 @@ async function confirmCompleteTournament(): Promise<void> {
           v-else
           class="flex-grow-1 overflow-auto"
         >
-          <v-data-table
-            :items="filteredMatches"
-            :headers="[
-              { title: 'Match', key: 'matchNumber', align: 'start', sortable: true },
-              { title: 'Category', key: 'categoryId', sortable: true },
-              { title: 'Round', key: 'round', sortable: true },
-              { title: 'Participants', key: 'participants', sortable: false },
-              { title: 'Score', key: 'score', sortable: false },
-              { title: 'Court', key: 'courtId', sortable: true },
-              { title: 'Planned Time', key: 'scheduledTime', sortable: true },
-              { title: 'Public', key: 'scheduleVisibility', sortable: false },
-              { title: 'Status', key: 'status', sortable: true },
-              { title: 'Actions', key: 'actions', align: 'end', sortable: false },
-            ]"
-            item-value="id"
-            hover
-            sticky-header
-            class="fill-height schedule-table"
-            fixed-header
-          >
-            <template #item.matchNumber="{ item }">
-              <div class="d-flex flex-column py-1">
-                <span class="font-weight-bold text-grey">#{{ item.id }}</span>
-                <span class="text-caption text-medium-emphasis">{{ getBracketCode(item) }}-{{ item.matchNumber }}</span>
-              </div>
-            </template>
-
-            <template #item.categoryId="{ item }">
-              <v-chip
-                size="x-small"
-                variant="outlined"
-              >
-                {{ getCategoryName(item.categoryId) }}
-              </v-chip>
-            </template>
-            
-            <template #item.participants="{ item }">
-              <v-tooltip :text="getMatchParticipantsTooltip(item)">
-                <template #activator="{ props }">
-                  <div
-                    v-bind="props"
-                    class="d-flex flex-column py-1 schedule-participants-cell"
-                  >
-                    <span
-                      :class="{ 'font-weight-bold text-success': item.winnerId === item.participant1Id }"
-                      class="schedule-participant-line"
-                    >
-                      {{ getMatchParticipantLabel(item, 'participant1') }}
-                    </span>
-                    <span
-                      :class="{ 'font-weight-bold text-success': item.winnerId === item.participant2Id }"
-                      class="schedule-participant-line"
-                    >
-                      {{ getMatchParticipantLabel(item, 'participant2') }}
-                    </span>
-                  </div>
-                </template>
-              </v-tooltip>
-            </template>
-
-            <template #item.score="{ item }">
-              <span
-                v-if="item.scores && item.scores.length > 0"
-                class="font-weight-medium font-mono text-body-2"
-              >
-                {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
-              </span>
-              <span
-                v-else
-                class="text-caption text-grey"
-              >-</span>
-            </template>
-
-            <template #item.courtId="{ item }">
-              <div v-if="item.courtId">
-                <v-icon
-                  size="small"
-                  :color="item.status === 'in_progress' ? 'success' : 'grey'"
-                  class="mr-1"
-                >
-                  mdi-court-sport
-                </v-icon>
-                {{ getCourtName(item.courtId) }}
-              </div>
-              <span
-                v-else
-                class="text-grey-lighten-1"
-              >-</span>
-            </template>
-
-            <template #item.scheduledTime="{ item }">
-              <div
-                v-if="getMatchScheduleTime(item)"
-                class="d-flex align-center text-caption"
-              >
-                <v-icon
-                  size="small"
-                  class="mr-1"
-                >
-                  mdi-clock-outline
-                </v-icon>
-                {{ new Date(getMatchScheduleTime(item)!).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
-              </div>
-              <span
-                v-else
-                class="text-grey-lighten-1 text-caption"
-              >-</span>
-            </template>
-
-            <template #item.scheduleVisibility="{ item }">
-              <v-chip
-                size="x-small"
-                variant="flat"
-                :color="getMatchScheduleStateColor(item)"
-                :prepend-icon="getMatchScheduleStateIcon(item)"
-                class="schedule-public-chip"
-              >
-                {{ getMatchScheduleStateLabel(item) }}
-              </v-chip>
-            </template>
-
-            <template #item.status="{ item }">
-              <div class="d-flex flex-column align-start ga-1 py-1">
-                <v-chip
-                  size="small"
-                  :color="getStatusColor(item.status)"
-                  variant="flat"
-                  class="text-uppercase font-weight-bold"
-                  style="font-size: 10px; height: 20px;"
-                >
-                  {{ item.status.replace('_', ' ') }}
-                </v-chip>
-              </div>
-            </template>
-
-            <template #item.actions="{ item }">
-              <div class="d-flex justify-end gap-1">
-                <v-btn
-                  v-if="getPrimaryRowAction(item) === 'score'"
-                  size="small"
-                  color="primary"
-                  variant="tonal"
-                  prepend-icon="mdi-scoreboard"
-                  @click="openScoreDialog(item.id)"
-                >
-                  Score
-                </v-btn>
-                 
-                <v-btn
-                  v-else-if="getPrimaryRowAction(item) === 'assign'"
-                  size="small"
-                  color="secondary"
-                  variant="tonal"
-                  prepend-icon="mdi-court-sport"
-                  @click="openAssignCourtDialog(item)"
-                >
-                  Assign
-                </v-btn>
-                <v-tooltip
-                  v-else-if="shouldShowBlockedAssign(item)"
-                  :text="getMatchAssignBlockersText(item)"
-                >
-                  <template #activator="{ props }">
-                    <span v-bind="props">
-                      <v-btn
-                        size="small"
-                        color="grey"
-                        variant="tonal"
-                        prepend-icon="mdi-lock-outline"
-                        disabled
-                      >
-                        Assign
-                      </v-btn>
-                    </span>
-                  </template>
-                </v-tooltip>
-                 
-                <v-menu>
-                  <template #activator="{ props }">
-                    <v-btn
-                      icon="mdi-dots-vertical"
-                      variant="text"
-                      size="small"
-                      :aria-label="`More actions for match ${item.id}`"
-                      v-bind="props"
-                    />
-                  </template>
-                  <v-list density="compact">
-                    <v-list-item
-                      v-if="canScoreMatch(item) && getPrimaryRowAction(item) !== 'score'"
-                      prepend-icon="mdi-scoreboard"
-                      title="Score"
-                      @click="openScoreDialog(item.id)"
-                    />
-                    <v-list-item
-                      v-if="canAssignCourtToMatch(item) && getPrimaryRowAction(item) !== 'assign'"
-                      prepend-icon="mdi-court-sport"
-                      title="Assign Court"
-                      @click="openAssignCourtDialog(item)"
-                    />
-                    <v-list-item
-                      v-if="canAdminAssignAnyway(item)"
-                      prepend-icon="mdi-alert-decagram-outline"
-                      title="Assign Anyway (Admin)"
-                      @click="openAssignCourtDialog(item, { ignoreCheckInGate: true })"
-                    />
-                    <v-list-item
-                      v-if="shouldShowBlockedAssign(item) && !canAdminAssignAnyway(item)"
-                      prepend-icon="mdi-lock-outline"
-                      :title="getMatchAssignBlockersText(item)"
-                      disabled
-                    />
-                    <v-list-item
-                      prepend-icon="mdi-pencil"
-                      title="Edit Schedule"
-                      @click="openScheduleDialog(item)"
-                    />
-                    <v-list-item
-                      v-if="canOpenSchedulePublishNow(item)"
-                      prepend-icon="mdi-calendar-check-outline"
-                      title="Schedule + Publish Now"
-                      @click="openSchedulePublishNowDialog(item)"
-                    />
-                    <v-list-item 
-                      v-if="item.status !== 'completed' && item.status !== 'walkover'"
-                      prepend-icon="mdi-flag-checkered" 
-                      title="Force Complete" 
-                      @click="openCompleteMatchDialog(item.id)"
-                    />
-                    <v-list-item 
-                      v-if="item.status === 'scheduled' || item.status === 'ready'"
-                      prepend-icon="mdi-calendar-remove" 
-                      title="Unschedule" 
-                      color="warning"
-                      @click="handleUnschedule({ matchId: item.id, categoryId: item.categoryId, levelId: item.levelId })"
-                    />
-                  </v-list>
-                </v-menu>
-              </div>
-            </template>
-            
-            <template #no-data>
-              <div class="text-center py-8 text-grey">
-                <v-icon
-                  size="48"
-                  class="mb-2"
-                >
-                  mdi-filter-off
-                </v-icon>
-                <div>No matches found matching standard filters</div>
-                <v-btn
-                  color="primary"
-                  variant="text"
-                  size="small"
-                  class="mt-2"
-                  @click="resetScheduleFilters"
-                >
-                  Reset Filters
-                </v-btn>
-              </div>
-            </template>
-          </v-data-table>
+          <ScheduleGridView
+            :matches="filteredMatches"
+            :all-matches="matches"
+            :courts="courts"
+            :public-state="scheduleFilters.publicState"
+            :get-category-name="getCategoryName"
+            :get-participant-name="getParticipantName"
+          />
         </div>
       </div>
 

@@ -2543,6 +2543,38 @@ fi
 
 ---
 
+### CP-053: Category Alias Parsing Must Use Word-Boundary Gender Tokens
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-27 |
+| **Source Bug** | Display-code generator mapped `"Women's Singles"` to `MS` because `"women's"` contains `"men"` as a substring |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const normalized = categoryName.toLowerCase();
+const isMen = normalized.includes('men');
+const isWomen = normalized.includes('women');
+```
+
+**Correct Pattern (✅):**
+```typescript
+const normalized = categoryName.toLowerCase();
+const isWomen = /\bwomen(?:'s)?\b/i.test(normalized);
+const isMen = /\bmen(?:'s)?\b/i.test(normalized);
+```
+
+**Rule:** Any alias/token parser that distinguishes `men` vs `women` must use word-level matching (regex boundaries or tokenization), never raw substring checks.
+
+**Detection:**
+```bash
+rg -n "includes\\(['\"]men['\"]\\)|includes\\(['\"]women['\"]\\)" src/features src/composables src/stores --glob "*.ts" --glob "*.vue"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

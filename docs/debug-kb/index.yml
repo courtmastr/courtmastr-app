@@ -1,3 +1,24 @@
+- id: 2e7da4d1
+  title: test:log fails when Women category aliases resolve to MS in useMatchIdentification
+  status: "✅ fixed"
+  date: "2026-02-27"
+  fingerprint: "2e7da4d1"
+  command: "npm run test:log -- run tests/unit/useMatchIdentification.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-19-27-07.vitest-run-tests-unit-useMatchIdentification-test-.log"
+- id: e6b663c4
+  title: test:log fails on women category alias colliding with men substring
+  status: "✅ fixed"
+  date: "2026-02-27"
+  fingerprint: "e6b663c4"
+  command: "npm run test:log -- run tests/unit/matchDisplayIdentity.test.ts tests/unit/scheduleExport.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-18-23-48.vitest-run-tests-unit-matchDisplayIdentity-test-ts.log"
+- id: e429a6b6
+  title: test:log fails on category alias parsing and missing schedule export display identity fields
+  status: "✅ fixed"
+  date: "2026-02-27"
+  fingerprint: "e429a6b6"
+  command: "npm run test:log -- run tests/unit/matchDisplayIdentity.test.ts tests/unit/scheduleExport.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-18-20-39.vitest-run-tests-unit-matchDisplayIdentity-test-ts.log"
 - id: 695ac768
   title: lint:log fails on existing repository-wide ESLint baseline violations
   status: "🟡 workaround"

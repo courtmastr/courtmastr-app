@@ -410,7 +410,6 @@ export function useMatchScheduler() {
       doc(db, matchScoresPath, matchId),
       {
         courtId,
-        scheduledTime: Timestamp.fromDate(scheduledTime),
         updatedAt: serverTimestamp(),
       },
       { merge: true }

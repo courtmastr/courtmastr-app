@@ -9,6 +9,9 @@ import {
   buildOccupiedWindows,
   extractScheduledWindows,
   findCapacityConflict,
+  useScheduleOrchestrator,
+  saveManualPlannedTime,
+  publishMatchSchedule,
 } from '@/scheduling';
 
 describe('scheduling barrel index', () => {
@@ -21,4 +24,7 @@ describe('scheduling barrel index', () => {
   it('exports buildOccupiedWindows', () => expect(buildOccupiedWindows).toBeDefined());
   it('exports extractScheduledWindows', () => expect(extractScheduledWindows).toBeDefined());
   it('exports findCapacityConflict', () => expect(findCapacityConflict).toBeDefined());
+  it('exports useScheduleOrchestrator', () => expect(useScheduleOrchestrator).toBeDefined());
+  it('exports saveManualPlannedTime', () => expect(saveManualPlannedTime).toBeDefined());
+  it('exports publishMatchSchedule', () => expect(publishMatchSchedule).toBeDefined());
 });

@@ -1,25 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useAuthStore } from '@/stores/auth';
 import { useMatchStore } from '@/stores/matches';
 import { useNotificationStore } from '@/stores/notifications';
 import { useTournamentStore } from '@/stores/tournaments';
-import { useMatchScheduler, type ScheduleResult } from '@/composables/useMatchScheduler';
-import { clearTimedScheduleScopes, publishSchedule } from '@/composables/useTimeScheduler';
+import { type ScheduleResult } from '@/composables/useMatchScheduler';
+import { resolveScheduleTargetsForCategory } from '@/scheduling/autoScheduleTargets';
 import {
-  resolveScheduleTargetsForCategory,
-  type ScheduleTarget,
-} from '@/scheduling/autoScheduleTargets';
-import {
-  buildOccupiedWindows,
-  extractScheduledWindows,
-  findCapacityConflict,
-  type OccupiedScheduleWindow,
-} from '@/scheduling/scheduleCapacityGuard';
+  useScheduleOrchestrator,
+  type SchedulingMode,
+} from '@/scheduling/useScheduleOrchestrator';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import type { Category, Court } from '@/types';
 
-type SchedulingMode = 'sequential' | 'parallel_partitioned';
 type ScheduleDialogContext = 'reflow' | 'schedule';
 
 const props = defineProps<{
@@ -36,14 +28,31 @@ const emit = defineEmits<{
   'scheduled': [result: ScheduleResult];
 }>();
 
-const scheduler = useMatchScheduler();
-const authStore = useAuthStore();
 const matchStore = useMatchStore();
 const notificationStore = useNotificationStore();
 const tournamentStore = useTournamentStore();
 
-const loading = ref(false);
-const publishing = ref(false);
+// ── orchestrator ──────────────────────────────────────────────────────────────
+// The orchestrator receives the static tournament/courts/categories.  Because
+// props may change when the dialog is reused, we pass them lazily via closures
+// inside the run/publish calls rather than binding them once at setup time.
+// For scheduleTargets (the computed exposed by the orchestrator) we create a
+// local orchestrator bound to the current props at render time.
+const orchestrator = computed(() =>
+  useScheduleOrchestrator(props.tournamentId, props.courts, props.categories)
+);
+
+// Aliases – the template uses these names directly.
+const isRunning = computed(() => orchestrator.value.isRunning.value);
+const isPublishing = computed(() => orchestrator.value.isPublishing.value);
+const lastResult = computed(() => orchestrator.value.lastResult.value);
+const hasDraft = computed(() => orchestrator.value.hasDraft.value);
+
+// loading / publishing aliases kept for template backward-compat
+const loading = computed(() => isRunning.value);
+const publishing = computed(() => isPublishing.value);
+
+// ── local form state ──────────────────────────────────────────────────────────
 const selectedCategoryIds = ref<string[]>([]);
 const startTime = ref('');
 const matchDuration = ref(20);
@@ -53,6 +62,7 @@ const concurrency = ref(0); // 0 = use all active courts
 const allowPublishedChanges = ref(false);
 const categoryCourtBudgets = ref<Record<string, number>>({});
 
+// ── derived UI state ──────────────────────────────────────────────────────────
 const isReflowContext = computed(() => props.dialogContext !== 'schedule');
 const selectedIntent = computed<'schedule' | 'reschedule' | 'mixed' | 'reflow'>(() => {
   if (isReflowContext.value) return 'reflow';
@@ -148,15 +158,6 @@ const isParallelPartitioned = computed(
   () => mode.value === 'parallel_partitioned' && selectedCategoryIds.value.length > 1
 );
 
-const effectiveConcurrency = computed(() =>
-  availableCourtCount.value === 0
-    ? 0
-    : Math.min(
-        concurrency.value > 0 ? concurrency.value : availableCourtCount.value,
-        availableCourtCount.value
-      )
-);
-
 const allocatedCourtTotal = computed(() =>
   selectedCategoryIds.value.reduce(
     (sum, categoryId) => sum + Math.max(0, Number(categoryCourtBudgets.value[categoryId] ?? 0)),
@@ -183,67 +184,7 @@ const allocationInvalidReason = computed<string | null>(() => {
   return null;
 });
 
-interface DraftSummary {
-  totalScheduled: number;
-  totalUnscheduled: number;
-  estimatedEndTime: Date | null;
-  unscheduledList: ScheduleResult['unscheduled'];
-  scheduledCategoryIds: string[];
-}
-
-const lastResult = ref<DraftSummary | null>(null);
-const hasDraft = computed(() => Boolean(lastResult.value && lastResult.value.totalScheduled > 0));
-const MAX_CAPACITY_GUARD_ITERATIONS = 24;
-
-function getCategoryName(categoryId: string): string {
-  return props.categories.find((category) => category.id === categoryId)?.name ?? categoryId;
-}
-
-function getTargetScopeLabel(target: ScheduleTarget): string {
-  if (!target.levelId) {
-    return getCategoryName(target.categoryId);
-  }
-  return `${getCategoryName(target.categoryId)} (${target.levelId})`;
-}
-
-function formatDateTime(date: Date): string {
-  return date.toLocaleString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function buildCapacityOccupiedWindows(): OccupiedScheduleWindow[] {
-  return buildOccupiedWindows(matchStore.matches, {
-    fallbackDurationMinutes: Math.max(1, matchDuration.value),
-    excludeScopes: scheduleTargets.value,
-  });
-}
-
-function notifyAdjustedStart(target: ScheduleTarget, from: Date, to: Date): void {
-  if (from.getTime() === to.getTime()) return;
-  notificationStore.showToast(
-    'warning',
-    `Start adjusted for ${getTargetScopeLabel(target)} from ${formatDateTime(from)} to ${formatDateTime(to)} to avoid overlap with existing draft/published schedule.`
-  );
-}
-
-function getDefaultStartTimeValue(): string {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-}
-
-function getInitialCategorySelection(): string[] {
-  const available = new Set(props.categories.map((category) => category.id));
-  const requested = (props.initialCategoryIds ?? []).filter((categoryId) => available.has(categoryId));
-  if (requested.length > 0) {
-    return [...new Set(requested)];
-  }
-  return props.categories.map((category) => category.id);
-}
+// ── budget helpers ────────────────────────────────────────────────────────────
 
 function normalizeBudget(value: unknown): number {
   const parsed = Number(value);
@@ -304,9 +245,26 @@ function setDefaultBudgets(): void {
   categoryCourtBudgets.value = nextBudgets;
 }
 
+// ── dialog lifecycle ──────────────────────────────────────────────────────────
+
+function getDefaultStartTimeValue(): string {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function getInitialCategorySelection(): string[] {
+  const available = new Set(props.categories.map((category) => category.id));
+  const requested = (props.initialCategoryIds ?? []).filter((categoryId) => available.has(categoryId));
+  if (requested.length > 0) {
+    return [...new Set(requested)];
+  }
+  return props.categories.map((category) => category.id);
+}
+
 function resetDialogState(): void {
   selectedCategoryIds.value = getInitialCategorySelection();
-  lastResult.value = null;
+  orchestrator.value.lastResult.value = null;
   matchDuration.value = tournamentStore.currentTournament?.settings?.matchDurationMinutes ?? 20;
   breakTime.value = Number(
     (tournamentStore.currentTournament?.settings as { bufferMinutes?: number } | undefined)
@@ -353,261 +311,7 @@ watch(mode, (nextMode) => {
   }
 });
 
-async function scheduleCategoryWithConfig(
-  target: ScheduleTarget,
-  scheduleStart: Date,
-  courtIds: string[],
-  categoryConcurrency: number,
-  dryRun = false
-): Promise<ScheduleResult> {
-  return scheduler.scheduleMatches(props.tournamentId, {
-    categoryId: target.categoryId,
-    levelId: target.levelId,
-    courtIds,
-    startTime: scheduleStart,
-    matchDurationMinutes: matchDuration.value,
-    bufferMinutes: breakTime.value,
-    concurrency: categoryConcurrency,
-    respectDependencies: false,
-    reflowMode: isReflowContext.value,
-    allowPublishedChanges: isReflowContext.value ? allowPublishedChanges.value : false,
-    includeAssignedMatches: isReflowContext.value ? false : undefined,
-    dryRun,
-  });
-}
-
-interface CapacityGuardRunResult {
-  result: ScheduleResult;
-  resolvedStart: Date;
-  shiftedFrom: Date | null;
-}
-
-async function runWithCapacityGuard(
-  target: ScheduleTarget,
-  requestedStart: Date,
-  courtIds: string[],
-  categoryConcurrency: number,
-  availableCapacity: number,
-  occupiedWindows: OccupiedScheduleWindow[]
-): Promise<CapacityGuardRunResult> {
-  const originalStart = new Date(requestedStart);
-  const scopedCapacity = Math.max(1, Math.floor(availableCapacity));
-
-  if (occupiedWindows.length === 0) {
-    const directResult = await scheduleCategoryWithConfig(
-      target,
-      originalStart,
-      courtIds,
-      categoryConcurrency
-    );
-    return {
-      result: directResult,
-      resolvedStart: originalStart,
-      shiftedFrom: null,
-    };
-  }
-
-  let candidateStart = new Date(originalStart);
-  for (let attempt = 0; attempt < MAX_CAPACITY_GUARD_ITERATIONS; attempt += 1) {
-    const dryRunResult = await scheduleCategoryWithConfig(
-      target,
-      candidateStart,
-      courtIds,
-      categoryConcurrency,
-      true
-    );
-
-    const candidateWindows = extractScheduledWindows(dryRunResult.scheduled);
-    if (candidateWindows.length === 0) {
-      const commitResult = await scheduleCategoryWithConfig(
-        target,
-        candidateStart,
-        courtIds,
-        categoryConcurrency
-      );
-      return {
-        result: commitResult,
-        resolvedStart: candidateStart,
-        shiftedFrom: candidateStart.getTime() === originalStart.getTime() ? null : originalStart,
-      };
-    }
-
-    const conflict = findCapacityConflict(occupiedWindows, candidateWindows, scopedCapacity);
-    if (!conflict) {
-      const commitResult = await scheduleCategoryWithConfig(
-        target,
-        candidateStart,
-        courtIds,
-        categoryConcurrency
-      );
-      return {
-        result: commitResult,
-        resolvedStart: candidateStart,
-        shiftedFrom: candidateStart.getTime() === originalStart.getTime() ? null : originalStart,
-      };
-    }
-
-    if (conflict.nextBoundaryMs <= candidateStart.getTime()) {
-      break;
-    }
-    candidateStart = new Date(conflict.nextBoundaryMs);
-  }
-
-  throw new Error('Unable to find non-conflicting schedule window with current court capacity');
-}
-
-async function runSequentialSchedule(start: Date): Promise<ScheduleResult> {
-  let totalScheduled = 0;
-  let totalUnscheduled = 0;
-  const allScheduled: ScheduleResult['scheduled'] = [];
-  const allUnscheduled: ScheduleResult['unscheduled'] = [];
-  let estimatedEndTime: Date | null = null;
-  let nextStart = new Date(start);
-  const occupiedWindows = buildCapacityOccupiedWindows();
-
-  for (const target of scheduleTargets.value) {
-    const capacityResult = await runWithCapacityGuard(
-      target,
-      nextStart,
-      activeCourtIds.value,
-      Math.max(1, effectiveConcurrency.value),
-      activeCourtIds.value.length,
-      occupiedWindows
-    );
-    notifyAdjustedStart(target, nextStart, capacityResult.resolvedStart);
-    const result = capacityResult.result;
-
-    totalScheduled += result.stats.scheduledCount;
-    totalUnscheduled += result.stats.unscheduledCount;
-    allScheduled.push(
-      ...result.scheduled.map((item) => ({
-        ...item,
-        matchId: `${getTargetScopeLabel(target)} • ${item.matchId}`,
-      }))
-    );
-    allUnscheduled.push(
-      ...result.unscheduled.map((item) => ({
-        ...item,
-        matchId: `${getTargetScopeLabel(target)} • ${item.matchId}`,
-      }))
-    );
-
-    const targetEnd = result.scheduled.reduce<Date | null>((latest, item) => {
-      if (!latest || item.estimatedEndTime > latest) return item.estimatedEndTime;
-      return latest;
-    }, null);
-
-    if (targetEnd && (!estimatedEndTime || targetEnd > estimatedEndTime)) {
-      estimatedEndTime = targetEnd;
-    }
-
-    if (targetEnd) {
-      nextStart = new Date(targetEnd.getTime() + breakTime.value * 60_000);
-    }
-  }
-
-  return {
-    scheduled: allScheduled,
-    unscheduled: allUnscheduled,
-    stats: {
-      totalMatches: totalScheduled + totalUnscheduled,
-      scheduledCount: totalScheduled,
-      unscheduledCount: totalUnscheduled,
-      courtUtilization: 0,
-      estimatedDuration: estimatedEndTime
-        ? Math.ceil((estimatedEndTime.getTime() - start.getTime()) / 60_000)
-        : 0,
-    },
-  };
-}
-
-async function runParallelPartitionedSchedule(start: Date): Promise<ScheduleResult> {
-  if (allocationInvalidReason.value) {
-    throw new Error(allocationInvalidReason.value);
-  }
-
-  const allScheduled: ScheduleResult['scheduled'] = [];
-  const allUnscheduled: ScheduleResult['unscheduled'] = [];
-  let totalScheduled = 0;
-  let totalUnscheduled = 0;
-  let estimatedEndTime: Date | null = null;
-  let courtCursor = 0;
-  const occupiedWindows = buildCapacityOccupiedWindows();
-  const targetsByCategoryId = new Map(
-    categoryTargets.value.map((entry) => [entry.categoryId, entry.targets])
-  );
-
-  for (const categoryId of selectedCategoryIds.value) {
-    const courtBudget = getCategoryBudget(categoryId);
-    const partitionCourtIds = activeCourtIds.value.slice(courtCursor, courtCursor + courtBudget);
-    courtCursor += courtBudget;
-
-    if (partitionCourtIds.length === 0) {
-      throw new Error(`No courts allocated for ${getCategoryName(categoryId)}`);
-    }
-
-    const targets = targetsByCategoryId.get(categoryId) || [{ categoryId }];
-    let categoryStart = new Date(start);
-    let categoryLatestEnd: Date | null = null;
-
-    for (const target of targets) {
-      const capacityResult = await runWithCapacityGuard(
-        target,
-        categoryStart,
-        partitionCourtIds,
-        partitionCourtIds.length,
-        partitionCourtIds.length,
-        occupiedWindows
-      );
-      notifyAdjustedStart(target, categoryStart, capacityResult.resolvedStart);
-      const result = capacityResult.result;
-
-      totalScheduled += result.stats.scheduledCount;
-      totalUnscheduled += result.stats.unscheduledCount;
-      allScheduled.push(
-        ...result.scheduled.map((item) => ({
-          ...item,
-          matchId: `${getTargetScopeLabel(target)} • ${item.matchId}`,
-        }))
-      );
-      allUnscheduled.push(
-        ...result.unscheduled.map((item) => ({
-          ...item,
-          matchId: `${getTargetScopeLabel(target)} • ${item.matchId}`,
-        }))
-      );
-
-      const targetEnd = result.scheduled.reduce<Date | null>((latest, item) => {
-        if (!latest || item.estimatedEndTime > latest) return item.estimatedEndTime;
-        return latest;
-      }, null);
-      if (targetEnd) {
-        categoryStart = new Date(targetEnd.getTime() + breakTime.value * 60_000);
-        if (!categoryLatestEnd || targetEnd > categoryLatestEnd) {
-          categoryLatestEnd = targetEnd;
-        }
-      }
-    }
-
-    if (categoryLatestEnd && (!estimatedEndTime || categoryLatestEnd > estimatedEndTime)) {
-      estimatedEndTime = categoryLatestEnd;
-    }
-  }
-
-  return {
-    scheduled: allScheduled,
-    unscheduled: allUnscheduled,
-    stats: {
-      totalMatches: totalScheduled + totalUnscheduled,
-      scheduledCount: totalScheduled,
-      unscheduledCount: totalUnscheduled,
-      courtUtilization: 0,
-      estimatedDuration: estimatedEndTime
-        ? Math.ceil((estimatedEndTime.getTime() - start.getTime()) / 60_000)
-        : 0,
-    },
-  };
-}
+// ── actions ───────────────────────────────────────────────────────────────────
 
 async function runSchedule() {
   if (selectedCategoryIds.value.length === 0) {
@@ -639,79 +343,32 @@ async function runSchedule() {
     return;
   }
 
-  loading.value = true;
-  lastResult.value = null;
-
   try {
-    const levelTargets = scheduleTargets.value.filter(
-      (target): target is ScheduleTarget & { levelId: string } => Boolean(target.levelId)
-    );
-
-    if (!isReflowContext.value && levelTargets.length > 0) {
-      await clearTimedScheduleScopes(props.tournamentId, levelTargets);
-    }
-
-    const start = new Date(startTime.value);
-    const result = isParallelPartitioned.value
-      ? await runParallelPartitionedSchedule(start)
-      : await runSequentialSchedule(start);
-
-    const estimatedEndTime = result.scheduled.reduce<Date | null>((latest, item) => {
-      if (!latest || item.estimatedEndTime > latest) return item.estimatedEndTime;
-      return latest;
-    }, null);
-
-    lastResult.value = {
-      totalScheduled: result.stats.scheduledCount,
-      totalUnscheduled: result.stats.unscheduledCount,
-      estimatedEndTime,
-      unscheduledList: result.unscheduled,
-      scheduledCategoryIds: [...selectedCategoryIds.value],
-    };
-
-    if (result.stats.unscheduledCount > 0) {
-      notificationStore.showToast(
-        'warning',
-        `Draft updated: ${result.stats.scheduledCount} matches scheduled, ${result.stats.unscheduledCount} unscheduled`
-      );
-    } else {
-      notificationStore.showToast('success', `Draft updated: ${result.stats.scheduledCount} matches scheduled`);
-    }
-
+    const result = await orchestrator.value.run({
+      selectedCategoryIds: selectedCategoryIds.value,
+      startTime: new Date(startTime.value),
+      matchDurationMinutes: matchDuration.value,
+      bufferMinutes: breakTime.value,
+      concurrency: concurrency.value,
+      mode: mode.value,
+      categoryCourtBudgets: categoryCourtBudgets.value,
+      isReflowContext: isReflowContext.value,
+      allowPublishedChanges: allowPublishedChanges.value,
+    });
     emit('scheduled', result);
-  } catch (error) {
-    console.error('Schedule dialog error:', error);
-    notificationStore.showToast(
-      'error',
-      error instanceof Error
-        ? error.message
-        : isReflowContext.value
-          ? 'Failed to re-schedule matches'
-          : 'Failed to schedule matches'
-    );
-  } finally {
-    loading.value = false;
+  } catch {
+    // orchestrator already showed a toast; nothing more to do here
   }
 }
 
 async function publishDraftSchedule() {
   if (!lastResult.value) return;
 
-  publishing.value = true;
   try {
-    const uid = authStore.currentUser?.id ?? 'unknown';
-    const { publishedCount } = await publishSchedule(
-      props.tournamentId,
-      lastResult.value.scheduledCategoryIds,
-      uid
-    );
-    notificationStore.showToast('success', `Published schedule (${publishedCount} matches)`);
+    await orchestrator.value.publish(lastResult.value.scheduledCategoryIds);
     emit('update:modelValue', false);
-  } catch (error) {
-    console.error('Publish error:', error);
-    notificationStore.showToast('error', 'Failed to publish schedule');
-  } finally {
-    publishing.value = false;
+  } catch {
+    // orchestrator already showed a toast
   }
 }
 

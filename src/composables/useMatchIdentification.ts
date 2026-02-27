@@ -45,11 +45,12 @@ function generateCategoryCode(categoryName: string): string {
   let code = '';
   
   for (const word of words) {
-    if (word.toLowerCase().includes('men')) code += 'M';
-    else if (word.toLowerCase().includes('women')) code += 'W';
-    else if (word.toLowerCase().includes('mixed')) code += 'X';
-    else if (word.toLowerCase().includes('single')) code += 'S';
-    else if (word.toLowerCase().includes('double')) code += 'D';
+    const normalizedWord = word.toLowerCase();
+    if (/\bwomen(?:'s)?\b/i.test(normalizedWord)) code += 'W';
+    else if (/\bmen(?:'s)?\b/i.test(normalizedWord)) code += 'M';
+    else if (/\bmixed\b/i.test(normalizedWord)) code += 'X';
+    else if (/\bsingle(?:s)?\b/i.test(normalizedWord)) code += 'S';
+    else if (/\bdouble(?:s)?\b/i.test(normalizedWord)) code += 'D';
   }
   
   return code || categoryName.substring(0, 2).toUpperCase();
