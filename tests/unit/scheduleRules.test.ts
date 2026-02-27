@@ -16,13 +16,13 @@ describe('scheduleRules', () => {
   });
 
   it('constraints have min <= max', () => {
-    for (const [key, range] of Object.entries(SCHEDULE_CONSTRAINTS)) {
+    for (const [key, range] of Object.entries(SCHEDULE_CONSTRAINTS) as [string, { min: number; max: number }][]) {
       expect(range.min, `${key}: min must be <= max`).toBeLessThanOrEqual(range.max);
     }
   });
 
   it('field names are non-empty strings', () => {
-    for (const [key, value] of Object.entries(SCHEDULE_FIELDS)) {
+    for (const [key, value] of Object.entries(SCHEDULE_FIELDS) as [string, string][]) {
       expect(typeof value, `${key} must be a string`).toBe('string');
       expect(value.length, `${key} must be non-empty`).toBeGreaterThan(0);
     }
