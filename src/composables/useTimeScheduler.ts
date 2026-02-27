@@ -23,6 +23,7 @@ import {
   serverTimestamp,
 } from '@/services/firebase';
 
+import { SCHEDULE_STATUS } from '@/scheduling/scheduleRules';
 import type { UnscheduledMatch } from './useMatchScheduler';
 
 // ============================================================
@@ -54,6 +55,11 @@ export interface TimeScheduleResult {
     unscheduledCount: number;
     estimatedEndTime: Date | null;
   };
+}
+
+export interface TimedScheduleScope {
+  categoryId: string;
+  levelId?: string;
 }
 
 // ============================================================
@@ -186,6 +192,58 @@ function getMatchScoresPath(
     : `tournaments/${tournamentId}/categories/${categoryId}/match_scores`;
 }
 
+function hasScheduleMetadata(data: Record<string, unknown>): boolean {
+  return (
+    data.plannedStartAt != null
+    || data.plannedEndAt != null
+    || data.scheduledTime != null
+    || data.scheduleStatus != null
+    || data.scheduleVersion != null
+    || data.publishedAt != null
+    || data.publishedBy != null
+  );
+}
+
+export async function clearTimedScheduleScopes(
+  tournamentId: string,
+  targets: TimedScheduleScope[]
+): Promise<{ clearedCount: number }> {
+  if (targets.length === 0) {
+    return { clearedCount: 0 };
+  }
+
+  const batch = writeBatch(db);
+  let clearedCount = 0;
+
+  for (const target of targets) {
+    const matchScoresPath = getMatchScoresPath(tournamentId, target.categoryId, target.levelId);
+    const snap = await getDocs(collection(db, matchScoresPath));
+
+    for (const scoreDoc of snap.docs) {
+      const data = scoreDoc.data() as Record<string, unknown>;
+      if (!hasScheduleMetadata(data)) continue;
+
+      batch.update(scoreDoc.ref, {
+        plannedStartAt: null,
+        plannedEndAt: null,
+        scheduledTime: null,
+        scheduleStatus: null,
+        scheduleVersion: null,
+        publishedAt: null,
+        publishedBy: null,
+        updatedAt: serverTimestamp(),
+      });
+      clearedCount++;
+    }
+  }
+
+  if (clearedCount > 0) {
+    await batch.commit();
+  }
+
+  return { clearedCount };
+}
+
 /**
  * Persist a planned schedule to match_scores (batch write).
  * Does NOT touch courtId or scheduledTime (live-ops layer).
@@ -212,7 +270,7 @@ export async function saveTimedSchedule(
         plannedStartAt: Timestamp.fromDate(slot.plannedStartAt),
         plannedEndAt: Timestamp.fromDate(slot.plannedEndAt),
         scheduleVersion: result.scheduleVersion,
-        scheduleStatus: 'draft',
+        scheduleStatus: SCHEDULE_STATUS.draft,
         updatedAt: serverTimestamp(),
       },
       { merge: true }
@@ -243,9 +301,9 @@ export async function publishSchedule(
 
     for (const d of snap.docs) {
       const data = d.data();
-      if (data.plannedStartAt && (force || data.scheduleStatus !== 'published')) {
+      if (data.plannedStartAt && (force || data.scheduleStatus !== SCHEDULE_STATUS.published)) {
         batch.update(d.ref, {
-          scheduleStatus: 'published',
+          scheduleStatus: SCHEDULE_STATUS.published,
           publishedAt: serverTimestamp(),
           publishedBy,
           updatedAt: serverTimestamp(),
@@ -277,9 +335,9 @@ export async function unpublishSchedule(
 
     for (const d of snap.docs) {
       const data = d.data();
-      if (data.plannedStartAt && (data.scheduleStatus === 'published' || data.publishedAt)) {
+      if (data.plannedStartAt && (data.scheduleStatus === SCHEDULE_STATUS.published || data.publishedAt)) {
         batch.update(d.ref, {
-          scheduleStatus: 'draft',
+          scheduleStatus: SCHEDULE_STATUS.draft,
           publishedAt: null,
           publishedBy: null,
           updatedAt: serverTimestamp(),
