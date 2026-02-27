@@ -1,0 +1,12 @@
+# Global code owners
+* @Ramc4685
+
+# Documentation
+docs/ @Ramc4685
+
+# Firebase configuration
+*.rules @Ramc4685
+firebase.json @Ramc4685
+
+# CI/CD
+.github/ @Ramc4685

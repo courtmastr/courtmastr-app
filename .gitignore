@@ -50,7 +50,19 @@ uv.lock
 .axon
 .tmp
 .venv
-.vscode
 .worktrees/
+.cgcignore
 
-#TJ|.cgcignore
+# Development tool directories
+.agent/
+.claude/
+.playwright-mcp/
+.sisyphus/
+
+# Python artifacts
+pyproject.toml
+.python-version
+
+# Large artifacts
+tournament-dashboard-overview.png
+AUTOMATED-TEST-RESULTS.json
