@@ -180,6 +180,8 @@ describe('CategoryRegistrationStats primary CTA behavior', () => {
       makeCategory({
         name: 'Pool A',
         format: 'pool_to_elimination',
+        // Regression case: pool generation writes stageId to pool stage.
+        stageId: 10,
         poolStageId: 10,
       }),
     ];
@@ -346,6 +348,7 @@ describe('CategoryRegistrationStats primary CTA behavior', () => {
       makeCategory({
         name: 'Pool Schedule',
         format: 'pool_to_elimination',
+        stageId: 10,
         poolStageId: 10,
       }),
     ];

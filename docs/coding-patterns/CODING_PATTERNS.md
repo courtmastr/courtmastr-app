@@ -2272,6 +2272,57 @@ rg -n "wrapper\\.text\\(\\)\\.toContain\\('Tournament not found'\\)" tests/unit 
 
 ---
 
+### CP-048: Pool Categories Must Not Treat `stageId` as Elimination Bracket
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-02-27 |
+| **Source Bug** | Categories UI skipped the `Levels` CTA (`Setup & Generate Levels` / `Generate Levels`) because pool stage `stageId` was interpreted as elimination-ready |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+function hasEliminationBracket(category: Category): boolean {
+  return category.eliminationStageId != null || category.stageId != null;
+}
+```
+```typescript
+if (format === 'pool_to_elimination' || format === 'round_robin') {
+  if (hasEliminationBracket(category)) return 'elimination';
+  if (ctx.poolComplete) return 'levels';
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+function hasEliminationBracket(category: Category, format: TournamentFormat): boolean {
+  if (format === 'pool_to_elimination' || format === 'round_robin') {
+    return category.eliminationStageId != null;
+  }
+  return category.eliminationStageId != null || category.stageId != null;
+}
+```
+```typescript
+if (format === 'pool_to_elimination' || format === 'round_robin') {
+  if (hasEliminationBracket(category, format)) return 'elimination';
+  if (ctx.poolComplete) return 'levels';
+}
+```
+
+**Rule:** For `pool_to_elimination` / `round_robin`, treat `stageId` as current stage pointer (often pool stage) and use only `eliminationStageId` to infer elimination bracket existence.
+
+**Detection:**
+```bash
+if rg -n "function hasEliminationBracket\\(category: Category\\): boolean[\\s\\S]*category\\.eliminationStageId != null \\|\\| category\\.stageId != null" src/features/tournaments/components/CategoryRegistrationStats.vue; then
+  echo "Violation: pool formats may misclassify pool stageId as elimination bracket"
+fi
+rg -n "function hasEliminationBracket\\(category: Category, format: TournamentFormat\\)" src/features/tournaments/components/CategoryRegistrationStats.vue
+rg -n "stageId: result.stageId,\\s*poolStageId: result.stageId" src/composables/useBracketGenerator.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

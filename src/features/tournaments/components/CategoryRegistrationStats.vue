@@ -129,7 +129,11 @@ function hasPoolStage(category: Category): boolean {
   return category.poolStageId != null;
 }
 
-function hasEliminationBracket(category: Category): boolean {
+function hasEliminationBracket(category: Category, format: TournamentFormat): boolean {
+  if (format === 'pool_to_elimination' || format === 'round_robin') {
+    // In pool formats, stageId points to the pool stage until elimination is created.
+    return category.eliminationStageId != null;
+  }
   return category.eliminationStageId != null || category.stageId != null;
 }
 
@@ -189,7 +193,7 @@ function getCurrentPhase(
   if (category.status === 'completed') return 'done';
 
   if (format === 'pool_to_elimination' || format === 'round_robin') {
-    if (hasEliminationBracket(category)) return 'elimination';
+    if (hasEliminationBracket(category, format)) return 'elimination';
     if (ctx.levelSchedulePublished) return 'elimination';
     if (ctx.levelMatchesScheduled && !ctx.levelSchedulePublished) return 'level_publish';
     if (ctx.levelMatches.length > 0 && !ctx.levelMatchesScheduled) return 'level_schedule';
@@ -205,7 +209,7 @@ function getCurrentPhase(
   if (ctx.elimSchedulePublished) return 'elimination';
   if (ctx.elimMatchesScheduled && !ctx.elimSchedulePublished) return 'publish';
   if (ctx.elimMatches.length > 0 && !ctx.elimMatchesScheduled) return 'schedule';
-  if (hasEliminationBracket(category)) return 'schedule';
+  if (hasEliminationBracket(category, format)) return 'schedule';
   return 'setup';
 }
 
@@ -383,7 +387,7 @@ function needsSeeding(stats: CategoryStats): boolean {
 function isScheduleAvailable(stats: CategoryStats): boolean {
   if (stats.category.status === 'completed') return false;
   if (stats.matchesCount > 0) return true;
-  if (hasPoolStage(stats.category) || hasEliminationBracket(stats.category)) return true;
+  if (hasPoolStage(stats.category) || hasEliminationBracket(stats.category, stats.resolvedFormat)) return true;
   if (stats.ready >= 2) return true;
   return stats.checkInRequired;
 }
@@ -470,7 +474,7 @@ function shouldShowCheckinNudge(stats: CategoryStats): boolean {
 function needsLevelGeneration(stats: CategoryStats): boolean {
   if (!isPoolFormat(stats)) return false;
   if (stats.currentPhase !== 'levels') return false;
-  if (hasEliminationBracket(stats.category)) return false;
+  if (hasEliminationBracket(stats.category, stats.resolvedFormat)) return false;
   return stats.levelMatches.length === 0;
 }
 
@@ -506,7 +510,7 @@ function canGenerateBracket(stats: CategoryStats): boolean {
     if (hasPoolStage(stats.category)) return false;
     return stats.currentPhase === 'setup' || stats.currentPhase === 'pool_schedule';
   }
-  if (hasEliminationBracket(stats.category)) return false;
+  if (hasEliminationBracket(stats.category, stats.resolvedFormat)) return false;
   return stats.currentPhase === 'setup' || stats.currentPhase === 'schedule';
 }
 
@@ -526,12 +530,12 @@ function canRegenerateLevels(stats: CategoryStats): boolean {
 
 function canRegenerateBracket(stats: CategoryStats): boolean {
   if (isPoolFormat(stats)) return false;
-  if (!hasEliminationBracket(stats.category)) return false;
+  if (!hasEliminationBracket(stats.category, stats.resolvedFormat)) return false;
   return !stats.elimSchedulePublished;
 }
 
 function canViewBracket(stats: CategoryStats): boolean {
-  if (hasEliminationBracket(stats.category)) return true;
+  if (hasEliminationBracket(stats.category, stats.resolvedFormat)) return true;
   if (!isPoolFormat(stats)) return false;
   return hasPoolStage(stats.category) || stats.poolMatches.length > 0 || stats.levelMatches.length > 0;
 }
@@ -1119,7 +1123,7 @@ const categoryCardsWithAction = computed(() =>
             </v-alert>
 
             <v-alert
-              v-else-if="!isPoolFormat(stats) && stats.category.status === 'setup' && !hasEliminationBracket(stats.category) && getBracketInfo(stats).byes > 0 && stats.ready >= 2"
+              v-else-if="!isPoolFormat(stats) && stats.category.status === 'setup' && !hasEliminationBracket(stats.category, stats.resolvedFormat) && getBracketInfo(stats).byes > 0 && stats.ready >= 2"
               type="info"
               variant="tonal"
               density="compact"
