@@ -1,7 +1,8 @@
 #!/bin/bash
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -39,12 +40,12 @@ echo -e "${GREEN}  ✓ Cleanup done${NC}"
 echo ""
 
 echo -e "${BLUE}🔨 Building Cloud Functions...${NC}"
-cd functions && npm run build 2>&1 | tee "$ABS_LOGS_DIR/build.log"
+cd "$PROJECT_ROOT/functions" && npm run build 2>&1 | tee "$ABS_LOGS_DIR/build.log"
 if [ $? -ne 0 ]; then
   echo -e "${RED}  ✗ Build failed${NC}"
   exit 1
 fi
-cd ..
+cd "$PROJECT_ROOT"
 echo -e "${GREEN}  ✓ Built${NC}"
 echo ""
 
@@ -52,7 +53,7 @@ echo -e "${BLUE}🚀 Starting Emulators in new Terminal...${NC}"
 EMULATORS_LOG="$ABS_LOGS_DIR/emulators.log"
 osascript <<EOF
 tell application "Terminal"
-  do script "cd '$SCRIPT_DIR' && echo '📦 FIREBASE EMULATORS' && echo '📝 Logs: $EMULATORS_LOG' && echo '' && ./node_modules/.bin/firebase emulators:start --project demo-courtmaster 2>&1 | tee '$EMULATORS_LOG'"
+  do script "cd '$PROJECT_ROOT' && echo '📦 FIREBASE EMULATORS' && echo '📝 Logs: $EMULATORS_LOG' && echo '' && ./node_modules/.bin/firebase emulators:start --project demo-courtmaster 2>&1 | tee '$EMULATORS_LOG'"
   set custom title of front window to "Emulators"
 end tell
 EOF
@@ -91,7 +92,7 @@ echo ""
 echo -e "${BLUE}🌐 Starting Dev Server in new Terminal...${NC}"
 osascript <<EOF
 tell application "Terminal"
-  do script "cd '$SCRIPT_DIR' && echo '🌐 DEV SERVER' && echo '' && ./node_modules/.bin/vite 2>&1 | tee '$ABS_LOGS_DIR/site.log'"
+  do script "cd '$PROJECT_ROOT' && echo '🌐 DEV SERVER' && echo '' && ./node_modules/.bin/vite 2>&1 | tee '$ABS_LOGS_DIR/site.log'"
   set custom title of front window to "Dev Server"
 end tell
 EOF

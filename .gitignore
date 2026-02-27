@@ -66,3 +66,5 @@ pyproject.toml
 # Large artifacts
 tournament-dashboard-overview.png
 AUTOMATED-TEST-RESULTS.json
+coverage
+output/

@@ -221,7 +221,8 @@ watch(
     if (!isOpen) return;
     resetUiForLevelCount(levelCount.value);
     await reloadPreview();
-  }
+  },
+  { immediate: true }
 );
 
 watch(levelCount, async (nextCount) => {
