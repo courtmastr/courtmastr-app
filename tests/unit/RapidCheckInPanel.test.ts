@@ -55,6 +55,7 @@ const mountPanel = () => mount(RapidCheckInPanel, {
   props: {
     urgentItems: [],
     recentItems: [],
+    searchRows: [],
   },
   global: {
     stubs: {
@@ -108,5 +109,49 @@ describe('RapidCheckInPanel', () => {
     await undoButton.trigger('click');
 
     expect(wrapper.emitted('undoItem')?.[0]).toEqual(['reg-1']);
+  });
+
+  it('shows search suggestions and emits quickCheckIn for a selected match', async () => {
+    const wrapper = mount(RapidCheckInPanel, {
+      props: {
+        urgentItems: [],
+        recentItems: [],
+        searchRows: [
+          {
+            id: 'reg-1',
+            name: 'Player Alpha',
+            category: 'Mega Category Singles',
+            status: 'approved',
+          },
+          {
+            id: 'reg-2',
+            name: 'Player Beta',
+            category: 'Mega Category Singles',
+            status: 'checked_in',
+          },
+        ],
+      },
+      global: {
+        stubs: {
+          VCard: PassThroughStub,
+          VBtn: VBtnStub,
+          VList: PassThroughStub,
+          VListItem: VListItemStub,
+          VChip: PassThroughStub,
+          VTextField: VTextFieldStub,
+        },
+      },
+    });
+
+    const input = wrapper.find('[data-testid="scan-input"]');
+    await input.setValue('alpha');
+
+    expect(wrapper.find('[data-testid="rapid-search-results"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Player Alpha');
+
+    const quickButton = wrapper.find('[data-testid="search-suggestion-checkin-btn"]');
+    await quickButton.trigger('click');
+
+    expect(wrapper.emitted('quickCheckIn')?.[0]).toEqual(['reg-1']);
   });
 });
