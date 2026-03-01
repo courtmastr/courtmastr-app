@@ -343,13 +343,13 @@ function onScoreCorrected() {
   showCorrectionDialog.value = false;
 }
 
-function goBack(): void {
+const goBack = (): void => {
   if (window.history.length > 1) {
     router.back();
   } else {
     router.push(`/tournaments/${tournamentId.value}/match-control`);
   }
-}
+};
 </script>
 
 <template>
