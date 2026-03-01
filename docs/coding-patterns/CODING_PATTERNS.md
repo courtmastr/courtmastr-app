@@ -2220,13 +2220,34 @@ if (typedMatch.type === 'ambiguous') {
   </v-chip>
 </v-list-item>
 ```
+```vue
+<v-list v-if="searchSuggestions.length > 0" data-testid="rapid-search-results">
+  <v-list-item
+    v-for="row in searchSuggestions"
+    :key="row.id"
+    :title="row.name"
+  >
+    <template #append>
+      <v-btn
+        data-testid="search-suggestion-checkin-btn"
+        :disabled="row.status !== 'approved'"
+      >
+        Check In
+      </v-btn>
+    </template>
+  </v-list-item>
+</v-list>
+```
 
-**Rule:** Rapid check-in input must support typed participant-name resolution (with explicit ambiguity handling) in addition to scanned bib/ID values; bulk mode must make checked-in state obvious via both status chip and row styling.
+**Rule:** Rapid check-in input must support typed participant-name resolution (with explicit ambiguity handling) in addition to scanned bib/ID values, and rapid mode should surface live typed-name suggestions so operators can select a participant directly. Bulk mode must make checked-in state obvious via both status chip and row styling.
 
 **Detection:**
 ```bash
 if ! rg -n "findRegistrationByTypedQuery\\(" src/features/checkin/composables/useFrontDeskCheckInWorkflow.ts; then
   echo "Violation: rapid check-in missing typed-name fallback"
+fi
+if ! rg -n "rapid-search-results|search-suggestion-checkin-btn|searchSuggestions" src/features/checkin/components/RapidCheckInPanel.vue; then
+  echo "Violation: rapid check-in missing live typed-name suggestion list"
 fi
 if ! rg -n "bulk-checkin-panel__row--checked_in|getStatusColor\\(row.status\\)|getStatusLabel\\(row.status\\)" src/features/checkin/components/BulkCheckInPanel.vue; then
   echo "Violation: bulk checked-in rows are not visually differentiated"

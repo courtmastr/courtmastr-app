@@ -2,6 +2,7 @@
 
 ## Basic Rules / Business Logic
 - Rapid mode supports scan/manual input with guardrails for ambiguous participant matches.
+- Rapid mode must surface live typed-name suggestions (minimum 2 chars) so operators can select and check in participants directly from search results.
 - Bulk mode supports batch check-in and timed undo paths.
 - Bib assignment and check-in transitions are coordinated through workflow composables.
 

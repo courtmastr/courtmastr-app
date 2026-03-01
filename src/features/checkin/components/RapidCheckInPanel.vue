@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import type { Registration } from '@/types';
 
 export interface UrgentCheckInItem {
   id: string;
@@ -19,11 +20,20 @@ export interface RecentCheckInItem {
 interface Props {
   urgentItems: UrgentCheckInItem[];
   recentItems: RecentCheckInItem[];
+  searchRows?: RapidSearchRow[];
   loading?: boolean;
+}
+
+export interface RapidSearchRow {
+  id: string;
+  name: string;
+  category: string;
+  status: Registration['status'];
 }
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
+  searchRows: () => [],
 });
 
 const emit = defineEmits<{
@@ -33,6 +43,14 @@ const emit = defineEmits<{
 }>();
 
 const scanValue = ref('');
+const searchSuggestions = computed<RapidSearchRow[]>(() => {
+  const query = scanValue.value.trim().toLowerCase();
+  if (query.length < 2) return [];
+
+  return props.searchRows
+    .filter((row) => row.name.toLowerCase().includes(query))
+    .slice(0, 8);
+});
 
 const submitScan = (): void => {
   const raw = scanValue.value.trim();
@@ -47,6 +65,26 @@ const handleQuickCheckIn = (registrationId: string): void => {
 
 const handleUndo = (registrationId: string): void => {
   emit('undoItem', registrationId);
+};
+
+const getStatusLabel = (status: Registration['status']): string => {
+  if (status === 'checked_in') return 'Checked In';
+  if (status === 'no_show') return 'No Show';
+  if (status === 'approved') return 'Approved';
+  return status;
+};
+
+const getStatusColor = (status: Registration['status']): string => {
+  if (status === 'checked_in') return 'success';
+  if (status === 'no_show') return 'error';
+  if (status === 'approved') return 'primary';
+  return 'default';
+};
+
+const handleSuggestionCheckIn = (row: RapidSearchRow): void => {
+  if (row.status !== 'approved') return;
+  emit('quickCheckIn', row.id);
+  scanValue.value = '';
 };
 </script>
 
@@ -70,6 +108,41 @@ const handleUndo = (registrationId: string): void => {
         prepend-inner-icon="mdi-qrcode-scan"
         @keydown.enter.prevent="submitScan"
       />
+      <v-list
+        v-if="searchSuggestions.length > 0"
+        data-testid="rapid-search-results"
+        density="compact"
+        lines="two"
+        class="mb-3 border rounded"
+      >
+        <v-list-item
+          v-for="row in searchSuggestions"
+          :key="row.id"
+          :title="row.name"
+          :subtitle="row.category"
+        >
+          <template #append>
+            <v-chip
+              :color="getStatusColor(row.status)"
+              size="x-small"
+              variant="tonal"
+              class="mr-2"
+            >
+              {{ getStatusLabel(row.status) }}
+            </v-chip>
+            <v-btn
+              data-testid="search-suggestion-checkin-btn"
+              size="small"
+              color="primary"
+              variant="text"
+              :disabled="row.status !== 'approved'"
+              @click="handleSuggestionCheckIn(row)"
+            >
+              Check In
+            </v-btn>
+          </template>
+        </v-list-item>
+      </v-list>
       <v-btn
         data-testid="scan-submit-btn"
         color="primary"

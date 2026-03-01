@@ -317,6 +317,7 @@ onUnmounted(() => {
         v-if="mode === 'rapid'"
         :urgent-items="urgentItems"
         :recent-items="recentItems"
+        :search-rows="bulkRows"
         :loading="scanLoading"
         @scan-submit="handleScanSubmit"
         @quick-check-in="handleQuickCheckIn"
