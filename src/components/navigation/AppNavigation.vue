@@ -2,7 +2,7 @@
   <v-navigation-drawer
     v-model="drawer"
     :rail="rail"
-    @click="rail = false"
+    aria-label="Main navigation"
   >
     <!-- Branding Section -->
     <v-list-item
