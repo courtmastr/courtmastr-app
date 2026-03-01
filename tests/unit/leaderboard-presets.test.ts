@@ -3,6 +3,7 @@ import {
   DEFAULT_RANKING_PRESET,
   DEFAULT_RANKING_PROGRESSION,
   RANKING_PRESETS,
+  resolveRankingPreset,
 } from '@/features/leaderboard/rankingPresets';
 
 describe('ranking presets', () => {
@@ -17,5 +18,10 @@ describe('ranking presets', () => {
       'courtmaster_default',
       'simple_ladder',
     ]);
+  });
+
+  it('falls back to default for unknown preset ids', () => {
+    const fallback = resolveRankingPreset('unknown_preset');
+    expect(fallback.id).toBe('courtmaster_default');
   });
 });

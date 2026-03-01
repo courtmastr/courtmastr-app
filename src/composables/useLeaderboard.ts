@@ -42,6 +42,11 @@ import { exportLeaderboard } from '@/services/leaderboardExport';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
+import {
+  RANKING_PRESETS,
+  resolveRankingPreset,
+} from '@/features/leaderboard/rankingPresets';
+import type { RankingPresetDefinition } from '@/features/leaderboard/rankingPresets';
 
 // ============================================
 // Pure Functions (exported for unit testing)
@@ -190,7 +195,8 @@ export function aggregateStats(
   registrations: Registration[],
   matches: ResolvedMatch[],
   categoryMap: Map<string, Category>,
-  players: Player[]
+  players: Player[],
+  pointsModel: RankingPresetDefinition['points'] = RANKING_PRESETS.courtmaster_default.points
 ): Map<string, LeaderboardEntry> {
   const statsMap = new Map<string, LeaderboardEntry>();
 
@@ -252,17 +258,17 @@ export function aggregateStats(
       }
     }
 
-    // Match win/loss — BWF: 2 pts win, 1 pt loss (walkovers treated identically)
+    // Match win/loss — points model is preset-driven.
     if (match.winnerId === match.participant1Id) {
       p1.matchesWon++;
-      p1.matchPoints += 2;
+      p1.matchPoints += pointsModel.win;
       p2.matchesLost++;
-      p2.matchPoints += 1;
+      p2.matchPoints += pointsModel.loss;
     } else {
       p2.matchesWon++;
-      p2.matchPoints += 2;
+      p2.matchPoints += pointsModel.win;
       p1.matchesLost++;
-      p1.matchPoints += 1;
+      p1.matchPoints += pointsModel.loss;
     }
 
     // Timestamps
@@ -371,7 +377,8 @@ export function applyEliminationStatus(
  */
 export function sortWithBWFTiebreaker(
   entries: LeaderboardEntry[],
-  matches: ResolvedMatch[]
+  matches: ResolvedMatch[],
+  preset: RankingPresetDefinition = RANKING_PRESETS.courtmaster_default
 ): { sorted: LeaderboardEntry[]; resolutions: TiebreakerResolution[] } {
   const resolutions: TiebreakerResolution[] = [];
   const sorted: LeaderboardEntry[] = [];
@@ -385,7 +392,7 @@ export function sortWithBWFTiebreaker(
       sorted.push(group[0]);
       currentRank++;
     } else {
-      const { resolved, resolution } = resolveTieGroup(group, matches, currentRank);
+      const { resolved, resolution } = resolveTieGroup(group, matches, currentRank, preset);
       // Equal standing (BWF Art. 16.2.4.2): all entries share the same rank.
       // Also skip recording the resolution when no one has played a match yet
       // (pre-bracket state produces spurious "equal standing" for all players).
@@ -415,64 +422,90 @@ export function sortWithBWFTiebreaker(
 export function resolveTieGroup(
   tiedEntries: LeaderboardEntry[],
   allMatches: ResolvedMatch[],
-  startRank: number
+  startRank: number,
+  preset: RankingPresetDefinition = RANKING_PRESETS.courtmaster_default
 ): { resolved: LeaderboardEntry[]; resolution?: TiebreakerResolution } {
-  const ids = tiedEntries.map((e) => e.registrationId);
+  for (const step of preset.tieBreakOrder) {
+    if (step === 'head_to_head') {
+      if (tiedEntries.length !== 2) continue;
 
-  // --- Two-way tie: head-to-head (Art. 16.2.2) ---
-  if (tiedEntries.length === 2) {
-    const [a, b] = tiedEntries;
-    const h2h = findHeadToHeadMatch(a.registrationId, b.registrationId, allMatches);
-    if (h2h) {
+      const [a, b] = tiedEntries;
+      const h2h = findHeadToHeadMatch(a.registrationId, b.registrationId, allMatches);
+      if (!h2h) continue;
+
       const winner = h2h.winnerId === a.registrationId ? a : b;
       const loser = winner === a ? b : a;
       return {
         resolved: [winner, loser],
         resolution: {
           tiedRank: startRank,
-          registrationIds: ids,
+          registrationIds: tiedEntries.map((entry) => entry.registrationId),
           step: 'head_to_head',
           description: 'Resolved by head-to-head match result',
           resolvedOrder: [winner.registrationId, loser.registrationId],
           headToHeadMatchId: h2h.id,
-          resolvedValues: buildResolvedValues(winner, loser, 'head_to_head'),
+          resolvedValues: buildResolvedValues(
+            winner,
+            loser,
+            'head_to_head',
+            preset.normalizeByMatchesPlayed
+          ),
         },
       };
     }
-    // No head-to-head match found (can happen in elimination) — fall through
+
+    if (step === 'game_difference') {
+      const gameDiffGroups = groupByDescending(
+        tiedEntries,
+        (entry) =>
+          preset.normalizeByMatchesPlayed && entry.matchesPlayed > 0
+            ? Math.round((entry.gameDifference / entry.matchesPlayed) * 10) / 10
+            : entry.gameDifference
+      );
+
+      if (gameDiffGroups.length > 1) {
+        return resolvePartialTies(
+          gameDiffGroups,
+          allMatches,
+          startRank,
+          'game_difference',
+          preset
+        );
+      }
+      continue;
+    }
+
+    if (step === 'point_difference') {
+      const pointDiffGroups = groupByDescending(
+        tiedEntries,
+        (entry) =>
+          preset.normalizeByMatchesPlayed && entry.matchesPlayed > 0
+            ? Math.round((entry.pointDifference / entry.matchesPlayed) * 10) / 10
+            : entry.pointDifference
+      );
+
+      if (pointDiffGroups.length > 1) {
+        return resolvePartialTies(
+          pointDiffGroups,
+          allMatches,
+          startRank,
+          'point_difference',
+          preset
+        );
+      }
+      continue;
+    }
+
+    if (step === 'equal') {
+      break;
+    }
   }
 
-  // --- 3+ way (or unresolved 2-way): game difference (Art. 16.2.3) ---
-  // Normalized per match played — prevents bye-pool teams being penalized
-  // for having fewer real matches than full-pool teams.
-  const gameDiffGroups = groupByDescending(
-    tiedEntries,
-    (e) => e.matchesPlayed > 0
-      ? Math.round((e.gameDifference / e.matchesPlayed) * 10) / 10
-      : 0
-  );
-  if (gameDiffGroups.length > 1) {
-    return resolvePartialTies(gameDiffGroups, allMatches, startRank, 'game_difference');
-  }
-
-  // --- Still tied: point difference (Art. 16.2.4) ---
-  // Also normalized per match played for same reason.
-  const pointDiffGroups = groupByDescending(
-    tiedEntries,
-    (e) => e.matchesPlayed > 0
-      ? Math.round((e.pointDifference / e.matchesPlayed) * 10) / 10
-      : 0
-  );
-  if (pointDiffGroups.length > 1) {
-    return resolvePartialTies(pointDiffGroups, allMatches, startRank, 'point_difference');
-  }
-
-  // --- All tiebreakers exhausted: equal standing (Art. 16.2.4.2) ---
-  // Sort alphabetically so equal-standing display order is deterministic,
-  // not dependent on JavaScript Array.sort stability across engines
+  const ids = tiedEntries.map((entry) => entry.registrationId);
   const alphabeticallySorted = [...tiedEntries].sort((a, b) =>
     a.participantName.localeCompare(b.participantName)
   );
+
   return {
     resolved: alphabeticallySorted,
     resolution: {
@@ -480,7 +513,7 @@ export function resolveTieGroup(
       registrationIds: ids,
       step: 'equal',
       description: `${tiedEntries.length}-way equal standing — all tiebreakers exhausted. Order shown is alphabetical.`,
-      resolvedOrder: alphabeticallySorted.map((e) => e.registrationId),
+      resolvedOrder: alphabeticallySorted.map((entry) => entry.registrationId),
     },
   };
 }
@@ -498,7 +531,8 @@ export function resolvePartialTies(
   groups: LeaderboardEntry[][],
   allMatches: ResolvedMatch[],
   startRank: number,
-  resolvedBy: TieBreakerStep
+  resolvedBy: TieBreakerStep,
+  preset: RankingPresetDefinition = RANKING_PRESETS.courtmaster_default
 ): { resolved: LeaderboardEntry[]; resolution?: TiebreakerResolution } {
   const allResolved: LeaderboardEntry[] = [];
   const allResolutions: TiebreakerResolution[] = [];
@@ -513,7 +547,8 @@ export function resolvePartialTies(
       const { resolved: subResolved, resolution: subResolution } = resolveTieGroup(
         group,
         allMatches,
-        rank
+        rank,
+        preset
       );
       allResolved.push(...subResolved);
       if (subResolution) allResolutions.push(subResolution);
@@ -537,7 +572,8 @@ export function resolvePartialTies(
       ? buildResolvedValues(
         groups.flat()[0],
         groups.flat()[1],
-        resolvedBy
+        resolvedBy,
+        preset.normalizeByMatchesPlayed
       )
       : undefined,
   };
@@ -612,16 +648,17 @@ export function buildCategorySummaries(
 export function buildResolvedValues(
   a: LeaderboardEntry,
   b: LeaderboardEntry,
-  decidingStep: TieBreakerStep
+  decidingStep: TieBreakerStep,
+  normalizeByMatchesPlayed = true
 ): TiebreakerEntryValues[] {
   const gdPerMatch = (e: LeaderboardEntry) =>
-    e.matchesPlayed > 0
+    normalizeByMatchesPlayed && e.matchesPlayed > 0
       ? Math.round((e.gameDifference / e.matchesPlayed) * 10) / 10
-      : 0;
+      : e.gameDifference;
   const pdPerMatch = (e: LeaderboardEntry) =>
-    e.matchesPlayed > 0
+    normalizeByMatchesPlayed && e.matchesPlayed > 0
       ? Math.round((e.pointDifference / e.matchesPlayed) * 10) / 10
-      : 0;
+      : e.pointDifference;
 
   const gdA = gdPerMatch(a);
   const gdB = gdPerMatch(b);
@@ -636,13 +673,13 @@ export function buildResolvedValues(
       decided: decidingStep === 'match_wins',
     },
     {
-      label: 'GD / match',
+      label: normalizeByMatchesPlayed ? 'GD / match' : 'Game Difference',
       value: gd,
       tied: gdA === gdB,
       decided: decidingStep === 'game_difference',
     },
     {
-      label: 'PD / match',
+      label: normalizeByMatchesPlayed ? 'PD / match' : 'Point Difference',
       value: pd,
       tied: pdA === pdB,
       decided: decidingStep === 'point_difference',
@@ -775,6 +812,7 @@ export async function generateLeaderboard(
   let allMatches: ResolvedMatch[];
   let allRegistrations: Registration[];
   const phaseScope = options?.phaseScope ?? (categoryId ? 'category' : 'tournament');
+  const rankingPreset = resolveRankingPreset(options?.rankingPreset);
 
   if (preloaded) {
     // Option B: use store data — proven adapter has already resolved participant IDs
@@ -824,7 +862,13 @@ export async function generateLeaderboard(
     ? [categoryId]
     : (options?.categoryIds ?? allCategories.map((c) => c.id));
 
-  const statsMap = aggregateStats(allRegistrations, allMatches, categoryMap, players);
+  const statsMap = aggregateStats(
+    allRegistrations,
+    allMatches,
+    categoryMap,
+    players,
+    rankingPreset.points
+  );
 
   // Apply elimination status per category format
   for (const catId of targetCategoryIds) {
@@ -844,7 +888,7 @@ export async function generateLeaderboard(
     entries = entries.filter((e) => e.matchesPlayed >= options.minimumMatches!);
   }
 
-  const { sorted, resolutions } = sortWithBWFTiebreaker(entries, allMatches);
+  const { sorted, resolutions } = sortWithBWFTiebreaker(entries, allMatches, rankingPreset);
   const categories = categoryId
     ? undefined
     : buildCategorySummaries(targetCategoryIds, categoryMap, allEntries, allMatches);

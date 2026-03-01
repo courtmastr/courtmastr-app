@@ -47,3 +47,11 @@ export const RANKING_PRESETS: Record<RankingPresetId, RankingPresetDefinition> =
     normalizeByMatchesPlayed: false,
   },
 };
+
+export const resolveRankingPreset = (presetId?: string | null): RankingPresetDefinition => {
+  if (presetId && presetId in RANKING_PRESETS) {
+    return RANKING_PRESETS[presetId as RankingPresetId];
+  }
+
+  return RANKING_PRESETS[DEFAULT_RANKING_PRESET];
+};

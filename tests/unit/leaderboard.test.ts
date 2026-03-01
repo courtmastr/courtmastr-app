@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { LeaderboardEntry } from '../../src/types/leaderboard';
 import type { ResolvedMatch } from '../../src/types/leaderboard';
 import type { Registration, Player, Category, Match } from '../../src/types';
+import { RANKING_PRESETS } from '../../src/features/leaderboard/rankingPresets';
 import {
   aggregateStats,
   resolveParticipantName,
@@ -637,6 +638,29 @@ describe('sortWithBWFTiebreaker', () => {
     expect(resolutions[0].tiedRank).toBe(1);
     expect(resolutions[0].registrationIds).toContain('a');
     expect(resolutions[0].registrationIds).toContain('b');
+  });
+
+  it('simple_ladder preset resolves by point difference before game difference', () => {
+    const alpha = makeEntry('alpha', 5, {
+      matchesPlayed: 1,
+      gameDifference: 2,
+      pointDifference: 1,
+    });
+    const beta = makeEntry('beta', 5, {
+      matchesPlayed: 1,
+      gameDifference: 1,
+      pointDifference: 8,
+    });
+
+    const defaultSorted = sortWithBWFTiebreaker([alpha, beta], []).sorted;
+    expect(defaultSorted[0].registrationId).toBe('alpha');
+
+    const ladderSorted = sortWithBWFTiebreaker(
+      [alpha, beta],
+      [],
+      RANKING_PRESETS.simple_ladder
+    ).sorted;
+    expect(ladderSorted[0].registrationId).toBe('beta');
   });
 });
 
