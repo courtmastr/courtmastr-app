@@ -5,6 +5,7 @@
 import type { GameScore } from '@/types';
 
 export type LeaderboardScope = 'category' | 'tournament';
+export type LeaderboardPhaseScope = 'pool' | 'category' | 'tournament';
 
 export type TieBreakerStep =
   | 'match_wins'
@@ -57,6 +58,7 @@ export interface LeaderboardEntry {
 
 export interface Leaderboard {
   scope: LeaderboardScope;
+  phaseScope?: LeaderboardPhaseScope;
   tournamentId: string;
   categoryId?: string;
   generatedAt: Date;
@@ -112,6 +114,7 @@ export interface LeaderboardOptions {
   includeEliminated?: boolean;  // default: true
   minimumMatches?: number;      // default: 0
   categoryIds?: string[];       // tournament scope: filter to specific categories
+  phaseScope?: LeaderboardPhaseScope;
 }
 
 export type ExportFormat = 'csv' | 'json'; // PDF deferred to P2
