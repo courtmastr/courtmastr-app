@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useTournamentStore } from '@/stores/tournaments';
 import { useLeaderboard } from '@/composables/useLeaderboard';
-import type { LeaderboardOptions } from '@/types/leaderboard';
+import type { LeaderboardOptions, LeaderboardPhaseScope } from '@/types/leaderboard';
 import LeaderboardSummary from '@/components/leaderboard/LeaderboardSummary.vue';
 import LeaderboardFilters from '@/components/leaderboard/LeaderboardFilters.vue';
 import LeaderboardTable from '@/components/leaderboard/LeaderboardTable.vue';
@@ -10,12 +11,14 @@ import LeaderboardExplainer from '@/components/leaderboard/LeaderboardExplainer.
 
 const route = useRoute();
 const router = useRouter();
+const tournamentStore = useTournamentStore();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const categoryId = computed(() => route.params.categoryId as string | undefined);
 
 const isTournamentWide = computed(() => !categoryId.value);
 const showBwfDialog = ref(false);
+const selectedPhaseScope = ref<LeaderboardPhaseScope>('tournament');
 
 const { leaderboard, stage, error, generate, exportData } = useLeaderboard();
 
@@ -52,6 +55,15 @@ const categoryOptions = computed(() =>
   })) ?? []
 );
 
+const activeCategory = computed(() => {
+  if (!categoryId.value) return null;
+  return tournamentStore.categories.find((category) => category.id === categoryId.value) ?? null;
+});
+
+const supportsPoolScope = computed(() =>
+  !isTournamentWide.value && activeCategory.value?.format === 'pool_to_elimination'
+);
+
 const isLoading = computed(() =>
   stage.value === 'fetching' || stage.value === 'calculating' || stage.value === 'sorting'
 );
@@ -61,15 +73,52 @@ function onFiltersUpdate(filters: LeaderboardOptions & { search?: string }) {
 }
 
 async function onRefresh() {
-  await generate(tournamentId.value, categoryId.value ?? undefined);
+  await runGeneration();
 }
 
 async function onExport(format: 'csv' | 'json') {
   await exportData(format);
 }
 
+async function runGeneration(): Promise<void> {
+  if (isTournamentWide.value) {
+    await generate(tournamentId.value, undefined, { phaseScope: 'tournament' });
+    return;
+  }
+
+  await generate(tournamentId.value, categoryId.value ?? undefined, {
+    phaseScope: selectedPhaseScope.value,
+  });
+}
+
+async function switchPhaseScope(scope: 'pool' | 'category'): Promise<void> {
+  if (!supportsPoolScope.value || selectedPhaseScope.value === scope) return;
+  selectedPhaseScope.value = scope;
+  await runGeneration();
+}
+
+watch(
+  [isTournamentWide, supportsPoolScope],
+  ([tournamentWide, poolSupported]) => {
+    if (tournamentWide) {
+      selectedPhaseScope.value = 'tournament';
+      return;
+    }
+
+    if (poolSupported) {
+      selectedPhaseScope.value = selectedPhaseScope.value === 'tournament'
+        ? 'pool'
+        : selectedPhaseScope.value;
+      return;
+    }
+
+    selectedPhaseScope.value = 'category';
+  },
+  { immediate: true }
+);
+
 onMounted(() => {
-  generate(tournamentId.value, categoryId.value ?? undefined);
+  runGeneration();
 });
 </script>
 
@@ -141,6 +190,27 @@ onMounted(() => {
         @click="onRefresh"
       >
         Refresh
+      </v-btn>
+    </div>
+
+    <div
+      v-if="supportsPoolScope"
+      class="d-flex align-center mb-3"
+    >
+      <span class="text-caption text-medium-emphasis mr-2">Scope:</span>
+      <v-btn
+        size="small"
+        :variant="selectedPhaseScope === 'pool' ? 'elevated' : 'text'"
+        @click="switchPhaseScope('pool')"
+      >
+        Pool
+      </v-btn>
+      <v-btn
+        size="small"
+        :variant="selectedPhaseScope === 'category' ? 'elevated' : 'text'"
+        @click="switchPhaseScope('category')"
+      >
+        Category
       </v-btn>
     </div>
 

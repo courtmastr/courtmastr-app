@@ -126,6 +126,12 @@ const makeCompletedMatch = (): Match => ({
   updatedAt: new Date('2026-02-27T10:00:00.000Z'),
 });
 
+const makeCompletedMatchWithStage = (id: string, stageId: string): Match => ({
+  ...makeCompletedMatch(),
+  id,
+  stageId,
+});
+
 describe('leaderboard integration', () => {
   beforeEach(() => {
     runtime.categories = [makeCategory()];
@@ -163,5 +169,19 @@ describe('leaderboard integration', () => {
 
     expect(leaderboardVm.filteredEntries.value).toHaveLength(1);
     expect(leaderboardVm.filteredEntries.value[0].registrationId).toBe('reg-1');
+  });
+
+  it('supports pool phase scope selection for category generation', async () => {
+    runtime.categories = [{ ...makeCategory(), format: 'pool_to_elimination', poolStageId: 10 }];
+    runtime.matches = [
+      makeCompletedMatchWithStage('pool-match', '10'),
+      makeCompletedMatchWithStage('elim-match', '11'),
+    ];
+
+    const leaderboardVm = useLeaderboard();
+    await leaderboardVm.generate('t1', 'cat-1', { phaseScope: 'pool' });
+
+    expect(leaderboardVm.leaderboard.value?.totalMatches).toBe(1);
+    expect(leaderboardVm.leaderboard.value?.phaseScope).toBe('pool');
   });
 });
