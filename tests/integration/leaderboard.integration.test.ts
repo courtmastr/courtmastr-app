@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Category, Match, Player, Registration } from '@/types';
+import type { Category, Match, Player, Registration, Tournament } from '@/types';
 import { useLeaderboard } from '@/composables/useLeaderboard';
 
 const runtime = {
@@ -7,6 +7,7 @@ const runtime = {
   registrations: [] as Registration[],
   players: [] as Player[],
   categories: [] as Category[],
+  currentTournament: null as Tournament | null,
 };
 
 const mockDeps = vi.hoisted(() => ({
@@ -35,6 +36,7 @@ vi.mock('@/stores/registrations', () => ({
 
 vi.mock('@/stores/tournaments', () => ({
   useTournamentStore: () => ({
+    currentTournament: runtime.currentTournament,
     categories: runtime.categories,
     fetchTournament: mockDeps.fetchTournament,
   }),
@@ -56,6 +58,32 @@ const makeCategory = (): Category => ({
   seedingEnabled: false,
   createdAt: new Date('2026-02-27T09:00:00.000Z'),
   updatedAt: new Date('2026-02-27T09:00:00.000Z'),
+});
+
+const makeTournament = (): Tournament => ({
+  id: 't1',
+  name: 'Spring Open',
+  sport: 'badminton',
+  format: 'pool_to_elimination',
+  status: 'active',
+  startDate: new Date('2026-02-27T08:00:00.000Z'),
+  endDate: new Date('2026-02-28T20:00:00.000Z'),
+  settings: {
+    minRestTimeMinutes: 15,
+    matchDurationMinutes: 30,
+    allowSelfRegistration: true,
+    requireApproval: true,
+    gamesPerMatch: 3,
+    pointsToWin: 21,
+    mustWinBy: 2,
+    maxPoints: 30,
+    rankingPresetDefault: 'courtmaster_default',
+    progressionModeDefault: 'carry_forward',
+  },
+  createdBy: 'admin-1',
+  organizerIds: ['admin-1'],
+  createdAt: new Date('2026-02-01T00:00:00.000Z'),
+  updatedAt: new Date('2026-02-01T00:00:00.000Z'),
 });
 
 const makePlayers = (): Player[] => ([
@@ -126,12 +154,19 @@ const makeCompletedMatch = (): Match => ({
   updatedAt: new Date('2026-02-27T10:00:00.000Z'),
 });
 
+const makeCompletedMatchWithStage = (id: string, stageId: string): Match => ({
+  ...makeCompletedMatch(),
+  id,
+  stageId,
+});
+
 describe('leaderboard integration', () => {
   beforeEach(() => {
     runtime.categories = [makeCategory()];
     runtime.players = makePlayers();
     runtime.registrations = makeRegistrations();
     runtime.matches = [makeCompletedMatch()];
+    runtime.currentTournament = makeTournament();
 
     mockDeps.fetchMatches.mockReset().mockResolvedValue(undefined);
     mockDeps.fetchRegistrations.mockReset().mockResolvedValue(undefined);
@@ -163,5 +198,58 @@ describe('leaderboard integration', () => {
 
     expect(leaderboardVm.filteredEntries.value).toHaveLength(1);
     expect(leaderboardVm.filteredEntries.value[0].registrationId).toBe('reg-1');
+  });
+
+  it('supports pool phase scope selection for category generation', async () => {
+    runtime.categories = [{ ...makeCategory(), format: 'pool_to_elimination', poolStageId: 10 }];
+    runtime.matches = [
+      makeCompletedMatchWithStage('pool-match', '10'),
+      makeCompletedMatchWithStage('elim-match', '11'),
+    ];
+
+    const leaderboardVm = useLeaderboard();
+    await leaderboardVm.generate('t1', 'cat-1', { phaseScope: 'pool' });
+
+    expect(leaderboardVm.leaderboard.value?.totalMatches).toBe(1);
+    expect(leaderboardVm.leaderboard.value?.phaseScope).toBe('pool');
+  });
+
+  it('uses category ranking preset override when present', async () => {
+    runtime.categories = [{
+      ...makeCategory(),
+      format: 'pool_to_elimination',
+      poolStageId: 10,
+      eliminationStageId: 11,
+      rankingPresetOverride: 'simple_ladder',
+      progressionModeOverride: 'phase_reset',
+    }];
+    runtime.matches = [
+      makeCompletedMatchWithStage('pool-match', '10'),
+      { ...makeCompletedMatchWithStage('elim-match', '11'), levelId: 'level-1' },
+    ];
+
+    const leaderboardVm = useLeaderboard();
+    await leaderboardVm.generate('t1', 'cat-1');
+
+    expect(leaderboardVm.leaderboard.value?.rankingPreset).toBe('simple_ladder');
+    expect(leaderboardVm.leaderboard.value?.progressionMode).toBe('phase_reset');
+    expect(leaderboardVm.leaderboard.value?.totalMatches).toBe(1);
+  });
+
+  it('falls back to tournament default ranking preset when category override is missing', async () => {
+    runtime.currentTournament = {
+      ...makeTournament(),
+      settings: {
+        ...makeTournament().settings,
+        rankingPresetDefault: 'bwf_strict',
+      },
+    };
+    runtime.categories = [{ ...makeCategory(), rankingPresetOverride: null }];
+
+    const leaderboardVm = useLeaderboard();
+    await leaderboardVm.generate('t1', 'cat-1');
+
+    expect(leaderboardVm.leaderboard.value?.rankingPreset).toBe('bwf_strict');
+    expect(leaderboardVm.leaderboard.value?.phaseScope).toBe('category');
   });
 });

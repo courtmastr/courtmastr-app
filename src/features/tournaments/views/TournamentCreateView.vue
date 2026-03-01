@@ -5,6 +5,10 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import { CATEGORY_TEMPLATES, CATEGORY_TYPE_LABELS, CATEGORY_GENDER_LABELS, type TournamentFormat, type TournamentSettings } from '@/types';
+import {
+  DEFAULT_RANKING_PRESET,
+  DEFAULT_RANKING_PROGRESSION,
+} from '@/features/leaderboard/rankingPresets';
 
 const categoryTypeItems = Object.entries(CATEGORY_TYPE_LABELS).map(([value, title]) => ({ value, title }));
 const categoryGenderItems = Object.entries(CATEGORY_GENDER_LABELS).map(([value, title]) => ({ value, title }));
@@ -42,6 +46,8 @@ const settings = ref<TournamentSettings>({
   pointsToWin: 21,
   mustWinBy: 2,
   maxPoints: 30,
+  rankingPresetDefault: DEFAULT_RANKING_PRESET,
+  progressionModeDefault: DEFAULT_RANKING_PROGRESSION,
 });
 
 // Courts

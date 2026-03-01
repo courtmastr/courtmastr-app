@@ -67,6 +67,8 @@ export interface TournamentSettings {
   pointsToWin: number; // Points needed to win a game
   mustWinBy: number; // Win by margin
   maxPoints: number | null; // Max points cap (null = no cap)
+  rankingPresetDefault?: RankingPresetId;
+  progressionModeDefault?: RankingProgressionMode;
 }
 
 // Category Types
@@ -78,6 +80,8 @@ export type LevelingMode = 'pool_position' | 'global_bands';
 export type LevelEliminationFormat = 'single_elimination' | 'double_elimination' | 'playoff_8';
 export type LevelingStatus = 'not_started' | 'configured' | 'generated';
 export type PoolSeedingMethod = 'serpentine' | 'random_in_tiers' | 'fully_random';
+export type RankingPresetId = 'courtmaster_default' | 'bwf_strict' | 'simple_ladder';
+export type RankingProgressionMode = 'carry_forward' | 'phase_reset';
 
 export interface Category {
   id: string;
@@ -119,6 +123,8 @@ export interface Category {
   levelCount?: number | null;
   levelsVersion?: number | null;
   poolCompletedAt?: Date | null;
+  rankingPresetOverride?: RankingPresetId | null;
+  progressionModeOverride?: RankingProgressionMode | null;
   checkInOpen?: boolean; // true = check-in is open and accepting arrivals
   checkInClosedAt?: Date | null; // timestamp when check-in was closed
   createdAt: Date;
@@ -298,6 +304,7 @@ export interface Match {
   tournamentId: string;
   categoryId: string;
   levelId?: string;
+  stageId?: string;
   round: number;
   matchNumber: number; // Position in bracket
   bracketPosition: BracketPosition;

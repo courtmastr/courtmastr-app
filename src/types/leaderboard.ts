@@ -2,9 +2,10 @@
 // CourtMaster v2 - Leaderboard Types
 // ============================================
 
-import type { GameScore } from '@/types';
+import type { GameScore, RankingPresetId, RankingProgressionMode } from '@/types';
 
 export type LeaderboardScope = 'category' | 'tournament';
+export type LeaderboardPhaseScope = 'pool' | 'category' | 'tournament';
 
 export type TieBreakerStep =
   | 'match_wins'
@@ -57,6 +58,9 @@ export interface LeaderboardEntry {
 
 export interface Leaderboard {
   scope: LeaderboardScope;
+  phaseScope?: LeaderboardPhaseScope;
+  rankingPreset: RankingPresetId;
+  progressionMode: RankingProgressionMode;
   tournamentId: string;
   categoryId?: string;
   generatedAt: Date;
@@ -112,6 +116,9 @@ export interface LeaderboardOptions {
   includeEliminated?: boolean;  // default: true
   minimumMatches?: number;      // default: 0
   categoryIds?: string[];       // tournament scope: filter to specific categories
+  phaseScope?: LeaderboardPhaseScope;
+  rankingPreset?: RankingPresetId;
+  progressionMode?: RankingProgressionMode;
 }
 
 export type ExportFormat = 'csv' | 'json'; // PDF deferred to P2
@@ -128,6 +135,7 @@ export interface ExportOptions {
 export interface ResolvedMatch {
   id: string;
   categoryId: string;
+  stageId?: string;
   participant1Id: string;        // Registration ID (resolved via participant.name)
   participant2Id: string;        // Registration ID (resolved via participant.name)
   winnerId: string;              // Registration ID (from match_scores.winnerId)
