@@ -56,11 +56,11 @@ const filteredMatches = computed<Match[]>(() => {
 });
 
 const scheduledMatches = computed<Match[]>(() =>
-  filteredMatches.value.filter((match) => Boolean(getMatchStart(match)))
+  filteredMatches.value.filter((match) => Boolean(getMatchStart(match)) && !isStructuralByeMatch(match))
 );
 
 const unscheduledMatches = computed<Match[]>(() =>
-  filteredMatches.value.filter((match) => !getMatchStart(match))
+  filteredMatches.value.filter((match) => !getMatchStart(match) || isStructuralByeMatch(match))
 );
 
 const identitySourceMatches = computed<Match[]>(() => props.allMatches ?? props.matches);
@@ -148,9 +148,32 @@ const getMatchRowSpan = (match: Match): number =>
     SLOT_INTERVAL_MINUTES
   );
 
+const isStructuralByeMatch = (match: Match): boolean => {
+  const oneSided =
+    (Boolean(match.participant1Id) && !match.participant2Id) ||
+    (!match.participant1Id && Boolean(match.participant2Id));
+  if (!oneSided) return false;
+  const isFinalized =
+    Boolean(match.winnerId) || match.status === 'completed' || match.status === 'walkover';
+  const isRoundOne = (match.bracketPosition?.round ?? match.round) === 1;
+  return isRoundOne || isFinalized;
+};
+
+const getSlotLabel = (match: Match, slot: 'participant1' | 'participant2'): string => {
+  const participantId = slot === 'participant1' ? match.participant1Id : match.participant2Id;
+  if (participantId) {
+    return props.getParticipantName(participantId);
+  }
+  const otherParticipantId = slot === 'participant1' ? match.participant2Id : match.participant1Id;
+  if (!otherParticipantId) {
+    return 'TBD';
+  }
+  return isStructuralByeMatch(match) ? 'BYE' : 'TBD';
+};
+
 const getMatchLabel = (match: Match): string => {
-  const participant1 = props.getParticipantName(match.participant1Id) || 'TBD';
-  const participant2 = props.getParticipantName(match.participant2Id) || 'TBD';
+  const participant1 = getSlotLabel(match, 'participant1');
+  const participant2 = getSlotLabel(match, 'participant2');
   return `${participant1} vs ${participant2}`;
 };
 
