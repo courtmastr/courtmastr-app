@@ -151,6 +151,7 @@ function makeStoreMatch(
 describe('selectMatchesForPhaseScope', () => {
   const poolCategory = makeCategory('cat1', 'pool_to_elimination');
   poolCategory.poolStageId = 10;
+  poolCategory.eliminationStageId = 11;
   const standardCategory = makeCategory('cat2', 'single_elimination');
 
   const categories = [poolCategory, standardCategory];
@@ -185,6 +186,23 @@ describe('selectMatchesForPhaseScope', () => {
 
     const selected = selectMatchesForPhaseScope(matches, categories, 'category', 'cat1');
     expect(selected.map((match) => match.id).sort()).toEqual(['m1', 'm2']);
+  });
+
+  it('returns only elimination matches for category scope when progression mode is phase_reset', () => {
+    const matches = [
+      makeStoreMatch('m1', 'cat1', 'r1', 'r2', 'r1', [[21, 18]], 1, { stageId: '10' }),
+      makeStoreMatch('m2', 'cat1', 'r1', 'r3', 'r1', [[21, 15]], 2, { stageId: '11', levelId: 'level-1' }),
+      makeStoreMatch('m3', 'cat2', 'r4', 'r5', 'r4', [[21, 17]], 1),
+    ];
+
+    const selected = selectMatchesForPhaseScope(
+      matches,
+      categories,
+      'category',
+      'cat1',
+      'phase_reset'
+    );
+    expect(selected.map((match) => match.id)).toEqual(['m2']);
   });
 
   it('returns unchanged input for tournament scope', () => {
@@ -839,6 +857,38 @@ describe('matchesToResolvedMatches', () => {
 });
 
 describe('generateLeaderboard', () => {
+  it('returns ranking metadata for the effective preset and progression mode', async () => {
+    const categories = [makeCategory('cat1', 'round_robin')];
+    const players = [
+      makePlayer('p1', 'Alice', 'A'),
+      makePlayer('p2', 'Bob', 'B'),
+      makePlayer('p3', 'Cara', 'C'),
+    ];
+    const registrations = [
+      makeReg('r1', 'cat1', 'p1'),
+      makeReg('r2', 'cat1', 'p2'),
+      makeReg('r3', 'cat1', 'p3'),
+    ];
+    const matches = [
+      makeStoreMatch('m1', 'cat1', 'r1', 'r2', 'r1', [[21, 19], [19, 21], [21, 19]], 1),
+      makeStoreMatch('m2', 'cat1', 'r2', 'r3', 'r2', [[21, 5], [21, 5]], 2),
+      makeStoreMatch('m3', 'cat1', 'r3', 'r1', 'r3', [[21, 19], [21, 19]], 3),
+    ];
+
+    const leaderboard = await generateLeaderboard(
+      't1',
+      'cat1',
+      {
+        rankingPreset: 'simple_ladder',
+        progressionMode: 'phase_reset',
+      },
+      { matches, registrations, categories, players }
+    );
+
+    expect(leaderboard.rankingPreset).toBe('simple_ladder');
+    expect(leaderboard.progressionMode).toBe('phase_reset');
+  });
+
   it('includes category summaries for tournament scope', async () => {
     const categories = [
       makeCategory('cat1', 'round_robin'),

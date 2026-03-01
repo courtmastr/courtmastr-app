@@ -2,7 +2,7 @@
 // CourtMaster v2 - Leaderboard Types
 // ============================================
 
-import type { GameScore, RankingPresetId } from '@/types';
+import type { GameScore, RankingPresetId, RankingProgressionMode } from '@/types';
 
 export type LeaderboardScope = 'category' | 'tournament';
 export type LeaderboardPhaseScope = 'pool' | 'category' | 'tournament';
@@ -59,6 +59,8 @@ export interface LeaderboardEntry {
 export interface Leaderboard {
   scope: LeaderboardScope;
   phaseScope?: LeaderboardPhaseScope;
+  rankingPreset: RankingPresetId;
+  progressionMode: RankingProgressionMode;
   tournamentId: string;
   categoryId?: string;
   generatedAt: Date;
@@ -116,6 +118,7 @@ export interface LeaderboardOptions {
   categoryIds?: string[];       // tournament scope: filter to specific categories
   phaseScope?: LeaderboardPhaseScope;
   rankingPreset?: RankingPresetId;
+  progressionMode?: RankingProgressionMode;
 }
 
 export type ExportFormat = 'csv' | 'json'; // PDF deferred to P2

@@ -3,7 +3,13 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
-import type { Category, ScoringConfig } from '@/types';
+import type {
+  Category,
+  RankingPresetId,
+  RankingProgressionMode,
+  ScoringConfig,
+  User,
+} from '@/types';
 import { SCORING_PRESETS } from '@/types';
 import {
   getTournamentStateLabel,
@@ -16,6 +22,11 @@ import { sanitizeScoringConfig } from '@/features/scoring/utils/validation';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useUserStore } from '@/stores/users';
+import {
+  DEFAULT_RANKING_PRESET,
+  DEFAULT_RANKING_PROGRESSION,
+  RANKING_PRESETS,
+} from '@/features/leaderboard/rankingPresets';
 
 const route = useRoute();
 const router = useRouter();
@@ -38,6 +49,12 @@ interface CategoryScoringOverrideForm {
   enabled: boolean;
   preset: string;
   config: ScoringConfig;
+}
+
+interface CategoryRankingOverrideForm {
+  enabled: boolean;
+  rankingPreset: RankingPresetId;
+  progressionMode: RankingProgressionMode;
 }
 
 const cloneScoringConfig = (config: ScoringConfig): ScoringConfig => ({
@@ -64,13 +81,24 @@ const settings = ref({
   pointsToWin: 21,
   mustWinBy: 2,
   maxPoints: 30 as number | null,
+  rankingPresetDefault: DEFAULT_RANKING_PRESET as RankingPresetId,
+  progressionModeDefault: DEFAULT_RANKING_PROGRESSION as RankingProgressionMode,
 });
 const sponsors = ref<string[]>([]);
 const newSponsor = ref('');
 
 const initialScoringConfig = ref<ScoringConfig>(sanitizeScoringConfig(settings.value));
+const initialRankingDefaults = ref<{
+  rankingPresetDefault: RankingPresetId;
+  progressionModeDefault: RankingProgressionMode;
+}>({
+  rankingPresetDefault: DEFAULT_RANKING_PRESET,
+  progressionModeDefault: DEFAULT_RANKING_PROGRESSION,
+});
 const categoryScoringOverrides = ref<Record<string, CategoryScoringOverrideForm>>({});
 const initialCategoryScoringOverrides = ref<Record<string, CategoryScoringOverrideForm>>({});
+const categoryRankingOverrides = ref<Record<string, CategoryRankingOverrideForm>>({});
+const initialCategoryRankingOverrides = ref<Record<string, CategoryRankingOverrideForm>>({});
 
 // Scoring preset options
 const scoringPresets = [
@@ -78,6 +106,23 @@ const scoringPresets = [
   { title: '21x1 (Single game, first to 21)', value: 'badminton_single_game' },
   { title: '15x3 (Best of 3, first to 15)', value: 'badminton_short' },
   { title: 'Custom', value: 'custom' },
+];
+
+const rankingPresetOptions = Object.values(RANKING_PRESETS).map((preset) => ({
+  title: preset.label,
+  value: preset.id,
+  subtitle: preset.description,
+}));
+
+const progressionModeOptions: Array<{ title: string; value: RankingProgressionMode }> = [
+  {
+    title: 'Carry Forward (Pool + Elimination)',
+    value: 'carry_forward',
+  },
+  {
+    title: 'Phase Reset (Elimination Only)',
+    value: 'phase_reset',
+  },
 ];
 
 const selectedPreset = ref('badminton_standard');
@@ -152,6 +197,20 @@ const cloneOverrideRecord = (
   return cloned;
 };
 
+const cloneCategoryRankingOverrides = (
+  source: Record<string, CategoryRankingOverrideForm>
+): Record<string, CategoryRankingOverrideForm> => {
+  const cloned: Record<string, CategoryRankingOverrideForm> = {};
+  Object.entries(source).forEach(([categoryId, override]) => {
+    cloned[categoryId] = {
+      enabled: override.enabled,
+      rankingPreset: override.rankingPreset,
+      progressionMode: override.progressionMode,
+    };
+  });
+  return cloned;
+};
+
 const buildCategoryScoringForm = (category: Category, fallbackConfig: ScoringConfig): CategoryScoringOverrideForm => {
   const effectiveConfig = category.scoringOverrideEnabled
     ? sanitizeScoringConfig(
@@ -172,6 +231,21 @@ const buildCategoryScoringForm = (category: Category, fallbackConfig: ScoringCon
   };
 };
 
+const buildCategoryRankingForm = (
+  category: Category,
+  fallbackPreset: RankingPresetId,
+  fallbackProgressionMode: RankingProgressionMode
+): CategoryRankingOverrideForm => {
+  const rankingPreset = category.rankingPresetOverride ?? fallbackPreset;
+  const progressionMode = category.progressionModeOverride ?? fallbackProgressionMode;
+
+  return {
+    enabled: Boolean(category.rankingPresetOverride || category.progressionModeOverride),
+    rankingPreset,
+    progressionMode,
+  };
+};
+
 function applyCategoryPreset(categoryId: string, presetKey: string): void {
   if (presetKey === 'custom') return;
 
@@ -180,6 +254,14 @@ function applyCategoryPreset(categoryId: string, presetKey: string): void {
   if (!preset || !form) return;
 
   form.config = sanitizeScoringConfig(preset, sanitizeScoringConfig(settings.value));
+}
+
+function updateCategoryMaxPoints(categoryId: string, value: string | number | null): void {
+  const override = categoryScoringOverrides.value[categoryId];
+  if (!override) return;
+
+  override.config.maxPoints = value === '' || value == null ? null : Number(value);
+  override.preset = 'custom';
 }
 
 const hasTournamentScoringChanged = (): boolean => {
@@ -213,6 +295,12 @@ watch([tournament, categories], ([t, nextCategories]) => {
       : '';
 
     const normalizedScoringConfig = sanitizeScoringConfig(t.settings);
+    const rankingPresetDefault = t.settings.rankingPresetDefault && t.settings.rankingPresetDefault in RANKING_PRESETS
+      ? t.settings.rankingPresetDefault
+      : DEFAULT_RANKING_PRESET;
+    const progressionModeDefault = t.settings.progressionModeDefault === 'phase_reset'
+      ? 'phase_reset'
+      : DEFAULT_RANKING_PROGRESSION;
 
     settings.value = {
       minRestTimeMinutes: t.settings.minRestTimeMinutes || 15,
@@ -223,17 +311,31 @@ watch([tournament, categories], ([t, nextCategories]) => {
       pointsToWin: normalizedScoringConfig.pointsToWin,
       mustWinBy: normalizedScoringConfig.mustWinBy,
       maxPoints: normalizedScoringConfig.maxPoints,
+      rankingPresetDefault,
+      progressionModeDefault,
     };
 
     selectedPreset.value = detectPreset(normalizedScoringConfig);
     initialScoringConfig.value = cloneScoringConfig(normalizedScoringConfig);
+    initialRankingDefaults.value = {
+      rankingPresetDefault,
+      progressionModeDefault,
+    };
 
     const categoryOverrides: Record<string, CategoryScoringOverrideForm> = {};
+    const categoryRankingOverrideValues: Record<string, CategoryRankingOverrideForm> = {};
     nextCategories.forEach((category) => {
       categoryOverrides[category.id] = buildCategoryScoringForm(category, normalizedScoringConfig);
+      categoryRankingOverrideValues[category.id] = buildCategoryRankingForm(
+        category,
+        rankingPresetDefault,
+        progressionModeDefault
+      );
     });
     categoryScoringOverrides.value = categoryOverrides;
     initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryOverrides);
+    categoryRankingOverrides.value = categoryRankingOverrideValues;
+    initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrideValues);
     // Populate sponsors
     sponsors.value = t.sponsors ?? [];
   }
@@ -270,19 +372,30 @@ async function saveSettings() {
 
     await Promise.all(
       categories.value.map(async (category) => {
-        const override = categoryScoringOverrides.value[category.id];
-        if (!override) return;
+        const scoringOverride = categoryScoringOverrides.value[category.id];
+        const rankingOverride = categoryRankingOverrides.value[category.id];
+        if (!scoringOverride || !rankingOverride) return;
 
-        const overrideConfig = sanitizeScoringConfig(override.config, sanitizeScoringConfig(settings.value));
+        const overrideConfig = sanitizeScoringConfig(
+          scoringOverride.config,
+          sanitizeScoringConfig(settings.value)
+        );
         await tournamentStore.updateCategory(tournamentId.value, category.id, {
-          scoringOverrideEnabled: override.enabled,
-          scoringConfig: override.enabled ? overrideConfig : null,
+          scoringOverrideEnabled: scoringOverride.enabled,
+          scoringConfig: scoringOverride.enabled ? overrideConfig : null,
+          rankingPresetOverride: rankingOverride.enabled ? rankingOverride.rankingPreset : null,
+          progressionModeOverride: rankingOverride.enabled ? rankingOverride.progressionMode : null,
         });
       })
     );
 
     initialScoringConfig.value = sanitizeScoringConfig(settings.value);
+    initialRankingDefaults.value = {
+      rankingPresetDefault: settings.value.rankingPresetDefault,
+      progressionModeDefault: settings.value.progressionModeDefault,
+    };
     initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryScoringOverrides.value);
+    initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrides.value);
     notificationStore.showToast('success', 'Settings saved successfully!');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to save settings';
@@ -316,6 +429,9 @@ const addableOrganizers = computed(() => {
 
 const selectedOrganizerToAdd = ref<string | null>(null);
 const organizerLoading = ref(false);
+const organizerAutocompleteItemProps = (user: User): { subtitle: string } => ({
+  subtitle: user.email ?? '',
+});
 
 async function addOrganizerToTournament(): Promise<void> {
   if (!selectedOrganizerToAdd.value) return;
@@ -729,7 +845,7 @@ async function confirmDelete() {
                       variant="outlined"
                       density="compact"
                       :disabled="scoringLocked"
-                      @update:model-value="(value) => applyCategoryPreset(category.id, String(value))"
+                      @update:model-value="applyCategoryPreset(category.id, String($event))"
                     />
 
                     <v-row>
@@ -794,10 +910,144 @@ async function confirmDelete() {
                           density="compact"
                           clearable
                           :disabled="scoringLocked"
-                          @update:model-value="(value) => {
-                            categoryScoringOverrides[category.id].config.maxPoints = value === '' || value == null ? null : Number(value);
-                            categoryScoringOverrides[category.id].preset = 'custom';
-                          }"
+                          @update:model-value="updateCategoryMaxPoints(category.id, $event)"
+                        />
+                      </v-col>
+                    </v-row>
+                  </template>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+          </v-card-text>
+        </v-card>
+
+        <!-- Leaderboard Ranking Settings -->
+        <v-card class="mb-4">
+          <v-card-title>
+            <v-icon start>
+              mdi-trophy-outline
+            </v-icon>
+            Leaderboard Ranking Settings
+          </v-card-title>
+          <v-card-text>
+            <v-alert
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="mb-4"
+            >
+              Tournament defaults apply to all categories unless a category override is enabled.
+            </v-alert>
+
+            <v-row>
+              <v-col
+                cols="12"
+                md="6"
+              >
+                <v-select
+                  v-model="settings.rankingPresetDefault"
+                  :items="rankingPresetOptions"
+                  item-title="title"
+                  item-value="value"
+                  label="Default Ranking Preset"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col
+                cols="12"
+                md="6"
+              >
+                <v-select
+                  v-model="settings.progressionModeDefault"
+                  :items="progressionModeOptions"
+                  item-title="title"
+                  item-value="value"
+                  label="Default Progression Mode"
+                  variant="outlined"
+                />
+              </v-col>
+            </v-row>
+
+            <v-divider class="my-4" />
+
+            <div class="d-flex align-center justify-space-between mb-3">
+              <div class="text-subtitle-2">
+                Category Ranking Overrides
+              </div>
+              <v-chip
+                size="small"
+                color="info"
+                variant="tonal"
+              >
+                Saved as history per category
+              </v-chip>
+            </div>
+
+            <v-alert
+              v-if="!hasCategories"
+              type="info"
+              variant="tonal"
+              density="compact"
+            >
+              No categories found for this tournament.
+            </v-alert>
+
+            <v-expansion-panels
+              v-else
+              variant="accordion"
+            >
+              <v-expansion-panel
+                v-for="category in categories"
+                :key="`ranking-${category.id}`"
+              >
+                <v-expansion-panel-title>
+                  <div class="d-flex align-center w-100">
+                    <span>{{ category.name }}</span>
+                    <v-chip
+                      class="ml-3"
+                      size="x-small"
+                      :color="categoryRankingOverrides[category.id]?.enabled ? 'info' : 'grey'"
+                      variant="tonal"
+                    >
+                      {{ categoryRankingOverrides[category.id]?.enabled ? 'Override enabled' : 'Tournament default' }}
+                    </v-chip>
+                  </div>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text v-if="categoryRankingOverrides[category.id]">
+                  <v-switch
+                    v-model="categoryRankingOverrides[category.id].enabled"
+                    label="Use category-specific ranking"
+                    color="primary"
+                  />
+
+                  <template v-if="categoryRankingOverrides[category.id].enabled">
+                    <v-row>
+                      <v-col
+                        cols="12"
+                        md="6"
+                      >
+                        <v-select
+                          v-model="categoryRankingOverrides[category.id].rankingPreset"
+                          :items="rankingPresetOptions"
+                          item-title="title"
+                          item-value="value"
+                          label="Category Ranking Preset"
+                          variant="outlined"
+                          density="compact"
+                        />
+                      </v-col>
+                      <v-col
+                        cols="12"
+                        md="6"
+                      >
+                        <v-select
+                          v-model="categoryRankingOverrides[category.id].progressionMode"
+                          :items="progressionModeOptions"
+                          item-title="title"
+                          item-value="value"
+                          label="Category Progression Mode"
+                          variant="outlined"
+                          density="compact"
                         />
                       </v-col>
                     </v-row>
@@ -973,7 +1223,7 @@ async function confirmDelete() {
                 density="compact"
                 clearable
                 hide-details
-                :item-props="(u) => ({ subtitle: u.email })"
+                :item-props="organizerAutocompleteItemProps"
               />
               <v-btn
                 color="primary"

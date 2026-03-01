@@ -123,6 +123,10 @@ describe('TournamentCreateView', () => {
       organizerIds: ['user-1'],
       format: 'single_elimination',
       status: 'draft',
+      settings: expect.objectContaining({
+        rankingPresetDefault: 'courtmaster_default',
+        progressionModeDefault: 'carry_forward',
+      }),
     }));
     expect(mockDeps.addCategory).toHaveBeenCalledTimes(2);
     expect(mockDeps.addCourt).toHaveBeenCalledTimes(2);

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useLeaderboard } from '@/composables/useLeaderboard';
 import type { LeaderboardOptions, LeaderboardPhaseScope } from '@/types/leaderboard';
+import { RANKING_PRESETS } from '@/features/leaderboard/rankingPresets';
 import LeaderboardSummary from '@/components/leaderboard/LeaderboardSummary.vue';
 import LeaderboardFilters from '@/components/leaderboard/LeaderboardFilters.vue';
 import LeaderboardTable from '@/components/leaderboard/LeaderboardTable.vue';
@@ -67,6 +68,18 @@ const supportsPoolScope = computed(() =>
 const isLoading = computed(() =>
   stage.value === 'fetching' || stage.value === 'calculating' || stage.value === 'sorting'
 );
+
+const activePresetLabel = computed(() => {
+  if (!leaderboard.value) return null;
+  return RANKING_PRESETS[leaderboard.value.rankingPreset]?.label ?? leaderboard.value.rankingPreset;
+});
+
+const activeProgressionLabel = computed(() => {
+  if (!leaderboard.value) return null;
+  return leaderboard.value.progressionMode === 'phase_reset'
+    ? 'Phase Reset'
+    : 'Carry Forward';
+});
 
 function onFiltersUpdate(filters: LeaderboardOptions & { search?: string }) {
   activeFilters.value = filters;
@@ -212,6 +225,28 @@ onMounted(() => {
       >
         Category
       </v-btn>
+    </div>
+
+    <div
+      v-if="leaderboard"
+      class="d-flex align-center mb-3 flex-wrap"
+    >
+      <v-chip
+        size="small"
+        color="primary"
+        variant="tonal"
+        class="mr-2 mb-1"
+      >
+        Preset: {{ activePresetLabel }}
+      </v-chip>
+      <v-chip
+        size="small"
+        color="secondary"
+        variant="tonal"
+        class="mb-1"
+      >
+        Progression: {{ activeProgressionLabel }}
+      </v-chip>
     </div>
 
     <!-- Summary cards -->

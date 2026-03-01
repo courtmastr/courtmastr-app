@@ -90,6 +90,8 @@ const getBasePayload = (): Omit<Tournament, 'id' | 'createdAt' | 'updatedAt'> =>
     pointsToWin: 21,
     mustWinBy: 2,
     maxPoints: 30,
+    rankingPresetDefault: 'courtmaster_default',
+    progressionModeDefault: 'carry_forward',
   },
   createdBy: 'user-1',
 });
@@ -114,6 +116,10 @@ describe('tournaments store - createTournament', () => {
       'tournaments-collection-ref',
       expect.objectContaining({
         organizerIds: ['user-1'],
+        settings: expect.objectContaining({
+          rankingPresetDefault: 'courtmaster_default',
+          progressionModeDefault: 'carry_forward',
+        }),
       })
     );
     expect(mockDeps.logTournamentCreated).toHaveBeenCalledWith(

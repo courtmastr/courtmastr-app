@@ -23,7 +23,13 @@ import {
   query,
   where,
 } from '@/services/firebase';
-import type { Registration, Player, Category, Match } from '@/types';
+import type {
+  Registration,
+  Player,
+  Category,
+  Match,
+  RankingProgressionMode,
+} from '@/types';
 import type {
   Leaderboard,
   LeaderboardEntry,
@@ -43,10 +49,12 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import {
+  DEFAULT_RANKING_PROGRESSION,
   RANKING_PRESETS,
   resolveRankingPreset,
 } from '@/features/leaderboard/rankingPresets';
 import type { RankingPresetDefinition } from '@/features/leaderboard/rankingPresets';
+import { resolveEffectiveRankingConfig } from '@/features/leaderboard/effectiveRankingConfig';
 
 // ============================================
 // Pure Functions (exported for unit testing)
@@ -96,13 +104,34 @@ export function selectMatchesForPhaseScope(
   matches: Match[],
   categories: Category[],
   phaseScope: LeaderboardPhaseScope,
-  categoryId?: string
+  categoryId?: string,
+  progressionMode: RankingProgressionMode = 'carry_forward'
 ): Match[] {
   if (phaseScope === 'tournament') return matches;
   if (!categoryId) return matches;
 
   const categoryMatches = matches.filter((match) => match.categoryId === categoryId);
   if (phaseScope === 'category') {
+    if (progressionMode === 'phase_reset') {
+      const category = categories.find((item) => item.id === categoryId);
+      if (category?.format === 'pool_to_elimination') {
+        if (category.eliminationStageId !== null && category.eliminationStageId !== undefined) {
+          const eliminationStageMatches = categoryMatches.filter(
+            (match) => match.stageId && String(match.stageId) === String(category.eliminationStageId)
+          );
+
+          if (eliminationStageMatches.length > 0) {
+            return eliminationStageMatches;
+          }
+        }
+
+        const leveledMatches = categoryMatches.filter((match) => Boolean(match.levelId));
+        if (leveledMatches.length > 0) {
+          return leveledMatches;
+        }
+      }
+    }
+
     return categoryMatches;
   }
 
@@ -813,6 +842,7 @@ export async function generateLeaderboard(
   let allRegistrations: Registration[];
   const phaseScope = options?.phaseScope ?? (categoryId ? 'category' : 'tournament');
   const rankingPreset = resolveRankingPreset(options?.rankingPreset);
+  const progressionMode = options?.progressionMode ?? DEFAULT_RANKING_PROGRESSION;
 
   if (preloaded) {
     // Option B: use store data — proven adapter has already resolved participant IDs
@@ -831,7 +861,8 @@ export async function generateLeaderboard(
       categoryMatches,
       allCategories,
       phaseScope,
-      categoryId
+      categoryId,
+      progressionMode
     );
 
     allMatches = matchesToResolvedMatches(scopedMatches);
@@ -896,6 +927,8 @@ export async function generateLeaderboard(
   return {
     scope: categoryId ? 'category' : 'tournament',
     phaseScope,
+    rankingPreset: rankingPreset.id,
+    progressionMode,
     tournamentId,
     categoryId,
     generatedAt: new Date(),
@@ -960,16 +993,30 @@ export function useLeaderboard() {
 
       // Ensure categories are loaded (parent view usually loads them,
       // but fetch if empty to be safe)
-      if (tournamentStore.categories.length === 0) {
+      if (tournamentStore.categories.length === 0 || !tournamentStore.currentTournament) {
         await tournamentStore.fetchTournament(tournamentId);
       }
+
+      const selectedCategory = categoryId
+        ? tournamentStore.categories.find((category) => category.id === categoryId)
+        : undefined;
+      const effectiveRankingConfig = resolveEffectiveRankingConfig(
+        tournamentStore.currentTournament?.settings ?? {},
+        selectedCategory ?? {}
+      );
+
+      const mergedOptions: LeaderboardOptions = {
+        ...opts,
+        rankingPreset: opts?.rankingPreset ?? effectiveRankingConfig.preset,
+        progressionMode: opts?.progressionMode ?? effectiveRankingConfig.progressionMode,
+      };
 
       stage.value = 'calculating';
 
       const result = await generateLeaderboard(
         tournamentId,
         categoryId,
-        opts,
+        mergedOptions,
         {
           matches: matchStore.matches,
           registrations: registrationStore.registrations,

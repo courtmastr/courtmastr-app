@@ -1,3 +1,17 @@
+- id: fae1a9d1
+  title: build:log reports implicit-any template handlers in TournamentSettingsView
+  status: "✅ fixed"
+  date: "2026-03-01"
+  fingerprint: "fae1a9d1"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-01-16-30-42.vue-tsc-b.log"
+- id: 740820fc
+  title: build:log fails on existing repository-wide TypeScript baseline errors
+  status: "🟡 workaround"
+  date: "2026-03-01"
+  fingerprint: "740820fc"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-01-16-36-47.vue-tsc-b.log"
 - id: 2e7da4d1
   title: test:log fails when Women category aliases resolve to MS in useMatchIdentification
   status: "✅ fixed"
@@ -22,10 +36,10 @@
 - id: 695ac768
   title: lint:log fails on existing repository-wide ESLint baseline violations
   status: "🟡 workaround"
-  date: "2026-02-27"
+  date: "2026-03-01"
   fingerprint: "695ac768"
-  command: "npm run lint:log -- src/features/tournaments/views/matchControlScheduleQuery.ts src/features/tournaments/views/CategoriesView.vue src/features/tournaments/views/MatchControlView.vue src/composables/useMatchScheduler.ts src/features/tournaments/dialogs/AutoScheduleDialog.vue src/features/tournaments/dialogs/scheduleCapacityGuard.ts tests/unit/scheduleCapacityGuard.test.ts tests/unit/AutoScheduleDialog.level-scope.test.ts tests/unit/CategoriesView.draft-schedule-routing.test.ts tests/unit/MatchControlView.assignments.test.ts tests/unit/CategoryRegistrationStats.pool-phase.test.ts"
-  artifact_log: "docs/debug-kb/_artifacts/2026-02-27-08-15-03.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-01-16-34-09.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: ccf47aaa
   title: lint:log fails on existing repository-wide ESLint baseline violations
   status: "🟡 workaround"
