@@ -80,11 +80,12 @@ function handleCancel(): void {
     :model-value="modelValue"
     :max-width="maxWidth"
     :persistent="persistent"
+    aria-labelledby="base-dialog-title"
     @update:model-value="(value) => emit('update:modelValue', value)"
   >
     <v-card>
       <!-- Title Section -->
-      <v-card-title class="d-flex align-center justify-space-between">
+      <v-card-title id="base-dialog-title" class="d-flex align-center justify-space-between">
         <!-- Title Slot Override -->
         <slot name="title">
           {{ title }}
@@ -96,6 +97,7 @@ function handleCancel(): void {
           icon="mdi-close"
           variant="text"
           size="small"
+          aria-label="Close dialog"
           @click="handleClose"
         />
       </v-card-title>
