@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Trophy, MonitorPlay, CalendarClock, Users } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
@@ -8,22 +7,22 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
 
 const features = [
   {
-    icon: Trophy,
+    icon: 'mdi-trophy',
     title: 'Tournament Management',
     description: 'Create and manage badminton tournaments with ease. Support for single and double elimination formats.',
   },
   {
-    icon: MonitorPlay,
+    icon: 'mdi-monitor-play',
     title: 'Live Scoring',
     description: 'Mobile-optimized scoring interface for scorekeepers. Real-time score updates across all devices.',
   },
   {
-    icon: CalendarClock,
+    icon: 'mdi-calendar-clock',
     title: 'Smart Scheduling',
     description: 'Automated scheduling algorithm that respects player rest time and optimizes court usage.',
   },
   {
-    icon: Users,
+    icon: 'mdi-account-group',
     title: 'Easy Registration',
     description: 'Self-service registration for players or bulk import by administrators.',
   },
@@ -93,8 +92,11 @@ const features = [
             <img
               src="/app-screenshot.png"
               alt="CourtMaster Live Match Control"
+              width="700"
+              height="440"
               class="w-100 h-auto d-block"
               style="object-fit: cover;"
+              loading="lazy"
             >
           </div>
         </v-col>
@@ -161,9 +163,9 @@ const features = [
               class="icon-wrapper bg-grey-lighten-4 mx-auto mb-4 d-flex align-center justify-center rounded-circle border"
               style="width: 64px; height: 64px;"
             >
-              <component
-                :is="feature.icon"
-                :size="32"
+              <v-icon
+                :icon="feature.icon"
+                size="32"
                 class="text-primary"
               />
             </div>
@@ -223,7 +225,7 @@ const features = [
 .home-view {
   min-height: 100vh;
   background-color: $background;
-  font-family: $font-family-base;
+  font-family: $font-family-body;
 }
 
 /* Hero Section */
