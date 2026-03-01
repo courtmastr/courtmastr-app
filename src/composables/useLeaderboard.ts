@@ -28,6 +28,7 @@ import type {
   Leaderboard,
   LeaderboardEntry,
   LeaderboardOptions,
+  LeaderboardPhaseScope,
   LeaderboardStage,
   CategorySummary,
   TiebreakerResolution,
@@ -69,6 +70,7 @@ export function matchesToResolvedMatches(matches: Match[]): ResolvedMatch[] {
     .map((m) => ({
       id: m.id,
       categoryId: m.categoryId,
+      stageId: m.stageId,
       participant1Id: m.participant1Id!,
       participant2Id: m.participant2Id!,
       winnerId: m.winnerId!,
@@ -83,6 +85,37 @@ export function matchesToResolvedMatches(matches: Match[]): ResolvedMatch[] {
   }
 
   return resolved;
+}
+
+export function selectMatchesForPhaseScope(
+  matches: Match[],
+  categories: Category[],
+  phaseScope: LeaderboardPhaseScope,
+  categoryId?: string
+): Match[] {
+  if (phaseScope === 'tournament') return matches;
+  if (!categoryId) return matches;
+
+  const categoryMatches = matches.filter((match) => match.categoryId === categoryId);
+  if (phaseScope === 'category') {
+    return categoryMatches;
+  }
+
+  const category = categories.find((item) => item.id === categoryId);
+  if (!category) return [];
+
+  if (category.poolStageId !== null && category.poolStageId !== undefined) {
+    const poolStageMatches = categoryMatches.filter(
+      (match) => match.stageId && String(match.stageId) === String(category.poolStageId)
+    );
+
+    if (poolStageMatches.length > 0) {
+      return poolStageMatches;
+    }
+  }
+
+  // Legacy fallback: pool matches are category-scoped (no levelId)
+  return categoryMatches.filter((match) => !match.levelId);
 }
 
 /**
@@ -135,6 +168,7 @@ export function resolveMatches(
     resolved.push({
       id: match.id,
       categoryId,
+      stageId: match.stage_id != null ? String(match.stage_id) : undefined,
       participant1Id: p1Id,
       participant2Id: p2Id,
       winnerId: score.winnerId,
@@ -740,6 +774,7 @@ export async function generateLeaderboard(
   let players: Player[];
   let allMatches: ResolvedMatch[];
   let allRegistrations: Registration[];
+  const phaseScope = options?.phaseScope ?? (categoryId ? 'category' : 'tournament');
 
   if (preloaded) {
     // Option B: use store data — proven adapter has already resolved participant IDs
@@ -754,8 +789,14 @@ export async function generateLeaderboard(
     const categoryMatches = preloaded.matches.filter((m) =>
       targetCategoryIds.includes(m.categoryId)
     );
+    const scopedMatches = selectMatchesForPhaseScope(
+      categoryMatches,
+      allCategories,
+      phaseScope,
+      categoryId
+    );
 
-    allMatches = matchesToResolvedMatches(categoryMatches);
+    allMatches = matchesToResolvedMatches(scopedMatches);
 
     // Filter registrations to target categories
     allRegistrations = preloaded.registrations.filter(
@@ -810,6 +851,7 @@ export async function generateLeaderboard(
 
   return {
     scope: categoryId ? 'category' : 'tournament',
+    phaseScope,
     tournamentId,
     categoryId,
     generatedAt: new Date(),

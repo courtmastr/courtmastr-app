@@ -304,6 +304,7 @@ export interface Match {
   tournamentId: string;
   categoryId: string;
   levelId?: string;
+  stageId?: string;
   round: number;
   matchNumber: number; // Position in bracket
   bracketPosition: BracketPosition;

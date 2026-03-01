@@ -131,6 +131,7 @@ export interface ExportOptions {
 export interface ResolvedMatch {
   id: string;
   categoryId: string;
+  stageId?: string;
   participant1Id: string;        // Registration ID (resolved via participant.name)
   participant2Id: string;        // Registration ID (resolved via participant.name)
   winnerId: string;              // Registration ID (from match_scores.winnerId)

@@ -12,6 +12,7 @@ import {
   findHeadToHeadMatch,
   groupByDescending,
   matchesToResolvedMatches,
+  selectMatchesForPhaseScope,
   generateLeaderboard,
 } from '../../src/composables/useLeaderboard';
 
@@ -119,7 +120,8 @@ function makeStoreMatch(
   p2: string,
   winner: string,
   games: [number, number][],
-  matchNumber = 1
+  matchNumber = 1,
+  overrides: Partial<Match> = {}
 ): Match {
   return {
     id,
@@ -141,8 +143,59 @@ function makeStoreMatch(
     })),
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...overrides,
   };
 }
+
+describe('selectMatchesForPhaseScope', () => {
+  const poolCategory = makeCategory('cat1', 'pool_to_elimination');
+  poolCategory.poolStageId = 10;
+  const standardCategory = makeCategory('cat2', 'single_elimination');
+
+  const categories = [poolCategory, standardCategory];
+
+  it('returns only pool-stage matches for pool scope when poolStageId exists', () => {
+    const matches = [
+      makeStoreMatch('m1', 'cat1', 'r1', 'r2', 'r1', [[21, 18]], 1, { stageId: '10' }),
+      makeStoreMatch('m2', 'cat1', 'r1', 'r3', 'r1', [[21, 15]], 2, { stageId: '11' }),
+      makeStoreMatch('m3', 'cat2', 'r4', 'r5', 'r4', [[21, 17]], 1, { stageId: '10' }),
+    ];
+
+    const selected = selectMatchesForPhaseScope(matches, categories, 'pool', 'cat1');
+    expect(selected.map((match) => match.id)).toEqual(['m1']);
+  });
+
+  it('falls back to non-level matches for pool scope when no stage metadata is present', () => {
+    const matches = [
+      makeStoreMatch('m1', 'cat1', 'r1', 'r2', 'r1', [[21, 18]], 1, { levelId: undefined }),
+      makeStoreMatch('m2', 'cat1', 'r1', 'r3', 'r1', [[21, 15]], 2, { levelId: 'level-1' }),
+    ];
+
+    const selected = selectMatchesForPhaseScope(matches, categories, 'pool', 'cat1');
+    expect(selected.map((match) => match.id)).toEqual(['m1']);
+  });
+
+  it('returns all category matches for category scope', () => {
+    const matches = [
+      makeStoreMatch('m1', 'cat1', 'r1', 'r2', 'r1', [[21, 18]], 1, { stageId: '10' }),
+      makeStoreMatch('m2', 'cat1', 'r1', 'r3', 'r1', [[21, 15]], 2, { stageId: '11', levelId: 'level-1' }),
+      makeStoreMatch('m3', 'cat2', 'r4', 'r5', 'r4', [[21, 17]], 1),
+    ];
+
+    const selected = selectMatchesForPhaseScope(matches, categories, 'category', 'cat1');
+    expect(selected.map((match) => match.id).sort()).toEqual(['m1', 'm2']);
+  });
+
+  it('returns unchanged input for tournament scope', () => {
+    const matches = [
+      makeStoreMatch('m1', 'cat1', 'r1', 'r2', 'r1', [[21, 18]], 1),
+      makeStoreMatch('m2', 'cat2', 'r3', 'r4', 'r3', [[21, 19]], 1),
+    ];
+
+    const selected = selectMatchesForPhaseScope(matches, categories, 'tournament');
+    expect(selected.map((match) => match.id)).toEqual(['m1', 'm2']);
+  });
+});
 
 // ============================================
 // resolveParticipantName

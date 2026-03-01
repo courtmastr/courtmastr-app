@@ -95,6 +95,7 @@ export function adaptBracketsMatchToLegacyMatch(
             id: String(bracketsMatch.id),
             tournamentId,
             categoryId,
+            stageId: bracketsMatch.stage_id != null ? String(bracketsMatch.stage_id) : undefined,
             round: roundNumber,
             matchNumber,
             bracketPosition: { bracket: bracketType, round: roundNumber, position: matchNumber },
@@ -165,6 +166,7 @@ export function adaptBracketsMatchToLegacyMatch(
         id: String(bracketsMatch.id),
         tournamentId,
         categoryId,
+        stageId: bracketsMatch.stage_id != null ? String(bracketsMatch.stage_id) : undefined,
         round: roundNumber,
         matchNumber,
         bracketPosition: {
