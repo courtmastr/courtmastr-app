@@ -342,6 +342,14 @@ async function submitManualScores() {
 function onScoreCorrected() {
   showCorrectionDialog.value = false;
 }
+
+function goBack(): void {
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push(`/tournaments/${tournamentId.value}/match-control`);
+  }
+}
 </script>
 
 <template>
@@ -375,7 +383,7 @@ function onScoreCorrected() {
             <v-btn
               class="mt-4"
               color="primary"
-              @click="router.back()"
+              @click="goBack()"
             >
               Go Back
             </v-btn>
@@ -403,7 +411,7 @@ function onScoreCorrected() {
           <v-btn
             icon="mdi-arrow-left"
             variant="text"
-            @click="router.back()"
+            @click="goBack()"
           />
           <div class="ml-2">
             <h1 class="text-h6 font-weight-bold">
@@ -531,7 +539,7 @@ function onScoreCorrected() {
                   </div>
                   <v-btn
                     variant="text"
-                    size="small"
+                    size="default"
                     class="mt-2"
                     :disabled="currentGame.score1 === 0"
                     @click.stop="removePoint('participant1')"
@@ -571,7 +579,7 @@ function onScoreCorrected() {
                   </div>
                   <v-btn
                     variant="text"
-                    size="small"
+                    size="default"
                     class="mt-2"
                     :disabled="currentGame.score2 === 0"
                     @click.stop="removePoint('participant2')"
@@ -642,7 +650,7 @@ function onScoreCorrected() {
             <v-btn
               color="primary"
               class="mt-4"
-              @click="router.back()"
+              @click="goBack()"
             >
               Back to Matches
             </v-btn>
@@ -768,6 +776,7 @@ function onScoreCorrected() {
               density="compact"
               hide-details
               class="centered-input"
+              :aria-label="`Game 1, ${participant1Name} score`"
             />
           </v-col>
           <v-col cols="4">
@@ -780,6 +789,7 @@ function onScoreCorrected() {
               density="compact"
               hide-details
               class="centered-input"
+              :aria-label="`Game 1, ${participant2Name} score`"
             />
           </v-col>
         </v-row>
@@ -802,6 +812,7 @@ function onScoreCorrected() {
               density="compact"
               hide-details
               class="centered-input"
+              :aria-label="`Game 2, ${participant1Name} score`"
             />
           </v-col>
           <v-col cols="4">
@@ -814,6 +825,7 @@ function onScoreCorrected() {
               density="compact"
               hide-details
               class="centered-input"
+              :aria-label="`Game 2, ${participant2Name} score`"
             />
           </v-col>
         </v-row>
@@ -834,6 +846,7 @@ function onScoreCorrected() {
               density="compact"
               hide-details
               class="centered-input"
+              :aria-label="`Game 3, ${participant1Name} score`"
             />
           </v-col>
           <v-col cols="4">
@@ -846,6 +859,7 @@ function onScoreCorrected() {
               density="compact"
               hide-details
               class="centered-input"
+              :aria-label="`Game 3, ${participant2Name} score`"
             />
           </v-col>
         </v-row>
@@ -894,7 +908,7 @@ function onScoreCorrected() {
 <style scoped>
 .score-card {
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.2s ease;
   min-height: 200px;
   display: flex;
   flex-direction: column;
