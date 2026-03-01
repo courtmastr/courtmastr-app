@@ -291,7 +291,39 @@ function statusColor(entry: LeaderboardEntry): string {
                   class="pa-2"
                 >
                   <div class="text-caption text-medium-emphasis">
-                    Games Won
+                    Match Record
+                  </div>
+                  <div class="text-h6 font-weight-bold">
+                    {{ item.matchesWon }}-{{ item.matchesLost }}
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Match Points
+                  </div>
+                  <div class="text-h6 font-weight-bold">
+                    {{ item.matchPoints }}
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Sets (Games) Won
                   </div>
                   <div class="text-h6 font-weight-bold text-success">
                     {{ item.gamesWon }}
@@ -307,7 +339,7 @@ function statusColor(entry: LeaderboardEntry): string {
                   class="pa-2"
                 >
                   <div class="text-caption text-medium-emphasis">
-                    Games Lost
+                    Sets (Games) Lost
                   </div>
                   <div class="text-h6 font-weight-bold text-error">
                     {{ item.gamesLost }}
@@ -323,10 +355,10 @@ function statusColor(entry: LeaderboardEntry): string {
                   class="pa-2"
                 >
                   <div class="text-caption text-medium-emphasis">
-                    Win Rate
+                    Points For
                   </div>
                   <div class="text-h6 font-weight-bold">
-                    {{ item.matchesPlayed > 0 ? `${item.winRate.toFixed(1)}%` : '—' }}
+                    {{ item.pointsFor }}
                   </div>
                 </v-card>
               </v-col>
@@ -339,13 +371,48 @@ function statusColor(entry: LeaderboardEntry): string {
                   class="pa-2"
                 >
                   <div class="text-caption text-medium-emphasis">
-                    Game Diff
+                    Points Against
+                  </div>
+                  <div class="text-h6 font-weight-bold">
+                    {{ item.pointsAgainst }}
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Set (Game) Diff
                   </div>
                   <div
                     class="text-h6 font-weight-bold"
                     :class="diffColorClass(item.gameDifference)"
                   >
                     {{ diffText(item.gameDifference) }}
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="6"
+                sm="3"
+              >
+                <v-card
+                  variant="outlined"
+                  class="pa-2"
+                >
+                  <div class="text-caption text-medium-emphasis">
+                    Point Diff
+                  </div>
+                  <div
+                    class="text-h6 font-weight-bold"
+                    :class="diffColorClass(item.pointDifference)"
+                  >
+                    {{ diffText(item.pointDifference) }}
                   </div>
                 </v-card>
               </v-col>
