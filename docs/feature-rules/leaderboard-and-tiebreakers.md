@@ -37,6 +37,7 @@
   - `tests/integration/leaderboard-pool-history.integration.test.ts`
   - `tests/integration/leaderboard.pool-to-elimination.massive.integration.test.ts`
 - Indirect: `e2e/leaderboard.spec.ts`
+  - `e2e/leaderboard-pool-to-elimination.spec.ts`
 
 ## Source References
 - `src/features/tournaments/views/LeaderboardView.vue`

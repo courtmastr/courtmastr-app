@@ -222,33 +222,42 @@ const buildPoolToEliminationMatches = (
       );
     });
 
-    qualifiers.push(group[0], group[1]);
+    qualifiers.push(group[0], group[1], group[2]);
   });
 
-  // First elimination round using top-2 qualifiers from pools, deterministic winner = participant1.
-  for (let i = 0; i < qualifiers.length; i += 2) {
-    const participant1Id = qualifiers[i];
-    const participant2Id = qualifiers[i + 1];
+  // 3 levels (split equally): top-3 from each of 10 pools = 30 qualifiers -> 10 per level.
+  // Each level runs a single-elimination first round (5 matches).
+  const levelGroups = chunk(qualifiers, 10);
+  levelGroups.forEach((levelParticipants, levelIndex) => {
+    const stageId = eliminationStageId + levelIndex;
+    for (let i = 0; i < levelParticipants.length; i += 2) {
+      const participant1Id = levelParticipants[i];
+      const participant2Id = levelParticipants[i + 1];
+      if (!participant1Id || !participant2Id) continue;
 
-    matches.push(
-      makeMatch(
-        `${categoryId}-elim-r1-${i / 2 + 1}`,
-        categoryId,
-        participant1Id,
-        participant2Id,
-        participant1Id,
-        String(eliminationStageId),
-        2,
-        matchNumber++,
-        'elim-r1'
-      )
-    );
-  }
+      matches.push(
+        makeMatch(
+          `${categoryId}-level-${levelIndex + 1}-r1-${i / 2 + 1}`,
+          categoryId,
+          participant1Id,
+          participant2Id,
+          participant1Id,
+          String(stageId),
+          2,
+          matchNumber++,
+          `level-${levelIndex + 1}`
+        )
+      );
+    }
+  });
 
   return {
     matches,
     poolMatchCount: groups.length * poolPairings.length,
-    eliminationMatchCount: qualifiers.length / 2,
+    eliminationMatchCount: levelGroups.reduce(
+      (total, levelParticipants) => total + Math.floor(levelParticipants.length / 2),
+      0
+    ),
   };
 };
 
@@ -317,11 +326,12 @@ describe('leaderboard - pool_to_elimination large tournament scenarios', () => {
     expect(leaderboard).not.toBeNull();
     expect(leaderboard?.phaseScope).toBe('category');
     expect(leaderboard?.totalParticipants).toBe(40);
-    expect(leaderboard?.totalMatches).toBe(70); // 60 pool + 10 elimination r1
+    expect(leaderboard?.totalMatches).toBe(75); // 60 pool + 15 elimination (3 levels x 5)
+    expect(leaderboard?.entries.filter((entry) => entry.matchesPlayed === 4).length).toBe(30);
 
     const highestMatchPoints = Math.max(...(leaderboard?.entries.map((entry) => entry.matchPoints) ?? [0]));
     expect(highestMatchPoints).toBe(8);
-    expect(leaderboard?.entries.filter((entry) => entry.matchPoints === 8).length).toBe(10);
+    expect(leaderboard?.entries.filter((entry) => entry.matchPoints === 8).length).toBe(5);
   });
 
   it('supports tournament-wide standings across multiple categories with overlapping players', async () => {
@@ -333,7 +343,7 @@ describe('leaderboard - pool_to_elimination large tournament scenarios', () => {
     expect(leaderboard).not.toBeNull();
     expect(leaderboard?.scope).toBe('tournament');
     expect(leaderboard?.totalParticipants).toBe(48); // cat-a 40 + cat-b 8
-    expect(leaderboard?.totalMatches).toBe(84); // cat-a 70 + cat-b 14
+    expect(leaderboard?.totalMatches).toBe(90); // cat-a 75 + cat-b 15
     expect(leaderboard?.categories).toHaveLength(2);
 
     // Player 1 appears in both categories using separate registrations.
