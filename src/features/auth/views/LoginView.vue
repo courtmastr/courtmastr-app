@@ -7,6 +7,8 @@ const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 
+const isDev = import.meta.env.DEV;
+
 const email = ref('');
 const password = ref('');
 const showPassword = ref(false);
@@ -177,6 +179,7 @@ async function handleGoogleLogin() {
 
         <!-- Demo credentials hint -->
         <v-card
+          v-if="isDev"
           class="mt-4"
           variant="tonal"
           color="info"

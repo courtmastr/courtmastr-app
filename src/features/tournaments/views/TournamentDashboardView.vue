@@ -227,6 +227,7 @@ async function updateStatus(status: string) {
     await tournamentStore.updateTournamentStatus(tournamentId.value, status as any);
     notificationStore.showToast('success', `Tournament status updated to ${status}`);
   } catch (error) {
+    notificationStore.showToast('error', 'Failed to update tournament status');
   }
 }
 

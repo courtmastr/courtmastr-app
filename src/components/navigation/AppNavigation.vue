@@ -2,7 +2,7 @@
   <v-navigation-drawer
     v-model="drawer"
     :rail="rail"
-    @click="rail = false"
+    aria-label="Main navigation"
   >
     <!-- Branding Section -->
     <v-list-item
@@ -28,11 +28,18 @@
       </template>
       <template #append>
         <v-btn
-          v-if="!rail"
+          v-if="rail"
+          icon="mdi-chevron-right"
+          variant="text"
+          aria-label="Expand sidebar"
+          @click.stop="rail = false"
+        />
+        <v-btn
+          v-else
           icon="mdi-chevron-left"
           variant="text"
           aria-label="Collapse sidebar"
-          @click.stop="rail = !rail"
+          @click.stop="rail = true"
         />
       </template>
     </v-list-item>

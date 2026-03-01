@@ -33,9 +33,10 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div
-    class="empty-state-container"
-    :style="{ backgroundColor: `var(--v-${color})` }"
+  <v-sheet
+    :color="color"
+    rounded
+    class="empty-state-container pa-8"
   >
     <div class="empty-state-content">
       <!-- Icon -->
@@ -72,7 +73,7 @@ withDefaults(defineProps<Props>(), {
       <!-- Slot for additional content -->
       <slot />
     </div>
-  </div>
+  </v-sheet>
 </template>
 
 <style scoped>
@@ -81,8 +82,6 @@ withDefaults(defineProps<Props>(), {
   align-items: center;
   justify-content: center;
   min-height: 300px;
-  padding: 2rem;
-  border-radius: 8px;
 }
 
 .empty-state-content {
