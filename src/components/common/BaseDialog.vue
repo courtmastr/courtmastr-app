@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useId } from 'vue';
+
 /**
  * BaseDialog.vue
  * 
@@ -49,6 +51,8 @@ const emit = defineEmits<{
   'cancel': [];
 }>();
 
+const titleId = useId();
+
 /**
  * Handle dialog close event
  * Emits both update:modelValue and cancel events
@@ -80,12 +84,12 @@ function handleCancel(): void {
     :model-value="modelValue"
     :max-width="maxWidth"
     :persistent="persistent"
-    aria-labelledby="base-dialog-title"
+    :aria-labelledby="titleId"
     @update:model-value="(value) => emit('update:modelValue', value)"
   >
     <v-card>
       <!-- Title Section -->
-      <v-card-title id="base-dialog-title" class="d-flex align-center justify-space-between">
+      <v-card-title :id="titleId" class="d-flex align-center justify-space-between">
         <!-- Title Slot Override -->
         <slot name="title">
           {{ title }}
