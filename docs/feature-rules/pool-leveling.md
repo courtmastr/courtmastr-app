@@ -21,6 +21,7 @@
   - `tests/unit/poolAssignment.test.ts`
   - `tests/integration/pool-leveling.integration.test.ts`
   - `tests/integration/leaderboard-pool-history.integration.test.ts`
+  - `tests/integration/leaderboard.pool-to-elimination.massive.integration.test.ts`
 - Indirect:
   - `tests/unit/leaderboard-resolve.test.ts`
   - `tests/unit/leaderboard.test.ts`

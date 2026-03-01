@@ -35,6 +35,7 @@
   - `tests/unit/effectiveRankingConfig.test.ts`
   - `tests/integration/leaderboard.integration.test.ts`
   - `tests/integration/leaderboard-pool-history.integration.test.ts`
+  - `tests/integration/leaderboard.pool-to-elimination.massive.integration.test.ts`
 - Indirect: `e2e/leaderboard.spec.ts`
 
 ## Source References
