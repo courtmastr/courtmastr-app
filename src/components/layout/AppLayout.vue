@@ -198,6 +198,8 @@ async function submitBugReport() {
 
 <template>
   <v-layout>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     <!-- Main Navigation (Drawer) -->
     <!-- Main Navigation (Drawer) -->
     <AppNavigation
@@ -275,7 +277,6 @@ async function submitBugReport() {
           :content="unreadCount"
           :model-value="unreadCount > 0"
           color="error"
-          dot
         >
           <Bell :size="20" />
         </v-badge>
@@ -431,7 +432,7 @@ async function submitBugReport() {
     </v-app-bar>
 
     <!-- Main Content -->
-    <v-main>
+    <v-main id="main-content">
       <v-container fluid>
         <!-- Breadcrumb Navigation -->
         <BreadcrumbNavigation v-if="showBreadcrumbs" />
@@ -560,6 +561,22 @@ async function submitBugReport() {
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
+
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  background: white;
+  color: #4F46E5;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 16px;
+}
 
 .app-bar {
   border-bottom: 1px solid $border-light;
