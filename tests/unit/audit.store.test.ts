@@ -110,4 +110,34 @@ describe('audit store', () => {
       })
     );
   });
+
+  it('builds query constraints when action and actor filters are provided', async () => {
+    const { useAuditStore } = await import('@/stores/audit');
+    const store = useAuditStore();
+    mockDeps.getDocs.mockResolvedValue({ docs: [] });
+
+    await store.fetchAuditLogs('t1', {
+      maxResults: 25,
+      action: 'match_completed',
+      actorId: 'uid-1',
+    });
+
+    const queryArgs = mockDeps.query.mock.calls.at(-1) ?? [];
+    const constraints = queryArgs.slice(1) as Array<{ type?: string; args?: unknown[]; value?: number }>;
+
+    expect(constraints.some((constraint) =>
+      constraint.type === 'where'
+      && constraint.args?.[0] === 'action'
+      && constraint.args?.[2] === 'match_completed'
+    )).toBe(true);
+    expect(constraints.some((constraint) =>
+      constraint.type === 'where'
+      && constraint.args?.[0] === 'actorId'
+      && constraint.args?.[2] === 'uid-1'
+    )).toBe(true);
+    expect(constraints.some((constraint) =>
+      constraint.type === 'limit'
+      && constraint.value === 25
+    )).toBe(true);
+  });
 });
