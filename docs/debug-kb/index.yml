@@ -15,10 +15,10 @@
 - id: a4894141
   title: lint:log fails on existing repository-wide ESLint baseline violations after rapid check-in search update
   status: "🟡 workaround"
-  date: "2026-03-01"
+  date: "2026-03-02"
   fingerprint: "a4894141"
-  command: "npm run lint:log -- src/features/checkin/components/RapidCheckInPanel.vue src/features/checkin/views/FrontDeskCheckInView.vue tests/unit/RapidCheckInPanel.test.ts"
-  artifact_log: "docs/debug-kb/_artifacts/2026-03-01-17-55-09.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+  command: "npm run lint:log -- src/features/checkin src/composables/useLeaderboard.ts src/router/index.ts src/guards/navigationGuards.ts src/stores/alerts.ts src/stores/audit.ts src/services/brackets-storage.ts src/services/brackets-storage-utils.ts src/types/advanced.ts src/types/router-meta.d.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-02-11-35-08.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 2e7da4d1
   title: test:log fails when Women category aliases resolve to MS in useMatchIdentification
   status: "✅ fixed"
