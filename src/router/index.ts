@@ -341,10 +341,10 @@ router.beforeEach(async (to, _from, next) => {
     await authStore.initAuth();
   }
 
-  const requiresAuth = to.meta.requiresAuth as boolean;
-  const guestOnly = to.meta.guestOnly as boolean;
-  const requiresAdmin = to.meta.requiresAdmin as boolean;
-  const requiresScorekeeper = to.meta.requiresScorekeeper as boolean;
+  const requiresAuth = to.meta.requiresAuth === true;
+  const guestOnly = to.meta.guestOnly === true;
+  const requiresAdmin = to.meta.requiresAdmin === true;
+  const requiresScorekeeper = to.meta.requiresScorekeeper === true;
 
   // Redirect authenticated users away from guest-only pages
   if (guestOnly && authStore.isAuthenticated) {
