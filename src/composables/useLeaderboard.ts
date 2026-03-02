@@ -115,7 +115,7 @@ export function resolveMatches(
     const score = scoreMap.get(match.id);
 
     if (!score || !score.winnerId) continue;
-    if (!['completed', 'walkover'].includes(score.status)) continue;
+    if (score.status !== 'completed' && score.status !== 'walkover') continue;
 
     // Prefer registrationId enhancement field; fall back to participant map
     const p1Id: string | undefined =
@@ -132,6 +132,10 @@ export function resolveMatches(
       continue;
     }
 
+    const completedAt = score.completedAt instanceof Date
+      ? score.completedAt
+      : score.completedAt?.toDate?.();
+
     resolved.push({
       id: match.id,
       categoryId,
@@ -141,7 +145,7 @@ export function resolveMatches(
       scores: score.scores ?? [],
       round: match.round ?? 0,
       bracket: match.bracket,
-      completedAt: score.completedAt?.toDate?.() ?? undefined,
+      completedAt,
     });
   }
 
