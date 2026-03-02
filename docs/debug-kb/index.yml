@@ -1,3 +1,10 @@
+- id: 44b9374e
+  title: test:log fails when checkInTypes module is not yet implemented
+  status: "✅ fixed"
+  date: "2026-03-02"
+  fingerprint: "44b9374e"
+  command: "npm run test:log -- --run tests/unit/checkInTypes.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-02-11-18-43.vitest-run-tests-unit-checkInTypes-test-ts.log"
 - id: a4894141
   title: lint:log fails on existing repository-wide ESLint baseline violations after rapid check-in search update
   status: "🟡 workaround"
