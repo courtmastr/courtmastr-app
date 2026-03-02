@@ -76,6 +76,7 @@ async function handleGoogleLogin() {
               <img
                 src="@/assets/brand/courtmaster-mark.svg"
                 alt="CourtMaster Logo"
+                width="48"
                 height="48"
                 class="mb-2"
               >
@@ -111,6 +112,7 @@ async function handleGoogleLogin() {
                 type="email"
                 prepend-inner-icon="mdi-email"
                 autocomplete="email"
+                spellcheck="false"
                 required
                 :disabled="loading"
               />

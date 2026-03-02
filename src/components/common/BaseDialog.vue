@@ -89,7 +89,10 @@ function handleCancel(): void {
   >
     <v-card>
       <!-- Title Section -->
-      <v-card-title :id="titleId" class="d-flex align-center justify-space-between">
+      <v-card-title
+        :id="titleId"
+        class="d-flex align-center justify-space-between"
+      >
         <!-- Title Slot Override -->
         <slot name="title">
           {{ title }}

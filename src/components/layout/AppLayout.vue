@@ -264,7 +264,10 @@ async function submitBugReport() {
             aria-label="Report a bug"
             @click="showBugDialog = true"
           >
-            <v-icon icon="mdi-bug-outline" size="20" />
+            <v-icon
+              icon="mdi-bug-outline"
+              size="20"
+            />
           </v-btn>
         </template>
       </v-tooltip>
@@ -282,7 +285,10 @@ async function submitBugReport() {
           :model-value="unreadCount > 0"
           color="error"
         >
-          <v-icon icon="mdi-bell" size="20" />
+          <v-icon
+            icon="mdi-bell"
+            size="20"
+          />
         </v-badge>
         <v-menu activator="parent">
           <v-card

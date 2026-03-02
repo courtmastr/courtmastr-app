@@ -6,9 +6,10 @@
   >
     <!-- Branding Section -->
     <v-list-item
-      class="branding-section"
+      class="branding-section cursor-pointer"
       nav
       :ripple="false"
+      @click="rail = !rail"
     >
       <template #prepend>
         <div class="brand-logo-container">
@@ -28,14 +29,7 @@
       </template>
       <template #append>
         <v-btn
-          v-if="rail"
-          icon="mdi-chevron-right"
-          variant="text"
-          aria-label="Expand sidebar"
-          @click.stop="rail = false"
-        />
-        <v-btn
-          v-else
+          v-if="!rail"
           icon="mdi-chevron-left"
           variant="text"
           aria-label="Collapse sidebar"

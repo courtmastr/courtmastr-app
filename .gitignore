@@ -67,4 +67,6 @@ pyproject.toml
 tournament-dashboard-overview.png
 AUTOMATED-TEST-RESULTS.json
 coverage
-output/
+output
+skills
+screenshots

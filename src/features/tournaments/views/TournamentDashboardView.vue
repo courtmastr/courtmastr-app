@@ -296,20 +296,31 @@ function handleExport() {
               aria-label="Back to tournaments"
               @click="router.push('/tournaments')"
             >
-              <v-icon icon="mdi-arrow-left" size="20" />
+              <v-icon
+                icon="mdi-arrow-left"
+                size="20"
+              />
             </v-btn>
             <h1 class="text-h4 font-weight-bold text-gradient">
               {{ tournament.name }}
             </h1>
           </div>
           <div class="d-flex align-center text-body-2 text-grey-darken-1 ml-10">
-            <v-icon icon="mdi-calendar" size="16" class="mr-2" />
+            <v-icon
+              icon="mdi-calendar"
+              size="16"
+              class="mr-2"
+            />
             {{ formatDate(tournament.startDate) }}
             <span
               v-if="tournament.location"
               class="mx-2"
             >•</span>
-            <v-icon icon="mdi-map-marker" size="16" class="mr-2" />
+            <v-icon
+              icon="mdi-map-marker"
+              size="16"
+              class="mr-2"
+            />
             <span v-if="tournament.location">{{ tournament.location }}</span>
           </div>
         </div>
@@ -325,7 +336,10 @@ function handleExport() {
             @click="handlePrint"
           >
             <template #prepend>
-              <v-icon icon="mdi-printer" size="18" />
+              <v-icon
+                icon="mdi-printer"
+                size="18"
+              />
             </template>
             Print Dashboard
           </v-btn>
@@ -336,7 +350,10 @@ function handleExport() {
             @click="handleExport"
           >
             <template #prepend>
-              <v-icon icon="mdi-download" size="18" />
+              <v-icon
+                icon="mdi-download"
+                size="18"
+              />
             </template>
             Export (CSV)
           </v-btn>
@@ -346,7 +363,10 @@ function handleExport() {
             :to="`/tournaments/${tournamentId}/settings`"
           >
             <template #prepend>
-              <v-icon icon="mdi-cog" size="18" />
+              <v-icon
+                icon="mdi-cog"
+                size="18"
+              />
             </template>
             Settings
           </v-btn>
@@ -357,7 +377,10 @@ function handleExport() {
                 color="primary"
               >
                 <template #append>
-                  <v-icon icon="mdi-chevron-down" size="18" />
+                  <v-icon
+                    icon="mdi-chevron-down"
+                    size="18"
+                  />
                 </template>
                 Manage
               </v-btn>
@@ -372,7 +395,11 @@ function handleExport() {
                 @click="updateStatus('registration')"
               >
                 <template #prepend>
-                  <v-icon icon="mdi-account-plus" size="18" class="mr-3 text-grey-darken-1" />
+                  <v-icon
+                    icon="mdi-account-plus"
+                    size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
                 </template>
               </v-list-item>
               <v-list-item
@@ -381,7 +408,11 @@ function handleExport() {
                 @click="updateStatus('active')"
               >
                 <template #prepend>
-                  <v-icon icon="mdi-play" size="18" class="mr-3 text-grey-darken-1" />
+                  <v-icon
+                    icon="mdi-play"
+                    size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
                 </template>
               </v-list-item>
               <v-list-item
@@ -389,7 +420,11 @@ function handleExport() {
                 @click="generateSchedule"
               >
                 <template #prepend>
-                  <v-icon icon="mdi-calendar-clock" size="18" class="mr-3 text-grey-darken-1" />
+                  <v-icon
+                    icon="mdi-calendar-clock"
+                    size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
                 </template>
               </v-list-item>
               <v-list-item
@@ -398,7 +433,11 @@ function handleExport() {
                 @click="showScoringQrDialog = true"
               >
                 <template #prepend>
-                  <v-icon icon="mdi-qrcode" size="18" class="mr-3 text-grey-darken-1" />
+                  <v-icon
+                    icon="mdi-qrcode"
+                    size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
                 </template>
               </v-list-item>
               <v-list-item
@@ -407,7 +446,11 @@ function handleExport() {
                 @click="showCompleteDialog = true"
               >
                 <template #prepend>
-                  <v-icon icon="mdi-check" size="18" class="mr-3 text-grey-darken-1" />
+                  <v-icon
+                    icon="mdi-check"
+                    size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
                 </template>
               </v-list-item>
               <v-divider class="my-1" />
@@ -417,7 +460,11 @@ function handleExport() {
                 @click="showDeleteDialog = true"
               >
                 <template #prepend>
-                  <v-icon icon="mdi-trash-can" size="18" class="mr-3 text-grey-darken-1" />
+                  <v-icon
+                    icon="mdi-trash-can"
+                    size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
                 </template>
               </v-list-item>
             </v-list>
@@ -477,7 +524,10 @@ function handleExport() {
             :to="`/tournaments/${tournamentId}/match-control`"
           >
             <template #prepend>
-              <v-icon icon="mdi-play-circle" size="18" />
+              <v-icon
+                icon="mdi-play-circle"
+                size="18"
+              />
             </template>
             Enter Match Control
           </v-btn>
@@ -489,7 +539,10 @@ function handleExport() {
             :to="`/tournaments/${tournamentId}/categories`"
           >
             <template #prepend>
-              <v-icon icon="mdi-source-fork" size="18" />
+              <v-icon
+                icon="mdi-source-fork"
+                size="18"
+              />
             </template>
             Setup Categories
           </v-btn>
@@ -500,7 +553,10 @@ function handleExport() {
             :to="`/tournaments/${tournamentId}/registrations`"
           >
             <template #prepend>
-              <v-icon icon="mdi-account-check" size="18" />
+              <v-icon
+                icon="mdi-account-check"
+                size="18"
+              />
             </template>
             Review Registrations
           </v-btn>
@@ -511,7 +567,10 @@ function handleExport() {
             :to="`/tournaments/${tournamentId}/brackets`"
           >
             <template #prepend>
-              <v-icon icon="mdi-medal" size="18" />
+              <v-icon
+                icon="mdi-medal"
+                size="18"
+              />
             </template>
             View Results
           </v-btn>
@@ -524,7 +583,10 @@ function handleExport() {
             @click="advanceState"
           >
             <template #prepend>
-              <v-icon icon="mdi-arrow-right-circle" size="18" />
+              <v-icon
+                icon="mdi-arrow-right-circle"
+                size="18"
+              />
             </template>
             {{ getNextState(tournament.state) }}
           </v-btn>
@@ -537,7 +599,11 @@ function handleExport() {
             @click="transitionTo('LIVE')"
           >
             <template #prepend>
-              <v-icon icon="mdi-arrow-right-circle" size="18" style="transform: rotate(180deg);" />
+              <v-icon
+                icon="mdi-arrow-right-circle"
+                size="18"
+                style="transform: rotate(180deg);"
+              />
             </template>
             Revert to Live
           </v-btn>
@@ -577,7 +643,10 @@ function handleExport() {
           elevation="0"
         >
           <div class="stat-icon-wrapper bg-primary-subtle">
-            <v-icon icon="mdi-account-group" size="24" />
+            <v-icon
+              icon="mdi-account-group"
+              size="24"
+            />
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.approvedRegistrations }}</span>
@@ -606,7 +675,10 @@ function handleExport() {
           elevation="0"
         >
           <div class="stat-icon-wrapper bg-info-subtle">
-            <v-icon icon="mdi-source-fork" size="24" />
+            <v-icon
+              icon="mdi-source-fork"
+              size="24"
+            />
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.totalMatches }}</span>
@@ -635,7 +707,10 @@ function handleExport() {
           elevation="0"
         >
           <div class="stat-icon-wrapper bg-warning-subtle">
-            <v-icon icon="mdi-bullhorn" size="24" />
+            <v-icon
+              icon="mdi-bullhorn"
+              size="24"
+            />
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">
@@ -666,7 +741,10 @@ function handleExport() {
           elevation="0"
         >
           <div class="stat-icon-wrapper bg-success-subtle">
-            <v-icon icon="mdi-check-all" size="24" />
+            <v-icon
+              icon="mdi-check-all"
+              size="24"
+            />
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.progress }}%</span>
@@ -728,7 +806,11 @@ function handleExport() {
     <div class="mb-6">
       <div class="d-flex align-center mb-4">
         <h2 class="text-h5 font-weight-bold text-gradient-primary">
-          <v-icon icon="mdi-bullhorn" size="20" class="mr-2" />
+          <v-icon
+            icon="mdi-bullhorn"
+            size="20"
+            class="mr-2"
+          />
           Live and Upcoming Matches
         </h2>
       </div>
