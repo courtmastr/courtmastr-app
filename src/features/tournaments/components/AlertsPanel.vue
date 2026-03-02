@@ -6,7 +6,7 @@ import type { Court, Match } from '@/types';
 
 interface Alert {
   id: string;
-  type: 'idle_court' | 'late_match' | 'unassigned_ready' | 'maintenance';
+  type: 'idle_court' | 'late_match' | 'unassigned_ready' | 'maintenance' | 'assignment_blocked';
   severity: 'warning' | 'error' | 'info';
   title: string;
   message: string;
@@ -18,6 +18,13 @@ interface Alert {
   matchId?: string;
 }
 
+interface AssignmentGateSummary {
+  blocked: number;
+  blockedByCheckIn: number;
+  blockedBySchedule: number;
+  blockedByPublish: number;
+}
+
 interface Props {
   courts: Court[];
   matches: Match[];
@@ -26,6 +33,7 @@ interface Props {
   lateThresholdMinutes?: number; // Threshold for late match (default 30)
   getParticipantName?: (id: string | undefined) => string;
   getCategoryName: (id: string) => string;
+  assignmentGateSummary?: AssignmentGateSummary;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -38,6 +46,7 @@ const emit = defineEmits<{
   assignToCourt: [courtId: string];
   viewMatch: [matchId: string];
   releaseCourt: [courtId: string];
+  goToCheckIn: [];
 }>();
 
 const { getMatchDisplayName } = useMatchDisplay();
@@ -126,7 +135,7 @@ const alerts = computed((): Alert[] => {
 
   // 4. Courts in maintenance
   const maintenanceCourts = props.courts.filter(c => c.status === 'maintenance');
-  
+
   for (const court of maintenanceCourts) {
     result.push({
       id: `maintenance-${court.id}`,
@@ -135,6 +144,28 @@ const alerts = computed((): Alert[] => {
       title: `${court.name} in Maintenance`,
       message: 'Court unavailable for matches',
       courtId: court.id,
+    });
+  }
+
+  // 5. Assignment gate blockers
+  if (props.assignmentGateSummary && props.assignmentGateSummary.blocked > 0) {
+    const summary = props.assignmentGateSummary;
+    const reasons: string[] = [];
+    if (summary.blockedByCheckIn > 0) {
+      reasons.push(`${summary.blockedByCheckIn} waiting for check-in`);
+    }
+    if (summary.blockedBySchedule > 0) {
+      reasons.push(`${summary.blockedBySchedule} missing planned time`);
+    }
+    if (summary.blockedByPublish > 0) {
+      reasons.push(`${summary.blockedByPublish} not published`);
+    }
+    result.push({
+      id: 'assignment_blocked',
+      type: 'assignment_blocked',
+      severity: 'warning',
+      title: `${summary.blocked} matches blocked from assignment`,
+      message: reasons.join(', '),
     });
   }
 
@@ -159,6 +190,8 @@ function getAlertIcon(type: Alert['type']): string {
       return 'mdi-account-clock';
     case 'maintenance':
       return 'mdi-wrench';
+    case 'assignment_blocked':
+      return 'mdi-shield-alert';
     default:
       return 'mdi-alert';
   }
@@ -177,7 +210,9 @@ function getAlertColor(severity: Alert['severity']): string {
 }
 
 function handleAlertClick(alert: Alert) {
-  if (alert.courtId && alert.type === 'idle_court') {
+  if (alert.type === 'assignment_blocked') {
+    emit('goToCheckIn');
+  } else if (alert.courtId && alert.type === 'idle_court') {
     emit('assignToCourt', alert.courtId);
   } else if (alert.matchId) {
     emit('viewMatch', alert.matchId);

@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useAuthStore } from '@/stores/auth';
 import EmptyState from '@/components/common/EmptyState.vue';
-import type { Tournament } from '@/types';
 import { TOURNAMENT_STATUS_LABELS, FORMAT_LABELS } from '@/types';
 
 const router = useRouter();
@@ -49,9 +48,6 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
-function viewTournament(tournament: Tournament): void {
-  router.push(`/tournaments/${tournament.id}`);
-}
 </script>
 
 <template>
@@ -115,8 +111,8 @@ function viewTournament(tournament: Tournament): void {
         lg="4"
       >
         <v-card
+          :to="`/tournaments/${tournament.id}`"
           class="tournament-card"
-          @click="viewTournament(tournament)"
         >
           <v-card-item>
             <template #prepend>
@@ -194,13 +190,6 @@ function viewTournament(tournament: Tournament): void {
               {{ FORMAT_LABELS[tournament.format] }}
             </v-chip>
             <v-spacer />
-            <v-btn
-              icon="mdi-chevron-right"
-              variant="text"
-              size="small"
-              aria-hidden="true"
-              tabindex="-1"
-            />
           </v-card-actions>
         </v-card>
       </v-col>
@@ -211,7 +200,7 @@ function viewTournament(tournament: Tournament): void {
 <style scoped>
 .tournament-card {
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .tournament-card:hover {

@@ -5,21 +5,19 @@
 // Color Palette
 // ===========================
 
-// Primary - Indigo
-$primary-base: #4F46E5;
-$primary-dark: #4338CA;
-$primary-light: #6366F1;
-
-// Secondary/Accent - Sky
-$secondary-base: #0EA5E9;
-$secondary-light: #38BDF8;
-$secondary-dark: #0284C7;
-
-// Semantic Colors (iOS-inspired)
-$success: #34C759;
-$warning: #FF9500;
-$error: #FF3B30;
-$info: #007AFF;
+// Primary — Royal Blue (Stadium Energy)
+$primary-base: #1D4ED8; // Royal Blue 700
+$primary-dark: #1E40AF; // Royal Blue 800
+$primary-light: #3B82F6; // Blue 500
+// Secondary — Amber (brand accent)
+$secondary-base: #D97706; // Amber 600
+$secondary-light: #F59E0B; // Amber 500
+$secondary-dark: #B45309; // Amber 700
+// Semantic Colors
+$success: #16A34A; // Green 600
+$warning: #F97316; // Orange 500
+$error: #DC2626; // Red 600
+$info: #0EA5E9; // Sky 500
 
 // Neutrals
 $white: #FFFFFF;
@@ -39,7 +37,11 @@ $text-disabled: #9CA3AF;
 // ===========================
 
 // Font Family
-$font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+$font-family-display: 'Barlow Condensed', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+// Athletic display font for headings
+
+$font-family-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+// Refined body font for readability
 
 // Font Sizes
 $font-size-xs: 12px;

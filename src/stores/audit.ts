@@ -13,6 +13,7 @@ import {
   serverTimestamp,
   where,
 } from '@/services/firebase';
+import type { QueryConstraint } from 'firebase/firestore';
 import { convertTimestamps } from '@/utils/firestore';
 import { useAuthStore } from '@/stores/auth';
 
@@ -56,6 +57,13 @@ export interface AuditRecord {
   newValues?: Record<string, unknown>;
   createdAt: Date;
 }
+
+type AuditRecordDoc = Omit<AuditRecord, 'id'>;
+
+const toAuditRecord = (id: string, data: Record<string, unknown>): AuditRecord => ({
+  id,
+  ...(convertTimestamps(data) as AuditRecordDoc),
+});
 
 export const useAuditStore = defineStore('audit', () => {
   // State
@@ -106,9 +114,9 @@ export const useAuditStore = defineStore('audit', () => {
     error.value = null;
 
     try {
-      const constraints: any[] = [
+      const constraints: QueryConstraint[] = [
         orderBy('createdAt', 'desc'),
-        limit(options.maxResults || 100),
+        limit(options.maxResults ?? 100),
       ];
 
       if (options.action) {
@@ -125,10 +133,9 @@ export const useAuditStore = defineStore('audit', () => {
       );
 
       const snapshot = await getDocs(q);
-      auditLogs.value = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...convertTimestamps(doc.data()),
-      })) as AuditRecord[];
+      auditLogs.value = snapshot.docs.map((auditDoc) =>
+        toAuditRecord(auditDoc.id, auditDoc.data())
+      );
     } catch (err) {
       console.error('Error fetching audit logs:', err);
       error.value = 'Failed to load audit logs';
@@ -150,10 +157,9 @@ export const useAuditStore = defineStore('audit', () => {
     auditUnsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        auditLogs.value = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...convertTimestamps(doc.data()),
-        })) as AuditRecord[];
+        auditLogs.value = snapshot.docs.map((auditDoc) =>
+          toAuditRecord(auditDoc.id, auditDoc.data())
+        );
       },
       (err) => {
         console.error('Error in audit logs subscription:', err);

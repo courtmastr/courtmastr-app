@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { Registration } from '@/types';
+import type { CheckInSearchRow, CheckInStatus } from '@/features/checkin/composables/checkInTypes';
 
 export interface UrgentCheckInItem {
   id: string;
@@ -20,15 +20,8 @@ export interface RecentCheckInItem {
 interface Props {
   urgentItems: UrgentCheckInItem[];
   recentItems: RecentCheckInItem[];
-  searchRows?: RapidSearchRow[];
+  searchRows?: CheckInSearchRow[];
   loading?: boolean;
-}
-
-export interface RapidSearchRow {
-  id: string;
-  name: string;
-  category: string;
-  status: Registration['status'];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -43,7 +36,7 @@ const emit = defineEmits<{
 }>();
 
 const scanValue = ref('');
-const searchSuggestions = computed<RapidSearchRow[]>(() => {
+const searchSuggestions = computed<CheckInSearchRow[]>(() => {
   const query = scanValue.value.trim().toLowerCase();
   if (query.length < 2) return [];
 
@@ -67,21 +60,21 @@ const handleUndo = (registrationId: string): void => {
   emit('undoItem', registrationId);
 };
 
-const getStatusLabel = (status: Registration['status']): string => {
+const getStatusLabel = (status: CheckInStatus): string => {
   if (status === 'checked_in') return 'Checked In';
   if (status === 'no_show') return 'No Show';
   if (status === 'approved') return 'Approved';
   return status;
 };
 
-const getStatusColor = (status: Registration['status']): string => {
+const getStatusColor = (status: CheckInStatus): string => {
   if (status === 'checked_in') return 'success';
   if (status === 'no_show') return 'error';
   if (status === 'approved') return 'primary';
   return 'default';
 };
 
-const handleSuggestionCheckIn = (row: RapidSearchRow): void => {
+const handleSuggestionCheckIn = (row: CheckInSearchRow): void => {
   if (row.status !== 'approved') return;
   emit('quickCheckIn', row.id);
   scanValue.value = '';

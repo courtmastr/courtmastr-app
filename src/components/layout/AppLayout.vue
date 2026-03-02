@@ -3,7 +3,6 @@ import { ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
-import { LogIn, UserPlus, LayoutDashboard, Settings, LogOut, Bug, Bell } from 'lucide-vue-next';
 import AppNavigation from '@/components/navigation/AppNavigation.vue';
 import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation.vue';
 import ContextualNavigation from '@/components/navigation/ContextualNavigation.vue';
@@ -43,22 +42,22 @@ const showSearch = computed(() => {
 const userMenuItems = computed(() => {
   if (!isAuthenticated.value) {
     return [
-      { title: 'Login', icon: LogIn, action: () => router.push('/login') },
-      { title: 'Register', icon: UserPlus, action: () => router.push('/register') },
+      { title: 'Login', icon: 'mdi-login', action: () => router.push('/login') },
+      { title: 'Register', icon: 'mdi-account-plus', action: () => router.push('/register') },
     ];
   }
 
   return [
-    { title: 'My Tournaments', icon: LayoutDashboard, action: () => router.push('/tournaments') },
+    { title: 'My Tournaments', icon: 'mdi-view-dashboard', action: () => router.push('/tournaments') },
     ...(route.params.tournamentId && authStore.isOrganizer
       ? [{
           title: 'Tournament Settings',
-          icon: Settings,
+          icon: 'mdi-cog',
           action: () => router.push(`/tournaments/${route.params.tournamentId as string}/settings`),
         }]
       : []),
     { divider: true },
-    { title: 'Logout', icon: LogOut, action: handleLogout },
+    { title: 'Logout', icon: 'mdi-logout', action: handleLogout },
   ];
 });
 
@@ -198,6 +197,11 @@ async function submitBugReport() {
 
 <template>
   <v-layout>
+    <a
+      href="#main-content"
+      class="skip-link"
+    >Skip to main content</a>
+
     <!-- Main Navigation (Drawer) -->
     <!-- Main Navigation (Drawer) -->
     <AppNavigation
@@ -229,6 +233,8 @@ async function submitBugReport() {
           <img
             src="@/assets/brand/courtmaster-lockup.svg"
             alt="CourtMaster Logo"
+            width="180"
+            height="36"
             class="app-logo"
           >
         </router-link>
@@ -258,7 +264,10 @@ async function submitBugReport() {
             aria-label="Report a bug"
             @click="showBugDialog = true"
           >
-            <Bug :size="20" />
+            <v-icon
+              icon="mdi-bug-outline"
+              size="20"
+            />
           </v-btn>
         </template>
       </v-tooltip>
@@ -275,9 +284,11 @@ async function submitBugReport() {
           :content="unreadCount"
           :model-value="unreadCount > 0"
           color="error"
-          dot
         >
-          <Bell :size="20" />
+          <v-icon
+            icon="mdi-bell"
+            size="20"
+          />
         </v-badge>
         <v-menu activator="parent">
           <v-card
@@ -323,8 +334,9 @@ async function submitBugReport() {
               v-else
               class="text-center text-grey py-8"
             >
-              <Bell
-                :size="48"
+              <v-icon
+                icon="mdi-bell"
+                size="48"
                 class="mb-2 text-grey-lighten-1"
               />
               <div>No notifications</div>
@@ -417,9 +429,9 @@ async function submitBugReport() {
                 @click="item.action"
               >
                 <template #prepend>
-                  <component
-                    :is="item.icon"
-                    :size="20"
+                  <v-icon
+                    :icon="item.icon"
+                    size="20"
                     class="mr-4 text-grey-darken-1"
                   />
                 </template>
@@ -431,7 +443,7 @@ async function submitBugReport() {
     </v-app-bar>
 
     <!-- Main Content -->
-    <v-main>
+    <v-main id="main-content">
       <v-container fluid>
         <!-- Breadcrumb Navigation -->
         <BreadcrumbNavigation v-if="showBreadcrumbs" />
@@ -489,7 +501,12 @@ async function submitBugReport() {
               variant="outlined"
               class="upload-area pa-6 text-center cursor-pointer"
               :ripple="false"
+              role="button"
+              tabindex="0"
+              aria-label="Upload screenshot - click or drag and drop an image"
               @click="triggerFileInput"
+              @keydown.enter.prevent="triggerFileInput"
+              @keydown.space.prevent="triggerFileInput"
               @dragover.prevent
               @drop.prevent="handleFileDrop"
             >
@@ -529,6 +546,7 @@ async function submitBugReport() {
                 color="error"
                 variant="flat"
                 class="remove-btn"
+                aria-label="Remove screenshot"
                 @click="removeScreenshot"
               />
             </v-card>
@@ -560,6 +578,22 @@ async function submitBugReport() {
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
+
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  background: white;
+  color: #4F46E5;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 16px;
+}
 
 .app-bar {
   border-bottom: 1px solid $border-light;

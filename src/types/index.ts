@@ -2,6 +2,15 @@
 // CourtMaster v2 - Core Type Definitions
 // ============================================
 
+export type {
+  Brand,
+  TournamentId,
+  CategoryId,
+  RegistrationId,
+  MatchId,
+  Result,
+} from '@/types/advanced';
+
 // User Roles
 export type UserRole = 'admin' | 'organizer' | 'scorekeeper' | 'player' | 'viewer';
 

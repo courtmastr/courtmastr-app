@@ -43,6 +43,9 @@ import type {
   ResolvedMatch,
   TiebreakerEntryValues,
   TiebreakerMetric,
+  LeaderboardParticipantDoc,
+  LeaderboardMatchDoc,
+  LeaderboardMatchScoreDoc,
 } from '@/types/leaderboard';
 import { exportLeaderboard } from '@/services/leaderboardExport';
 import { useMatchStore } from '@/stores/matches';
@@ -158,21 +161,18 @@ export function selectMatchesForPhaseScope(
  */
 export function resolveMatches(
   categoryId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  participants: any[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  matchDocs: any[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  matchScoreDocs: any[]
+  participants: LeaderboardParticipantDoc[],
+  matchDocs: LeaderboardMatchDoc[],
+  matchScoreDocs: LeaderboardMatchScoreDoc[]
 ): ResolvedMatch[] {
   // Build lookup: bracketsManager participantId (string) → registrationId
   // CRITICAL: participant.name IS the Firestore registration ID (not participant.id)
   const participantMap = new Map<string, string>(
-    participants.map((p) => [String(p.id), p.name as string])
+    participants.map((p) => [String(p.id), p.name])
   );
 
   // Build lookup: matchId → matchScore doc
-  const scoreMap = new Map<string, typeof matchScoreDocs[0]>(
+  const scoreMap = new Map<string, LeaderboardMatchScoreDoc>(
     matchScoreDocs.map((s) => [s.id, s])
   );
 
@@ -182,7 +182,7 @@ export function resolveMatches(
     const score = scoreMap.get(match.id);
 
     if (!score || !score.winnerId) continue;
-    if (!['completed', 'walkover'].includes(score.status)) continue;
+    if (score.status !== 'completed' && score.status !== 'walkover') continue;
 
     // Prefer registrationId enhancement field; fall back to participant map
     const p1Id: string | undefined =
@@ -199,6 +199,10 @@ export function resolveMatches(
       continue;
     }
 
+    const completedAt = score.completedAt instanceof Date
+      ? score.completedAt
+      : score.completedAt?.toDate?.();
+
     resolved.push({
       id: match.id,
       categoryId,
@@ -209,7 +213,7 @@ export function resolveMatches(
       scores: score.scores ?? [],
       round: match.round ?? 0,
       bracket: match.bracket,
-      completedAt: score.completedAt?.toDate?.() ?? undefined,
+      completedAt,
     });
   }
 
@@ -744,9 +748,9 @@ async function fetchCategoryData(
   categoryId: string
 ): Promise<{
   registrations: Registration[];
-  participants: { id: string; name: string }[];
-  matchDocs: unknown[];
-  matchScoreDocs: unknown[];
+  participants: LeaderboardParticipantDoc[];
+  matchDocs: LeaderboardMatchDoc[];
+  matchScoreDocs: LeaderboardMatchScoreDoc[];
 }> {
   const base = `tournaments/${tournamentId}/categories/${categoryId}`;
 
@@ -774,10 +778,16 @@ async function fetchCategoryData(
     ),
     participants: participantSnap.docs.map((d) => ({
       id: d.id,
-      ...d.data(),
-    })) as { id: string; name: string }[],
-    matchDocs: matchSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
-    matchScoreDocs: scoreSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+      ...(d.data() as Omit<LeaderboardParticipantDoc, 'id'>),
+    })),
+    matchDocs: matchSnap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<LeaderboardMatchDoc, 'id'>),
+    })),
+    matchScoreDocs: scoreSnap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<LeaderboardMatchScoreDoc, 'id'>),
+    })),
   };
 }
 
@@ -797,8 +807,8 @@ async function fetchAllCategoryData(
     const resolved = resolveMatches(
       categoryIds[i],
       participants,
-      matchDocs as never[],
-      matchScoreDocs as never[]
+      matchDocs,
+      matchScoreDocs
     );
     allMatches.push(...resolved);
     allRegistrations.push(...registrations);

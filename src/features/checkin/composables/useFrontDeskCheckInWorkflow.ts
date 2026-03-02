@@ -1,5 +1,10 @@
 import { computed, onMounted, onUnmounted, ref, type ComputedRef, type Ref } from 'vue';
 import type { Match, Registration } from '@/types';
+import {
+  isCheckInSearchableStatus,
+  type CheckInSearchRow,
+  type CheckInStatus,
+} from '@/features/checkin/composables/checkInTypes';
 
 export type ScanInput =
   | { kind: 'registration'; value: string }
@@ -169,12 +174,8 @@ export interface FrontDeskRecentItem {
   undoRemainingMs: number;
 }
 
-export interface FrontDeskBulkRow {
-  id: string;
-  name: string;
-  category: string;
+export interface FrontDeskBulkRow extends CheckInSearchRow {
   bibNumber?: number | null;
-  status: Registration['status'];
 }
 
 interface FrontDeskRecentRecord {
@@ -227,8 +228,14 @@ const formatMinutesLabel = (minutes: number): string => {
 
 const getMatchStartTime = (match: Match): Date | undefined => match.plannedStartAt ?? match.scheduledTime;
 
-const isCheckInEligibleStatus = (status: Registration['status']): boolean =>
-  status === 'approved' || status === 'checked_in' || status === 'no_show';
+interface CheckInEligibleRegistration extends Registration {
+  status: CheckInStatus;
+}
+
+const isCheckInEligibleRegistration = (
+  registration: Registration
+): registration is CheckInEligibleRegistration =>
+  isCheckInSearchableStatus(registration.status);
 
 const normalizeText = (value: string): string => value.trim().toLowerCase();
 
@@ -295,7 +302,7 @@ export const useFrontDeskCheckInWorkflow = (
   });
 
   const eligibleRegistrations = computed(() =>
-    options.registrations.value.filter((registration) => isCheckInEligibleStatus(registration.status))
+    options.registrations.value.filter(isCheckInEligibleRegistration)
   );
 
   const stats = computed(() => {
@@ -377,7 +384,7 @@ export const useFrontDeskCheckInWorkflow = (
       .sort((a, b) => a.name.localeCompare(b.name))
   );
 
-  const resolveRegistration = (raw: string): Registration => {
+  const resolveRegistration = (raw: string): CheckInEligibleRegistration => {
     const parsed = parseScanInput(raw);
     if (!parsed) throw new Error('No matching participant for scanned code');
 
@@ -406,10 +413,13 @@ export const useFrontDeskCheckInWorkflow = (
     return candidates[0];
   };
 
-  const assignBibIfNeeded = async (registration: Registration, bibStartFrom: number): Promise<number | null> => {
+  const assignBibIfNeeded = async (
+    registration: CheckInEligibleRegistration,
+    bibStartFrom: number
+  ): Promise<number | null> => {
     if (registration.bibNumber && registration.bibNumber > 0) return registration.bibNumber;
 
-  const usedBibs = eligibleRegistrations.value
+    const usedBibs = eligibleRegistrations.value
       .map((item) => item.bibNumber)
       .filter((value): value is number => value != null && value > 0);
     const nextBib = assignSmallestAvailableBib(usedBibs, bibStartFrom);
@@ -417,7 +427,7 @@ export const useFrontDeskCheckInWorkflow = (
     return nextBib;
   };
 
-  const pushRecentCheckIn = (registration: Registration, bibNumber: number | null): void => {
+  const pushRecentCheckIn = (registration: CheckInEligibleRegistration, bibNumber: number | null): void => {
     const token = undoState.startItemUndo(registration.id, 5000);
     const nextRecord: FrontDeskRecentRecord = {
       id: registration.id,

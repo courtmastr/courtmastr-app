@@ -6,13 +6,6 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
-import {
-  ArrowLeft, Calendar, MapPin, Settings as SettingsIcon, ChevronDown,
-  UserPlus, Play, CalendarClock, Check, Trash2,
-  Users, QrCode,
-  PlayCircle, Medal, ArrowRightCircle, Megaphone, CheckCheck,
-  UserCheck, GitFork, Download, Printer
-} from 'lucide-vue-next';
 import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
@@ -227,6 +220,7 @@ async function updateStatus(status: string) {
     await tournamentStore.updateTournamentStatus(tournamentId.value, status as any);
     notificationStore.showToast('success', `Tournament status updated to ${status}`);
   } catch (error) {
+    notificationStore.showToast('error', 'Failed to update tournament status');
   }
 }
 
@@ -284,6 +278,7 @@ function handleExport() {
   <v-container
     v-if="tournament"
     fluid
+    class="dashboard-container bg-pattern"
   >
     <!-- Compact Header with Breadcrumbs Integrated -->
     <v-card
@@ -298,17 +293,22 @@ function handleExport() {
               variant="text"
               density="comfortable"
               class="mr-2"
+              aria-label="Back to tournaments"
               @click="router.push('/tournaments')"
             >
-              <ArrowLeft :size="20" />
+              <v-icon
+                icon="mdi-arrow-left"
+                size="20"
+              />
             </v-btn>
             <h1 class="text-h4 font-weight-bold text-gradient">
               {{ tournament.name }}
             </h1>
           </div>
           <div class="d-flex align-center text-body-2 text-grey-darken-1 ml-10">
-            <Calendar
-              :size="16"
+            <v-icon
+              icon="mdi-calendar"
+              size="16"
               class="mr-2"
             />
             {{ formatDate(tournament.startDate) }}
@@ -316,8 +316,9 @@ function handleExport() {
               v-if="tournament.location"
               class="mx-2"
             >•</span>
-            <MapPin
-              :size="16"
+            <v-icon
+              icon="mdi-map-marker"
+              size="16"
               class="mr-2"
             />
             <span v-if="tournament.location">{{ tournament.location }}</span>
@@ -335,7 +336,10 @@ function handleExport() {
             @click="handlePrint"
           >
             <template #prepend>
-              <Printer :size="18" />
+              <v-icon
+                icon="mdi-printer"
+                size="18"
+              />
             </template>
             Print Dashboard
           </v-btn>
@@ -346,7 +350,10 @@ function handleExport() {
             @click="handleExport"
           >
             <template #prepend>
-              <Download :size="18" />
+              <v-icon
+                icon="mdi-download"
+                size="18"
+              />
             </template>
             Export (CSV)
           </v-btn>
@@ -356,7 +363,10 @@ function handleExport() {
             :to="`/tournaments/${tournamentId}/settings`"
           >
             <template #prepend>
-              <SettingsIcon :size="18" />
+              <v-icon
+                icon="mdi-cog"
+                size="18"
+              />
             </template>
             Settings
           </v-btn>
@@ -367,7 +377,10 @@ function handleExport() {
                 color="primary"
               >
                 <template #append>
-                  <ChevronDown :size="18" />
+                  <v-icon
+                    icon="mdi-chevron-down"
+                    size="18"
+                  />
                 </template>
                 Manage
               </v-btn>
@@ -382,8 +395,9 @@ function handleExport() {
                 @click="updateStatus('registration')"
               >
                 <template #prepend>
-                  <UserPlus
-                    :size="18"
+                  <v-icon
+                    icon="mdi-account-plus"
+                    size="18"
                     class="mr-3 text-grey-darken-1"
                   />
                 </template>
@@ -394,8 +408,9 @@ function handleExport() {
                 @click="updateStatus('active')"
               >
                 <template #prepend>
-                  <Play
-                    :size="18"
+                  <v-icon
+                    icon="mdi-play"
+                    size="18"
                     class="mr-3 text-grey-darken-1"
                   />
                 </template>
@@ -405,8 +420,9 @@ function handleExport() {
                 @click="generateSchedule"
               >
                 <template #prepend>
-                  <CalendarClock
-                    :size="18"
+                  <v-icon
+                    icon="mdi-calendar-clock"
+                    size="18"
                     class="mr-3 text-grey-darken-1"
                   />
                 </template>
@@ -417,8 +433,9 @@ function handleExport() {
                 @click="showScoringQrDialog = true"
               >
                 <template #prepend>
-                  <QrCode
-                    :size="18"
+                  <v-icon
+                    icon="mdi-qrcode"
+                    size="18"
                     class="mr-3 text-grey-darken-1"
                   />
                 </template>
@@ -429,8 +446,9 @@ function handleExport() {
                 @click="showCompleteDialog = true"
               >
                 <template #prepend>
-                  <Check
-                    :size="18"
+                  <v-icon
+                    icon="mdi-check"
+                    size="18"
                     class="mr-3 text-grey-darken-1"
                   />
                 </template>
@@ -442,8 +460,9 @@ function handleExport() {
                 @click="showDeleteDialog = true"
               >
                 <template #prepend>
-                  <Trash2
-                    :size="18"
+                  <v-icon
+                    icon="mdi-trash-can"
+                    size="18"
                     class="mr-3 text-grey-darken-1"
                   />
                 </template>
@@ -458,7 +477,7 @@ function handleExport() {
     <v-card
       v-if="isAdmin"
       elevation="0"
-      class="mb-6 unified-status-card"
+      class="mb-6 unified-status-card gradient-accent"
       :class="`status-${tournament.status}`"
     >
       <v-card-text class="d-flex flex-column flex-sm-row align-center justify-space-between pa-4 gap-4">
@@ -505,7 +524,10 @@ function handleExport() {
             :to="`/tournaments/${tournamentId}/match-control`"
           >
             <template #prepend>
-              <PlayCircle :size="18" />
+              <v-icon
+                icon="mdi-play-circle"
+                size="18"
+              />
             </template>
             Enter Match Control
           </v-btn>
@@ -517,7 +539,10 @@ function handleExport() {
             :to="`/tournaments/${tournamentId}/categories`"
           >
             <template #prepend>
-              <GitFork :size="18" />
+              <v-icon
+                icon="mdi-source-fork"
+                size="18"
+              />
             </template>
             Setup Categories
           </v-btn>
@@ -528,7 +553,10 @@ function handleExport() {
             :to="`/tournaments/${tournamentId}/registrations`"
           >
             <template #prepend>
-              <UserCheck :size="18" />
+              <v-icon
+                icon="mdi-account-check"
+                size="18"
+              />
             </template>
             Review Registrations
           </v-btn>
@@ -539,7 +567,10 @@ function handleExport() {
             :to="`/tournaments/${tournamentId}/brackets`"
           >
             <template #prepend>
-              <Medal :size="18" />
+              <v-icon
+                icon="mdi-medal"
+                size="18"
+              />
             </template>
             View Results
           </v-btn>
@@ -552,7 +583,10 @@ function handleExport() {
             @click="advanceState"
           >
             <template #prepend>
-              <ArrowRightCircle :size="18" />
+              <v-icon
+                icon="mdi-arrow-right-circle"
+                size="18"
+              />
             </template>
             {{ getNextState(tournament.state) }}
           </v-btn>
@@ -565,8 +599,9 @@ function handleExport() {
             @click="transitionTo('LIVE')"
           >
             <template #prepend>
-              <ArrowRightCircle
-                :size="18"
+              <v-icon
+                icon="mdi-arrow-right-circle"
+                size="18"
                 style="transform: rotate(180deg);"
               />
             </template>
@@ -604,11 +639,14 @@ function handleExport() {
         md="3"
       >
         <v-card
-          class="stat-card"
+          class="stat-card gradient-accent"
           elevation="0"
         >
           <div class="stat-icon-wrapper bg-primary-subtle">
-            <Users :size="24" />
+            <v-icon
+              icon="mdi-account-group"
+              size="24"
+            />
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.approvedRegistrations }}</span>
@@ -633,11 +671,14 @@ function handleExport() {
         md="3"
       >
         <v-card
-          class="stat-card"
+          class="stat-card gradient-accent"
           elevation="0"
         >
           <div class="stat-icon-wrapper bg-info-subtle">
-            <GitFork :size="24" />
+            <v-icon
+              icon="mdi-source-fork"
+              size="24"
+            />
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.totalMatches }}</span>
@@ -662,11 +703,14 @@ function handleExport() {
         md="3"
       >
         <v-card
-          class="stat-card"
+          class="stat-card gradient-accent"
           elevation="0"
         >
           <div class="stat-icon-wrapper bg-warning-subtle">
-            <Megaphone :size="24" />
+            <v-icon
+              icon="mdi-bullhorn"
+              size="24"
+            />
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">
@@ -693,11 +737,14 @@ function handleExport() {
         md="3"
       >
         <v-card
-          class="stat-card"
+          class="stat-card gradient-accent"
           elevation="0"
         >
           <div class="stat-icon-wrapper bg-success-subtle">
-            <CheckCheck :size="24" />
+            <v-icon
+              icon="mdi-check-all"
+              size="24"
+            />
           </div>
           <div class="stat-content">
             <span class="text-h4 font-weight-bold d-block">{{ stats.progress }}%</span>
@@ -759,8 +806,9 @@ function handleExport() {
     <div class="mb-6">
       <div class="d-flex align-center mb-4">
         <h2 class="text-h5 font-weight-bold text-gradient-primary">
-          <Megaphone
-            :size="20"
+          <v-icon
+            icon="mdi-bullhorn"
+            size="20"
             class="mr-2"
           />
           Live and Upcoming Matches
@@ -1090,6 +1138,12 @@ function handleExport() {
 
 .text-gradient {
   color: $primary-base;
+  background: linear-gradient(135deg, $primary-base, $secondary-base);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-family: $font-family-display;
+  font-weight: 700;
 }
 
 .unified-status-card {
@@ -1144,6 +1198,11 @@ function handleExport() {
 
 .stat-content {
   flex-grow: 1;
+  color: $text-primary;
+
+  .text-h4 {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 .glow-effect {
@@ -1157,9 +1216,36 @@ function handleExport() {
   100% { box-shadow: 0 0 0 0 rgba($success, 0); }
 }
 
+
+// Enhanced animations for dashboard elements
+.dashboard-container {
+  .v-col {
+    animation: slideUp 0.5s ease-out forwards;
+    opacity: 0;
+    animation-delay: calc(var(--item-index) * 0.1s);
+  }
+}
+
+// Staggered card animations
+.stat-card {
+  animation: slideUp 0.6s ease-out forwards;
+  opacity: 0;
+  animation-fill-mode: both;
+}
+
+// Hover animation for interactive elements
+.v-btn, .v-card, .stat-card {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: $shadow-lg !important;
+  }
+}
 // Background utility classes
 .bg-primary-subtle { background-color: rgba($primary-base, 0.1) !important; }
 .bg-info-subtle { background-color: rgba($info, 0.1) !important; }
 .bg-success-subtle { background-color: rgba($success, 0.1) !important; }
 .bg-warning-subtle { background-color: rgba($warning, 0.1) !important; }
 </style>
+

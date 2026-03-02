@@ -16,6 +16,7 @@ import {
   serverTimestamp,
   where,
 } from '@/services/firebase';
+import type { QueryConstraint } from 'firebase/firestore';
 import { convertTimestamps } from '@/utils/firestore';
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
@@ -38,6 +39,13 @@ export interface LiveOpsAlert {
   autoResolve?: boolean;
   createdAt: Date;
 }
+
+type LiveOpsAlertDoc = Omit<LiveOpsAlert, 'id'>;
+
+const toLiveOpsAlert = (id: string, data: Record<string, unknown>): LiveOpsAlert => ({
+  id,
+  ...(convertTimestamps(data) as LiveOpsAlertDoc),
+});
 
 export const useAlertsStore = defineStore('alerts', () => {
   // State
@@ -98,9 +106,9 @@ export const useAlertsStore = defineStore('alerts', () => {
     error.value = null;
 
     try {
-      const constraints: any[] = [
+      const constraints: QueryConstraint[] = [
         orderBy('createdAt', 'desc'),
-        limit(options.maxResults || 50),
+        limit(options.maxResults ?? 50),
       ];
 
       if (options.severity) {
@@ -121,10 +129,9 @@ export const useAlertsStore = defineStore('alerts', () => {
       );
 
       const snapshot = await getDocs(q);
-      alerts.value = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...convertTimestamps(doc.data()),
-      })) as LiveOpsAlert[];
+      alerts.value = snapshot.docs.map((alertDoc) =>
+        toLiveOpsAlert(alertDoc.id, alertDoc.data())
+      );
     } catch (err) {
       console.error('Error fetching alerts:', err);
       error.value = 'Failed to load alerts';
@@ -147,10 +154,9 @@ export const useAlertsStore = defineStore('alerts', () => {
     alertsUnsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        alerts.value = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...convertTimestamps(doc.data()),
-        })) as LiveOpsAlert[];
+        alerts.value = snapshot.docs.map((alertDoc) =>
+          toLiveOpsAlert(alertDoc.id, alertDoc.data())
+        );
       },
       (err) => {
         console.error('Error in alerts subscription:', err);

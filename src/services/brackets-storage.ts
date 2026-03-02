@@ -1,6 +1,7 @@
 import { CrudInterface, Table, OmitId, DataTypes } from 'brackets-manager';
 import { Firestore } from 'firebase/firestore';
 import { collection, doc, getDocs, setDoc, query, where, writeBatch, Query, DocumentData } from 'firebase/firestore';
+import { normalizeReferences, removeUndefinedDeep } from '@/services/brackets-storage-utils';
 
 /**
  * ADAPTER CONSISTENCY:
@@ -33,55 +34,11 @@ export class ClientFirestoreStorage implements CrudInterface {
     return collection(this.db, `${this.rootPath}/${table}`);
   }
 
-  private removeUndefined(obj: any): any {
-    if (obj === null || obj === undefined) return obj;
-    if (Array.isArray(obj)) return obj.map(item => this.removeUndefined(item));
-    if (typeof obj !== 'object') return obj;
-
-    const cleaned: any = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (value !== undefined) {
-        // Recursively clean nested objects
-        cleaned[key] = this.removeUndefined(value);
-      }
+  private getRecordId(value: unknown): unknown {
+    if (value && typeof value === 'object' && 'id' in value) {
+      return (value as { id?: unknown }).id;
     }
-    return cleaned;
-  }
-
-  private normalizeReferences(obj: any): any {
-    if (obj === null || obj === undefined) return obj;
-    if (Array.isArray(obj)) return obj.map(item => this.normalizeReferences(item));
-    if (typeof obj !== 'object') return obj;
-
-    const normalized: any = {};
-    for (const [key, value] of Object.entries(obj)) {
-      // Special case: preserve 'id' field type (don't convert to string)
-      // This allows brackets-manager to query by numeric ID
-      if (key === 'id') {
-        normalized[key] = value; // Keep as-is (number or string)
-      }
-      // Convert foreign key references (stage_id, round_id, etc.) to strings
-      else if (key.endsWith('_id') && key !== 'id') {
-        if (value && typeof value === 'object' && 'id' in value) {
-          normalized[key] = String(value.id); // Convert to string (match server adapter)
-        } else {
-          normalized[key] = value; // Keep as is
-        }
-      }
-      // Recursively handle nested objects
-      else if (value && typeof value === 'object' && !Array.isArray(value)) {
-        normalized[key] = this.normalizeReferences(value);
-      }
-      // Recursively handle arrays
-      else if (Array.isArray(value)) {
-        normalized[key] = value.map(item => this.normalizeReferences(item));
-      }
-      // All other values - keep as-is
-      else {
-        normalized[key] = value; // Changed from String(value) to preserve types
-      }
-    }
-    return normalized;
+    return undefined;
   }
 
   async insert<T extends Table>(table: T, value: OmitId<DataTypes[T]>): Promise<number>;
@@ -100,15 +57,14 @@ export class ClientFirestoreStorage implements CrudInterface {
         const batch = writeBatch(this.db);
 
         for (const item of chunk) {
-          const itemWithId = item as any;
           // If item has an id, use it; otherwise generate one
-          const originalId = itemWithId.id;
+          const originalId = this.getRecordId(item);
           const docId = originalId !== undefined ? String(originalId) : doc(colRef).id;
           const docRef = doc(colRef, docId);
 
           // Store the id field as whatever was provided (or generate if missing)
           const idToStore = originalId !== undefined ? originalId : docId;
-          const data = this.removeUndefined(this.normalizeReferences({
+          const data = removeUndefinedDeep(normalizeReferences({
             ...item,
             id: idToStore,
           }));
@@ -122,8 +78,7 @@ export class ClientFirestoreStorage implements CrudInterface {
     }
 
     // Single insert - brackets-manager calls this for stages, matches, etc.
-    const valueWithId = value as any;
-    const originalId = valueWithId.id;
+    const originalId = this.getRecordId(value);
 
     // Generate numeric ID if not provided (brackets-manager/viewer require numeric IDs)
     const idToStore = originalId !== undefined ? originalId : this.getNextId(table);
@@ -131,7 +86,7 @@ export class ClientFirestoreStorage implements CrudInterface {
     // Use Firestore doc ID for document path, but store numeric id in data
     const docRef = doc(colRef, String(idToStore));
 
-    const data = this.removeUndefined(this.normalizeReferences({
+    const data = removeUndefinedDeep(normalizeReferences({
       ...value,
       id: idToStore,
     }));
@@ -203,10 +158,10 @@ export class ClientFirestoreStorage implements CrudInterface {
     const snapshot = await getDocs(q);
     if (snapshot.empty) return false;
 
-    const cleanValue = this.removeUndefined(value);
+    const cleanValue = removeUndefinedDeep(value);
     const batch = writeBatch(this.db);
     snapshot.docs.forEach(d => {
-      batch.update(d.ref, cleanValue as any);
+      batch.update(d.ref, cleanValue as DocumentData);
     });
 
     await batch.commit();

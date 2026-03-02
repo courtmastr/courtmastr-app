@@ -113,4 +113,40 @@ describe('alerts store', () => {
     expect(store.error).toBe('Lost connection to alerts');
     expect(store.isSubscribed).toBe(false);
   });
+
+  it('builds query constraints when filters are provided', async () => {
+    const { useAlertsStore } = await import('@/stores/alerts');
+    const store = useAlertsStore();
+    mockDeps.getDocs.mockResolvedValue({ docs: [] });
+
+    await store.fetchAlerts('t1', {
+      maxResults: 10,
+      severity: 'warning',
+      category: 'match',
+      status: 'active',
+    });
+
+    const queryArgs = mockDeps.query.mock.calls.at(-1) ?? [];
+    const constraints = queryArgs.slice(1) as Array<{ type?: string; args?: unknown[]; value?: number }>;
+
+    expect(constraints.some((constraint) =>
+      constraint.type === 'where'
+      && constraint.args?.[0] === 'severity'
+      && constraint.args?.[2] === 'warning'
+    )).toBe(true);
+    expect(constraints.some((constraint) =>
+      constraint.type === 'where'
+      && constraint.args?.[0] === 'category'
+      && constraint.args?.[2] === 'match'
+    )).toBe(true);
+    expect(constraints.some((constraint) =>
+      constraint.type === 'where'
+      && constraint.args?.[0] === 'status'
+      && constraint.args?.[2] === 'active'
+    )).toBe(true);
+    expect(constraints.some((constraint) =>
+      constraint.type === 'limit'
+      && constraint.value === 10
+    )).toBe(true);
+  });
 });

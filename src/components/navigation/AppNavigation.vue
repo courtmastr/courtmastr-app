@@ -2,13 +2,14 @@
   <v-navigation-drawer
     v-model="drawer"
     :rail="rail"
-    @click="rail = false"
+    aria-label="Main navigation"
   >
     <!-- Branding Section -->
     <v-list-item
-      class="branding-section"
+      class="branding-section cursor-pointer"
       nav
       :ripple="false"
+      @click="rail = !rail"
     >
       <template #prepend>
         <div class="brand-logo-container">
@@ -32,7 +33,7 @@
           icon="mdi-chevron-left"
           variant="text"
           aria-label="Collapse sidebar"
-          @click.stop="rail = !rail"
+          @click.stop="rail = true"
         />
       </template>
     </v-list-item>

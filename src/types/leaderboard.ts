@@ -144,3 +144,33 @@ export interface ResolvedMatch {
   bracket?: 'winners' | 'losers' | 'finals';
   completedAt?: Date;
 }
+
+/** Source `/participant` doc used by leaderboard match resolution. */
+export interface LeaderboardParticipantDoc {
+  id: string | number;
+  name: string;
+}
+
+/** Source `/match` doc used by leaderboard match resolution. */
+export interface LeaderboardMatchDoc {
+  id: string;
+  round?: number;
+  bracket?: 'winners' | 'losers' | 'finals';
+  opponent1?: {
+    id?: string | number;
+    registrationId?: string;
+  };
+  opponent2?: {
+    id?: string | number;
+    registrationId?: string;
+  };
+}
+
+/** Source `/match_scores` doc used by leaderboard match resolution. */
+export interface LeaderboardMatchScoreDoc {
+  id: string;
+  winnerId?: string;
+  status?: string;
+  scores?: GameScore[];
+  completedAt?: Date | { toDate?: () => Date };
+}
