@@ -440,7 +440,11 @@ export function useTimeScheduler() {
         lockedMatchIds.has(m.id) ? { ...m, lockedTime: true } : m
       );
 
-      const result = scheduleTimes(markedMatches, config);
+      // Annotate matches with scheduling epochs so the scheduler fills all courts
+      // from the start before advancing to the next round of matches.
+      const epochedMatches = computeEpochs(markedMatches);
+
+      const result = scheduleTimes(epochedMatches, config);
       await saveTimedSchedule(tournamentId, categoryId, result, levelId, lockedMatchIds);
       return result;
     } catch (err) {
