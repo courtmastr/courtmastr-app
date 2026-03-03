@@ -90,12 +90,18 @@ export interface SchedulableMatch {
  * therefore run concurrently without violating player rest.
  *
  * TBD matches (no participants) always receive epoch 0.
+ * Input order does not affect output — the function sorts by round/matchNumber internally.
  */
 export function computeEpochs(matches: SchedulableMatch[]): SchedulableMatch[] {
   // participantId → set of epochs already used by that participant
   const participantEpochs = new Map<string, Set<number>>();
+  // Sort by round then matchNumber so epoch assignment reflects scheduling order
+  // regardless of the order matches are provided by the caller.
+  const ordered = [...matches].sort((a, b) =>
+    a.round !== b.round ? a.round - b.round : a.matchNumber - b.matchNumber
+  );
 
-  return matches.map(match => {
+  return ordered.map(match => {
     const pids = [match.participant1Id, match.participant2Id].filter(Boolean) as string[];
 
     // Union of all epochs already used by either participant
