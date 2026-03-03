@@ -3,7 +3,7 @@ import type { TiebreakerResolution } from '@/types/leaderboard';
 
 const STEP_LABELS: Record<string, string> = {
   head_to_head: 'Head-to-Head (BWF Art. 16.2.2)',
-  game_difference: 'Game Difference per match (BWF Art. 16.2.3)',
+  game_difference: 'Set Difference per match (BWF Art. 16.2.3)',
   point_difference: 'Point Difference per match (BWF Art. 16.2.4)',
   equal: 'Equal Standing (BWF Art. 16.2.4.2)',
   match_wins: 'Match Wins',

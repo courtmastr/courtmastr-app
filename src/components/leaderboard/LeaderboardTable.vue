@@ -33,7 +33,7 @@ const compactHeaders = computed(() => {
     { key: 'matchPoints', title: 'MP', width: '70px', align: 'center' as const },
     { key: 'record', title: 'W-L', width: '80px', align: 'center' as const },
     { key: 'played', title: 'Played', width: '75px', align: 'center' as const },
-    { key: 'games', title: 'Games', width: '90px', align: 'center' as const },
+    { key: 'games', title: 'Set W-L', width: '90px', align: 'center' as const },
     { key: 'points', title: 'Pts For/Ag', width: '110px', align: 'center' as const },
     { key: 'pointDiff', title: 'Pts +/-', width: '80px', align: 'center' as const },
   ];
@@ -74,7 +74,7 @@ function diffColorClass(val: number): string {
 
 const STEP_LABELS_SHORT: Record<string, string> = {
   head_to_head: 'Head-to-Head result',
-  game_difference: 'Game Difference/match',
+  game_difference: 'Set Difference/match',
   point_difference: 'Point Difference/match',
   equal: 'Equal Standing',
   match_wins: 'Match Wins',
@@ -150,14 +150,14 @@ function statusColor(entry: LeaderboardEntry): string {
       <v-tooltip
         location="top"
         max-width="280"
-        text="Games Won-Lost. Game Difference (GD) is Tiebreaker #2 after MP tie — normalized per match to be fair across pools of different sizes."
+        text="Sets Won-Lost. Set Difference (SD) is Tiebreaker #2 after MP tie — normalized per match to be fair across pools of different sizes."
       >
         <template #activator="{ props: tp }">
           <span
             v-bind="tp"
             class="cursor-help"
           >
-            Games <v-icon size="12">mdi-information-outline</v-icon>
+            Set W-L <v-icon size="12">mdi-information-outline</v-icon>
           </span>
         </template>
       </v-tooltip>
@@ -323,7 +323,7 @@ function statusColor(entry: LeaderboardEntry): string {
                   class="pa-2"
                 >
                   <div class="text-caption text-medium-emphasis">
-                    Sets (Games) Won
+                    Sets Won
                   </div>
                   <div class="text-h6 font-weight-bold text-success">
                     {{ item.gamesWon }}
@@ -339,7 +339,7 @@ function statusColor(entry: LeaderboardEntry): string {
                   class="pa-2"
                 >
                   <div class="text-caption text-medium-emphasis">
-                    Sets (Games) Lost
+                    Sets Lost
                   </div>
                   <div class="text-h6 font-weight-bold text-error">
                     {{ item.gamesLost }}
@@ -387,7 +387,7 @@ function statusColor(entry: LeaderboardEntry): string {
                   class="pa-2"
                 >
                   <div class="text-caption text-medium-emphasis">
-                    Set (Game) Diff
+                    Set Diff
                   </div>
                   <div
                     class="text-h6 font-weight-bold"

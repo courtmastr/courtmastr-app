@@ -51,6 +51,7 @@ import { exportLeaderboard } from '@/services/leaderboardExport';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
+import { getGamesNeeded, resolveScoringConfig } from '@/features/scoring/utils/validation';
 import {
   DEFAULT_RANKING_PROGRESSION,
   RANKING_PRESETS,
@@ -272,8 +273,22 @@ export function aggregateStats(
     p1.matchesPlayed++;
     p2.matchesPlayed++;
 
+    const matchCategory = categoryMap.get(match.categoryId);
+    const scoringConfig = resolveScoringConfig(undefined, matchCategory);
+    const gamesNeeded = getGamesNeeded(scoringConfig);
+    let p1GamesWonInMatch = 0;
+    let p2GamesWonInMatch = 0;
+
     // score1 = participant1's points per game, score2 = participant2's points
     for (const game of match.scores) {
+      const matchDecided = p1GamesWonInMatch >= gamesNeeded || p2GamesWonInMatch >= gamesNeeded;
+      if (matchDecided) {
+        console.warn(
+          `[leaderboard] Ignoring post-clinch game ${game.gameNumber} in match ${match.id}`
+        );
+        continue;
+      }
+
       p1.pointsFor += game.score1;
       p1.pointsAgainst += game.score2;
       p2.pointsFor += game.score2;
@@ -284,9 +299,11 @@ export function aggregateStats(
         if (game.winnerId === match.participant1Id) {
           p1.gamesWon++;
           p2.gamesLost++;
+          p1GamesWonInMatch++;
         } else {
           p2.gamesWon++;
           p1.gamesLost++;
+          p2GamesWonInMatch++;
         }
       }
     }
@@ -706,7 +723,7 @@ export function buildResolvedValues(
       decided: decidingStep === 'match_wins',
     },
     {
-      label: normalizeByMatchesPlayed ? 'GD / match' : 'Game Difference',
+      label: normalizeByMatchesPlayed ? 'SD / match' : 'Set Difference',
       value: gd,
       tied: gdA === gdB,
       decided: decidingStep === 'game_difference',

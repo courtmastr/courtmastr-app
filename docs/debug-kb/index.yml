@@ -1,3 +1,24 @@
+- id: 2f6d5e1b
+  title: build:log fails on workspace TypeScript baseline errors (updated fingerprint)
+  status: "🟡 workaround"
+  date: "2026-03-03"
+  fingerprint: "2f6d5e1b"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-03-00-53-00.vue-tsc-b.log"
+- id: 94b5e479
+  title: build:log fails on existing workspace TypeScript baseline errors
+  status: "🟡 workaround"
+  date: "2026-03-03"
+  fingerprint: "94b5e479"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-03-00-23-47.vue-tsc-b.log"
+- id: 9ce24fd4
+  title: lint:log fails on existing repository-wide ESLint baseline violations
+  status: "🟡 workaround"
+  date: "2026-03-03"
+  fingerprint: "9ce24fd4"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-03-00-53-00.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 104ea98e
   title: test:log fails when brackets-storage-utils module is not yet implemented
   status: "✅ fixed"

@@ -331,6 +331,26 @@ describe('aggregateStats', () => {
     expect(map.get('r2')!.gamesLost).toBe(2);
   });
 
+  it('ignores post-clinch games in best-of-3 matches', () => {
+    const regs = [makeReg('r1', 'cat1', 'alice'), makeReg('r2', 'cat1', 'bob')];
+
+    // Invalid score payload: match already decided 2-0, but third game is still present.
+    const match = makeMatch('m1', 'r1', 'r2', 'r1', [
+      [15, 8],
+      [15, 10],
+      [11, 0],
+    ]);
+
+    const map = aggregateStats(regs, [match], catMap, players);
+
+    expect(map.get('r1')!.gamesWon).toBe(2);
+    expect(map.get('r1')!.gamesLost).toBe(0);
+    expect(map.get('r2')!.gamesWon).toBe(0);
+    expect(map.get('r2')!.gamesLost).toBe(2);
+    expect(map.get('r1')!.pointsFor).toBe(30);
+    expect(map.get('r2')!.pointsAgainst).toBe(30);
+  });
+
   it('aggregates points correctly: score1 goes to p1, score2 to p2', () => {
     const regs = [makeReg('r1', 'cat1', 'alice'), makeReg('r2', 'cat1', 'bob')];
     const match = makeMatch('m1', 'r1', 'r2', 'r1', [[21, 15], [21, 18]]);

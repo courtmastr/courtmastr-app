@@ -24,6 +24,8 @@
     "seed:prod": "npx tsx scripts/seed/production.ts",
     "seed:tnf2025:local": "npx tsx scripts/seed/tnf2025-local.ts",
     "seed:tnf2025:prod": "npx tsx scripts/seed/tnf2025-prod.ts",
+    "seed:mcia2026:local": "npx tsx scripts/seed/mcia2026-local.ts",
+    "results:mcia2026:local": "npx tsx scripts/mcia2026-results-local.ts",
     "seed:spring2025:local": "npx tsx scripts/seed/spring2025-local.ts",
     "seed:spring2025:prod": "npx tsx scripts/seed/spring2025-prod.ts",
     "start:dev": "node scripts/start-dev.mjs",
