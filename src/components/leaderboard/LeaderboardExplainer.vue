@@ -109,7 +109,7 @@
               <p class="text-body-2 mb-3">
                 If two or more teams have the same match points, we use these tiebreakers in order.
                 Teams that have never played each other (e.g. from different pools) skip Head-to-Head
-                and go directly to Game Difference.
+                and go directly to Set Difference.
               </p>
               <div
                 v-for="(tb, i) in tiebreakers"
@@ -165,7 +165,7 @@
                 in that pool plays and earns the same number of matches as all other pools.
               </p>
               <p class="text-body-2 mb-0">
-                Tiebreakers like Game Difference and Point Difference are
+                Tiebreakers like Set Difference and Point Difference are
                 <strong>calculated per match played</strong>, so teams with
                 a BYE are never unfairly compared to teams who played more matches.
                 If all tiebreakers are exhausted, teams are listed <strong>alphabetically</strong>
@@ -186,8 +186,8 @@ const tiebreakers = [
     explain: 'Did the two tied teams play each other directly? If yes, the winner of that match ranks higher. Only applies to 2-way ties.',
   },
   {
-    label: 'Game Difference (per match)',
-    explain: 'Games won minus games lost, divided by matches played. Per-match calculation ensures fairness when teams have played different numbers of matches (e.g. bye pools). Higher is better.',
+    label: 'Set Difference (per match)',
+    explain: 'Sets won minus sets lost, divided by matches played. Per-match calculation ensures fairness when teams have played different numbers of matches (e.g. bye pools). Higher is better.',
   },
   {
     label: 'Point Difference (per match)',

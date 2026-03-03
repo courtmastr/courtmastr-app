@@ -16,6 +16,8 @@ scripts/seed/
   tnf2025-prod.ts            TNF 2025 for production
   spring2025-local.ts        Spring Classic 2025 for local emulators
   spring2025-prod.ts         Spring Classic 2025 for production
+  mcia2026-core.ts           MCIA 2026 tournament logic (shared)
+  mcia2026-local.ts          MCIA 2026 for local emulators
   migrate-organizer-ids.ts   One-time migration: backfill organizerIds field
   README.md                  This file
 ```
@@ -29,6 +31,7 @@ scripts/seed/
 ### 1. Default Seed (Seed Tournament - Levels Ready)
 
 A tournament with 3 categories for testing pool-to-elimination flows.
+`seed:local` now also appends the MCIA 2026 Men's Doubles tournament dataset.
 
 | Category | Format | Participants | Notes |
 |---|---|---|---|
@@ -114,6 +117,30 @@ npm run seed:spring2025:local
 
 ```bash
 npm run seed:spring2025:prod
+```
+
+### MCIA 2026 Seed (Local - emulators)
+
+```bash
+# Start emulators first
+npm run emulators
+
+# In another terminal
+npm run seed:mcia2026:local
+```
+
+### MCIA 2026 Pool Results Updater (Local - emulators)
+
+```bash
+# Easiest: auto-find latest "MCIA Badminton 2026" + "Men's Doubles"
+npm run results:mcia2026:local
+
+# Apply all provided Group A-G results to an existing generated pool bracket
+npm run results:mcia2026:local -- --tournament <tournamentId> --category <categoryId>
+
+# Validate mapping without writing
+npm run results:mcia2026:local -- --dry-run
+npm run results:mcia2026:local -- --tournament <tournamentId> --category <categoryId> --dry-run
 ```
 
 ---

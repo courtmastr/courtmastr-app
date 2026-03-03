@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import type { Stage, Match, MatchGame, Participant } from 'brackets-model';
+import { isRoundRobinStage } from '@/features/brackets/utils/stageLayout';
 import { db, onSnapshot, collection, doc, getDoc } from '@/services/firebase';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
 import { query, where, getDocs } from 'firebase/firestore';
+import type { Stage, Match, MatchGame, Participant } from 'brackets-model';
 
 import 'brackets-viewer/dist/brackets-viewer.min.css';
 
@@ -41,6 +42,7 @@ const matches = ref<Match[]>([]);
 const matchGames = ref<MatchGame[]>([]);
 const participants = ref<Participant[]>([]);
 const containerId = `bracket-${Math.random().toString(36).slice(2)}`;
+const isRoundRobinStageLayout = computed(() => isRoundRobinStage(stages.value));
 
 // Real-time listener unsubscribe functions
 let matchUnsubscribe: (() => void) | null = null;
@@ -347,7 +349,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="brackets-manager-viewer">
+  <div
+    class="brackets-manager-viewer"
+    :class="{ 'is-round-robin-stage': isRoundRobinStageLayout }"
+  >
     <div
       v-if="loading"
       class="loading"
@@ -436,5 +441,72 @@ onUnmounted(() => {
 
 .bracket-container :deep(.brackets-viewer) {
   min-width: 800px;
+}
+
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.brackets-viewer) {
+  min-width: 0;
+  width: 100%;
+}
+
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  row-gap: 24px;
+}
+
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+  column-gap: 24px;
+  row-gap: 16px;
+  align-items: start;
+  margin-right: 0;
+  width: 100%;
+}
+
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group h2) {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group .round) {
+  grid-column: 1;
+  margin: 0;
+  width: 100%;
+}
+
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group .round h3) {
+  width: 100%;
+}
+
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group table) {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  margin: 0;
+  position: sticky;
+  top: 12px;
+  background: var(--primary-background);
+  z-index: 1;
+}
+
+@media (max-width: 959px) {
+  .brackets-manager-viewer.is-round-robin-stage .bracket-container {
+    overflow-x: auto;
+  }
+
+  .brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group) {
+    grid-template-columns: 1fr;
+    row-gap: 12px;
+  }
+
+  .brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group table) {
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+    width: max-content;
+    min-width: 100%;
+  }
 }
 </style>

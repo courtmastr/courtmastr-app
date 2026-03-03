@@ -1,7 +1,7 @@
 import { CrudInterface, Table, OmitId, DataTypes } from 'brackets-manager';
 import { Firestore } from 'firebase/firestore';
 import { collection, doc, getDocs, setDoc, query, where, writeBatch, Query, DocumentData } from 'firebase/firestore';
-import { normalizeReferences, removeUndefinedDeep } from '@/services/brackets-storage-utils';
+import { normalizeReferences, removeUndefinedDeep } from './brackets-storage-utils';
 
 /**
  * ADAPTER CONSISTENCY:

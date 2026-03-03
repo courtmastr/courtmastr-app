@@ -223,6 +223,60 @@ grep -rn "status: 'completed'" src/stores/ --include="*.ts" -A 5 | grep -v "batc
 
 ---
 
+### CP-055: Reject Post-Clinch Games in Best-of-N Match Data
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-03 |
+| **Source Bug** | MCIA leaderboard showed `7-0` games for a `3-0` match record due to an extra third game after a `2-0` clinch |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// Accepts all score tokens without validating match-clinch sequence.
+const scores = scoresRaw.split(',').map(parseScoreToken);
+
+// Later aggregation blindly counts every complete game entry.
+for (const game of match.scores) {
+  if (game.winnerId === match.participant1Id) p1.gamesWon++;
+  else p2.gamesWon++;
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+const gamesNeeded = Math.ceil(gamesPerMatch / 2);
+let p1Wins = 0;
+let p2Wins = 0;
+
+for (let i = 0; i < scores.length; i += 1) {
+  const game = scores[i];
+  if (game.teamAScore > game.teamBScore) p1Wins++;
+  else p2Wins++;
+
+  const decided = p1Wins >= gamesNeeded || p2Wins >= gamesNeeded;
+  if (decided && i < scores.length - 1) {
+    throw new Error(`Post-clinch game found: ${rawLine}`);
+  }
+}
+
+// Leaderboard aggregation must ignore any trailing games if malformed data exists.
+if (p1WinsInMatch >= gamesNeeded || p2WinsInMatch >= gamesNeeded) continue;
+```
+
+**Rule:** For best-of-N formats, score ingestion MUST reject game entries that appear after a winner has already clinched the match; leaderboard aggregation MUST defensively ignore trailing post-clinch games.
+
+**Detection:**
+```bash
+# Find files that parse comma-separated score tokens but have no clinch guard markers
+for f in $(rg -l "scoresRaw\\.split\\(',\\'" scripts --glob '*.ts'); do
+  rg -q "Post-clinch|gamesNeeded|matchDecided" "$f" || echo "$f"
+done
+```
+
+---
+
 ## Category: Code Quality
 
 ### CP-004: No Duplicate Function Declarations
@@ -2643,6 +2697,58 @@ if rg -n "function hasEliminationBracket\\(category: Category\\): boolean[\\s\\S
 fi
 rg -n "function hasEliminationBracket\\(category: Category, format: TournamentFormat\\)" src/features/tournaments/components/CategoryRegistrationStats.vue
 rg -n "stageId: result.stageId,\\s*poolStageId: result.stageId" src/composables/useBracketGenerator.ts
+```
+
+---
+
+### CP-055: Pool Stage Bracket View Must Use Round-Robin-Only Split Layout Guard
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-03 |
+| **Source Bug** | Pool-stage bracket pages were hard to read because games and pool table were not visible together in browser view |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<div class="brackets-manager-viewer">
+  <div class="bracket-container brackets-viewer" />
+</div>
+```
+```css
+.bracket-container {
+  overflow-x: auto;
+}
+/* No round-robin-specific layout: pool rounds and table stay stacked */
+```
+
+**Correct Pattern (✅):**
+```vue
+<div
+  class="brackets-manager-viewer"
+  :class="{ 'is-round-robin-stage': isRoundRobinStageLayout }"
+>
+  <div class="bracket-container brackets-viewer" />
+</div>
+```
+```css
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+}
+
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group table) {
+  grid-column: 2;
+  position: sticky;
+}
+```
+
+**Rule:** `BracketsManagerViewer` pool (`round_robin`) stages must apply a guarded split layout (games + table visible together on desktop) and keep mobile fallback stacked; elimination stages must remain unaffected.
+
+**Detection:**
+```bash
+rg -n "is-round-robin-stage|isRoundRobinStageLayout|round-robin \\.group|round-robin \\.group table" src/features/brackets/components/BracketsManagerViewer.vue
 ```
 
 ---

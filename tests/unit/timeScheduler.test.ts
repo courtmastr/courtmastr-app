@@ -22,6 +22,7 @@ vi.mock('@/services/firebase', () => ({
 }));
 
 import {
+  computeEpochs,
   publishSchedule,
   scheduleTimes,
   type SchedulableMatch,
@@ -245,6 +246,85 @@ describe('scheduleTimes — Time-First Scheduler', () => {
       max === null || p.plannedEndAt > max ? p.plannedEndAt : max, null
     );
     expect(result.stats.estimatedEndTime?.getTime()).toBe(latestEnd?.getTime());
+  });
+
+  it('computeEpochs_assigns_correct_epochs_for_4_team_pool', () => {
+    // 4 teams → C(4,2) = 6 matches. Only 2 can run simultaneously (no shared players).
+    // Expected epochs: [0, 0, 1, 1, 2, 2]
+    const matches: SchedulableMatch[] = [
+      makeMatch('m1', 1, 1, { participant1Id: 'T1', participant2Id: 'T2' }),
+      makeMatch('m2', 1, 2, { participant1Id: 'T3', participant2Id: 'T4' }),
+      makeMatch('m3', 2, 3, { participant1Id: 'T1', participant2Id: 'T3' }),
+      makeMatch('m4', 2, 4, { participant1Id: 'T2', participant2Id: 'T4' }),
+      makeMatch('m5', 3, 5, { participant1Id: 'T1', participant2Id: 'T4' }),
+      makeMatch('m6', 3, 6, { participant1Id: 'T2', participant2Id: 'T3' }),
+    ];
+
+    const result = computeEpochs(matches);
+
+    // m1 (T1vsT2) and m2 (T3vsT4): no shared players → both epoch 0
+    expect(result.find(m => m.id === 'm1')!.schedulingEpoch).toBe(0);
+    expect(result.find(m => m.id === 'm2')!.schedulingEpoch).toBe(0);
+    // T1 used at epoch 0, T3 used at epoch 0 → m3 must be epoch 1
+    expect(result.find(m => m.id === 'm3')!.schedulingEpoch).toBe(1);
+    // T2 used at epoch 0, T4 used at epoch 0 → m4 must be epoch 1
+    expect(result.find(m => m.id === 'm4')!.schedulingEpoch).toBe(1);
+    // T1 used at 0,1  T4 used at 0,1 → m5 must be epoch 2
+    expect(result.find(m => m.id === 'm5')!.schedulingEpoch).toBe(2);
+    // T2 used at 0,1  T3 used at 0,1 → m6 must be epoch 2
+    expect(result.find(m => m.id === 'm6')!.schedulingEpoch).toBe(2);
+  });
+
+  it('epoch_sort_fills_all_courts_before_advancing_to_next_epoch', () => {
+    // 2 pools × 4 teams = 12 matches, concurrency = 4.
+    // Epoch 0 has 4 matches (2 per pool). All should start at startTime.
+    // Epoch 1 must not start before startTime + matchDuration + minRest.
+    const poolA: SchedulableMatch[] = [
+      makeMatch('a1r1', 1, 1, { groupId: 'A', participant1Id: 'a1', participant2Id: 'a2' }),
+      makeMatch('a2r1', 1, 2, { groupId: 'A', participant1Id: 'a3', participant2Id: 'a4' }),
+      makeMatch('a1r2', 2, 3, { groupId: 'A', participant1Id: 'a1', participant2Id: 'a3' }),
+      makeMatch('a2r2', 2, 4, { groupId: 'A', participant1Id: 'a2', participant2Id: 'a4' }),
+      makeMatch('a1r3', 3, 5, { groupId: 'A', participant1Id: 'a1', participant2Id: 'a4' }),
+      makeMatch('a2r3', 3, 6, { groupId: 'A', participant1Id: 'a2', participant2Id: 'a3' }),
+    ];
+    const poolB: SchedulableMatch[] = [
+      makeMatch('b1r1', 1, 7,  { groupId: 'B', participant1Id: 'b1', participant2Id: 'b2' }),
+      makeMatch('b2r1', 1, 8,  { groupId: 'B', participant1Id: 'b3', participant2Id: 'b4' }),
+      makeMatch('b1r2', 2, 9,  { groupId: 'B', participant1Id: 'b1', participant2Id: 'b3' }),
+      makeMatch('b2r2', 2, 10, { groupId: 'B', participant1Id: 'b2', participant2Id: 'b4' }),
+      makeMatch('b1r3', 3, 11, { groupId: 'B', participant1Id: 'b1', participant2Id: 'b4' }),
+      makeMatch('b2r3', 3, 12, { groupId: 'B', participant1Id: 'b2', participant2Id: 'b3' }),
+    ];
+    const matches = [...poolA, ...poolB];
+    const config = makeConfig({
+      concurrency: 4,
+      matchDurationMinutes: 30,
+      bufferMinutes: 0,
+      minRestTimeMinutes: 15,
+    });
+
+    const epoched = computeEpochs(matches);
+    const result = scheduleTimes(epoched, config);
+
+    expect(result.planned.length).toBe(12);
+    expect(result.unscheduled.length).toBe(0);
+
+    const startMs = config.startTime.getTime();
+    // Earliest a player can play their second match: match ends at startMs+30min, rest=15min
+    const minEpoch1StartMs = startMs + (30 + 15) * 60_000;
+
+    // Epoch-0 matches: 2 per pool = 4 total.
+    // concurrency=4 → 4 virtual slots all initialized to startTime; no rest history yet.
+    // All 4 must be placed at exactly startTime (strict equality is correct here).
+    const epoch0Ids = new Set(['a1r1', 'a2r1', 'b1r1', 'b2r1']);
+    for (const p of result.planned.filter(p => epoch0Ids.has(p.matchId))) {
+      expect(p.plannedStartAt.getTime()).toBe(startMs);
+    }
+
+    // Epoch-1+ matches must not start before startTime + 45 min
+    for (const p of result.planned.filter(p => !epoch0Ids.has(p.matchId))) {
+      expect(p.plannedStartAt.getTime()).toBeGreaterThanOrEqual(minEpoch1StartMs);
+    }
   });
 
 });

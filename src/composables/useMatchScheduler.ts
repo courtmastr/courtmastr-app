@@ -26,7 +26,7 @@ import {
   type Participant,
 } from '@/stores/bracketMatchAdapter';
 import { useMatchSlotState } from '@/composables/useMatchSlotState';
-import { scheduleTimes, saveTimedSchedule, type TimeScheduleConfig } from './useTimeScheduler';
+import { computeEpochs, scheduleTimes, saveTimedSchedule, type TimeScheduleConfig } from './useTimeScheduler';
 import { SCHEDULE_DEFAULTS, SCHEDULE_STATUS, SCHEDULE_FIELDS } from '@/scheduling/scheduleRules';
 
 // ============================================
@@ -342,7 +342,10 @@ export function useMatchScheduler() {
         startTime,
       });
 
-      const timeResult = scheduleTimes(matches, timeConfig);
+      // Annotate matches with scheduling epochs so the scheduler fills all courts
+      // from the start before advancing to the next round of matches.
+      const epochedMatches = computeEpochs(matches);
+      const timeResult = scheduleTimes(epochedMatches, timeConfig);
 
       progress.value = 70;
 
