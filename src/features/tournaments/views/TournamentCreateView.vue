@@ -112,12 +112,32 @@ const isStep1Valid = computed(() => {
   return name.value.length >= 3 && startDate.value && endDate.value && !dateError.value;
 });
 
-const isStep3Valid = computed(() => {
+const isStep2Valid = computed(() => {
   return selectedCategories.value.length > 0 || customCategories.value.length > 0;
 });
 
-const isStep4Valid = computed(() => {
+const isStep3Valid = computed(() => {
   return courts.value.length > 0;
+});
+
+const canContinue = computed(() => {
+  if (currentStep.value === 1) return isStep1Valid.value;
+  if (currentStep.value === 2) return isStep2Valid.value;
+  if (currentStep.value === 3) return isStep3Valid.value;
+  return true;
+});
+
+const continueDisabledReason = computed(() => {
+  if (currentStep.value === 1 && !isStep1Valid.value) {
+    return 'Complete basic info before continuing.';
+  }
+  if (currentStep.value === 2 && !isStep2Valid.value) {
+    return 'Add at least one category before continuing.';
+  }
+  if (currentStep.value === 3 && !isStep3Valid.value) {
+    return 'Add at least one court before continuing.';
+  }
+  return '';
 });
 
 function addCourt() {
@@ -681,19 +701,25 @@ async function handleSubmit() {
                 Back
               </v-btn>
               <v-spacer />
-              <v-btn
+              <v-tooltip
                 v-if="currentStep < steps.length"
-                color="primary"
-                type="button"
-                :disabled="
-                  (currentStep === 1 && !isStep1Valid) ||
-                    (currentStep === 2 && !isStep3Valid) ||
-                    (currentStep === 3 && !isStep4Valid)
-                "
-                @click="nextStep"
+                :text="continueDisabledReason"
+                location="top"
+                :disabled="!continueDisabledReason"
               >
-                Continue
-              </v-btn>
+                <template #activator="{ props: tooltipProps }">
+                  <span v-bind="tooltipProps">
+                    <v-btn
+                      color="primary"
+                      type="button"
+                      :disabled="!canContinue"
+                      @click="nextStep"
+                    >
+                      Continue
+                    </v-btn>
+                  </span>
+                </template>
+              </v-tooltip>
               <v-btn
                 v-else
                 color="primary"

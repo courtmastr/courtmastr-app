@@ -2753,6 +2753,53 @@ rg -n "is-round-robin-stage|isRoundRobinStageLayout|round-robin \\.group|round-r
 
 ---
 
+### CP-056: Public Schedule Unpublished Banner Must Respect Visible Live Activity
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-03 |
+| **Source Bug** | Public Schedule could show `Schedule not published yet.` even when live/queue/category activity was visible, creating contradictory state messaging |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-alert v-if="!hasPublishedSchedule" type="info" variant="tonal">
+  Schedule not published yet.
+</v-alert>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const hasVisibleScheduleActivity = computed(() =>
+  nowPlayingItems.value.length > 0 ||
+  displayQueueItems.value.length > 0 ||
+  recentResultItems.value.length > 0 ||
+  categoryPulseItems.value.length > 0
+);
+
+const shouldShowUnpublishedScheduleAlert = computed(
+  () => !hasPublishedSchedule.value && !hasVisibleScheduleActivity.value
+);
+```
+```vue
+<v-alert v-if="shouldShowUnpublishedScheduleAlert" type="info" variant="tonal">
+  Schedule not published yet.
+</v-alert>
+```
+
+**Rule:** Public Schedule "unpublished" messaging must be gated by both publish state and visible live/schedule activity. Never key the banner only off `!hasPublishedSchedule`.
+
+**Detection:**
+```bash
+if rg -n "v-if=\"!hasPublishedSchedule\"" src/features/public/views/PublicScheduleView.vue; then
+  echo "Violation: unpublished banner is keyed only to publish state"
+fi
+rg -n "hasVisibleScheduleActivity|shouldShowUnpublishedScheduleAlert" src/features/public/views/PublicScheduleView.vue
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

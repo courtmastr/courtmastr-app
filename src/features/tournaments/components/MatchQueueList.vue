@@ -22,6 +22,8 @@ interface Match {
 }
 
 type UrgencyLevel = 'urgent' | 'high' | 'normal';
+const URGENT_WAIT_MINUTES = 10;
+const HIGH_WAIT_MINUTES = 15;
 
 interface MatchWithUrgency extends Match {
   urgency: UrgencyLevel;
@@ -63,13 +65,13 @@ function getUrgency(match: Match): UrgencyLevel {
   const isReady = match.status === 'ready';
   const hasCourtsAvailable = props.availableCourts.length > 0;
 
-  // URGENT: Ready status + courts available
-  if (isReady && hasCourtsAvailable) {
+  // URGENT: Ready + courts available + meaningful wait
+  if (isReady && hasCourtsAvailable && minutes >= URGENT_WAIT_MINUTES) {
     return 'urgent';
   }
 
-  // HIGH: Waiting >15 minutes
-  if (minutes >= 15) {
+  // HIGH: Long wait queue items that are not yet urgent
+  if (minutes >= HIGH_WAIT_MINUTES) {
     return 'high';
   }
 
@@ -105,9 +107,9 @@ function getUrgencyIcon(urgency: UrgencyLevel): string {
 
  function getUrgencyLabel(urgency: UrgencyLevel): string {
    switch (urgency) {
-     case 'urgent': return '🔴 URGENT';
-     case 'high': return '🟡 HIGH';
-     case 'normal': return '⚪ NORMAL';
+     case 'urgent': return 'URGENT';
+     case 'high': return 'HIGH';
+     case 'normal': return 'NORMAL';
    }
  }
 

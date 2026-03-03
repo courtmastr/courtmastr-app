@@ -529,6 +529,21 @@ const categoryPulseItems = computed<CategoryPulseItem[]>(() => {
   });
 });
 
+const hasVisibleScheduleActivity = computed(() =>
+  nowPlayingItems.value.length > 0 ||
+  displayQueueItems.value.length > 0 ||
+  recentResultItems.value.length > 0 ||
+  categoryPulseItems.value.length > 0
+);
+
+const shouldShowUnpublishedScheduleAlert = computed(
+  () => !hasPublishedSchedule.value && !hasVisibleScheduleActivity.value
+);
+
+const shouldShowEmptyFilterAlert = computed(
+  () => hasPublishedSchedule.value && groupedSchedule.value.length === 0
+);
+
 const tournamentProgress = computed(() => {
   const totalCount = matchStore.matches.length;
   if (totalCount === 0) {
@@ -1245,7 +1260,7 @@ onUnmounted(() => {
       </v-row>
 
       <v-alert
-        v-if="!hasPublishedSchedule"
+        v-if="shouldShowUnpublishedScheduleAlert"
         type="info"
         variant="tonal"
         class="mb-4"
@@ -1254,7 +1269,7 @@ onUnmounted(() => {
       </v-alert>
 
       <v-alert
-        v-else-if="groupedSchedule.length === 0"
+        v-else-if="shouldShowEmptyFilterAlert"
         type="info"
         variant="tonal"
         class="mb-4"

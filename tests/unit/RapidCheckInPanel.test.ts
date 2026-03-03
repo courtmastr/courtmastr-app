@@ -154,4 +154,33 @@ describe('RapidCheckInPanel', () => {
 
     expect(wrapper.emitted('quickCheckIn')?.[0]).toEqual(['reg-1']);
   });
+
+  it('shows disabled reason for urgent rows when check-in is blocked', () => {
+    const wrapper = mount(RapidCheckInPanel, {
+      props: {
+        urgentItems: [
+          {
+            id: 'reg-9',
+            title: 'Player Gamma vs Player Delta',
+            subtitle: 'Court 2 • Match 15',
+            canCheckIn: false,
+            disabledReason: 'Waiting for scanner confirmation',
+          },
+        ],
+        recentItems: [],
+      },
+      global: {
+        stubs: {
+          VCard: PassThroughStub,
+          VBtn: VBtnStub,
+          VList: PassThroughStub,
+          VListItem: VListItemStub,
+          VChip: PassThroughStub,
+          VTextField: VTextFieldStub,
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain('Waiting for scanner confirmation');
+  });
 });

@@ -159,6 +159,23 @@ const unwrapBoolean = (value: unknown): boolean => {
   return false;
 };
 
+const readBoolean = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value;
+  if (value && typeof value === 'object' && 'value' in value) {
+    return Boolean((value as { value?: unknown }).value);
+  }
+  throw new Error('Expected boolean computed value');
+};
+
+const readArray = <T>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object' && 'value' in value) {
+    const unwrapped = (value as { value?: unknown }).value;
+    if (Array.isArray(unwrapped)) return unwrapped as T[];
+  }
+  throw new Error('Expected array computed value');
+};
+
 describe('PublicScheduleView', () => {
   beforeEach(() => {
     runtime.registrations = [makeRegistration('reg-1'), makeRegistration('reg-2')];
@@ -217,5 +234,25 @@ describe('PublicScheduleView', () => {
     expect(hasPublishedSchedule).toBe(true);
     expect(publishedMatches).toHaveLength(1);
     expect(publishedMatches[0].id).toBe('m1');
+  });
+
+  it('does not show unpublished-schedule alert when live data is visible', async () => {
+    const liveMatch = makeMatch('m-live', 'draft', new Date('2026-02-27T12:00:00.000Z'));
+    liveMatch.status = 'in_progress';
+    liveMatch.startedAt = new Date('2026-02-27T11:55:00.000Z');
+    runtime.matches = [liveMatch];
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      hasPublishedSchedule: boolean | { value: boolean };
+      nowPlayingItems: Match[] | { value: Match[] };
+      shouldShowUnpublishedScheduleAlert: boolean | { value: boolean };
+    };
+
+    expect(unwrapBoolean(vm.hasPublishedSchedule)).toBe(false);
+    expect(readArray<Match>(vm.nowPlayingItems)).toHaveLength(1);
+    expect(readBoolean(vm.shouldShowUnpublishedScheduleAlert)).toBe(false);
   });
 });

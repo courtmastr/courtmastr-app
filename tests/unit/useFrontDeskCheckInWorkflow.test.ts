@@ -12,6 +12,42 @@ import {
   useFrontDeskCheckInWorkflow,
 } from '@/features/checkin/composables/useFrontDeskCheckInWorkflow';
 
+interface WorkflowHarnessOptions {
+  registrations: ReturnType<typeof ref<Registration[]>>;
+  matches: ReturnType<typeof ref<Match[]>>;
+  getParticipantName: (registrationId: string) => string;
+  getCategoryName: (categoryId: string) => string;
+  checkInRegistration: (registrationId: string) => Promise<void>;
+  undoCheckInRegistration: (registrationId: string) => Promise<void>;
+  assignBibNumber: (registrationId: string, bibNumber: number) => Promise<void>;
+}
+
+const mountWorkflowHarness = (options: WorkflowHarnessOptions) => {
+  let workflow: ReturnType<typeof useFrontDeskCheckInWorkflow> | null = null;
+
+  const Harness = defineComponent({
+    setup() {
+      workflow = useFrontDeskCheckInWorkflow({
+        registrations: options.registrations,
+        matches: options.matches,
+        getParticipantName: options.getParticipantName,
+        getCategoryName: options.getCategoryName,
+        checkInRegistration: options.checkInRegistration,
+        undoCheckInRegistration: options.undoCheckInRegistration,
+        assignBibNumber: options.assignBibNumber,
+      });
+      return () => null;
+    },
+  });
+
+  const wrapper = mount(Harness);
+  if (!workflow) {
+    throw new Error('Workflow was not initialized');
+  }
+
+  return { wrapper, workflow };
+};
+
 describe('parseScanInput', () => {
   it('parses explicit registration token payload', () => {
     expect(parseScanInput('reg:abc123')).toEqual({ kind: 'registration', value: 'abc123' });
@@ -120,34 +156,88 @@ describe('useFrontDeskCheckInWorkflow', () => {
       if (registration) registration.bibNumber = bibNumber;
     });
 
-    let workflow: ReturnType<typeof useFrontDeskCheckInWorkflow> | null = null;
-
-    const Harness = defineComponent({
-      setup() {
-        workflow = useFrontDeskCheckInWorkflow({
-          registrations,
-          matches,
-          getParticipantName: () => 'Aanya Karthik',
-          getCategoryName: () => "Women's Singles",
-          checkInRegistration,
-          undoCheckInRegistration,
-          assignBibNumber,
-        });
-        return () => null;
-      },
+    const { wrapper, workflow } = mountWorkflowHarness({
+      registrations,
+      matches,
+      getParticipantName: () => 'Aanya Karthik',
+      getCategoryName: () => "Women's Singles",
+      checkInRegistration,
+      undoCheckInRegistration,
+      assignBibNumber,
     });
-
-    const wrapper = mount(Harness);
-    expect(workflow).not.toBeNull();
-    if (!workflow) {
-      throw new Error('Workflow was not initialized');
-    }
 
     await workflow.checkInOne('reg-1', 101);
     vi.advanceTimersByTime(5100);
 
     await expect(workflow.undoItem('reg-1')).rejects.toThrow(/Undo window expired/i);
     expect(undoCheckInRegistration).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('includes disabled reason for urgent participants that cannot check in', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-02-27T12:00:00.000Z'));
+
+    const registrations = ref<Registration[]>([
+      {
+        id: 'reg-approved',
+        tournamentId: 't1',
+        categoryId: 'cat-1',
+        participantType: 'player',
+        playerId: 'p1',
+        status: 'approved',
+        registeredBy: 'admin-1',
+        registeredAt: new Date('2026-02-27T10:00:00.000Z'),
+      },
+      {
+        id: 'reg-checked-in',
+        tournamentId: 't1',
+        categoryId: 'cat-1',
+        participantType: 'player',
+        playerId: 'p2',
+        status: 'checked_in',
+        registeredBy: 'admin-1',
+        registeredAt: new Date('2026-02-27T10:00:00.000Z'),
+      },
+    ]);
+
+    const matches = ref<Match[]>([
+      {
+        id: 'm1',
+        tournamentId: 't1',
+        categoryId: 'cat-1',
+        round: 1,
+        matchNumber: 1,
+        bracketPosition: { bracket: 'winners', round: 1, position: 1 },
+        participant1Id: 'reg-approved',
+        participant2Id: 'reg-checked-in',
+        status: 'scheduled',
+        plannedStartAt: new Date('2026-02-27T12:15:00.000Z'),
+        scores: [],
+        createdAt: new Date('2026-02-27T10:00:00.000Z'),
+        updatedAt: new Date('2026-02-27T10:00:00.000Z'),
+      },
+    ]);
+
+    const { wrapper, workflow } = mountWorkflowHarness({
+      registrations,
+      matches,
+      getParticipantName: (id) => id,
+      getCategoryName: () => 'Category',
+      checkInRegistration: vi.fn(async () => {}),
+      undoCheckInRegistration: vi.fn(async () => {}),
+      assignBibNumber: vi.fn(async () => {}),
+    });
+
+    const urgentItems = workflow.urgentItems.value;
+    const approved = urgentItems.find((item) => item.id === 'reg-approved');
+    const checkedIn = urgentItems.find((item) => item.id === 'reg-checked-in');
+
+    expect(approved?.canCheckIn).toBe(true);
+    expect(approved?.disabledReason).toBeUndefined();
+    expect(checkedIn?.canCheckIn).toBe(false);
+    expect(checkedIn?.disabledReason).toBe('Already checked in');
+
     wrapper.unmount();
   });
 });

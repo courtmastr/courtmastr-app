@@ -1304,6 +1304,7 @@ async function confirmCompleteTournament(): Promise<void> {
               :courts="courts"
               :matches="matches"
               :get-category-name="getCategoryName"
+              :read-only="true"
               @assign="openAssignCourtDialogForCourt"
               @score="openScoreDialog"
               @release="releaseCourt"

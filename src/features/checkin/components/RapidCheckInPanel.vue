@@ -8,6 +8,7 @@ export interface UrgentCheckInItem {
   subtitle: string;
   startsInLabel?: string;
   canCheckIn: boolean;
+  disabledReason?: string;
 }
 
 export interface RecentCheckInItem {
@@ -166,24 +167,34 @@ const handleSuggestionCheckIn = (row: CheckInSearchRow): void => {
             :subtitle="item.subtitle"
           >
             <template #append>
-              <v-chip
-                v-if="item.startsInLabel"
-                color="error"
-                size="x-small"
-                label
-                class="mr-2"
-              >
-                {{ item.startsInLabel }}
-              </v-chip>
-              <v-btn
-                size="small"
-                :color="item.canCheckIn ? 'error' : 'default'"
-                :variant="item.canCheckIn ? 'elevated' : 'tonal'"
-                :disabled="!item.canCheckIn"
-                @click="handleQuickCheckIn(item.id)"
-              >
-                Check In
-              </v-btn>
+              <div class="urgent-item-actions d-flex flex-column align-end">
+                <div class="d-flex align-center">
+                  <v-chip
+                    v-if="item.startsInLabel"
+                    color="error"
+                    size="x-small"
+                    label
+                    class="mr-2"
+                  >
+                    {{ item.startsInLabel }}
+                  </v-chip>
+                  <v-btn
+                    size="small"
+                    :color="item.canCheckIn ? 'error' : 'default'"
+                    :variant="item.canCheckIn ? 'elevated' : 'tonal'"
+                    :disabled="!item.canCheckIn"
+                    @click="handleQuickCheckIn(item.id)"
+                  >
+                    Check In
+                  </v-btn>
+                </div>
+                <div
+                  v-if="!item.canCheckIn && item.disabledReason"
+                  class="text-caption text-medium-emphasis mt-1"
+                >
+                  {{ item.disabledReason }}
+                </div>
+              </div>
             </template>
           </v-list-item>
           <v-list-item
@@ -245,6 +256,10 @@ const handleSuggestionCheckIn = (row: CheckInSearchRow): void => {
 .rapid-checkin-panel__lists {
   min-width: 0;
   flex: 1;
+}
+
+.urgent-item-actions {
+  min-width: 220px;
 }
 
 @media (max-width: 960px) {

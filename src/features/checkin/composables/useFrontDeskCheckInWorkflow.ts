@@ -164,6 +164,7 @@ export interface FrontDeskUrgentItem {
   subtitle: string;
   startsInLabel?: string;
   canCheckIn: boolean;
+  disabledReason?: string;
 }
 
 export interface FrontDeskRecentItem {
@@ -224,6 +225,15 @@ const formatTime = (date: Date): string => date.toLocaleTimeString([], { hour: '
 const formatMinutesLabel = (minutes: number): string => {
   if (minutes <= 1) return 'Plays now';
   return `Plays in ${minutes} min`;
+};
+
+const getCheckInBlockedReason = (status: Registration['status'] | undefined): string => {
+  if (status === 'checked_in') return 'Already checked in';
+  if (status === 'no_show') return 'Marked as no-show';
+  if (status === 'withdrawn') return 'Registration withdrawn';
+  if (status === 'rejected') return 'Registration not approved';
+  if (status === 'pending') return 'Pending approval';
+  return 'Not eligible for check-in';
 };
 
 const getMatchStartTime = (match: Match): Date | undefined => match.plannedStartAt ?? match.scheduledTime;
@@ -340,6 +350,7 @@ export const useFrontDeskCheckInWorkflow = (
       .map(([registrationId, data]) => {
         const registration = options.registrations.value.find((item) => item.id === registrationId);
         const canCheckIn = registration?.status === 'approved';
+        const disabledReason = canCheckIn ? undefined : getCheckInBlockedReason(registration?.status);
         const minutesAway = Math.max(0, Math.ceil((data.startAtMs - now) / 60_000));
         return {
           id: registrationId,
@@ -347,6 +358,7 @@ export const useFrontDeskCheckInWorkflow = (
           subtitle: `${formatTime(new Date(data.startAtMs))} • ${options.getCategoryName(data.categoryId)}`,
           startsInLabel: formatMinutesLabel(minutesAway),
           canCheckIn,
+          disabledReason,
           startAtMs: data.startAtMs,
         };
       })
