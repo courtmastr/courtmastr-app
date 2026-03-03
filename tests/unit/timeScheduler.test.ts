@@ -313,7 +313,9 @@ describe('scheduleTimes — Time-First Scheduler', () => {
     // Earliest a player can play their second match: match ends at startMs+30min, rest=15min
     const minEpoch1StartMs = startMs + (30 + 15) * 60_000;
 
-    // Epoch-0 matches: 2 per pool = 4 total. All must be assigned at startTime.
+    // Epoch-0 matches: 2 per pool = 4 total.
+    // concurrency=4 → 4 virtual slots all initialized to startTime; no rest history yet.
+    // All 4 must be placed at exactly startTime (strict equality is correct here).
     const epoch0Ids = new Set(['a1r1', 'a2r1', 'b1r1', 'b2r1']);
     for (const p of result.planned.filter(p => epoch0Ids.has(p.matchId))) {
       expect(p.plannedStartAt.getTime()).toBe(startMs);
