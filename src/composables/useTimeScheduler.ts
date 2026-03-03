@@ -79,6 +79,46 @@ export interface SchedulableMatch {
   participant2Id?: string;
   lockedTime?: boolean;
   plannedStartAt?: Date;  // existing planned time (skipped if lockedTime)
+  schedulingEpoch?: number;
+}
+
+/**
+ * Annotate each match with a `schedulingEpoch` using greedy player-conflict
+ * graph coloring.  Epoch 0 = all matches where no participant has yet been
+ * assigned a time slot.  Epoch N = matches whose participants last played at
+ * epoch N-1.  Matches within the same epoch share no participants and can
+ * therefore run concurrently without violating player rest.
+ *
+ * TBD matches (no participants) always receive epoch 0.
+ */
+export function computeEpochs(matches: SchedulableMatch[]): SchedulableMatch[] {
+  // participantId → set of epochs already used by that participant
+  const participantEpochs = new Map<string, Set<number>>();
+
+  return matches.map(match => {
+    const pids = [match.participant1Id, match.participant2Id].filter(Boolean) as string[];
+
+    // Union of all epochs already used by either participant
+    const usedEpochs = new Set<number>();
+    for (const pid of pids) {
+      const epochs = participantEpochs.get(pid);
+      if (epochs) {
+        for (const e of epochs) usedEpochs.add(e);
+      }
+    }
+
+    // Smallest non-negative integer not in usedEpochs
+    let epoch = 0;
+    while (usedEpochs.has(epoch)) epoch++;
+
+    // Record this epoch for each participant
+    for (const pid of pids) {
+      if (!participantEpochs.has(pid)) participantEpochs.set(pid, new Set());
+      participantEpochs.get(pid)!.add(epoch);
+    }
+
+    return { ...match, schedulingEpoch: epoch };
+  });
 }
 
 export function scheduleTimes(
@@ -98,14 +138,22 @@ export function scheduleTimes(
   const planned: PlannedMatch[] = [];
   const unscheduled: UnscheduledMatch[] = [];
 
-  // Sort: pool/group first (keeps pool-mates together), then round, then matchNumber.
-  // Matches without a groupId (bracket matches) come after pool matches of the same round.
+  // Sort: epoch-first so all pool round-1 matches across all groups compete for courts
+  // simultaneously before any round-2 match is considered.  When schedulingEpoch is absent
+  // (undefined), the match sorts last within the epoch dimension and falls through to the
+  // group-first stable tie-break — preserving existing behaviour for un-annotated callers.
   const sorted = [...matches].sort((a, b) => {
-    // Pool matches first within same round-block
-    const aGroup = a.groupId ?? '\uffff'; // sentinel sorts last
+    const aEpoch = a.schedulingEpoch ?? Infinity;
+    const bEpoch = b.schedulingEpoch ?? Infinity;
+    if (aEpoch !== bEpoch) return aEpoch - bEpoch;
+    // Within same epoch: pool matches (have groupId) before bracket matches (no groupId)
+    const aIsPool = a.groupId !== undefined;
+    const bIsPool = b.groupId !== undefined;
+    if (aIsPool !== bIsPool) return aIsPool ? -1 : 1;
+    // Stable tie-break: group order, then match number
+    const aGroup = a.groupId ?? '\uffff';
     const bGroup = b.groupId ?? '\uffff';
     if (aGroup !== bGroup) return aGroup < bGroup ? -1 : 1;
-    if (a.round !== b.round) return a.round - b.round;
     return a.matchNumber - b.matchNumber;
   });
 
