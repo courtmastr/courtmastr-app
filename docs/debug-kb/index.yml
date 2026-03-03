@@ -18,7 +18,28 @@
   date: "2026-03-03"
   fingerprint: "9ce24fd4"
   command: "npm run lint:log"
-  artifact_log: "docs/debug-kb/_artifacts/2026-03-03-00-53-00.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-03-14-17-36.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 53de2bc2
+  title: build:log fails with baseline TS errors plus temporary StageLike type mismatch
+  status: "🟡 workaround"
+  date: "2026-03-03"
+  fingerprint: "53de2bc2"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-03-14-16-22.vue-tsc-b.log"
+- id: 2294ad33
+  title: build:log fails on existing repository-wide TypeScript baseline errors
+  status: "🟡 workaround"
+  date: "2026-03-03"
+  fingerprint: "2294ad33"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-03-14-17-02.vue-tsc-b.log"
+- id: 093177e1
+  title: test:log fails when new stageLayout helper import does not exist yet
+  status: "✅ fixed"
+  date: "2026-03-03"
+  fingerprint: "093177e1"
+  command: "npm run test:log -- --run tests/unit/stageLayout.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-03-14-14-23.vitest-run-tests-unit-stageLayout-test-ts.log"
 - id: 104ea98e
   title: test:log fails when brackets-storage-utils module is not yet implemented
   status: "✅ fixed"

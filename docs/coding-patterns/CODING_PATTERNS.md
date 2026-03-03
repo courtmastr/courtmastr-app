@@ -2701,6 +2701,58 @@ rg -n "stageId: result.stageId,\\s*poolStageId: result.stageId" src/composables/
 
 ---
 
+### CP-055: Pool Stage Bracket View Must Use Round-Robin-Only Split Layout Guard
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-03 |
+| **Source Bug** | Pool-stage bracket pages were hard to read because games and pool table were not visible together in browser view |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<div class="brackets-manager-viewer">
+  <div class="bracket-container brackets-viewer" />
+</div>
+```
+```css
+.bracket-container {
+  overflow-x: auto;
+}
+/* No round-robin-specific layout: pool rounds and table stay stacked */
+```
+
+**Correct Pattern (✅):**
+```vue
+<div
+  class="brackets-manager-viewer"
+  :class="{ 'is-round-robin-stage': isRoundRobinStageLayout }"
+>
+  <div class="bracket-container brackets-viewer" />
+</div>
+```
+```css
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+}
+
+.brackets-manager-viewer.is-round-robin-stage .bracket-container :deep(.round-robin .group table) {
+  grid-column: 2;
+  position: sticky;
+}
+```
+
+**Rule:** `BracketsManagerViewer` pool (`round_robin`) stages must apply a guarded split layout (games + table visible together on desktop) and keep mobile fallback stacked; elimination stages must remain unaffected.
+
+**Detection:**
+```bash
+rg -n "is-round-robin-stage|isRoundRobinStageLayout|round-robin \\.group|round-robin \\.group table" src/features/brackets/components/BracketsManagerViewer.vue
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
