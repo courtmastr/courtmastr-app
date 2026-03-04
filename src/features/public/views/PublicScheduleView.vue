@@ -900,6 +900,15 @@ onUnmounted(() => {
           >
             Display Mode
           </v-btn>
+          <v-btn
+            :to="`/tournaments/${tournamentId}/player`"
+            size="small"
+            variant="tonal"
+            color="primary"
+            prepend-icon="mdi-account-clock"
+          >
+            My Schedule
+          </v-btn>
         </div>
       </div>
 

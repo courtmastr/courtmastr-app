@@ -33,6 +33,7 @@ const MatchControl = () => import('@/features/tournaments/views/MatchControlView
 const PublicBracket = () => import('@/features/public/views/PublicBracketView.vue');
 const PublicScoring = () => import('@/features/public/views/PublicScoringView.vue');
 const PublicSchedule = () => import('@/features/public/views/PublicScheduleView.vue');
+const PublicPlayer = () => import('@/features/public/views/PublicPlayerView.vue');
 
 // Overlay views
 const OverlayCourtView = () => import('@/features/overlay/views/OverlayCourtView.vue');
@@ -102,6 +103,12 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/schedule',
     name: 'public-schedule',
     component: PublicSchedule,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/tournaments/:tournamentId/player',
+    name: 'public-player',
+    component: PublicPlayer,
     meta: { requiresAuth: false },
   },
 
