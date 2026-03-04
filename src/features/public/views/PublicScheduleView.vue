@@ -1001,39 +1001,42 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.time-block {
-  min-width: 96px;
-  text-align: left;
+/* Section label row */
+.section-label {
+  display: flex;
+  align-items: center;
 }
 
-.public-summary-card {
-  height: 100%;
+/* Now Playing court card grid */
+.now-playing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
 }
 
-.public-summary-card--live {
-  background: linear-gradient(
-    140deg,
-    rgba(var(--v-theme-success), 0.08) 0%,
-    rgba(var(--v-theme-surface), 1) 65%
-  );
+.court-card {
+  min-height: 130px;
 }
 
-.public-summary-card--next {
-  background: linear-gradient(
-    140deg,
-    rgba(var(--v-theme-primary), 0.08) 0%,
-    rgba(var(--v-theme-surface), 1) 65%
-  );
+.court-card__player {
+  line-height: 1.3;
+  word-break: break-word;
 }
 
-.schedule-row--next {
-  background-color: rgba(var(--v-theme-primary), 0.08);
-  border-inline-start: 3px solid rgb(var(--v-theme-primary));
+.court-card__vs {
+  text-align: center;
+  font-size: 0.75rem;
 }
 
-.match-meta {
-  min-width: 170px;
-  text-align: right;
+/* Full Schedule time column */
+.schedule-time {
+  min-width: 52px;
+  white-space: nowrap;
+}
+
+/* Dimmed finished rows */
+.schedule-row--finished {
+  opacity: 0.55;
 }
 
 .display-mode {
