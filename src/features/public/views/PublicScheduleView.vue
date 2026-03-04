@@ -54,11 +54,6 @@ interface CategoryPulseItem {
   nextMatchup: string;
 }
 
-interface FilterOption {
-  title: string;
-  value: string;
-}
-
 const route = useRoute();
 const router = useRouter();
 const activityStore = useActivityStore();
@@ -69,9 +64,6 @@ const { getParticipantName } = useParticipantResolver();
 const { formatDuration, formatDurationAgo } = useDurationFormatter();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
-const searchQuery = ref('');
-const selectedPlayerId = ref<string | null>(null);
-const selectedTeamName = ref<string | null>(null);
 const nowTimestamp = ref(Date.now());
 const lastUpdatedAt = ref<Date | null>(null);
 const notFound = ref(false);
@@ -120,6 +112,11 @@ function handleDisplayKeydown(event: KeyboardEvent): void {
 
 function getCategoryLabel(categoryId: string): string {
   return categories.value.find((category) => category.id === categoryId)?.name || categoryId;
+}
+
+function getCourtName(courtId: string | null | undefined): string {
+  if (!courtId) return 'TBD';
+  return tournamentStore.courts.find((c) => c.id === courtId)?.name ?? 'TBD';
 }
 
 function formatTime(date?: Date): string {
@@ -252,63 +249,7 @@ const categoryScopedItems = computed<PublicScheduleItem[]>(() =>
     .map(createScheduleItem)
 );
 
-const availablePlayerOptions = computed<FilterOption[]>(() => {
-  const values = new Map<string, string>();
-  for (const item of categoryScopedItems.value) {
-    for (const id of item.playerIds) {
-      values.set(id, getPlayerName(id));
-    }
-  }
-
-  return [...values.entries()]
-    .map(([value, title]) => ({ value, title }))
-    .sort((a, b) => a.title.localeCompare(b.title));
-});
-
-const availableTeamOptions = computed<FilterOption[]>(() => {
-  const values = new Map<string, string>();
-  for (const item of categoryScopedItems.value) {
-    for (const name of item.teamNames) {
-      values.set(name.toLowerCase(), name);
-    }
-  }
-
-  return [...values.values()]
-    .sort((a, b) => a.localeCompare(b))
-    .map((name) => ({ value: name, title: name }));
-});
-
-const selectedPlayerLabel = computed(() => {
-  if (!selectedPlayerId.value) return '';
-  return availablePlayerOptions.value.find((item) => item.value === selectedPlayerId.value)?.title || '';
-});
-
-const hasActiveFilters = computed(() =>
-  searchQuery.value.trim().length > 0 || Boolean(selectedPlayerId.value) || Boolean(selectedTeamName.value)
-);
-
-const normalizedQuery = computed(() => searchQuery.value.trim().toLowerCase());
-const normalizedTeamFilter = computed(() => selectedTeamName.value?.toLowerCase() || '');
-
-function matchesFilterCriteria(item: PublicScheduleItem): boolean {
-  const matchesQuery = normalizedQuery.value === '' || item.searchText.includes(normalizedQuery.value);
-  const matchesPlayer = !selectedPlayerId.value || item.playerIds.includes(selectedPlayerId.value);
-  const matchesTeam =
-    normalizedTeamFilter.value === '' ||
-    item.teamNames.some((teamName) => teamName.toLowerCase() === normalizedTeamFilter.value);
-
-  return matchesQuery && matchesPlayer && matchesTeam;
-}
-
-const filteredScheduleItems = computed<PublicScheduleItem[]>(() =>
-  categoryScopedItems.value.filter(matchesFilterCriteria)
-);
-
-function clearParticipantFilters(): void {
-  searchQuery.value = '';
-  selectedPlayerId.value = null;
-  selectedTeamName.value = null;
-}
+const filteredScheduleItems = computed<PublicScheduleItem[]>(() => categoryScopedItems.value);
 
 function getPublicStatus(match: Match): PublicMatchStatus {
   if (match.status === 'in_progress') return 'on_court';
@@ -403,7 +344,6 @@ const nowPlayingItems = computed<PublicScheduleItem[]>(() =>
   matchStore.inProgressMatches
     .filter((match) => selectedCategoryId.value === 'all' || match.categoryId === selectedCategoryId.value)
     .map(createScheduleItem)
-    .filter(matchesFilterCriteria)
     .sort((a, b) => {
       const aTime = a.match.startedAt?.getTime() || a.match.plannedStartAt?.getTime() || 0;
       const bTime = b.match.startedAt?.getTime() || b.match.plannedStartAt?.getTime() || 0;
@@ -427,7 +367,6 @@ const fallbackQueueItems = computed<PublicScheduleItem[]>(() =>
     .filter((match) => selectedCategoryId.value === 'all' || match.categoryId === selectedCategoryId.value)
     .filter((match) => match.status === 'ready' || match.status === 'scheduled')
     .map(createScheduleItem)
-    .filter(matchesFilterCriteria)
     .sort((a, b) => {
       const aTime = a.match.plannedStartAt?.getTime() || Number.MAX_SAFE_INTEGER;
       const bTime = b.match.plannedStartAt?.getTime() || Number.MAX_SAFE_INTEGER;
@@ -450,7 +389,6 @@ const recentResultItems = computed<PublicScheduleItem[]>(() =>
     .filter((match) => match.status === 'completed' || match.status === 'walkover')
     .sort((a, b) => (b.completedAt?.getTime() || 0) - (a.completedAt?.getTime() || 0))
     .map(createScheduleItem)
-    .filter(matchesFilterCriteria)
     .slice(0, 8)
 );
 
@@ -464,28 +402,6 @@ function isParticipantWinner(item: PublicScheduleItem, participantIndex: 1 | 2):
 
   return winnerId === item.participant2.registrationId;
 }
-
-const groupedSchedule = computed<CategoryScheduleGroup[]>(() => {
-  const grouped = new Map<string, CategoryScheduleGroup>();
-
-  for (const item of filteredScheduleItems.value) {
-    const existingGroup = grouped.get(item.categoryId);
-    if (existingGroup) {
-      existingGroup.items.push(item);
-      continue;
-    }
-
-    grouped.set(item.categoryId, {
-      categoryId: item.categoryId,
-      categoryLabel: item.categoryLabel,
-      items: [item],
-    });
-  }
-
-  return [...grouped.values()]
-    .map((group) => ({ ...group, items: group.items.sort(byPlannedTime) }))
-    .sort((a, b) => a.categoryLabel.localeCompare(b.categoryLabel));
-});
 
 const categoryPulseItems = computed<CategoryPulseItem[]>(() => {
   const items: CategoryPulseItem[] = [];
@@ -534,14 +450,6 @@ const hasVisibleScheduleActivity = computed(() =>
   displayQueueItems.value.length > 0 ||
   recentResultItems.value.length > 0 ||
   categoryPulseItems.value.length > 0
-);
-
-const shouldShowUnpublishedScheduleAlert = computed(
-  () => !hasPublishedSchedule.value && !hasVisibleScheduleActivity.value
-);
-
-const shouldShowEmptyFilterAlert = computed(
-  () => hasPublishedSchedule.value && groupedSchedule.value.length === 0
 );
 
 const tournamentProgress = computed(() => {
@@ -596,24 +504,6 @@ const lastUpdatedLabel = computed(() => {
 function openPublicBracket(): void {
   void router.push(`/tournaments/${tournamentId.value}/bracket`);
 }
-
-function watchFilterValidity(
-  optionsGetter: () => FilterOption[],
-  selected: typeof selectedPlayerId | typeof selectedTeamName
-): void {
-  watch(
-    optionsGetter,
-    (options) => {
-      if (selected.value && !options.some((option) => option.value === selected.value)) {
-        selected.value = null;
-      }
-    },
-    { deep: true }
-  );
-}
-
-watchFilterValidity(() => availablePlayerOptions.value, selectedPlayerId);
-watchFilterValidity(() => availableTeamOptions.value, selectedTeamName);
 
 watch(
   () => matchStore.matches,
