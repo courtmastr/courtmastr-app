@@ -8,7 +8,6 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useDurationFormatter } from '@/composables/useDurationFormatter';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
-import ActivityFeed from '@/components/ActivityFeed.vue';
 import type { Match } from '@/types';
 
 type PublicMatchStatus = 'on_court' | 'upcoming' | 'delayed' | 'finished' | 'cancelled';
@@ -35,12 +34,6 @@ interface PublicScheduleItem {
   playerNames: string[];
   teamNames: string[];
   searchText: string;
-}
-
-interface CategoryScheduleGroup {
-  categoryId: string;
-  categoryLabel: string;
-  items: PublicScheduleItem[];
 }
 
 interface CategoryPulseItem {
@@ -276,12 +269,6 @@ function getStatusLabel(status: PublicMatchStatus): string {
   return STATUS_META[status].label;
 }
 
-function getTimeRange(match: Match): string {
-  const start = formatTime(match.plannedStartAt);
-  if (!match.plannedEndAt) return start;
-  return `${start} - ${formatTime(match.plannedEndAt)}`;
-}
-
 function getStartHint(match: Match): string {
   const status = getPublicStatus(match);
 
@@ -381,28 +368,6 @@ const displayQueueItems = computed<PublicScheduleItem[]>(() =>
   upNextItems.value.length > 0 ? upNextItems.value : fallbackQueueItems.value
 );
 
-const nextUpMatchId = computed(() => displayQueueItems.value[0]?.match.id || '');
-
-const recentResultItems = computed<PublicScheduleItem[]>(() =>
-  [...matchStore.matches]
-    .filter((match) => selectedCategoryId.value === 'all' || match.categoryId === selectedCategoryId.value)
-    .filter((match) => match.status === 'completed' || match.status === 'walkover')
-    .sort((a, b) => (b.completedAt?.getTime() || 0) - (a.completedAt?.getTime() || 0))
-    .map(createScheduleItem)
-    .slice(0, 8)
-);
-
-function isParticipantWinner(item: PublicScheduleItem, participantIndex: 1 | 2): boolean {
-  const winnerId = item.match.winnerId;
-  if (!winnerId) return false;
-
-  if (participantIndex === 1) {
-    return winnerId === item.participant1.registrationId;
-  }
-
-  return winnerId === item.participant2.registrationId;
-}
-
 const categoryPulseItems = computed<CategoryPulseItem[]>(() => {
   const items: CategoryPulseItem[] = [];
 
@@ -444,13 +409,6 @@ const categoryPulseItems = computed<CategoryPulseItem[]>(() => {
     return a.categoryLabel.localeCompare(b.categoryLabel);
   });
 });
-
-const hasVisibleScheduleActivity = computed(() =>
-  nowPlayingItems.value.length > 0 ||
-  displayQueueItems.value.length > 0 ||
-  recentResultItems.value.length > 0 ||
-  categoryPulseItems.value.length > 0
-);
 
 const tournamentProgress = computed(() => {
   const totalCount = matchStore.matches.length;
@@ -759,29 +717,17 @@ onUnmounted(() => {
     </v-alert>
 
     <template v-else>
-      <div class="schedule-header mt-6 mb-4">
+      <!-- ─── Header ──────────────────────────────────────────────── -->
+      <div class="schedule-header mt-6 mb-3">
         <div>
           <h1 class="text-h5 font-weight-bold">
             {{ tournament?.name || 'Tournament' }}
           </h1>
           <div class="text-caption text-medium-emphasis">
-            Published Player Schedule
+            Live Schedule · Auto-refreshing every 30s · Times in your local timezone
           </div>
         </div>
-
         <div class="schedule-header__actions">
-          <v-chip
-            color="primary"
-            variant="tonal"
-          >
-            published only
-          </v-chip>
-          <v-chip
-            prepend-icon="mdi-refresh"
-            variant="outlined"
-          >
-            {{ lastUpdatedLabel }}
-          </v-chip>
           <v-btn
             size="small"
             variant="outlined"
@@ -799,464 +745,242 @@ onUnmounted(() => {
           >
             My Schedule
           </v-btn>
+          <v-btn
+            :to="`/tournaments/${tournamentId}/bracket`"
+            size="small"
+            variant="outlined"
+            prepend-icon="mdi-tournament"
+          >
+            Brackets
+          </v-btn>
         </div>
       </div>
 
-      <v-card
-        color="primary"
-        variant="tonal"
-        class="mb-4"
-      >
-        <v-card-text class="d-flex align-center justify-space-between flex-wrap ga-2 py-3">
-          <span class="text-body-2">Auto-refreshing every 30 seconds.</span>
-          <span class="text-caption">Times shown in your local timezone.</span>
-        </v-card-text>
-      </v-card>
-
-      <v-row
-        dense
-        class="mb-1"
-      >
-        <v-col
-          cols="12"
-          md="5"
-        >
-          <v-text-field
-            v-model="searchQuery"
-            label="Search player or team"
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-          />
-        </v-col>
-        <v-col
-          cols="12"
-          sm="6"
-          md="3"
-        >
-          <v-select
-            v-model="selectedPlayerId"
-            :items="availablePlayerOptions"
-            label="Filter by player"
-            item-title="title"
-            item-value="value"
-            variant="outlined"
-            density="comfortable"
-            clearable
-            hide-details
-          />
-        </v-col>
-        <v-col
-          cols="12"
-          sm="6"
-          md="4"
-        >
-          <v-select
-            v-model="selectedTeamName"
-            :items="availableTeamOptions"
-            :disabled="availableTeamOptions.length === 0"
-            label="Filter by doubles team"
-            item-title="title"
-            item-value="value"
-            variant="outlined"
-            density="comfortable"
-            clearable
-            hide-details
-          />
-        </v-col>
-      </v-row>
-
-      <div
-        v-if="hasActiveFilters"
-        class="d-flex align-center flex-wrap ga-2 mb-3"
-      >
-        <v-chip
-          v-if="selectedPlayerId"
-          color="primary"
-          variant="tonal"
-          closable
-          @click:close="selectedPlayerId = null"
-        >
-          Player: {{ selectedPlayerLabel }}
-        </v-chip>
-        <v-chip
-          v-if="selectedTeamName"
-          color="secondary"
-          variant="tonal"
-          closable
-          @click:close="selectedTeamName = null"
-        >
-          Team: {{ selectedTeamName }}
-        </v-chip>
-        <v-btn
-          size="small"
-          variant="text"
-          @click="clearParticipantFilters"
-        >
-          Clear filters
-        </v-btn>
-      </div>
-
+      <!-- ─── Category filter chips ────────────────────────────────── -->
       <v-chip-group
         v-if="categories.length > 1"
         :model-value="selectedCategoryId"
         mandatory
-        class="mb-4"
+        class="mb-5"
         @update:model-value="updateCategoryFilter"
       >
         <v-chip
           value="all"
           variant="outlined"
+          size="small"
         >
-          All Categories
+          All
         </v-chip>
         <v-chip
-          v-for="category in categories"
-          :key="category.id"
-          :value="category.id"
+          v-for="cat in categories"
+          :key="cat.id"
+          :value="cat.id"
           variant="outlined"
+          size="small"
         >
-          {{ category.name }}
+          {{ cat.name }}
         </v-chip>
       </v-chip-group>
 
-      <v-row
-        dense
-        class="mb-4"
+      <!-- ─── Zone 1: Now Playing ──────────────────────────────────── -->
+      <section
+        v-if="nowPlayingItems.length > 0"
+        class="mb-7"
       >
-        <v-col
-          cols="12"
-          md="6"
-        >
-          <v-card
-            variant="outlined"
-            class="public-summary-card public-summary-card--live"
+        <div class="section-label mb-3">
+          <v-icon
+            color="success"
+            size="10"
+            class="mr-2"
           >
-            <v-card-title class="d-flex align-center">
-              <v-icon
-                start
-                color="success"
-              >
-                mdi-broadcast
-              </v-icon>
-              Now Playing
-              <v-spacer />
-              <v-chip
-                size="small"
-                color="success"
-                variant="tonal"
-              >
-                {{ nowPlayingItems.length }}
-              </v-chip>
-            </v-card-title>
-            <v-divider />
-            <v-list density="compact">
-              <v-list-item
-                v-for="item in nowPlayingItems"
-                :key="`live-${item.categoryId}-${item.match.id}`"
-              >
-                <v-list-item-title class="text-body-2">
-                  {{ item.matchup }}
-                </v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ item.categoryLabel }} · {{ item.roundLabel }}
-                </v-list-item-subtitle>
-                <template #append>
-                  <div class="text-right">
-                    <v-chip
-                      size="small"
-                      color="success"
-                      variant="tonal"
-                    >
-                      Live
-                    </v-chip>
-                    <div class="text-caption text-medium-emphasis mt-1">
-                      {{ getCurrentScore(item.match) }} · Games {{ getGamesScore(item.match) }}
-                    </div>
-                  </div>
-                </template>
-              </v-list-item>
-              <v-list-item v-if="nowPlayingItems.length === 0">
-                <v-list-item-title class="text-body-2 text-medium-emphasis">
-                  No matches in progress right now.
-                </v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-card>
-        </v-col>
-
-        <v-col
-          cols="12"
-          md="6"
-        >
-          <v-card
-            variant="outlined"
-            class="public-summary-card public-summary-card--next"
+            mdi-circle
+          </v-icon>
+          <span class="text-overline font-weight-bold">Now Playing</span>
+          <v-chip
+            size="x-small"
+            color="success"
+            variant="tonal"
+            class="ml-2"
           >
-            <v-card-title class="d-flex align-center">
-              <v-icon
-                start
-                color="primary"
-              >
-                mdi-timer-sand
-              </v-icon>
-              Up Next
-              <v-spacer />
-              <v-chip
-                size="small"
-                color="primary"
-                variant="tonal"
-              >
-                {{ displayQueueItems.length }}
-              </v-chip>
-            </v-card-title>
-            <v-divider />
-            <v-list density="compact">
-              <v-list-item
-                v-for="item in displayQueueItems"
-                :key="`next-${item.categoryId}-${item.match.id}`"
-              >
-                <v-list-item-title class="text-body-2">
-                  {{ item.matchup }}
-                </v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ formatTime(item.match.plannedStartAt) }} · {{ item.categoryLabel }}
-                </v-list-item-subtitle>
-                <template #append>
-                  <v-chip
-                    size="small"
-                    :color="getStatusColor(getPublicStatus(item.match))"
-                    variant="tonal"
-                  >
-                    {{ getStartHint(item.match) }}
-                  </v-chip>
-                </template>
-              </v-list-item>
-              <v-list-item v-if="displayQueueItems.length === 0">
-                <v-list-item-title class="text-body-2 text-medium-emphasis">
-                  No upcoming matches with the current filters.
-                </v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-card>
-        </v-col>
-      </v-row>
+            {{ nowPlayingItems.length }}
+          </v-chip>
+        </div>
 
-      <v-row
-        dense
-        class="mb-4"
-      >
-        <v-col
-          cols="12"
-          md="6"
-        >
-          <v-card variant="outlined">
-            <v-card-title>
-              <v-icon start>
-                mdi-history
-              </v-icon>
-              Recent Results
-            </v-card-title>
-            <v-divider />
-
-            <v-list
-              v-if="recentResultItems.length > 0"
-              density="compact"
-            >
-              <v-list-item
-                v-for="item in recentResultItems"
-                :key="`result-${item.categoryId}-${item.match.id}`"
-              >
-                <v-list-item-title class="text-body-2">
-                  <span :class="{ 'font-weight-bold': isParticipantWinner(item, 1) }">
-                    {{ item.participant1.displayName }}
-                  </span>
-                  <span class="text-grey mx-1">vs</span>
-                  <span :class="{ 'font-weight-bold': isParticipantWinner(item, 2) }">
-                    {{ item.participant2.displayName }}
-                  </span>
-                </v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ item.match.status === 'walkover' ? 'Walkover' : `Games ${getGamesScore(item.match)}` }} · {{ item.categoryLabel }}
-                </v-list-item-subtitle>
-                <template #append>
-                  <span class="text-caption text-medium-emphasis">
-                    {{ item.match.completedAt ? formatTime(item.match.completedAt) : 'Final' }}
-                  </span>
-                </template>
-              </v-list-item>
-            </v-list>
-
-            <v-card-text
-              v-else
-              class="text-center py-6 text-medium-emphasis"
-            >
-              No completed matches yet.
+        <div class="now-playing-grid">
+          <v-card
+            v-for="item in nowPlayingItems"
+            :key="`live-${item.match.id}`"
+            variant="tonal"
+            color="success"
+            class="court-card"
+          >
+            <v-card-text class="pa-3">
+              <div class="d-flex align-center justify-space-between mb-2">
+                <span class="text-caption font-weight-bold text-uppercase text-success">
+                  {{ getCourtName(item.match.courtId) }}
+                </span>
+                <v-chip
+                  size="x-small"
+                  color="success"
+                  variant="flat"
+                >
+                  LIVE
+                </v-chip>
+              </div>
+              <div class="court-card__player font-weight-bold text-body-2">
+                {{ item.participant1.displayName }}
+              </div>
+              <div class="court-card__vs text-caption text-medium-emphasis text-center my-1">
+                vs
+              </div>
+              <div class="court-card__player font-weight-bold text-body-2">
+                {{ item.participant2.displayName }}
+              </div>
+              <div class="text-caption text-medium-emphasis mt-2">
+                {{ item.categoryLabel }}
+              </div>
             </v-card-text>
           </v-card>
-        </v-col>
+        </div>
+      </section>
 
-        <v-col
-          cols="12"
-          md="6"
-        >
-          <v-card variant="outlined">
-            <v-card-title class="d-flex align-center">
-              <v-icon start>
-                mdi-chart-timeline-variant
-              </v-icon>
-              Category Pulse
-              <v-spacer />
-              <v-btn
-                size="small"
-                variant="text"
-                prepend-icon="mdi-tournament"
-                @click="openPublicBracket()"
-              >
-                Bracket
-              </v-btn>
-            </v-card-title>
-            <v-divider />
+      <!-- ─── Zone 2: Up Next ──────────────────────────────────────── -->
+      <section class="mb-7">
+        <div class="section-label mb-3">
+          <v-icon
+            size="14"
+            class="mr-2"
+          >
+            mdi-clock-outline
+          </v-icon>
+          <span class="text-overline font-weight-bold">Up Next</span>
+          <span
+            v-if="displayQueueItems.length > 0"
+            class="text-caption text-medium-emphasis ml-2"
+          >
+            {{ displayQueueItems.length }} matches
+          </span>
+        </div>
 
-            <v-list
-              v-if="categoryPulseItems.length > 0"
-              density="compact"
-            >
-              <v-list-item
-                v-for="item in categoryPulseItems"
-                :key="`pulse-${item.categoryId}`"
-              >
-                <v-list-item-title class="text-body-2">
-                  {{ item.categoryLabel }}
-                </v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ item.liveCount }} live · {{ item.queuedCount }} up next · {{ item.completedCount }}/{{ item.totalCount }} complete
-                </v-list-item-subtitle>
-                <v-list-item-subtitle class="text-caption text-medium-emphasis text-truncate">
-                  {{ item.nextStartLabel }} · {{ item.nextMatchup }}
-                </v-list-item-subtitle>
-                <template #append>
-                  <v-btn
-                    size="x-small"
-                    variant="text"
-                    @click="openPublicBracket()"
-                  >
-                    Bracket
-                  </v-btn>
-                </template>
-              </v-list-item>
-            </v-list>
-
-            <v-card-text
-              v-else
-              class="text-center py-6 text-medium-emphasis"
-            >
-              Category progress appears once matches are generated.
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-
-      <v-alert
-        v-if="shouldShowUnpublishedScheduleAlert"
-        type="info"
-        variant="tonal"
-        class="mb-4"
-      >
-        Schedule not published yet.
-      </v-alert>
-
-      <v-alert
-        v-else-if="shouldShowEmptyFilterAlert"
-        type="info"
-        variant="tonal"
-        class="mb-4"
-      >
-        No matches found for the current filter.
-      </v-alert>
-
-      <div
-        v-else
-        class="d-flex flex-column ga-4"
-      >
-        <v-card
-          v-for="group in groupedSchedule"
-          :key="group.categoryId"
-          variant="outlined"
-        >
-          <v-card-title class="d-flex align-center">
-            <span class="text-subtitle-1">{{ group.categoryLabel }}</span>
-            <v-spacer />
-            <v-chip
-              size="small"
-              color="primary"
-              variant="tonal"
-            >
-              {{ group.items.length }} matches
-            </v-chip>
-          </v-card-title>
-
-          <v-divider />
-
+        <v-card variant="outlined">
           <v-list
-            density="comfortable"
-            lines="two"
+            v-if="displayQueueItems.length > 0"
+            density="compact"
           >
             <v-list-item
-              v-for="item in group.items"
-              :key="`${item.categoryId}-${item.match.id}`"
-              :class="{ 'schedule-row--next': item.match.id === nextUpMatchId }"
+              v-for="item in displayQueueItems"
+              :key="`next-${item.match.id}`"
+              class="py-2"
             >
-              <template #prepend>
-                <div class="time-block">
-                  <div class="text-body-2 font-weight-bold">
-                    {{ formatTime(item.match.plannedStartAt) }}
-                  </div>
-                  <div class="text-caption text-medium-emphasis">
-                    {{ formatTime(item.match.plannedEndAt) }}
-                  </div>
-                </div>
-              </template>
-
               <v-list-item-title class="text-body-2">
                 {{ item.matchup }}
               </v-list-item-title>
-              <v-list-item-subtitle>
-                {{ item.roundLabel }}
+              <v-list-item-subtitle class="text-caption">
+                {{ formatTime(item.match.plannedStartAt) }}
+                · {{ getCourtName(item.match.courtId ?? item.match.plannedCourtId) }}
+                · {{ item.categoryLabel }}
               </v-list-item-subtitle>
-
               <template #append>
-                <div class="match-meta">
+                <v-chip
+                  size="x-small"
+                  :color="getStatusColor(getPublicStatus(item.match))"
+                  variant="tonal"
+                >
+                  {{ getStartHint(item.match) }}
+                </v-chip>
+              </template>
+            </v-list-item>
+          </v-list>
+          <v-card-text
+            v-else
+            class="text-center text-grey py-5"
+          >
+            No upcoming matches at this time.
+          </v-card-text>
+        </v-card>
+      </section>
+
+      <!-- ─── Zone 3: Full Schedule ────────────────────────────────── -->
+      <section class="mb-6">
+        <div class="section-label mb-3">
+          <v-icon
+            size="14"
+            class="mr-2"
+          >
+            mdi-calendar-clock
+          </v-icon>
+          <span class="text-overline font-weight-bold">Full Schedule</span>
+          <span
+            v-if="filteredScheduleItems.length > 0"
+            class="text-caption text-medium-emphasis ml-2"
+          >
+            {{ filteredScheduleItems.length }} matches
+          </span>
+        </div>
+
+        <!-- No schedule published yet -->
+        <v-card
+          v-if="!hasPublishedSchedule"
+          variant="outlined"
+        >
+          <v-card-text class="text-center text-grey py-10">
+            <v-icon
+              size="48"
+              class="mb-3 d-block"
+            >
+              mdi-calendar-blank
+            </v-icon>
+            Schedule not yet published.
+            <div class="text-caption mt-1">
+              Check back soon.
+            </div>
+          </v-card-text>
+        </v-card>
+
+        <!-- Match list -->
+        <v-card
+          v-else
+          variant="outlined"
+        >
+          <v-list density="compact">
+            <template
+              v-for="(item, index) in filteredScheduleItems"
+              :key="`sched-${item.match.id}`"
+            >
+              <v-divider v-if="index > 0" />
+              <v-list-item
+                :class="getPublicStatus(item.match) === 'finished' ? 'schedule-row--finished' : ''"
+                class="py-2"
+              >
+                <template #prepend>
+                  <div class="schedule-time mr-3">
+                    <div class="text-body-2 font-weight-medium">
+                      {{ formatTime(item.match.plannedStartAt) }}
+                    </div>
+                  </div>
+                </template>
+                <v-list-item-title class="text-body-2">
+                  {{ item.matchup }}
+                </v-list-item-title>
+                <v-list-item-subtitle class="text-caption">
+                  {{ getCourtName(item.match.courtId ?? item.match.plannedCourtId) }}
+                  · {{ item.categoryLabel }}
+                  · {{ item.roundLabel }}
+                </v-list-item-subtitle>
+                <template #append>
                   <v-chip
-                    size="small"
+                    size="x-small"
                     :color="getStatusColor(getPublicStatus(item.match))"
                     variant="tonal"
                   >
                     {{ getStatusLabel(getPublicStatus(item.match)) }}
                   </v-chip>
-                  <div class="text-caption text-medium-emphasis">
-                    {{ getStartHint(item.match) }}
-                  </div>
-                  <div class="text-caption text-disabled">
-                    {{ getTimeRange(item.match) }}
-                  </div>
-                </div>
-              </template>
-            </v-list-item>
+                </template>
+              </v-list-item>
+            </template>
           </v-list>
         </v-card>
-      </div>
-
-      <v-row class="mt-4">
-        <v-col cols="12">
-          <ActivityFeed
-            :activities="activities"
-            :max-items="12"
-            title="Live Updates"
-          />
-        </v-col>
-      </v-row>
+      </section>
     </template>
   </v-container>
 </template>
