@@ -220,13 +220,13 @@ Suggested shape:
 volunteerAccess: {
   checkin: {
     enabled: boolean;
-    pinHash: string;
+    encryptedPin: string;
     pinRevision: number;
     updatedAt: Timestamp;
   };
   scorekeeper: {
     enabled: boolean;
-    pinHash: string;
+    encryptedPin: string;
     pinRevision: number;
     updatedAt: Timestamp;
   };
@@ -235,9 +235,10 @@ volunteerAccess: {
 
 Rules:
 
-1. Store only hashed PINs, never raw PIN values.
-2. Use revision numbers so resets invalidate old sessions deterministically.
-3. Keep this model tournament-local.
+1. Store PINs encrypted at rest so admins can reveal current values later.
+2. Never store plaintext PINs in client-readable documents or logs.
+3. Use revision numbers so resets invalidate old sessions deterministically.
+4. Keep this model tournament-local.
 
 ---
 
@@ -248,7 +249,7 @@ Rules:
 1. Admin creates or resets a tournament PIN for a volunteer role.
 2. Volunteer opens the direct tournament access URL for that role.
 3. Volunteer enters the PIN.
-4. Backend verifies the hashed PIN and returns a short-lived volunteer session.
+4. Backend decrypts or securely verifies the stored PIN and returns a short-lived volunteer session.
 5. The frontend loads the restricted shell for that role and tournament only.
 
 ### Session Constraints
@@ -368,10 +369,13 @@ Required behaviors:
 2. **Risk:** PIN reset does not fully invalidate existing access.
    **Mitigation:** bind sessions to `pinRevision` and reject mismatches on every protected entry point.
 
-3. **Risk:** Public signup continues to create privileged operational identities.
+3. **Risk:** Revealable PIN storage weakens secrecy if stored carelessly.
+   **Mitigation:** store PINs encrypted at rest, reveal only through staff-authorized settings flows, and avoid logging decrypted values.
+
+4. **Risk:** Public signup continues to create privileged operational identities.
    **Mitigation:** remove privileged role choices from the public registration surface.
 
-4. **Risk:** Scorekeeper shell remains too desktop-oriented for live use.
+5. **Risk:** Scorekeeper shell remains too desktop-oriented for live use.
    **Mitigation:** treat mobile-first scoring ergonomics as explicit implementation acceptance criteria.
 
 ---
