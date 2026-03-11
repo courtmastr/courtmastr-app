@@ -8,6 +8,7 @@ import type {
   RankingPresetId,
   RankingProgressionMode,
   ScoringConfig,
+  TournamentSponsorRecord,
   User,
 } from '@/types';
 import { SCORING_PRESETS } from '@/types';
@@ -84,7 +85,7 @@ const settings = ref({
   rankingPresetDefault: DEFAULT_RANKING_PRESET as RankingPresetId,
   progressionModeDefault: DEFAULT_RANKING_PROGRESSION as RankingProgressionMode,
 });
-const sponsors = ref<string[]>([]);
+const sponsors = ref<TournamentSponsorRecord[]>([]);
 const newSponsor = ref('');
 
 const initialScoringConfig = ref<ScoringConfig>(sanitizeScoringConfig(settings.value));
@@ -472,6 +473,10 @@ function addSponsor(): void {
 
 function removeSponsor(index: number): void {
   sponsors.value.splice(index, 1);
+}
+
+function getSponsorLabel(sponsor: TournamentSponsorRecord): string {
+  return typeof sponsor === 'string' ? sponsor : sponsor.name;
 }
 
 
@@ -1105,7 +1110,7 @@ async function confirmDelete() {
               <v-list-item
                 v-for="(sponsor, index) in sponsors"
                 :key="index"
-                :title="sponsor"
+                :title="getSponsorLabel(sponsor)"
                 prepend-icon="mdi-domain"
               >
                 <template #append>
