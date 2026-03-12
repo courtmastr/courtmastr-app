@@ -3,6 +3,7 @@ import { onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useAuthStore } from '@/stores/auth';
+import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import { TOURNAMENT_STATUS_LABELS, FORMAT_LABELS } from '@/types';
 
@@ -116,12 +117,12 @@ function formatDate(date: Date): string {
         >
           <v-card-item>
             <template #prepend>
-              <v-avatar
-                color="primary"
-                size="48"
-              >
-                <v-icon>mdi-trophy</v-icon>
-              </v-avatar>
+              <TournamentBrandMark
+                :tournament-name="tournament.name"
+                :logo-url="tournament.tournamentLogo?.url ?? null"
+                :width="48"
+                :height="48"
+              />
             </template>
 
             <v-card-title

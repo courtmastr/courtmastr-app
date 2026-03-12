@@ -6,6 +6,8 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useAnnouncements } from '@/composables/useAnnouncements';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import type { Court, GameScore, Match } from '@/types';
 import '../overlay.css';
 
@@ -27,9 +29,11 @@ const { getParticipantName } = useParticipantResolver();
 const { activeAnnouncements, subscribeAnnouncements } = useAnnouncements();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
+const tournament = computed(() => tournamentStore.currentTournament);
 const tournamentName = computed(() =>
   tournamentStore.currentTournament?.name?.trim() || 'TOURNAMENT BOARD'
 );
+const { normalizedSponsors, tournamentLogoUrl } = useTournamentBranding(tournament);
 
 const courts = computed(() => tournamentStore.courts);
 const carouselPage = ref(0);
@@ -115,11 +119,20 @@ const upNextMatches = computed<Match[]>(() =>
     .slice(0, 3)
 );
 
-const sponsors = computed(() => tournamentStore.currentTournament?.sponsors ?? []);
-const sponsorsText = computed(() => {
-  if (sponsors.value.length === 0) return 'SPONSORS: NO SPONSORS LISTED';
-  return `SPONSORS: ${sponsors.value.join(', ')}`;
-});
+const sponsors = computed(() => normalizedSponsors.value);
+const failedSponsorIds = ref<string[]>([]);
+const shouldScrollSponsors = computed(() => sponsors.value.length > 3);
+const sponsorLoopItems = computed(() => (
+  shouldScrollSponsors.value ? [...sponsors.value, ...sponsors.value] : sponsors.value
+));
+
+const hasFailedSponsorLogo = (sponsorId: string): boolean => failedSponsorIds.value.includes(sponsorId);
+
+const handleSponsorLogoError = (sponsorId: string): void => {
+  if (!failedSponsorIds.value.includes(sponsorId)) {
+    failedSponsorIds.value = [...failedSponsorIds.value, sponsorId];
+  }
+};
 
 const stopCarousel = (): void => {
   if (carouselInterval) {
@@ -147,6 +160,14 @@ watch([shouldUseCarousel, totalCourtPages], () => {
   startCarousel();
 }, { immediate: true });
 
+watch(
+  sponsors,
+  () => {
+    failedSponsorIds.value = [];
+  },
+  { deep: true, immediate: true }
+);
+
 onMounted(async () => {
   document.documentElement.classList.add('overlay-page');
   await tournamentStore.fetchTournament(tournamentId.value);
@@ -169,9 +190,17 @@ onUnmounted(() => {
 <template>
   <div class="overlay-board-page">
     <header class="board-header">
-      <h1 class="tournament-name">
-        {{ tournamentName }}
-      </h1>
+      <div class="board-header__brand">
+        <TournamentBrandMark
+          :tournament-name="tournamentName"
+          :logo-url="tournamentLogoUrl"
+          :width="82"
+          :height="82"
+        />
+        <h1 class="tournament-name">
+          {{ tournamentName }}
+        </h1>
+      </div>
       <div
         v-if="shouldUseCarousel"
         class="carousel-meta"
@@ -313,14 +342,35 @@ onUnmounted(() => {
 
     <footer class="board-footer">
       <div
+        v-if="sponsorLoopItems.length > 0"
         class="sponsors-ticker"
-        :class="{ 'sponsors-ticker--scroll': sponsors.length > 0 }"
+        :class="{ 'sponsors-ticker--scroll': shouldScrollSponsors }"
       >
-        <span class="sponsors-text">{{ sponsorsText }}</span>
-        <span
-          v-if="sponsors.length > 0"
-          class="sponsors-text"
-        >{{ sponsorsText }}</span>
+        <div
+          v-for="(sponsor, index) in sponsorLoopItems"
+          :key="`${sponsor.id}-${index}`"
+          class="sponsor-pill"
+        >
+          <img
+            v-if="sponsor.logoUrl && !hasFailedSponsorLogo(sponsor.id)"
+            :src="sponsor.logoUrl"
+            :alt="`${sponsor.name} logo`"
+            class="sponsor-logo"
+            @error="handleSponsorLogoError(sponsor.id)"
+          >
+          <span
+            v-else
+            class="sponsor-name"
+          >
+            {{ sponsor.name }}
+          </span>
+        </div>
+      </div>
+      <div
+        v-else
+        class="sponsors-empty"
+      >
+        No sponsors listed
       </div>
     </footer>
   </div>
@@ -370,6 +420,13 @@ onUnmounted(() => {
   padding: 0 72px 18px;
   border-bottom: 1px solid rgba(149, 201, 236, 0.22);
   background: linear-gradient(180deg, rgba(3, 12, 29, 0.42) 0%, rgba(3, 12, 29, 0.08) 100%);
+}
+
+.board-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
 }
 
 .tournament-name {
@@ -707,23 +764,51 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   white-space: nowrap;
+  gap: 22px;
 }
 
 .sponsors-ticker--scroll {
   animation: sponsors-marquee 42s linear infinite;
 }
 
-.sponsors-text {
-  padding: 0 56px;
-  font-size: 2.05rem;
-  font-weight: 500;
-  letter-spacing: 0.025em;
+.sponsors-ticker:not(.sponsors-ticker--scroll) {
+  width: 100%;
+  justify-content: center;
+}
+
+.sponsor-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160px;
+  height: 48px;
+  padding: 0 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(138, 191, 230, 0.26);
+  background: rgba(8, 32, 58, 0.64);
+  box-shadow: inset 0 0 0 1px rgba(166, 214, 248, 0.08);
+}
+
+.sponsor-logo {
+  max-width: 140px;
+  max-height: 28px;
+  object-fit: contain;
+}
+
+.sponsor-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(241, 248, 255, 0.94);
 }
 
-.sponsors-ticker:not(.sponsors-ticker--scroll) .sponsors-text {
+.sponsors-empty {
   padding: 0 32px;
+  font-size: 1.55rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(241, 248, 255, 0.58);
 }
 
 @keyframes sponsors-marquee {

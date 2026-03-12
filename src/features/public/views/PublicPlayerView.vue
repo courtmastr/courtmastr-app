@@ -5,6 +5,9 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { usePlayerSchedule } from '@/composables/usePlayerSchedule';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
+import TournamentSponsorStrip from '@/components/common/TournamentSponsorStrip.vue';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import type { Match } from '@/types';
 
@@ -17,6 +20,7 @@ const { getParticipantName } = useParticipantResolver();
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const notFound = ref(false);
+const { normalizedSponsors, tournamentLogoUrl } = useTournamentBranding(tournament);
 
 // ─── Search ────────────────────────────────────────────────────────────────
 
@@ -173,16 +177,38 @@ onUnmounted(() => {
     <!-- Tournament Header -->
     <v-row class="mb-4">
       <v-col cols="12">
-        <div v-if="tournament" class="pa-6 rounded-lg bg-primary text-white mb-2">
-          <div class="d-flex align-center gap-4">
-            <v-icon size="40" color="white" class="opacity-80">mdi-account-clock</v-icon>
-            <div>
-              <h1 class="text-h4 font-weight-bold mb-1">{{ tournament.name }}</h1>
-              <p class="text-subtitle-1 opacity-80">Player Schedule</p>
+        <div
+          v-if="tournament"
+          class="pa-6 rounded-lg bg-primary text-white mb-2"
+        >
+          <div class="public-player-header d-flex align-center gap-4">
+            <TournamentBrandMark
+              :tournament-name="tournament.name"
+              :logo-url="tournamentLogoUrl"
+              :fallback-icon="'mdi-account-clock'"
+              :width="88"
+              :height="88"
+            />
+            <div class="public-player-header__copy">
+              <h1 class="text-h4 font-weight-bold mb-1">
+                {{ tournament.name }}
+              </h1>
+              <p class="text-subtitle-1 opacity-80">
+                Player Schedule
+              </p>
             </div>
           </div>
+          <TournamentSponsorStrip
+            v-if="normalizedSponsors.length > 0"
+            :sponsors="normalizedSponsors"
+            class="mt-4"
+            dense
+          />
         </div>
-        <v-skeleton-loader v-else-if="!notFound" type="heading" />
+        <v-skeleton-loader
+          v-else-if="!notFound"
+          type="heading"
+        />
       </v-col>
     </v-row>
 
@@ -191,8 +217,15 @@ onUnmounted(() => {
       <v-col cols="12">
         <v-card>
           <v-card-text class="text-center py-8">
-            <v-icon size="64" color="grey-lighten-1">mdi-alert-circle-outline</v-icon>
-            <h2 class="text-h6 mt-4">Tournament not found</h2>
+            <v-icon
+              size="64"
+              color="grey-lighten-1"
+            >
+              mdi-alert-circle-outline
+            </v-icon>
+            <h2 class="text-h6 mt-4">
+              Tournament not found
+            </h2>
             <p class="text-body-2 text-grey mt-2">
               This tournament does not exist or has been removed.
             </p>
@@ -215,7 +248,10 @@ onUnmounted(() => {
           autofocus
           hide-details
         />
-        <p v-if="searchQuery.length > 0 && searchQuery.length < 2" class="text-caption text-grey mt-2 pl-1">
+        <p
+          v-if="searchQuery.length > 0 && searchQuery.length < 2"
+          class="text-caption text-grey mt-2 pl-1"
+        >
           Type at least 2 characters to search
         </p>
       </v-card>
@@ -248,7 +284,9 @@ onUnmounted(() => {
             @click="selectPlayer(result.registrationId)"
           >
             <template #append>
-              <v-icon color="primary">mdi-chevron-right</v-icon>
+              <v-icon color="primary">
+                mdi-chevron-right
+              </v-icon>
             </template>
           </v-list-item>
         </v-list>
@@ -258,13 +296,25 @@ onUnmounted(() => {
       <template v-if="selectedRegistrationId">
         <!-- Player header -->
         <div class="d-flex align-center flex-wrap gap-2 mb-4">
-          <v-icon color="primary">mdi-account</v-icon>
+          <v-icon color="primary">
+            mdi-account
+          </v-icon>
           <span class="text-h6 font-weight-bold">{{ selectedPlayerName }}</span>
-          <v-chip v-if="selectedCategoryName" size="small" variant="tonal" color="primary">
+          <v-chip
+            v-if="selectedCategoryName"
+            size="small"
+            variant="tonal"
+            color="primary"
+          >
             {{ selectedCategoryName }}
           </v-chip>
           <v-spacer />
-          <v-btn variant="text" size="small" prepend-icon="mdi-close" @click="clearPlayer">
+          <v-btn
+            variant="text"
+            size="small"
+            prepend-icon="mdi-close"
+            @click="clearPlayer"
+          >
             Change
           </v-btn>
         </div>
@@ -298,7 +348,10 @@ onUnmounted(() => {
                 <v-icon size="16">mdi-map-marker</v-icon>
                 {{ getCourtName(nextMatch.courtId ?? nextMatch.plannedCourtId) }}
               </span>
-              <span v-if="nextMatch.categoryName" class="d-flex align-center gap-1">
+              <span
+                v-if="nextMatch.categoryName"
+                class="d-flex align-center gap-1"
+              >
                 <v-icon size="16">mdi-tag</v-icon>
                 {{ nextMatch.categoryName }}
               </span>
@@ -306,11 +359,21 @@ onUnmounted(() => {
           </v-card-text>
         </v-card>
 
-        <v-alert v-else-if="playedMatches.length > 0" type="success" variant="tonal" class="mb-6">
+        <v-alert
+          v-else-if="playedMatches.length > 0"
+          type="success"
+          variant="tonal"
+          class="mb-6"
+        >
           All your matches are complete. Thanks for playing!
         </v-alert>
 
-        <v-alert v-else type="info" variant="tonal" class="mb-6">
+        <v-alert
+          v-else
+          type="info"
+          variant="tonal"
+          class="mb-6"
+        >
           No matches scheduled yet. Check back soon.
         </v-alert>
 
@@ -322,7 +385,10 @@ onUnmounted(() => {
           <v-divider />
 
           <!-- Upcoming matches -->
-          <v-list v-if="upcomingMatches.length" lines="two">
+          <v-list
+            v-if="upcomingMatches.length"
+            lines="two"
+          >
             <v-list-item
               v-for="match in upcomingMatches"
               :key="match.id"
@@ -341,10 +407,20 @@ onUnmounted(() => {
                 </template>
               </v-list-item-subtitle>
               <template #append>
-                <v-chip v-if="match.status === 'in_progress'" color="success" size="x-small" variant="tonal">
+                <v-chip
+                  v-if="match.status === 'in_progress'"
+                  color="success"
+                  size="x-small"
+                  variant="tonal"
+                >
                   LIVE
                 </v-chip>
-                <v-chip v-else-if="match.status === 'ready'" color="warning" size="x-small" variant="tonal">
+                <v-chip
+                  v-else-if="match.status === 'ready'"
+                  color="warning"
+                  size="x-small"
+                  variant="tonal"
+                >
                   Ready
                 </v-chip>
               </template>
@@ -354,7 +430,10 @@ onUnmounted(() => {
           <v-divider v-if="upcomingMatches.length && playedMatches.length" />
 
           <!-- Played matches -->
-          <v-list v-if="playedMatches.length" lines="two">
+          <v-list
+            v-if="playedMatches.length"
+            lines="two"
+          >
             <v-list-item
               v-for="match in [...playedMatches].reverse()"
               :key="match.id"
@@ -386,11 +465,19 @@ onUnmounted(() => {
         </v-card>
 
         <!-- Bracket section -->
-        <v-card v-if="selectedRegistration" class="mb-6">
+        <v-card
+          v-if="selectedRegistration"
+          class="mb-6"
+        >
           <v-expansion-panels variant="accordion">
             <v-expansion-panel>
               <v-expansion-panel-title class="text-overline font-weight-bold text-grey">
-                <v-icon class="mr-2" size="18">mdi-tournament</v-icon>
+                <v-icon
+                  class="mr-2"
+                  size="18"
+                >
+                  mdi-tournament
+                </v-icon>
                 Bracket — {{ selectedCategoryName }}
               </v-expansion-panel-title>
               <v-expansion-panel-text class="pa-0">
@@ -417,9 +504,21 @@ onUnmounted(() => {
       </template>
 
       <!-- Empty state (no search yet) -->
-      <v-card v-if="!searchQuery && !selectedRegistrationId" flat class="text-center pa-12">
-        <v-icon size="64" color="grey-lighten-2" class="mb-4">mdi-account-search</v-icon>
-        <div class="text-h6 text-grey">Enter your name to see your schedule</div>
+      <v-card
+        v-if="!searchQuery && !selectedRegistrationId"
+        flat
+        class="text-center pa-12"
+      >
+        <v-icon
+          size="64"
+          color="grey-lighten-2"
+          class="mb-4"
+        >
+          mdi-account-search
+        </v-icon>
+        <div class="text-h6 text-grey">
+          Enter your name to see your schedule
+        </div>
         <div class="text-body-2 text-grey mt-2">
           Type your first or last name in the search box above
         </div>
@@ -440,5 +539,13 @@ onUnmounted(() => {
 <style scoped>
 .opacity-80 {
   opacity: 0.8;
+}
+
+.public-player-header {
+  min-width: 0;
+}
+
+.public-player-header__copy {
+  min-width: 0;
 }
 </style>

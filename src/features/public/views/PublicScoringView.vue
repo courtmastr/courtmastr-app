@@ -5,6 +5,9 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
+import TournamentSponsorStrip from '@/components/common/TournamentSponsorStrip.vue';
 import type { Match } from '@/types';
 
 const route = useRoute();
@@ -16,6 +19,7 @@ const { getParticipantName } = useParticipantResolver();
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const courts = computed(() => tournamentStore.courts);
+const { normalizedSponsors, tournamentLogoUrl } = useTournamentBranding(tournament);
 
 // View state
 const selectedMatch = ref<Match | null>(null);
@@ -202,21 +206,38 @@ watch(currentMatch, (newMatch) => {
 
     <template v-else>
       <!-- Header -->
-      <div class="d-flex align-center mb-4">
-        <v-btn
-          v-if="scoringMode"
-          icon="mdi-arrow-left"
-          variant="text"
-          @click="backToList"
-        />
-        <div class="ml-2">
-          <h1 class="text-h6 font-weight-bold">
-            {{ tournament?.name }}
-          </h1>
-          <p class="text-caption text-grey">
-            {{ scoringMode ? 'Scoring' : 'Select a match to score' }}
-          </p>
+      <div class="public-scoring-header mb-4">
+        <div class="d-flex align-center">
+          <v-btn
+            v-if="scoringMode"
+            icon="mdi-arrow-left"
+            variant="text"
+            @click="backToList"
+          />
+          <TournamentBrandMark
+            v-if="tournament"
+            :tournament-name="tournament.name"
+            :logo-url="tournamentLogoUrl"
+            :fallback-icon="'mdi-scoreboard'"
+            :width="56"
+            :height="56"
+            class="mr-3"
+          />
+          <div class="ml-2">
+            <h1 class="text-h6 font-weight-bold">
+              {{ tournament?.name }}
+            </h1>
+            <p class="text-caption text-grey">
+              {{ scoringMode ? 'Scoring' : 'Select a match to score' }}
+            </p>
+          </div>
         </div>
+        <TournamentSponsorStrip
+          v-if="normalizedSponsors.length > 0"
+          :sponsors="normalizedSponsors"
+          dense
+          class="mt-3"
+        />
       </div>
 
       <!-- Match Selection List -->
@@ -561,6 +582,11 @@ watch(currentMatch, (newMatch) => {
 </template>
 
 <style scoped>
+.public-scoring-header {
+  display: flex;
+  flex-direction: column;
+}
+
 /* Match Header */
 .match-header {
   background: linear-gradient(135deg, rgb(var(--v-theme-primary)) 0%, rgb(var(--v-theme-primary-darken-1)) 100%);

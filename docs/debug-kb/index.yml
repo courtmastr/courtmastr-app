@@ -1,3 +1,10 @@
+- id: 7d5ef9fc
+  title: test:log fails because OverlayBoardView still stringifies structured sponsor objects
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "7d5ef9fc"
+  command: "npm run test:log -- --run tests/unit/OverlayBoardView.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-12-33-58.vitest-run-tests-unit-OverlayBoardView-test-ts.log"
 - id: 64c1dcea
   title: test:log fails when TournamentSponsorStrip component import does not exist yet
   status: "✅ fixed"
