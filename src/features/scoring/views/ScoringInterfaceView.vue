@@ -1030,6 +1030,11 @@ const goBack = (): void => {
   background-color: rgba(var(--v-theme-success), 0.05);
 }
 
+.score-card--locked {
+  border-color: rgba(var(--v-theme-warning), 0.45);
+  background-color: rgba(var(--v-theme-warning), 0.08);
+}
+
 .text-success {
   color: rgb(var(--v-theme-success));
 }
