@@ -3,14 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
-import type {
-  Category,
-  RankingPresetId,
-  RankingProgressionMode,
-  ScoringConfig,
-  User,
-} from '@/types';
-import { SCORING_PRESETS } from '@/types';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import {
   getTournamentStateLabel,
   normalizeTournamentState,
@@ -18,8 +11,24 @@ import {
   isScoringLocked,
 } from '@/guards/tournamentState';
 import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
+import {
+  deleteBrandingAsset,
+  uploadSponsorLogo,
+  uploadTournamentLogo,
+} from '@/services/tournamentBrandingStorage';
+import type {
+  Category,
+  RankingPresetId,
+  RankingProgressionMode,
+  ScoringConfig,
+  TournamentLogo,
+  TournamentSponsor,
+  User,
+} from '@/types';
+import { SCORING_PRESETS } from '@/types';
 import { sanitizeScoringConfig } from '@/features/scoring/utils/validation';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
+import TournamentBrandingCard from '@/features/tournaments/components/TournamentBrandingCard.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useUserStore } from '@/stores/users';
 import {
@@ -44,6 +53,10 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const loading = ref(false);
+const {
+  normalizedSponsors,
+  tournamentLogo: normalizedTournamentLogo,
+} = useTournamentBranding(tournament);
 
 interface CategoryScoringOverrideForm {
   enabled: boolean;
@@ -57,12 +70,83 @@ interface CategoryRankingOverrideForm {
   progressionMode: RankingProgressionMode;
 }
 
+interface TournamentBrandingDraft {
+  tournamentLogo: TournamentLogo | null;
+  tournamentLogoFile: File | null;
+  removeTournamentLogo: boolean;
+  sponsors: TournamentSponsor[];
+  sponsorLogoFiles: Record<string, File | null>;
+}
+
 const cloneScoringConfig = (config: ScoringConfig): ScoringConfig => ({
   gamesPerMatch: config.gamesPerMatch,
   pointsToWin: config.pointsToWin,
   mustWinBy: config.mustWinBy,
   maxPoints: config.maxPoints,
 });
+
+const cloneTournamentLogo = (logo: TournamentLogo | null | undefined): TournamentLogo | null =>
+  logo ? { ...logo } : null;
+
+const cloneTournamentSponsor = (sponsor: TournamentSponsor): TournamentSponsor => ({
+  ...sponsor,
+});
+
+const cloneSponsorLogoFiles = (
+  files: Record<string, File | null>
+): Record<string, File | null> => ({ ...files });
+
+const buildBrandingDraft = (
+  logo: TournamentLogo | null,
+  sponsors: TournamentSponsor[]
+): TournamentBrandingDraft => ({
+  tournamentLogo: cloneTournamentLogo(logo),
+  tournamentLogoFile: null,
+  removeTournamentLogo: false,
+  sponsors: sponsors.map(cloneTournamentSponsor),
+  sponsorLogoFiles: {},
+});
+
+const normalizeSponsorsForSave = (
+  sponsors: TournamentSponsor[]
+): TournamentSponsor[] => sponsors.map((sponsor, index) => ({
+  ...sponsor,
+  name: sponsor.name.trim(),
+  website: sponsor.website?.trim() ? sponsor.website.trim() : undefined,
+  displayOrder: index,
+}));
+
+const isValidWebsite = (value: string): boolean => {
+  try {
+    const parsedUrl = new URL(value);
+    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const validateBrandingDraft = (draft: TournamentBrandingDraft): string | null => {
+  if (draft.sponsors.length > 20) {
+    return 'You can add up to 20 sponsors per tournament.';
+  }
+
+  for (const sponsor of draft.sponsors) {
+    if (!sponsor.name.trim()) {
+      return 'Every sponsor needs a name before saving.';
+    }
+
+    const selectedLogoFile = draft.sponsorLogoFiles[sponsor.id];
+    if (!sponsor.logoUrl && !selectedLogoFile) {
+      return `Sponsor "${sponsor.name.trim()}" needs a logo before saving.`;
+    }
+
+    if (sponsor.website?.trim() && !isValidWebsite(sponsor.website.trim())) {
+      return `Sponsor "${sponsor.name.trim()}" needs a valid website URL.`;
+    }
+  }
+
+  return null;
+};
 
 // Form state
 const name = ref('');
@@ -84,8 +168,9 @@ const settings = ref({
   rankingPresetDefault: DEFAULT_RANKING_PRESET as RankingPresetId,
   progressionModeDefault: DEFAULT_RANKING_PROGRESSION as RankingProgressionMode,
 });
-const sponsors = ref<string[]>([]);
-const newSponsor = ref('');
+const brandingSponsors = ref<TournamentSponsor[]>([]);
+const brandingTournamentLogo = ref<TournamentLogo | null>(null);
+const brandingDraft = ref<TournamentBrandingDraft>(buildBrandingDraft(null, []));
 
 const initialScoringConfig = ref<ScoringConfig>(sanitizeScoringConfig(settings.value));
 const initialRankingDefaults = ref<{
@@ -336,8 +421,12 @@ watch([tournament, categories], ([t, nextCategories]) => {
     initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryOverrides);
     categoryRankingOverrides.value = categoryRankingOverrideValues;
     initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrideValues);
-    // Populate sponsors
-    sponsors.value = t.sponsors ?? [];
+    brandingSponsors.value = normalizedSponsors.value.map(cloneTournamentSponsor);
+    brandingTournamentLogo.value = cloneTournamentLogo(normalizedTournamentLogo.value);
+    brandingDraft.value = buildBrandingDraft(
+      brandingTournamentLogo.value,
+      brandingSponsors.value
+    );
   }
 }, { immediate: true });
 
@@ -357,6 +446,73 @@ async function saveSettings() {
       assertCanEditScoring(tournamentState.value);
     }
 
+    const brandingError = validateBrandingDraft(brandingDraft.value);
+    if (brandingError) {
+      notificationStore.showToast('error', brandingError);
+      return;
+    }
+
+    const nextSponsorsBase = normalizeSponsorsForSave(brandingDraft.value.sponsors);
+    const sponsorLogoFiles = cloneSponsorLogoFiles(brandingDraft.value.sponsorLogoFiles);
+    const originalSponsorsById = new Map(
+      brandingSponsors.value.map((sponsor) => [sponsor.id, sponsor] as const)
+    );
+    const logoPathsToDelete = new Set<string>();
+
+    let nextTournamentLogo = brandingDraft.value.removeTournamentLogo
+      ? null
+      : cloneTournamentLogo(brandingDraft.value.tournamentLogo);
+
+    if (brandingDraft.value.tournamentLogoFile) {
+      const uploadedTournamentLogo = await uploadTournamentLogo(
+        tournamentId.value,
+        brandingDraft.value.tournamentLogoFile
+      );
+      nextTournamentLogo = {
+        url: uploadedTournamentLogo.downloadUrl,
+        storagePath: uploadedTournamentLogo.storagePath,
+        uploadedAt: new Date(),
+      };
+      if (brandingTournamentLogo.value?.storagePath) {
+        logoPathsToDelete.add(brandingTournamentLogo.value.storagePath);
+      }
+    } else if (brandingDraft.value.removeTournamentLogo && brandingTournamentLogo.value?.storagePath) {
+      logoPathsToDelete.add(brandingTournamentLogo.value.storagePath);
+    }
+
+    const nextSponsors = await Promise.all(
+      nextSponsorsBase.map(async (sponsor) => {
+        const selectedLogoFile = sponsorLogoFiles[sponsor.id];
+
+        if (!selectedLogoFile) {
+          return sponsor;
+        }
+
+        const uploadedSponsorLogo = await uploadSponsorLogo(
+          tournamentId.value,
+          sponsor.id,
+          selectedLogoFile
+        );
+        const originalSponsor = originalSponsorsById.get(sponsor.id);
+
+        if (originalSponsor?.logoPath) {
+          logoPathsToDelete.add(originalSponsor.logoPath);
+        }
+
+        return {
+          ...sponsor,
+          logoUrl: uploadedSponsorLogo.downloadUrl,
+          logoPath: uploadedSponsorLogo.storagePath,
+        };
+      })
+    );
+
+    brandingSponsors.value.forEach((sponsor) => {
+      if (!nextSponsors.some((item) => item.id === sponsor.id) && sponsor.logoPath) {
+        logoPathsToDelete.add(sponsor.logoPath);
+      }
+    });
+
     await tournamentStore.updateTournament(tournamentId.value, {
       name: name.value,
       description: description.value,
@@ -367,7 +523,8 @@ async function saveSettings() {
         ? new Date(registrationDeadline.value)
         : undefined,
       settings: settings.value,
-      sponsors: sponsors.value,
+      tournamentLogo: nextTournamentLogo,
+      sponsors: nextSponsors,
     });
 
     await Promise.all(
@@ -396,6 +553,29 @@ async function saveSettings() {
     };
     initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryScoringOverrides.value);
     initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrides.value);
+
+    brandingSponsors.value = nextSponsors.map(cloneTournamentSponsor);
+    brandingTournamentLogo.value = cloneTournamentLogo(nextTournamentLogo);
+    brandingDraft.value = buildBrandingDraft(
+      brandingTournamentLogo.value,
+      brandingSponsors.value
+    );
+
+    const deleteTargets = [...logoPathsToDelete].filter((path) => {
+      if (!path) return false;
+      if (nextTournamentLogo?.storagePath === path) return false;
+      return !nextSponsors.some((sponsor) => sponsor.logoPath === path);
+    });
+
+    const deleteResults = await Promise.allSettled(
+      deleteTargets.map((storagePath) => deleteBrandingAsset(storagePath))
+    );
+    deleteResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error('Error deleting old branding asset:', deleteTargets[index], result.reason);
+      }
+    });
+
     notificationStore.showToast('success', 'Settings saved successfully!');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to save settings';
@@ -403,6 +583,16 @@ async function saveSettings() {
   } finally {
     loading.value = false;
   }
+}
+
+function handleBrandingUpdate(payload: TournamentBrandingDraft): void {
+  brandingDraft.value = {
+    tournamentLogo: cloneTournamentLogo(payload.tournamentLogo),
+    tournamentLogoFile: payload.tournamentLogoFile,
+    removeTournamentLogo: payload.removeTournamentLogo,
+    sponsors: payload.sponsors.map(cloneTournamentSponsor),
+    sponsorLogoFiles: cloneSponsorLogoFiles(payload.sponsorLogoFiles),
+  };
 }
 
 // Co-organizer management
@@ -463,17 +653,6 @@ async function removeOrganizerFromTournament(userId: string): Promise<void> {
     organizerLoading.value = false;
   }
 }
-// Sponsor management
-function addSponsor(): void {
-  if (!newSponsor.value.trim()) return;
-  sponsors.value.push(newSponsor.value.trim());
-  newSponsor.value = '';
-}
-
-function removeSponsor(index: number): void {
-  sponsors.value.splice(index, 1);
-}
-
 
 const showDeleteDialog = ref(false);
 const typedDeleteName = ref('');
@@ -1079,77 +1258,12 @@ async function confirmDelete() {
             />
           </v-card-text>
         </v-card>
-        <!-- Sponsor Management -->
-        <v-card class="mb-4">
-          <v-card-title>
-            <v-icon start>
-              mdi-domain
-            </v-icon>
-            Tournament Sponsors
-          </v-card-title>
-          <v-card-text>
-            <v-alert
-              type="info"
-              variant="tonal"
-              density="compact"
-              class="mb-4"
-            >
-              Sponsors will be displayed in the tournament board overlay.
-            </v-alert>
-            <!-- Current sponsors list -->
-            <v-list
-              v-if="sponsors.length > 0"
-              lines="one"
-              class="mb-4"
-            >
-              <v-list-item
-                v-for="(sponsor, index) in sponsors"
-                :key="index"
-                :title="sponsor"
-                prepend-icon="mdi-domain"
-              >
-                <template #append>
-                  <v-btn
-                    icon="mdi-close"
-                    variant="text"
-                    size="small"
-                    color="error"
-                    title="Remove sponsor"
-                    @click="removeSponsor(index)"
-                  />
-                </template>
-              </v-list-item>
-            </v-list>
-            <p
-              v-else
-              class="text-medium-emphasis text-body-2 mb-4"
-            >
-              No sponsors added yet.
-            </p>
-
-            <!-- Add sponsor -->
-            <div class="d-flex align-center gap-2">
-              <v-text-field
-                v-model="newSponsor"
-                label="Add sponsor"
-                placeholder="e.g., YONEX, LI-NING..."
-                variant="outlined"
-                density="compact"
-                clearable
-                hide-details
-                @keyup.enter="addSponsor"
-              />
-              <v-btn
-                color="primary"
-                variant="elevated"
-                :disabled="!newSponsor?.trim()"
-                @click="addSponsor"
-              >
-                Add
-              </v-btn>
-            </div>
-          </v-card-text>
-        </v-card>
+        <TournamentBrandingCard
+          :tournament-id="tournamentId"
+          :sponsors="brandingSponsors"
+          :tournament-logo="brandingTournamentLogo"
+          @update-branding="handleBrandingUpdate"
+        />
 
 
         <!-- Actions -->

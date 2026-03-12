@@ -39,6 +39,23 @@ export type TournamentLifecycleState =
   | 'LIVE'
   | 'COMPLETED';
 
+export interface TournamentLogo {
+  url: string;
+  storagePath: string;
+  uploadedAt?: Date;
+}
+
+export interface TournamentSponsor {
+  id: string;
+  name: string;
+  logoUrl: string;
+  logoPath: string;
+  website?: string;
+  displayOrder: number;
+}
+
+export type TournamentSponsorRecord = TournamentSponsor | string;
+
 export interface Tournament {
   id: string;
   name: string;
@@ -55,7 +72,8 @@ export interface Tournament {
   settings: TournamentSettings;
   createdBy: string;
   organizerIds?: string[];
-  sponsors?: string[]; // Tournament sponsors for overlay display
+  tournamentLogo?: TournamentLogo | null;
+  sponsors?: TournamentSponsorRecord[];
   createdAt: Date;
   updatedAt: Date;
 }

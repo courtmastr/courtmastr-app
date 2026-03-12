@@ -1,3 +1,31 @@
+- id: 7d5ef9fc
+  title: test:log fails because OverlayBoardView still stringifies structured sponsor objects
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "7d5ef9fc"
+  command: "npm run test:log -- --run tests/unit/OverlayBoardView.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-12-33-58.vitest-run-tests-unit-OverlayBoardView-test-ts.log"
+- id: 64c1dcea
+  title: test:log fails when TournamentSponsorStrip component import does not exist yet
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "64c1dcea"
+  command: "npm run test:log -- --run tests/unit/TournamentSponsorStrip.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-12-31-43.vitest-run-tests-unit-TournamentSponsorStrip-test-.log"
+- id: ee7b2215
+  title: test:log fails when TournamentBrandMark component import does not exist yet
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "ee7b2215"
+  command: "npm run test:log -- --run tests/unit/TournamentBrandMark.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-12-28-27.vitest-run-tests-unit-TournamentBrandMark-test-ts.log"
+- id: c4704a76
+  title: build:log fails on existing repository-wide TypeScript baseline errors in sponsor-branding worktree
+  status: "🟡 workaround"
+  date: "2026-03-11"
+  fingerprint: "c4704a76"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-11-22-31-51.vue-tsc-b.log"
 - id: 2f6d5e1b
   title: build:log fails on workspace TypeScript baseline errors (updated fingerprint)
   status: "🟡 workaround"

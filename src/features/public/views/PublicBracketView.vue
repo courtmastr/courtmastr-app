@@ -2,6 +2,9 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
+import TournamentSponsorStrip from '@/components/common/TournamentSponsorStrip.vue';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import type { LevelDefinition } from '@/types';
 
@@ -12,6 +15,7 @@ const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const loading = computed(() => tournamentStore.loading);
+const { normalizedSponsors, tournamentLogoUrl } = useTournamentBranding(tournament);
 
 const selectedCategory = ref<string | null>(null);
 const categoryLevels = ref<Record<string, LevelDefinition[]>>({});
@@ -55,17 +59,17 @@ watch(selectedCategory, async (categoryId) => {
       <v-col cols="12">
         <div
           v-if="tournament"
-          class="pa-6 rounded-lg bg-primary text-white mb-6"
+          class="public-bracket-header pa-6 rounded-lg bg-primary text-white mb-6"
         >
           <div class="d-flex align-center gap-4">
-            <v-icon
-              size="40"
-              color="white"
-              class="opacity-80"
-            >
-              mdi-tournament
-            </v-icon>
-            <div>
+            <TournamentBrandMark
+              :tournament-name="tournament.name"
+              :logo-url="tournamentLogoUrl"
+              :fallback-icon="'mdi-tournament'"
+              :width="88"
+              :height="88"
+            />
+            <div class="public-bracket-header__copy">
               <h1 class="text-h4 font-weight-bold mb-1">
                 {{ tournament.name }}
               </h1>
@@ -74,6 +78,12 @@ watch(selectedCategory, async (categoryId) => {
               </p>
             </div>
           </div>
+          <TournamentSponsorStrip
+            v-if="normalizedSponsors.length > 0"
+            :sponsors="normalizedSponsors"
+            class="mt-4"
+            dense
+          />
         </div>
         <v-skeleton-loader
           v-else-if="!notFound"
@@ -169,6 +179,10 @@ watch(selectedCategory, async (categoryId) => {
 <style scoped>
 .opacity-80 {
   opacity: 0.8;
+}
+
+.public-bracket-header__copy {
+  min-width: 0;
 }
 
 /* Category filter bar */

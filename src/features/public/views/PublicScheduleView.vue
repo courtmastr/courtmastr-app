@@ -8,6 +8,9 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useDurationFormatter } from '@/composables/useDurationFormatter';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
+import TournamentSponsorStrip from '@/components/common/TournamentSponsorStrip.vue';
 import type { Match } from '@/types';
 
 type PublicMatchStatus = 'on_court' | 'upcoming' | 'delayed' | 'finished' | 'cancelled';
@@ -63,6 +66,7 @@ const notFound = ref(false);
 let clockInterval: ReturnType<typeof setInterval> | null = null;
 
 const tournament = computed(() => tournamentStore.currentTournament);
+const { normalizedSponsors, tournamentLogoUrl } = useTournamentBranding(tournament);
 const categories = computed(() => tournamentStore.categories);
 const activities = computed(() => activityStore.recentActivities);
 const registrationsById = computed(() =>
@@ -515,12 +519,23 @@ onUnmounted(() => {
   >
     <header class="display-mode__header">
       <div class="display-mode__title-block">
-        <h1 class="display-mode__title">
-          {{ tournament?.name || 'Tournament' }}
-        </h1>
-        <p class="display-mode__subtitle">
-          Public Schedule Display
-        </p>
+        <div class="display-mode__title-row">
+          <TournamentBrandMark
+            :tournament-name="tournament?.name || 'Tournament'"
+            :logo-url="tournamentLogoUrl"
+            :fallback-icon="'mdi-calendar-clock'"
+            :width="72"
+            :height="72"
+          />
+          <div class="display-mode__title-copy">
+            <h1 class="display-mode__title">
+              {{ tournament?.name || 'Tournament' }}
+            </h1>
+            <p class="display-mode__subtitle">
+              Public Schedule Display
+            </p>
+          </div>
+        </div>
       </div>
 
       <div class="display-mode__progress">
@@ -719,12 +734,21 @@ onUnmounted(() => {
     <template v-else>
       <!-- ─── Header ──────────────────────────────────────────────── -->
       <div class="schedule-header mt-6 mb-3">
-        <div>
-          <h1 class="text-h5 font-weight-bold">
-            {{ tournament?.name || 'Tournament' }}
-          </h1>
-          <div class="text-caption text-medium-emphasis">
-            Live Schedule · Auto-refreshing every 30s · Times in your local timezone
+        <div class="schedule-header__brand">
+          <TournamentBrandMark
+            :tournament-name="tournament?.name || 'Tournament'"
+            :logo-url="tournamentLogoUrl"
+            :fallback-icon="'mdi-calendar-clock'"
+            :width="72"
+            :height="72"
+          />
+          <div>
+            <h1 class="text-h5 font-weight-bold">
+              {{ tournament?.name || 'Tournament' }}
+            </h1>
+            <div class="text-caption text-medium-emphasis">
+              Live Schedule · Auto-refreshing every 30s · Times in your local timezone
+            </div>
           </div>
         </div>
         <div class="schedule-header__actions">
@@ -755,6 +779,12 @@ onUnmounted(() => {
           </v-btn>
         </div>
       </div>
+      <TournamentSponsorStrip
+        v-if="normalizedSponsors.length > 0"
+        :sponsors="normalizedSponsors"
+        class="mb-5"
+        dense
+      />
 
       <!-- ─── Category filter chips ────────────────────────────────── -->
       <v-chip-group
@@ -994,6 +1024,13 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
+.schedule-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
 .schedule-header__actions {
   display: flex;
   align-items: center;
@@ -1060,7 +1097,17 @@ onUnmounted(() => {
 
 .display-mode__title-block {
   min-width: 220px;
-  max-width: 340px;
+  max-width: 420px;
+}
+
+.display-mode__title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.display-mode__title-copy {
+  min-width: 0;
 }
 
 .display-mode__title {
@@ -1274,6 +1321,10 @@ onUnmounted(() => {
 @media (max-width: 1264px) {
   .display-mode {
     padding: 14px 14px 0;
+  }
+
+  .display-mode__title-row {
+    align-items: flex-start;
   }
 
   .display-mode__header {
