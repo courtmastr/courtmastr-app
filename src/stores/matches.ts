@@ -85,6 +85,27 @@ function determineWinner(
   return { isComplete: false };
 }
 
+function getPendingGameCompletion(
+  game: GameScore,
+  participant1Id: string,
+  participant2Id: string,
+  config: ScoringConfig
+): { canComplete: boolean; winnerId?: string } {
+  if (game.isComplete) {
+    return { canComplete: false };
+  }
+
+  const validation = validateCompletedGameScore(game.score1, game.score2, config);
+  if (!validation.isValid) {
+    return { canComplete: false };
+  }
+
+  return {
+    canComplete: true,
+    winnerId: game.score1 > game.score2 ? participant1Id : participant2Id,
+  };
+}
+
 export interface AssignmentGateInput {
   plannedStartAt?: Date;
   scheduleStatus?: string;
@@ -967,6 +988,9 @@ export const useMatchStore = defineStore('matches', () => {
   ): Promise<void> {
     const match = currentMatch.value;
     if (!match) throw new Error('No match selected');
+    if (!match.participant1Id || !match.participant2Id) {
+      throw new Error('Match participants are required');
+    }
     const config = match.scoringConfig ?? await getScoringConfigForMatch(tournamentId, categoryId);
 
     const scores = [...match.scores];
@@ -980,22 +1004,18 @@ export const useMatchStore = defineStore('matches', () => {
         isComplete: false,
       });
     } else {
+      const pendingCompletion = getPendingGameCompletion(
+        currentGame,
+        match.participant1Id,
+        match.participant2Id,
+        config
+      );
+      if (pendingCompletion.canComplete) {
+        return;
+      }
+
       if (participant === 'participant1') currentGame.score1++;
       else currentGame.score2++;
-
-      const validation = validateCompletedGameScore(currentGame.score1, currentGame.score2, config);
-      if (validation.isValid) {
-        currentGame.isComplete = true;
-        currentGame.winnerId = currentGame.score1 > currentGame.score2
-          ? match.participant1Id
-          : match.participant2Id;
-      }
-    }
-
-    const matchResult = determineWinner(scores, match.participant1Id!, match.participant2Id!, config);
-    if (matchResult.isComplete) {
-      await completeMatch(tournamentId, matchId, scores, matchResult.winnerId!, categoryId, levelId);
-      return;
     }
 
     const usedVolunteerCallable = await applyVolunteerMatchUpdate({
@@ -1031,12 +1051,83 @@ export const useMatchStore = defineStore('matches', () => {
     const scores = [...match.scores];
     const currentGame = scores[scores.length - 1];
     if (!currentGame) return;
+    if (currentGame.isComplete) return;
 
     if (participant === 'participant1' && currentGame.score1 > 0) {
       currentGame.score1--;
     } else if (participant === 'participant2' && currentGame.score2 > 0) {
       currentGame.score2--;
     }
+
+    const usedVolunteerCallable = await applyVolunteerMatchUpdate({
+      tournamentId,
+      matchId,
+      categoryId,
+      levelId,
+      status: 'in_progress',
+      scores,
+    });
+    if (usedVolunteerCallable) {
+      return;
+    }
+
+    const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
+    await setDoc(
+      doc(db, matchScoresPath, matchId),
+      { scores, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+  }
+
+  async function completeCurrentGame(
+    tournamentId: string,
+    matchId: string,
+    categoryId?: string,
+    levelId?: string
+  ): Promise<void> {
+    const match = currentMatch.value;
+    if (!match) throw new Error('No match selected');
+    if (!match.participant1Id || !match.participant2Id) {
+      throw new Error('Match participants are required');
+    }
+
+    const config = match.scoringConfig ?? await getScoringConfigForMatch(tournamentId, categoryId);
+    const scores = [...match.scores];
+    const currentGame = scores[scores.length - 1];
+
+    if (!currentGame) {
+      throw new Error('No game available to complete');
+    }
+    if (currentGame.isComplete) {
+      throw new Error('Current game is already completed');
+    }
+
+    const pendingCompletion = getPendingGameCompletion(
+      currentGame,
+      match.participant1Id,
+      match.participant2Id,
+      config
+    );
+
+    if (!pendingCompletion.canComplete || !pendingCompletion.winnerId) {
+      throw new Error('Current score is not ready to complete');
+    }
+
+    currentGame.isComplete = true;
+    currentGame.winnerId = pendingCompletion.winnerId;
+
+    const matchResult = determineWinner(scores, match.participant1Id, match.participant2Id, config);
+    if (matchResult.isComplete && matchResult.winnerId) {
+      await completeMatch(tournamentId, matchId, scores, matchResult.winnerId, categoryId, levelId);
+      return;
+    }
+
+    scores.push({
+      gameNumber: scores.length + 1,
+      score1: 0,
+      score2: 0,
+      isComplete: false,
+    });
 
     const usedVolunteerCallable = await applyVolunteerMatchUpdate({
       tournamentId,
@@ -1743,6 +1834,7 @@ export const useMatchStore = defineStore('matches', () => {
     startMatch,
     updateScore,
     decrementScore,
+    completeCurrentGame,
     completeMatch,
     recordWalkover,
     resetMatch,
