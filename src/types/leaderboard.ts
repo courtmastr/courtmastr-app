@@ -156,14 +156,15 @@ export interface LeaderboardMatchDoc {
   id: string;
   round?: number;
   bracket?: 'winners' | 'losers' | 'finals';
+  stage_id?: string | number;
   opponent1?: {
     id?: string | number;
     registrationId?: string;
-  };
+  } | null;
   opponent2?: {
     id?: string | number;
     registrationId?: string;
-  };
+  } | null;
 }
 
 /** Source `/match_scores` doc used by leaderboard match resolution. */

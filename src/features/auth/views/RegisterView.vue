@@ -14,13 +14,7 @@ const confirmPassword = ref('');
 const showPassword = ref(false);
 const loading = ref(false);
 const acceptTerms = ref(false);
-const selectedRole = ref('player');
-
-const roleOptions = [
-  { title: 'Player', value: 'player', description: 'Participate in tournaments' },
-  { title: 'Tournament Organizer', value: 'organizer', description: 'Create and manage tournaments' },
-  { title: 'Scorekeeper', value: 'scorekeeper', description: 'Record match scores' },
-];
+const selectedRole = ref<UserRole>('player');
 
 const error = computed(() => authStore.error);
 
@@ -191,24 +185,13 @@ async function handleGoogleRegister() {
                 :error-messages="confirmPassword.length > 0 && !passwordsMatch ? 'Passwords do not match' : ''"
               />
 
-              <v-select
-                v-model="selectedRole"
-                :items="roleOptions"
-                item-title="title"
-                item-value="value"
-                label="I am a..."
-                prepend-inner-icon="mdi-account-group"
-                :disabled="loading"
-                class="mb-2"
+              <v-alert
+                type="info"
+                variant="tonal"
+                class="mb-3"
               >
-                <template #item="{ props, item }">
-                  <v-list-item v-bind="props">
-                    <template #subtitle>
-                      {{ item.raw.description }}
-                    </template>
-                  </v-list-item>
-                </template>
-              </v-select>
+                Player accounts are created here. Staff and volunteer access is issued from tournament settings.
+              </v-alert>
 
               <v-checkbox
                 v-model="acceptTerms"

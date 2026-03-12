@@ -117,6 +117,7 @@ npm run deploy:log
 - Make smallest possible change (No "Fluff" Changes).
 - Reuse existing patterns, components, stores.
 - Search codebase before creating files.
+- Run `npm run build` after every change to ensure the code is not broken.
 - Run `:log` commands after changes.
 - Follow Debug KB Protocol on failures.
 

@@ -10,7 +10,7 @@ test.describe('P0 - Public Views', () => {
 
   test('loads public bracket page', async ({ page }) => {
     await page.goto(`/tournaments/${tournamentId}/bracket`);
-    await expect(page.getByText(/Live Tournament Bracket|Select a category to view the bracket/i)).toBeVisible();
+    await expect(page.getByText('Live Tournament Bracket')).toBeVisible();
   });
 
   test('loads public schedule page', async ({ page }) => {

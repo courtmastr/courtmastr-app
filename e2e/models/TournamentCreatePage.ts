@@ -23,6 +23,15 @@ export class TournamentCreatePage {
     this.createButton = page.getByRole('button', { name: 'Create Tournament' });
   }
 
+  private async clickContinueIfEnabled(): Promise<void> {
+    const isVisible = await this.continueButton.isVisible().catch(() => false);
+    const isEnabled = await this.continueButton.isEnabled().catch(() => false);
+    if (isVisible && isEnabled) {
+      await this.continueButton.click();
+      await this.page.waitForTimeout(300);
+    }
+  }
+
   async goto() {
     await this.page.goto('/tournaments/create');
     await expect(this.nameInput).toBeVisible();
@@ -37,15 +46,24 @@ export class TournamentCreatePage {
   }
 
   async selectFormat(format: 'single_elimination' | 'double_elimination') {
-    await this.continueButton.click();
-    await this.page.waitForTimeout(500);
+    // New flow: tournament-level format is implicit; categories carry format config.
+    // Keep compatibility with older flows by advancing to the categories step.
+    await this.clickContinueIfEnabled();
+
     const formatLabel = format === 'single_elimination' ? 'Single Elimination' : 'Double Elimination';
-    await this.page.getByLabel(formatLabel).click();
+    const legacyFormatField = this.page.getByLabel(formatLabel);
+    if (await legacyFormatField.isVisible().catch(() => false)) {
+      await legacyFormatField.click();
+    }
   }
 
   async selectCategories(categoryNames: string[]) {
-    await this.continueButton.click();
-    await this.page.waitForTimeout(500);
+    // Ensure we are on the category step.
+    const firstCategory = this.page.getByRole('checkbox', { name: categoryNames[0], exact: true });
+    if (!await firstCategory.isVisible().catch(() => false)) {
+      await this.clickContinueIfEnabled();
+    }
+
     for (const name of categoryNames) {
       const checkbox = this.page.getByRole('checkbox', { name, exact: true });
       await expect(checkbox).toBeVisible();
@@ -54,9 +72,14 @@ export class TournamentCreatePage {
   }
 
   async configureCourts(courtCount: number) {
-    await this.continueButton.click();
-    await this.page.waitForTimeout(500);
     const addButton = this.page.getByRole('button', { name: 'Add Court' });
+
+    // Ensure we are on the courts step.
+    if (!await addButton.isVisible().catch(() => false)) {
+      await this.clickContinueIfEnabled();
+    }
+    await expect(addButton).toBeVisible();
+
     for (let i = 1; i < courtCount; i++) {
       await addButton.click();
       await this.page.waitForTimeout(200);
@@ -64,10 +87,17 @@ export class TournamentCreatePage {
   }
 
   async submit() {
-    await this.continueButton.click();
-    await this.page.waitForTimeout(500);
+    // Move from courts to settings if needed.
+    if (!await this.createButton.isVisible().catch(() => false)) {
+      await this.clickContinueIfEnabled();
+    }
+    await expect(this.createButton).toBeVisible();
+
     await this.createButton.click();
-    await this.page.waitForURL(/\/tournaments\/.+/, { timeout: 10000 });
+    await this.page.waitForURL(
+      (url) => /^\/tournaments\/[^/]+$/.test(url.pathname),
+      { timeout: 10000 }
+    );
   }
 
   async createFullTournament(

@@ -7,6 +7,12 @@ import { generateSchedule as createSchedule } from './scheduling';
 import { updateMatch as updateMatchFn } from './updateMatch';
 import { submitBugReport as submitBugReportFn } from './bugReport';
 import { searchSelfCheckInCandidates as searchSelfCheckInCandidatesFn, submitSelfCheckIn as submitSelfCheckInFn } from './selfCheckIn';
+import {
+  applyVolunteerCheckInAction as applyVolunteerCheckInActionFn,
+  issueVolunteerSession as issueVolunteerSessionFn,
+  revealVolunteerPin as revealVolunteerPinFn,
+  setVolunteerPin as setVolunteerPinFn,
+} from './volunteerAccess';
 import { FirestoreStorage } from './storage/firestore-adapter';
 
 // Initialize Firebase Admin
@@ -18,6 +24,10 @@ export const updateMatch = updateMatchFn;
 export const submitBugReport = submitBugReportFn;
 export const searchSelfCheckInCandidates = searchSelfCheckInCandidatesFn;
 export const submitSelfCheckIn = submitSelfCheckInFn;
+export const setVolunteerPin = setVolunteerPinFn;
+export const revealVolunteerPin = revealVolunteerPinFn;
+export const issueVolunteerSession = issueVolunteerSessionFn;
+export const applyVolunteerCheckInAction = applyVolunteerCheckInActionFn;
 
 /**
  * Generate bracket for a tournament category

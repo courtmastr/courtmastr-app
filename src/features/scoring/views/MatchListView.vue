@@ -5,6 +5,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useNotificationStore } from '@/stores/notifications';
+import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import FilterBar from '@/components/common/FilterBar.vue';
 import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.vue';
@@ -16,6 +17,7 @@ const matchStore = useMatchStore();
 const tournamentStore = useTournamentStore();
 const registrationStore = useRegistrationStore();
 const notificationStore = useNotificationStore();
+const volunteerAccessStore = useVolunteerAccessStore();
 const { getParticipantName } = useParticipantResolver();
 
 // Search and filter state
@@ -32,6 +34,10 @@ const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const courts = computed(() => tournamentStore.courts);
 const allMatches = computed(() => matchStore.matches);
+const isVolunteerScorekeeperMode = computed(() => (
+  route.meta.volunteerRole === 'scorekeeper' &&
+  volunteerAccessStore.hasValidSession(tournamentId.value, 'scorekeeper')
+));
 const totalCompletedMatches = computed(() => allMatches.value.filter((match) => (
   match.status === 'completed' || match.status === 'walkover'
 )));
@@ -70,6 +76,18 @@ function truncateId(id: string): string {
 function openScoreDialog(match: Match): void {
   if (!match.participant1Id || !match.participant2Id) {
     notificationStore.showToast('error', 'Cannot score this match until both participants are assigned');
+    return;
+  }
+
+  if (isVolunteerScorekeeperMode.value) {
+    router.push({
+      name: 'volunteer-scoring-match',
+      params: {
+        tournamentId: tournamentId.value,
+        matchId: match.id,
+      },
+      query: match.categoryId ? { category: match.categoryId } : undefined,
+    });
     return;
   }
 

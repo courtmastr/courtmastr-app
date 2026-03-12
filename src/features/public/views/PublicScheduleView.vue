@@ -30,6 +30,7 @@ interface PublicScheduleItem {
   categoryId: string;
   categoryLabel: string;
   matchup: string;
+  poolLabel: string | null;
   roundLabel: string;
   participant1: ParticipantLookup;
   participant2: ParticipantLookup;
@@ -121,10 +122,11 @@ function formatTime(date?: Date): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function getPoolLabel(match: Match): string | null {
+  return match.groupId ? `Pool ${match.groupId}` : null;
+}
+
 function getRoundLabel(match: Match): string {
-  if (match.groupId) {
-    return `Pool ${match.groupId} · Round ${match.round}`;
-  }
   if (match.round > 0) {
     return `Round ${match.round}`;
   }
@@ -194,6 +196,7 @@ function createScheduleItem(match: Match): PublicScheduleItem {
   const participant1 = buildParticipantLookup(match.participant1Id);
   const participant2 = buildParticipantLookup(match.participant2Id);
   const matchup = `${participant1.displayName} vs ${participant2.displayName}`;
+  const poolLabel = getPoolLabel(match);
   const roundLabel = getRoundLabel(match);
   const playerIds = uniqueValues([...participant1.playerIds, ...participant2.playerIds]);
   const playerNames = uniqueValues([...participant1.playerNames, ...participant2.playerNames]);
@@ -204,6 +207,7 @@ function createScheduleItem(match: Match): PublicScheduleItem {
   const searchText = [
     categoryLabel,
     matchup,
+    poolLabel || '',
     roundLabel,
     participant1.searchText,
     participant2.searchText,
@@ -218,6 +222,7 @@ function createScheduleItem(match: Match): PublicScheduleItem {
     categoryId: match.categoryId,
     categoryLabel,
     matchup,
+    poolLabel,
     roundLabel,
     participant1,
     participant2,
@@ -232,21 +237,137 @@ function updateCategoryFilter(value: string | null): void {
   replaceQuery({ category: !value || value === 'all' ? null : value });
 }
 
-const publishedMatches = computed(() =>
+const CATEGORY_COLORS = [
+  '#ec407a', // pink
+  '#ab47bc', // purple
+  '#7e57c2', // deep purple
+  '#5c6bc0', // indigo
+  '#29b6f6', // light blue
+  '#26a69a', // teal
+  '#9ccc65', // light green
+  '#d4e157', // lime
+  '#ffca28', // amber
+  '#ffa726', // orange
+  '#ff7043', // deep orange
+  '#8d6e63', // brown
+];
+
+function getCategoryColor(categoryId: string): string {
+  if (categoryId === 'all') return 'grey';
+  const index = categories.value.findIndex(c => c.id === categoryId);
+  if (index === -1) return '#9e9e9e';
+  // Use index modulus to cycle through colors deterministically
+  return CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+}
+
+const searchQuery = ref('');
+const sortBy = ref<'time' | 'court' | 'name' | 'pool'>('time');
+const courtFilter = ref<string>('all');
+const poolFilter = ref<string>('all');
+
+const availableCourts = computed(() => tournamentStore.courts);
+
+const availablePools = computed(() => {
+  const pools = new Set<string>();
+  for (const match of matchStore.matches) {
+    if (match.groupId) pools.add(match.groupId);
+  }
+  return Array.from(pools).sort((a, b) => {
+    // try to numeric sort if possible
+    const numA = parseInt(a, 10);
+    const numB = parseInt(b, 10);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    return a.localeCompare(b);
+  });
+});
+
+// Show ALL matches with a planned time — not just published ones.
+// Organizers can still "publish" to lock in a schedule, but players
+// shouldn't see an empty page just because the flag isn't flipped yet.
+const scheduledMatches = computed(() =>
   [...matchStore.matches]
-    .filter((match) => Boolean(match.plannedStartAt) && isMatchPublished(match))
+    .filter((match) => Boolean(match.plannedStartAt))
     .sort((a, b) => (a.plannedStartAt?.getTime() || 0) - (b.plannedStartAt?.getTime() || 0))
 );
 
-const hasPublishedSchedule = computed(() => publishedMatches.value.length > 0);
+// Keep a separate "fully published" check for the draft badge
+const publishedMatches = computed(() =>
+  scheduledMatches.value.filter((match) => isMatchPublished(match))
+);
+
+const hasDraftMatches = computed(
+  () => scheduledMatches.value.length > publishedMatches.value.length
+);
+
+const hasAnySchedule = computed(() => scheduledMatches.value.length > 0);
 
 const categoryScopedItems = computed<PublicScheduleItem[]>(() =>
-  publishedMatches.value
+  scheduledMatches.value
     .filter((match) => selectedCategoryId.value === 'all' || match.categoryId === selectedCategoryId.value)
     .map(createScheduleItem)
 );
 
-const filteredScheduleItems = computed<PublicScheduleItem[]>(() => categoryScopedItems.value);
+// Full filtered list — applies search, court, and pool filters on top of category filter
+const filteredScheduleItems = computed<PublicScheduleItem[]>(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  
+  let items = categoryScopedItems.value;
+  
+  if (courtFilter.value !== 'all') {
+    items = items.filter(item => {
+      const courtId = item.match.courtId ?? item.match.plannedCourtId;
+      return courtId === courtFilter.value;
+    });
+  }
+
+  if (poolFilter.value !== 'all') {
+    items = items.filter(item => item.match.groupId === poolFilter.value);
+  }
+
+  if (q) {
+    items = items.filter((item) => item.searchText.includes(q));
+  }
+
+  // Apply sorting
+  return items.sort((a, b) => {
+    if (sortBy.value === 'time') {
+      return (a.match.plannedStartAt?.getTime() || 0) - (b.match.plannedStartAt?.getTime() || 0);
+    } else if (sortBy.value === 'court') {
+      const aCourt = getCourtName(a.match.courtId ?? a.match.plannedCourtId);
+      const bCourt = getCourtName(b.match.courtId ?? b.match.plannedCourtId);
+      if (aCourt !== bCourt) return aCourt.localeCompare(bCourt);
+      return (a.match.plannedStartAt?.getTime() || 0) - (b.match.plannedStartAt?.getTime() || 0);
+    } else if (sortBy.value === 'name') {
+      return a.participant1.displayName.localeCompare(b.participant1.displayName);
+    } else if (sortBy.value === 'pool') {
+      const aPool = a.match.groupId || 'Z'; // push non-pools to bottom
+      const bPool = b.match.groupId || 'Z';
+      if (aPool !== bPool) return aPool.localeCompare(bPool);
+      return (a.match.plannedStartAt?.getTime() || 0) - (b.match.plannedStartAt?.getTime() || 0);
+    }
+    return 0;
+  });
+});
+
+// Group full schedule by calendar date for the date-header UI
+const scheduleByDate = computed(() => {
+  const groups = new Map<string, { dateLabel: string; items: PublicScheduleItem[] }>();
+  for (const item of filteredScheduleItems.value) {
+    const date = item.match.plannedStartAt;
+    if (!date) continue;
+    const key = date.toDateString(); // stable key
+    const label = date.toLocaleDateString([], {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
+    if (!groups.has(key)) {
+      groups.set(key, { dateLabel: label, items: [] });
+    }
+    groups.get(key)!.items.push(item);
+  }
+  return [...groups.values()];
+});
 
 function getPublicStatus(match: Match): PublicMatchStatus {
   if (match.status === 'in_progress') return 'on_court';
@@ -340,9 +461,11 @@ const nowPlayingItems = computed<PublicScheduleItem[]>(() =>
       const bTime = b.match.startedAt?.getTime() || b.match.plannedStartAt?.getTime() || 0;
       return aTime - bTime;
     })
-    .slice(0, 8)
+    .slice(0, 12)
 );
 
+// No artificial cap — show all upcoming/delayed matches so players
+// further down the queue can find themselves
 const upNextItems = computed<PublicScheduleItem[]>(() =>
   filteredScheduleItems.value
     .filter((item) => {
@@ -350,7 +473,6 @@ const upNextItems = computed<PublicScheduleItem[]>(() =>
       return status === 'upcoming' || status === 'delayed';
     })
     .sort(byPlannedTime)
-    .slice(0, 8)
 );
 
 const fallbackQueueItems = computed<PublicScheduleItem[]>(() =>
@@ -365,7 +487,6 @@ const fallbackQueueItems = computed<PublicScheduleItem[]>(() =>
       if (a.match.round !== b.match.round) return a.match.round - b.match.round;
       return a.match.matchNumber - b.match.matchNumber;
     })
-    .slice(0, 8)
 );
 
 const displayQueueItems = computed<PublicScheduleItem[]>(() =>
@@ -753,29 +874,32 @@ onUnmounted(() => {
         </div>
         <div class="schedule-header__actions">
           <v-btn
+            class="schedule-header__btn"
             size="small"
             variant="outlined"
             prepend-icon="mdi-monitor"
             @click="setDisplayMode(true)"
           >
-            Display Mode
+            <span class="schedule-header__btn-label">Display Mode</span>
           </v-btn>
           <v-btn
             :to="`/tournaments/${tournamentId}/player`"
+            class="schedule-header__btn"
             size="small"
             variant="tonal"
             color="primary"
             prepend-icon="mdi-account-clock"
           >
-            My Schedule
+            <span class="schedule-header__btn-label">My Schedule</span>
           </v-btn>
           <v-btn
             :to="`/tournaments/${tournamentId}/bracket`"
+            class="schedule-header__btn"
             size="small"
             variant="outlined"
             prepend-icon="mdi-tournament"
           >
-            Brackets
+            <span class="schedule-header__btn-label">Brackets</span>
           </v-btn>
         </div>
       </div>
@@ -786,31 +910,115 @@ onUnmounted(() => {
         dense
       />
 
-      <!-- ─── Category filter chips ────────────────────────────────── -->
-      <v-chip-group
-        v-if="categories.length > 1"
-        :model-value="selectedCategoryId"
-        mandatory
-        class="mb-5"
-        @update:model-value="updateCategoryFilter"
+      <!-- ─── Draft badge ─────────────────────────────────────────── -->
+      <v-alert
+        v-if="hasDraftMatches"
+        type="info"
+        variant="tonal"
+        density="compact"
+        icon="mdi-pencil-outline"
+        class="mb-4"
       >
-        <v-chip
-          value="all"
-          variant="outlined"
-          size="small"
+        Schedule is in draft — times may still change before the event starts.
+      </v-alert>
+
+      <!-- ─── Hero search bar ─────────────────────────────────────── -->
+      <v-text-field
+        v-model="searchQuery"
+        placeholder="Search by player name, team, or category…"
+        prepend-inner-icon="mdi-magnify"
+        :append-inner-icon="searchQuery ? 'mdi-close-circle' : undefined"
+        density="comfortable"
+        variant="outlined"
+        clearable
+        hide-details
+        class="mb-4 search-input"
+        @click:append-inner="searchQuery = ''"
+      >
+        <template
+          v-if="searchQuery && filteredScheduleItems.length > 0"
+          #append
         >
-          All
-        </v-chip>
-        <v-chip
-          v-for="cat in categories"
-          :key="cat.id"
-          :value="cat.id"
-          variant="outlined"
-          size="small"
+          <span class="text-caption text-medium-emphasis pr-1">
+            {{ filteredScheduleItems.length }} match{{ filteredScheduleItems.length === 1 ? '' : 'es' }}
+          </span>
+        </template>
+      </v-text-field>
+
+      <!-- ─── Category filter chips & Sort/Filter ────────────────── -->
+      <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-5">
+        <v-chip-group
+          v-if="categories.length > 1"
+          :model-value="selectedCategoryId"
+          mandatory
+          @update:model-value="updateCategoryFilter"
         >
-          {{ cat.name }}
-        </v-chip>
-      </v-chip-group>
+          <v-chip
+            value="all"
+            variant="outlined"
+            size="small"
+          >
+            All
+          </v-chip>
+          <v-chip
+            v-for="cat in categories"
+            :key="cat.id"
+            :value="cat.id"
+            variant="outlined"
+            size="small"
+          >
+            <v-icon
+              size="10"
+              left
+              :color="getCategoryColor(cat.id)"
+              class="mr-1"
+            >
+              mdi-circle
+            </v-icon>
+            {{ cat.name }}
+          </v-chip>
+        </v-chip-group>
+
+        <!-- Sort and Filter -->
+        <div class="d-flex align-center gap-2 sort-filter-group ml-auto">
+          <v-select
+            v-if="availablePools.length > 0"
+            v-model="poolFilter"
+            :items="[{ value: 'all', title: 'All Pools' }, ...availablePools.map(p => ({ value: p, title: `Pool ${p}` }))]"
+            density="compact"
+            variant="outlined"
+            hide-details
+            prepend-inner-icon="mdi-format-list-numbered"
+            class="filter-select"
+          />
+
+          <v-select
+            v-model="courtFilter"
+            :items="[{ id: 'all', name: 'All Courts' }, ...availableCourts]"
+            item-title="name"
+            item-value="id"
+            density="compact"
+            variant="outlined"
+            hide-details
+            prepend-inner-icon="mdi-tennis-court"
+            class="filter-select"
+          />
+
+          <v-select
+            v-model="sortBy"
+            :items="[
+              { value: 'time', title: 'Sort: Time' },
+              { value: 'court', title: 'Sort: Court' },
+              { value: 'name', title: 'Sort: Player' },
+              ...(availablePools.length > 0 ? [{ value: 'pool', title: 'Sort: Pool' }] : [])
+            ]"
+            density="compact"
+            variant="outlined"
+            hide-details
+            class="filter-select"
+          />
+        </div>
+      </div>
 
       <!-- ─── Zone 1: Now Playing ──────────────────────────────────── -->
       <section
@@ -867,7 +1075,7 @@ onUnmounted(() => {
                 {{ item.participant2.displayName }}
               </div>
               <div class="text-caption text-medium-emphasis mt-2">
-                {{ item.categoryLabel }}
+                {{ item.categoryLabel }} · {{ item.roundLabel }}
               </div>
             </v-card-text>
           </v-card>
@@ -888,29 +1096,101 @@ onUnmounted(() => {
             v-if="displayQueueItems.length > 0"
             class="text-caption text-medium-emphasis ml-2"
           >
-            {{ displayQueueItems.length }} matches
+            {{ displayQueueItems.length }} match{{ displayQueueItems.length === 1 ? '' : 'es' }}
           </span>
         </div>
 
         <v-card variant="outlined">
-          <v-list
+          <div
             v-if="displayQueueItems.length > 0"
-            density="compact"
+            class="match-list"
           >
-            <v-list-item
-              v-for="item in displayQueueItems"
+            <div
+              v-for="(item, index) in displayQueueItems"
               :key="`next-${item.match.id}`"
-              class="py-2"
+              class="match-row"
+              :class="{ 'match-row--divider': index > 0 }"
             >
-              <v-list-item-title class="text-body-2">
-                {{ item.matchup }}
-              </v-list-item-title>
-              <v-list-item-subtitle class="text-caption">
-                {{ formatTime(item.match.plannedStartAt) }}
-                · {{ getCourtName(item.match.courtId ?? item.match.plannedCourtId) }}
-                · {{ item.categoryLabel }}
-              </v-list-item-subtitle>
-              <template #append>
+              <!-- Time column -->
+              <div class="match-row__time">
+                <span class="text-body-2 font-weight-medium tabular-nums">
+                  {{ formatTime(item.match.plannedStartAt) }}
+                </span>
+                <span class="text-caption text-medium-emphasis match-row__court">
+                  {{ getCourtName(item.match.courtId ?? item.match.plannedCourtId) }}
+                </span>
+              </div>
+
+              <!-- Names + meta -->
+              <div class="match-row__body">
+                <div class="match-row__name">
+                  {{ item.participant1.displayName }}
+                </div>
+                <div class="match-row__vs">
+                  vs
+                </div>
+                <div class="match-row__name">
+                  {{ item.participant2.displayName }}
+                </div>
+                <div
+                  class="match-row__meta d-flex align-center flex-wrap mt-1"
+                  style="gap: 6px;"
+                >
+                  <!-- Category Chip -->
+                  <v-chip
+                    size="x-small"
+                    variant="tonal"
+                    :color="getCategoryColor(item.categoryId)"
+                    class="font-weight-bold"
+                  >
+                    <v-icon
+                      size="10"
+                      left
+                      class="mr-1"
+                    >
+                      mdi-circle
+                    </v-icon>
+                    {{ item.categoryLabel }}
+                  </v-chip>
+                  
+                  <!-- Pool Chip -->
+                  <v-chip
+                    v-if="item.poolLabel"
+                    size="x-small"
+                    variant="tonal"
+                    color="deep-orange-darken-1"
+                    class="font-weight-bold"
+                  >
+                    {{ item.poolLabel }}
+                  </v-chip>
+
+                  <!-- Round Chip -->
+                  <v-chip
+                    size="x-small"
+                    variant="tonal"
+                    color="blue-grey"
+                    class="font-weight-bold"
+                  >
+                    {{ item.roundLabel }}
+                  </v-chip>
+                </div>
+                <!-- Delayed guidance -->
+                <div
+                  v-if="getPublicStatus(item.match) === 'delayed'"
+                  class="match-row__delayed-hint"
+                >
+                  <v-icon
+                    size="12"
+                    class="mr-1"
+                  >
+                    mdi-information-outline
+                  </v-icon>
+                  Check with front desk for updated time &amp; court.
+                </div>
+              </div>
+
+              <!-- Status chip -->
+              <div class="match-row__status">
                 <v-chip
                   size="x-small"
                   :color="getStatusColor(getPublicStatus(item.match))"
@@ -918,9 +1198,9 @@ onUnmounted(() => {
                 >
                   {{ getStartHint(item.match) }}
                 </v-chip>
-              </template>
-            </v-list-item>
-          </v-list>
+              </div>
+            </div>
+          </div>
           <v-card-text
             v-else
             class="text-center text-grey py-5"
@@ -944,13 +1224,13 @@ onUnmounted(() => {
             v-if="filteredScheduleItems.length > 0"
             class="text-caption text-medium-emphasis ml-2"
           >
-            {{ filteredScheduleItems.length }} matches
+            {{ filteredScheduleItems.length }} match{{ filteredScheduleItems.length === 1 ? '' : 'es' }}
           </span>
         </div>
 
-        <!-- No schedule published yet -->
+        <!-- No schedule at all -->
         <v-card
-          v-if="!hasPublishedSchedule"
+          v-if="!hasAnySchedule"
           variant="outlined"
         >
           <v-card-text class="text-center text-grey py-10">
@@ -960,62 +1240,171 @@ onUnmounted(() => {
             >
               mdi-calendar-blank
             </v-icon>
-            Schedule not yet published.
+            No matches scheduled yet.
             <div class="text-caption mt-1">
               Check back soon.
             </div>
           </v-card-text>
         </v-card>
 
-        <!-- Match list -->
+        <!-- Search yields no results -->
         <v-card
-          v-else
+          v-else-if="searchQuery && filteredScheduleItems.length === 0"
           variant="outlined"
         >
-          <v-list density="compact">
-            <template
-              v-for="(item, index) in filteredScheduleItems"
-              :key="`sched-${item.match.id}`"
+          <v-card-text class="text-center text-grey py-8">
+            <v-icon
+              size="40"
+              class="mb-3 d-block"
             >
-              <v-divider v-if="index > 0" />
-              <v-list-item
-                :class="getPublicStatus(item.match) === 'finished' ? 'schedule-row--finished' : ''"
-                class="py-2"
+              mdi-account-search-outline
+            </v-icon>
+            No matches found for "<strong>{{ searchQuery }}</strong>".
+            <div class="text-caption mt-1">
+              Try a different name or clear the search.
+            </div>
+          </v-card-text>
+        </v-card>
+
+        <!-- Date-grouped match list -->
+        <template v-else>
+          <div
+            v-for="group in scheduleByDate"
+            :key="group.dateLabel"
+            class="mb-4"
+          >
+            <div class="date-group-header">
+              <v-icon
+                size="14"
+                class="mr-2 text-medium-emphasis"
               >
-                <template #prepend>
-                  <div class="schedule-time mr-3">
-                    <div class="text-body-2 font-weight-medium">
+                mdi-calendar
+              </v-icon>
+              <span class="text-overline text-medium-emphasis font-weight-bold">
+                {{ group.dateLabel }}
+              </span>
+              <span class="text-caption text-disabled ml-2">
+                {{ group.items.length }} match{{ group.items.length === 1 ? '' : 'es' }}
+              </span>
+            </div>
+
+            <v-card variant="outlined">
+              <div class="match-list">
+                <div
+                  v-for="(item, index) in group.items"
+                  :key="`sched-${item.match.id}`"
+                  class="match-row"
+                  :class="{
+                    'match-row--divider': index > 0,
+                    'match-row--finished': getPublicStatus(item.match) === 'finished',
+                  }"
+                >
+                  <!-- Time column -->
+                  <div class="match-row__time">
+                    <span class="text-body-2 font-weight-medium tabular-nums">
                       {{ formatTime(item.match.plannedStartAt) }}
+                    </span>
+                    <span class="text-caption text-medium-emphasis match-row__court">
+                      {{ getCourtName(item.match.courtId ?? item.match.plannedCourtId) }}
+                    </span>
+                  </div>
+
+                  <!-- Names + meta -->
+                  <div class="match-row__body">
+                    <div class="match-row__name">
+                      {{ item.participant1.displayName }}
+                    </div>
+                    <div class="match-row__vs">
+                      vs
+                    </div>
+                    <div class="match-row__name">
+                      {{ item.participant2.displayName }}
+                    </div>
+                    <div
+                      class="match-row__meta d-flex align-center flex-wrap mt-1"
+                      style="gap: 6px;"
+                    >
+                      <!-- Category Chip -->
+                      <v-chip
+                        size="x-small"
+                        variant="tonal"
+                        :color="getCategoryColor(item.categoryId)"
+                        class="font-weight-bold"
+                      >
+                        <v-icon
+                          size="10"
+                          left
+                          class="mr-1"
+                        >
+                          mdi-circle
+                        </v-icon>
+                        {{ item.categoryLabel }}
+                      </v-chip>
+                      
+                      <!-- Pool Chip -->
+                      <v-chip
+                        v-if="item.poolLabel"
+                        size="x-small"
+                        variant="tonal"
+                        color="deep-orange-darken-1"
+                        class="font-weight-bold"
+                      >
+                        {{ item.poolLabel }}
+                      </v-chip>
+
+                      <!-- Round Chip -->
+                      <v-chip
+                        size="x-small"
+                        variant="tonal"
+                        color="blue-grey"
+                        class="font-weight-bold"
+                      >
+                        {{ item.roundLabel }}
+                      </v-chip>
+                    </div>
+                    <!-- Delayed guidance -->
+                    <div
+                      v-if="getPublicStatus(item.match) === 'delayed'"
+                      class="match-row__delayed-hint"
+                    >
+                      <v-icon
+                        size="12"
+                        class="mr-1"
+                      >
+                        mdi-information-outline
+                      </v-icon>
+                      Check with front desk for updated time &amp; court.
                     </div>
                   </div>
-                </template>
-                <v-list-item-title class="text-body-2">
-                  {{ item.matchup }}
-                </v-list-item-title>
-                <v-list-item-subtitle class="text-caption">
-                  {{ getCourtName(item.match.courtId ?? item.match.plannedCourtId) }}
-                  · {{ item.categoryLabel }}
-                  · {{ item.roundLabel }}
-                </v-list-item-subtitle>
-                <template #append>
-                  <v-chip
-                    size="x-small"
-                    :color="getStatusColor(getPublicStatus(item.match))"
-                    variant="tonal"
-                  >
-                    {{ getStatusLabel(getPublicStatus(item.match)) }}
-                  </v-chip>
-                </template>
-              </v-list-item>
-            </template>
-          </v-list>
-        </v-card>
+
+                  <!-- Status chip -->
+                  <div class="match-row__status">
+                    <v-chip
+                      size="x-small"
+                      :color="getStatusColor(getPublicStatus(item.match))"
+                      variant="tonal"
+                    >
+                      {{ getStatusLabel(getPublicStatus(item.match)) }}
+                    </v-chip>
+                  </div>
+                </div>
+              </div>
+            </v-card>
+          </div>
+        </template>
       </section>
     </template>
   </v-container>
 </template>
 
 <style scoped>
+/* ─── Global & Utilities ────────────────────────────────────────── */
+.tabular-nums {
+  font-feature-settings: 'tnum';
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Header ────────────────────────────────────────────────────── */
 .schedule-header {
   display: flex;
   align-items: flex-start;
@@ -1038,13 +1427,36 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-/* Section label row */
+/* ─── Search & Filters ────────────────────────────────────────────── */
+.search-input:deep(.v-field__input) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.sort-filter-group {
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+@media (min-width: 600px) {
+  .sort-filter-group {
+    width: auto;
+    flex-wrap: nowrap;
+  }
+}
+
+.filter-select {
+  flex: 1 1 140px;
+  min-width: 140px;
+}
+
+/* ─── Section labels ────────────────────────────────────────────── */
 .section-label {
   display: flex;
   align-items: center;
 }
 
-/* Now Playing court card grid */
+/* ─── Now Playing grid ──────────────────────────────────────────── */
 .now-playing-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -1065,15 +1477,147 @@ onUnmounted(() => {
   font-size: 0.75rem;
 }
 
-/* Full Schedule time column */
-.schedule-time {
-  min-width: 52px;
-  white-space: nowrap;
+/* ─── Date Grouping ─────────────────────────────────────────────── */
+.date-group-header {
+  position: sticky;
+  top: 56px; /* Below standard app bar */
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  margin: 0 -16px;
+  background-color: rgb(var(--v-theme-surface));
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
-/* Dimmed finished rows */
-.schedule-row--finished {
-  opacity: 0.55;
+@media (min-width: 600px) {
+  .date-group-header {
+    margin: 0;
+    padding: 12px 0;
+    background-color: rgb(var(--v-theme-background));
+    border-bottom: none;
+  }
+}
+
+/* ─── Match List Layout ─────────────────────────────────────────── */
+.match-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.match-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 16px;
+  transition: background-color 0.2s;
+}
+
+.match-row:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.04);
+}
+
+.match-row--divider {
+  border-top: 1px dashed rgba(var(--v-border-color), 0.08);
+}
+
+.match-row--finished {
+  opacity: 0.6;
+}
+
+/* Column 1: Time */
+.match-row__time {
+  min-width: 60px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.match-row__court {
+  white-space: nowrap;
+  font-weight: 600;
+  color: rgb(var(--v-theme-primary));
+}
+
+/* Column 2: Body (Names/Meta) */
+.match-row__body {
+  flex-grow: 1;
+  min-width: 0; /* allows flex min-content shrinking */
+  display: flex;
+  flex-direction: column;
+}
+
+.match-row__name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.3;
+  /* Instead of truncating, let it wrap! */
+  word-wrap: break-word;
+}
+
+.match-row__vs {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: rgba(var(--v-theme-on-surface), 0.38);
+  margin: 2px 0;
+}
+
+.match-row__meta {
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  margin-top: 4px;
+}
+
+.match-row__delayed-hint {
+  font-size: 0.75rem;
+  color: rgb(var(--v-theme-warning));
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+}
+
+/* Column 3: Status Chip */
+.match-row__status {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  min-width: 80px;
+}
+
+/* ─── Mobile Overrides ──────────────────────────────────────────── */
+@media (max-width: 600px) {
+  /* Compact the header buttons so they fit better */
+  .schedule-header__btn {
+    min-width: 0;
+    padding: 0 8px !important;
+  }
+  .schedule-header__btn-label {
+    display: none;
+  }
+  
+  /* Make match row vertically compact */
+  .match-row {
+    flex-wrap: wrap; /* allow status chip to wrap below if needed */
+    gap: 8px 12px;
+    padding: 12px;
+  }
+  
+  .match-row__time {
+    min-width: 50px;
+  }
+  
+  .match-row__body {
+    flex-basis: 0;
+    flex-grow: 1;
+  }
+
+  .match-row__status {
+    flex-basis: 100%;
+    margin-top: 4px;
+    justify-content: flex-start;
+  }
 }
 
 .display-mode {

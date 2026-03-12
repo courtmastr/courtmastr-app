@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import {
   db,
   collection,
@@ -20,14 +20,6 @@ export const useUserStore = defineStore('users', () => {
   const error = ref<string | null>(null);
 
   let usersUnsubscribe: (() => void) | null = null;
-
-  const activeUsers = computed(() =>
-    users.value
-  );
-
-  const inactiveUsers = computed(() =>
-    []
-  );
 
   function convertUserData(id: string, data: Record<string, unknown>): User {
     return {
@@ -130,8 +122,6 @@ export const useUserStore = defineStore('users', () => {
     users,
     loading,
     error,
-    activeUsers,
-    inactiveUsers,
     fetchUsers,
     subscribeUsers,
     updateUserRole,

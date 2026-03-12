@@ -264,7 +264,7 @@ describe('TournamentSummaryView', () => {
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:summary');
     expect(mockDeps.showToast).toHaveBeenCalledWith('success', 'Summary report exported');
     expect(capturedBlob).not.toBeNull();
-    const csvContent = await (capturedBlob as Blob).text();
+    const csvContent = await (capturedBlob as unknown as Blob).text();
     expect(csvContent).toContain('Observed Duration Count,1');
     expect(csvContent).toContain('Excluded Duration Count,1');
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, type Ref } from 'vue';
 import { mount } from '@vue/test-utils';
 import type { Match, Registration } from '@/types';
 import {
@@ -13,8 +13,8 @@ import {
 } from '@/features/checkin/composables/useFrontDeskCheckInWorkflow';
 
 interface WorkflowHarnessOptions {
-  registrations: ReturnType<typeof ref<Registration[]>>;
-  matches: ReturnType<typeof ref<Match[]>>;
+  registrations: Ref<Registration[]>;
+  matches: Ref<Match[]>;
   getParticipantName: (registrationId: string) => string;
   getCategoryName: (categoryId: string) => string;
   checkInRegistration: (registrationId: string) => Promise<void>;
@@ -41,11 +41,9 @@ const mountWorkflowHarness = (options: WorkflowHarnessOptions) => {
   });
 
   const wrapper = mount(Harness);
-  if (!workflow) {
-    throw new Error('Workflow was not initialized');
-  }
-
-  return { wrapper, workflow };
+  // workflow is assigned inside setup() so TypeScript can't track it via control flow;
+  // use non-null assertion since mount() calls setup() synchronously
+  return { wrapper, workflow: workflow! };
 };
 
 describe('parseScanInput', () => {
@@ -238,6 +236,115 @@ describe('useFrontDeskCheckInWorkflow', () => {
     expect(checkedIn?.canCheckIn).toBe(false);
     expect(checkedIn?.disabledReason).toBe('Already checked in');
 
+    wrapper.unmount();
+  });
+
+  it('tracks throughput metrics for recent check-ins', async () => {
+    vi.useFakeTimers();
+    const startTime = new Date('2026-02-27T12:00:00.000Z');
+    vi.setSystemTime(startTime);
+
+    const registrations = ref<Registration[]>([
+      {
+        id: 'reg-1',
+        tournamentId: 't1',
+        categoryId: 'cat-1',
+        participantType: 'player',
+        playerId: 'p1',
+        status: 'approved',
+        registeredBy: 'admin-1',
+        registeredAt: new Date('2026-02-27T10:00:00.000Z'),
+      },
+      {
+        id: 'reg-2',
+        tournamentId: 't1',
+        categoryId: 'cat-1',
+        participantType: 'player',
+        playerId: 'p2',
+        status: 'approved',
+        registeredBy: 'admin-1',
+        registeredAt: new Date('2026-02-27T10:00:00.000Z'),
+      },
+    ]);
+
+    const { wrapper, workflow } = mountWorkflowHarness({
+      registrations,
+      matches: ref<Match[]>([]),
+      getParticipantName: (id) => id,
+      getCategoryName: () => 'Category',
+      checkInRegistration: vi.fn(async (registrationId: string) => {
+        const registration = registrations.value.find((item) => item.id === registrationId);
+        if (registration) registration.status = 'checked_in';
+      }),
+      undoCheckInRegistration: vi.fn(async (registrationId: string) => {
+        const registration = registrations.value.find((item) => item.id === registrationId);
+        if (registration) registration.status = 'approved';
+      }),
+      assignBibNumber: vi.fn(async (registrationId: string, bibNumber: number) => {
+        const registration = registrations.value.find((item) => item.id === registrationId);
+        if (registration) registration.bibNumber = bibNumber;
+      }),
+    });
+
+    await workflow.checkInOne('reg-1', 101);
+    vi.setSystemTime(new Date(startTime.getTime() + 90_000));
+    vi.advanceTimersByTime(1000);
+    await workflow.checkInOne('reg-2', 101);
+
+    expect(workflow.throughput.value.checkInsLastFiveMinutes).toBe(2);
+    expect(workflow.throughput.value.avgSecondsPerCheckIn).toBeGreaterThanOrEqual(90);
+    expect(workflow.throughput.value.avgSecondsPerCheckIn).toBeLessThanOrEqual(91);
+
+    vi.setSystemTime(new Date(startTime.getTime() + 7 * 60_000));
+    vi.advanceTimersByTime(1000);
+    expect(workflow.throughput.value.checkInsLastFiveMinutes).toBe(0);
+
+    wrapper.unmount();
+  });
+
+  it('undoes the most recent check-in via undoLatest', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-02-27T12:00:00.000Z'));
+
+    const registrations = ref<Registration[]>([
+      {
+        id: 'reg-1',
+        tournamentId: 't1',
+        categoryId: 'cat-1',
+        participantType: 'player',
+        playerId: 'p1',
+        status: 'approved',
+        registeredBy: 'admin-1',
+        registeredAt: new Date('2026-02-27T10:00:00.000Z'),
+      },
+    ]);
+
+    const undoCheckInRegistration = vi.fn(async (registrationId: string): Promise<void> => {
+      const registration = registrations.value.find((item) => item.id === registrationId);
+      if (registration) registration.status = 'approved';
+    });
+
+    const { wrapper, workflow } = mountWorkflowHarness({
+      registrations,
+      matches: ref<Match[]>([]),
+      getParticipantName: () => 'Aanya Karthik',
+      getCategoryName: () => "Women's Singles",
+      checkInRegistration: vi.fn(async (registrationId: string): Promise<void> => {
+        const registration = registrations.value.find((item) => item.id === registrationId);
+        if (registration) registration.status = 'checked_in';
+      }),
+      undoCheckInRegistration,
+      assignBibNumber: vi.fn(async (registrationId: string, bibNumber: number): Promise<void> => {
+        const registration = registrations.value.find((item) => item.id === registrationId);
+        if (registration) registration.bibNumber = bibNumber;
+      }),
+    });
+
+    await workflow.checkInOne('reg-1', 101);
+    await workflow.undoLatest();
+
+    expect(undoCheckInRegistration).toHaveBeenCalledWith('reg-1');
+    await expect(workflow.undoLatest()).rejects.toThrow(/No recent check-in available to undo/i);
     wrapper.unmount();
   });
 });

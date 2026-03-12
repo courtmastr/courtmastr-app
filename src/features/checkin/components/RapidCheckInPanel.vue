@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { CheckInSearchRow, CheckInStatus } from '@/features/checkin/composables/checkInTypes';
+import { rankItemsByQuery } from '@/features/checkin/composables/checkInSearchUtils';
+import { useActiveIndexNavigation } from '@/features/checkin/composables/useActiveIndexNavigation';
 
 export interface UrgentCheckInItem {
   id: string;
@@ -16,6 +18,7 @@ export interface RecentCheckInItem {
   name: string;
   detail: string;
   canUndo: boolean;
+  undoRemainingMs?: number;
 }
 
 interface Props {
@@ -23,34 +26,73 @@ interface Props {
   recentItems: RecentCheckInItem[];
   searchRows?: CheckInSearchRow[];
   loading?: boolean;
+  pendingIds?: string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
   searchRows: () => [],
+  pendingIds: () => [],
 });
 
 const emit = defineEmits<{
   scanSubmit: [raw: string];
   quickCheckIn: [registrationId: string];
   undoItem: [registrationId: string];
+  undoLatestShortcut: [];
 }>();
 
 const scanValue = ref('');
-const searchSuggestions = computed<CheckInSearchRow[]>(() => {
-  const query = scanValue.value.trim().toLowerCase();
-  if (query.length < 2) return [];
+const {
+  activeIndex: activeSuggestionIndex,
+  resetActiveIndex,
+  setActiveIndex,
+  syncActiveIndex,
+  moveActiveIndex,
+} = useActiveIndexNavigation();
 
-  return props.searchRows
-    .filter((row) => row.name.toLowerCase().includes(query))
-    .slice(0, 8);
+const searchSuggestions = computed<CheckInSearchRow[]>(() => {
+  if (scanValue.value.trim().length < 2) return [];
+  return rankItemsByQuery({
+    items: props.searchRows,
+    query: scanValue.value,
+    getSearchText: (row) => row.name,
+    limit: 8,
+  });
 });
+
+watch(searchSuggestions, (rows) => {
+  if (rows.length === 0) {
+    resetActiveIndex();
+    return;
+  }
+
+  syncActiveIndex(rows.length);
+  if (activeSuggestionIndex.value === -1) {
+    setActiveIndex(0, rows.length);
+  }
+});
+
+const hasMultipleMatches = computed(
+  () => scanValue.value.trim().length >= 2 && searchSuggestions.value.length > 1
+);
+
+const isPendingRow = (registrationId: string): boolean => props.pendingIds.includes(registrationId);
+
+const canCheckInRow = (row: CheckInSearchRow): boolean =>
+  row.status === 'approved' && !props.loading && !isPendingRow(String(row.id));
+
+const clearScanInput = (): void => {
+  scanValue.value = '';
+  resetActiveIndex();
+};
 
 const submitScan = (): void => {
   const raw = scanValue.value.trim();
   if (!raw) return;
+  if (props.loading) return;
   emit('scanSubmit', raw);
-  scanValue.value = '';
+  clearScanInput();
 };
 
 const handleQuickCheckIn = (registrationId: string): void => {
@@ -75,10 +117,68 @@ const getStatusColor = (status: CheckInStatus): string => {
   return 'default';
 };
 
-const handleSuggestionCheckIn = (row: CheckInSearchRow): void => {
-  if (row.status !== 'approved') return;
-  emit('quickCheckIn', row.id);
-  scanValue.value = '';
+const formatUndoCountdown = (remainingMs?: number): string => {
+  if (!remainingMs || remainingMs <= 0) return '';
+  return `${Math.ceil(remainingMs / 1000)}s`;
+};
+
+const focusSuggestion = (index: number): void => {
+  setActiveIndex(index, searchSuggestions.value.length);
+};
+
+const emitQuickCheckIn = (row: CheckInSearchRow): void => {
+  if (!canCheckInRow(row)) return;
+  emit('quickCheckIn', String(row.id));
+  clearScanInput();
+};
+
+const handleSuggestionCheckIn = (row: CheckInSearchRow, index: number): void => {
+  focusSuggestion(index);
+  emitQuickCheckIn(row);
+};
+
+const handleInputKeydown = (event: KeyboardEvent): void => {
+  const key = event.key;
+  const hasSuggestions = searchSuggestions.value.length > 0;
+
+  if ((event.ctrlKey || event.metaKey) && key.toLowerCase() === 'z') {
+    event.preventDefault();
+    emit('undoLatestShortcut');
+    return;
+  }
+
+  if (key === 'ArrowDown') {
+    if (!hasSuggestions) return;
+    event.preventDefault();
+    moveActiveIndex(1, searchSuggestions.value.length);
+    return;
+  }
+
+  if (key === 'ArrowUp') {
+    if (!hasSuggestions) return;
+    event.preventDefault();
+    moveActiveIndex(-1, searchSuggestions.value.length);
+    return;
+  }
+
+  if (key === 'Escape') {
+    if (!scanValue.value.trim()) return;
+    event.preventDefault();
+    clearScanInput();
+    return;
+  }
+
+  if (key === 'Enter') {
+    event.preventDefault();
+    if (hasSuggestions && activeSuggestionIndex.value >= 0) {
+      const row = searchSuggestions.value[activeSuggestionIndex.value];
+      if (row) {
+        emitQuickCheckIn(row);
+      }
+      return;
+    }
+    submitScan();
+  }
 };
 </script>
 
@@ -89,59 +189,82 @@ const handleSuggestionCheckIn = (row: CheckInSearchRow): void => {
       variant="outlined"
     >
       <div class="text-overline mb-2">
-        Scanner Input
+        Quick Input
       </div>
       <v-text-field
         v-model="scanValue"
         data-testid="scan-input"
-        placeholder="Scan QR or type Bib #"
+        placeholder="Type player name, reg ID, or bib #"
         density="comfortable"
         variant="outlined"
         autofocus
         :loading="loading"
         prepend-inner-icon="mdi-qrcode-scan"
-        @keydown.enter.prevent="submitScan"
+        @keydown="handleInputKeydown"
       />
+      <div
+        v-if="hasMultipleMatches"
+        data-testid="rapid-search-collision-hint"
+        class="text-caption text-medium-emphasis mb-2"
+      >
+        Multiple matches found. Use ↑/↓ then Enter to check in the correct participant.
+      </div>
       <v-list
         v-if="searchSuggestions.length > 0"
         data-testid="rapid-search-results"
         density="compact"
-        lines="two"
-        class="mb-3 border rounded"
+        class="mb-3 border rounded suggestion-list"
       >
         <v-list-item
-          v-for="row in searchSuggestions"
+          v-for="(row, index) in searchSuggestions"
           :key="row.id"
-          :title="row.name"
-          :subtitle="row.category"
+          :active="index === activeSuggestionIndex"
+          :class="{ 'rapid-checkin-panel__suggestion--active': index === activeSuggestionIndex }"
+          class="suggestion-item"
+          @mouseenter="focusSuggestion(index)"
+          @click="focusSuggestion(index)"
         >
-          <template #append>
-            <v-chip
-              :color="getStatusColor(row.status)"
-              size="x-small"
-              variant="tonal"
-              class="mr-2"
-            >
-              {{ getStatusLabel(row.status) }}
-            </v-chip>
-            <v-btn
-              data-testid="search-suggestion-checkin-btn"
-              size="small"
-              color="primary"
-              variant="text"
-              :disabled="row.status !== 'approved'"
-              @click="handleSuggestionCheckIn(row)"
-            >
-              Check In
-            </v-btn>
+          <template #default>
+            <div class="suggestion-content">
+              <div class="suggestion-name">
+                {{ row.name }}
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                {{ row.category }} • Bib: {{ row.bibNumber ?? '---' }}
+              </div>
+            </div>
+            <div class="suggestion-actions">
+              <v-chip
+                :color="getStatusColor(row.status)"
+                size="x-small"
+                variant="tonal"
+                class="mb-1"
+              >
+                {{ getStatusLabel(row.status) }}
+              </v-chip>
+              <v-btn
+                data-testid="search-suggestion-checkin-btn"
+                size="small"
+                color="primary"
+                variant="text"
+                :loading="isPendingRow(String(row.id))"
+                :disabled="!canCheckInRow(row)"
+                @click="handleSuggestionCheckIn(row, index)"
+              >
+                Check In
+              </v-btn>
+            </div>
           </template>
         </v-list-item>
       </v-list>
+      <div class="text-caption text-medium-emphasis mb-3">
+        Tip: Press <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>Z</kbd> to undo latest check-in.
+      </div>
       <v-btn
         data-testid="scan-submit-btn"
         color="primary"
         block
-        :disabled="!scanValue.trim()"
+        :disabled="!scanValue.trim() || loading"
         @click="submitScan"
       >
         Check In
@@ -230,7 +353,7 @@ const handleSuggestionCheckIn = (row: CheckInSearchRow): void => {
                 data-testid="recent-undo-btn"
                 @click="handleUndo(item.id)"
               >
-                Undo
+                Undo ({{ formatUndoCountdown(item.undoRemainingMs) }})
               </v-btn>
             </template>
           </v-list-item>
@@ -250,7 +373,7 @@ const handleSuggestionCheckIn = (row: CheckInSearchRow): void => {
 }
 
 .rapid-checkin-panel__scanner {
-  flex: 0 0 320px;
+  flex: 0 0 440px;
 }
 
 .rapid-checkin-panel__lists {
@@ -258,8 +381,60 @@ const handleSuggestionCheckIn = (row: CheckInSearchRow): void => {
   flex: 1;
 }
 
+.rapid-checkin-panel__suggestion--active {
+  background: rgba(var(--v-theme-primary), 0.08);
+}
+
+.suggestion-item {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.suggestion-item :deep(.v-list-item__content) {
+  overflow: visible;
+}
+
+/* Full-width row: name on left, actions on right */
+.suggestion-item :deep(.v-list-item__content) > template,
+.suggestion-item > .v-list-item__content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.suggestion-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.suggestion-name {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
+  color: rgba(var(--v-theme-on-surface), 1);
+}
+
+.suggestion-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 .urgent-item-actions {
   min-width: 220px;
+}
+
+kbd {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.18);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+  font-family: inherit;
+  font-size: 0.72rem;
 }
 
 @media (max-width: 960px) {

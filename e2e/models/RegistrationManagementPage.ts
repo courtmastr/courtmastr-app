@@ -27,7 +27,7 @@ export class RegistrationManagementPage {
   async addPlayer(firstName: string, lastName: string, email: string, phone: string, skillLevel: number = 5) {
     await this.addPlayerButton.click();
     
-    const dialog = this.page.locator('.v-dialog');
+    const dialog = this.page.locator('.v-dialog').last();
     await expect(dialog).toBeVisible();
     
     await dialog.getByLabel('First Name').fill(firstName);
@@ -40,28 +40,28 @@ export class RegistrationManagementPage {
       await slider.click();
     }
     
-    await dialog.getByRole('button', { name: 'Add Player' }).click();
+    await dialog.getByRole('button', { name: /confirm|add player/i }).click();
     await this.page.waitForTimeout(1000);
   }
 
   async addRegistration(playerName: string, categoryName: string, partnerName?: string) {
     await this.addRegistrationButton.click();
     
-    const dialog = this.page.locator('.v-dialog');
+    const dialog = this.page.locator('.v-dialog').last();
     await expect(dialog).toBeVisible();
     
-    await dialog.getByLabel('Category').click();
+    await dialog.getByRole('combobox', { name: 'Category' }).click({ force: true });
     await this.page.getByRole('option', { name: categoryName }).click();
     
-    await dialog.getByLabel('Player').click();
+    await dialog.getByRole('combobox', { name: 'Player' }).click({ force: true });
     await this.page.getByRole('option', { name: playerName }).click();
     
     if (partnerName) {
-      await dialog.getByLabel('Partner').click();
+      await dialog.getByRole('combobox', { name: 'Partner' }).click({ force: true });
       await this.page.getByRole('option', { name: partnerName }).click();
     }
     
-    await dialog.getByRole('button', { name: 'Add Registration' }).click();
+    await dialog.getByRole('button', { name: /confirm|add registration/i }).click();
     await this.page.waitForTimeout(1000);
   }
 
@@ -114,8 +114,7 @@ export class RegistrationManagementPage {
     await this.page.waitForTimeout(500);
     
     const row = this.page.locator('tr', { hasText: participantName });
-    const statusChip = row.locator('.v-chip');
-    
-    await expect(statusChip).toContainText(status);
+    const statusChip = row.locator('.v-chip', { hasText: status }).first();
+    await expect(statusChip).toBeVisible();
   }
 }

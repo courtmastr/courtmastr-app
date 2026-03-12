@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures/auth-fixtures';
 import { getTournamentId } from './utils/test-data';
+import type { Page } from '@playwright/test';
 
 test.describe('P0 - Category Management', () => {
   let tournamentId: string;
@@ -8,63 +9,83 @@ test.describe('P0 - Category Management', () => {
     tournamentId = await getTournamentId();
   });
 
-  test.beforeEach(async ({ page }) => {
-    await page.goto(`/tournaments/${tournamentId}?tab=categories`);
-    await page.waitForSelector('text=Categories', { timeout: 10000 });
-  });
+  const openCategoryMenuAction = async (
+    page: Page,
+    categoryName: string,
+    actionLabel: 'Edit Category' | 'Delete Category' | 'Seeds'
+  ): Promise<void> => {
+    const categoryCard = page.locator('.category-card', { hasText: categoryName }).first();
+    await expect(categoryCard).toBeVisible();
+    await categoryCard.getByLabel(/open actions menu/i).click();
+    await page.locator('.v-overlay-container .v-list-item', { hasText: actionLabel }).first().click();
+  };
 
-  test('should display category management tab', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /categories/i })).toBeVisible();
-    await expect(page.getByTestId('add-category-btn')).toBeVisible();
-  });
-
-  test('should add new category', async ({ page }) => {
+  const addCategory = async (
+    page: Page,
+    categoryName: string
+  ): Promise<void> => {
     await page.getByTestId('add-category-btn').click();
-
     const dialog = page.locator('.v-dialog').last();
     await dialog.waitFor({ state: 'visible' });
 
-    // Select type and gender FIRST so generateCategoryName() fires before we set our custom name
     await dialog.getByTestId('category-type-select').click();
     await page.getByRole('option', { name: 'Singles' }).click();
     await dialog.getByTestId('category-gender-select').click();
     await page.getByRole('option', { name: 'Open' }).click();
 
-    // Fill name AFTER auto-generation so it is not overwritten
     const nameInput = dialog.getByTestId('category-name-input').locator('input');
     await nameInput.clear();
-    await nameInput.fill('Test Category');
-
+    await nameInput.fill(categoryName);
     await dialog.getByTestId('save-category-btn').click();
+  };
 
-    await expect(page.getByText('Test Category')).toBeVisible({ timeout: 10000 });
+  test.beforeEach(async ({ page }) => {
+    await page.goto(`/tournaments/${tournamentId}/categories`);
+    await expect(page.getByTestId('add-category-btn')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should display category management tab', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /Categories \(\d+\)/ })).toBeVisible();
+    await expect(page.getByTestId('add-category-btn')).toBeVisible();
+  });
+
+  test('should add new category', async ({ page }) => {
+    const categoryName = `Test Category ${Date.now()}`;
+    await addCategory(page, categoryName);
+    await expect(page.locator('.category-card', { hasText: categoryName }).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('should edit existing category', async ({ page }) => {
-    const categoryItem = page.locator('.v-list-item', { hasText: "Men's Singles" }).first();
-    await categoryItem.getByTestId('edit-category-btn').click();
+    const categoryName = `Editable Category ${Date.now()}`;
+    await addCategory(page, categoryName);
+    await expect(page.locator('.category-card', { hasText: categoryName }).first()).toBeVisible({ timeout: 10000 });
+
+    await openCategoryMenuAction(page, categoryName, 'Edit Category');
 
     const dialog = page.locator('.v-dialog').last();
     await dialog.waitFor({ state: 'visible' });
 
+    const updatedName = `Updated Category ${Date.now()}`;
     const nameInput = dialog.getByTestId('category-name-input').locator('input');
     await nameInput.clear();
-    await nameInput.fill("Men's Singles Updated");
+    await nameInput.fill(updatedName);
     await dialog.getByTestId('save-category-btn').click();
 
-    await expect(page.getByText("Men's Singles Updated")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.category-card', { hasText: updatedName }).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('should delete category', async ({ page }) => {
-    await page.reload();
-    await page.waitForSelector('text=Categories', { timeout: 10000 });
+    const categoryName = `Delete Category ${Date.now()}`;
+    await addCategory(page, categoryName);
+    const categoryCard = page.locator('.category-card', { hasText: categoryName }).first();
+    await expect(categoryCard).toBeVisible({ timeout: 10000 });
 
-    // The component uses native confirm() — register handler before triggering delete
-    page.on('dialog', dialog => dialog.accept());
+    await openCategoryMenuAction(page, categoryName, 'Delete Category');
 
-    const categoryItem = page.locator('.v-list-item', { hasText: 'Test Category' }).first();
-    await categoryItem.getByTestId('delete-category-btn').click();
+    const dialog = page.locator('.v-dialog').filter({ hasText: 'Delete Category?' }).last();
+    await dialog.waitFor({ state: 'visible' });
+    await dialog.getByRole('button', { name: 'Delete' }).click();
 
-    await expect(page.getByText('Test Category')).not.toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.category-card', { hasText: categoryName })).toHaveCount(0, { timeout: 10000 });
   });
 });

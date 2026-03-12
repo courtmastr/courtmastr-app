@@ -1,7 +1,13 @@
 {
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
-    "types": ["vitest/globals", "vite/client"]
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vitest/globals", "vite/client"],
+    "paths": {
+      "@/*": ["src/*"],
+      "@tests/*": ["tests/*"]
+    }
   },
-  "include": ["tests/**/*.ts"]
+  "include": ["tests/**/*.ts"],
+  "exclude": ["tests/diagnose_data.test.ts"]
 }

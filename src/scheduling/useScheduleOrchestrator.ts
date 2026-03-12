@@ -453,8 +453,6 @@ export function useScheduleOrchestrator(
    * 5. Return the raw ScheduleResult so the dialog can emit('scheduled', …)
    */
   async function run(params: RunScheduleParams): Promise<ScheduleResult> {
-    const activeCourtIds = getActiveCourtIds();
-
     const resolvedTargets = params.selectedCategoryIds.flatMap((categoryId) => {
       const category = categories.find((c) => c.id === categoryId);
       if (!category) return [];

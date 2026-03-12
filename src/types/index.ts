@@ -13,6 +13,28 @@ export type {
 
 // User Roles
 export type UserRole = 'admin' | 'organizer' | 'scorekeeper' | 'player' | 'viewer';
+export type VolunteerRole = 'checkin' | 'scorekeeper';
+
+export interface VolunteerSession {
+  tournamentId: string;
+  role: VolunteerRole;
+  sessionToken: string;
+  pinRevision: number;
+  expiresAtMs: number;
+}
+
+export interface TournamentVolunteerAccessEntry {
+  enabled: boolean;
+  pinRevision: number;
+  maskedPin?: string;
+  updatedBy?: string;
+  updatedAt?: Date;
+}
+
+export interface TournamentVolunteerAccess {
+  checkin?: TournamentVolunteerAccessEntry;
+  scorekeeper?: TournamentVolunteerAccessEntry;
+}
 
 export interface User {
   id: string;
@@ -74,6 +96,7 @@ export interface Tournament {
   organizerIds?: string[];
   tournamentLogo?: TournamentLogo | null;
   sponsors?: TournamentSponsorRecord[];
+  volunteerAccess?: TournamentVolunteerAccess;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -9,10 +9,10 @@ export class TournamentDashboardPage {
 
   constructor(page: Page) {
     this.page = page;
-    // v-btn :to="..." renders as <a> (link role), not a button
-    this.manageRegistrationsButton = page.getByRole('link', { name: /manage registrations/i });
-    // "View Match Control" button uses @click so it stays a button
-    this.matchControlButton = page.getByRole('button', { name: /match control/i });
+    // Depending on tournament state, dashboard may show "Review Registrations" CTA or only sidebar "Registrations".
+    this.manageRegistrationsButton = page.getByRole('link', { name: /review registrations|registrations/i }).first();
+    // Depending on state/layout this is link CTA or nav link.
+    this.matchControlButton = page.getByRole('link', { name: /enter match control|match control/i }).first();
     // CategoryRegistrationStats emits "Generate Bracket" (singular)
     this.generateBracketsButton = page.getByRole('button', { name: /generate bracket/i });
     this.publishButton = page.getByRole('button', { name: /publish/i });
@@ -29,7 +29,11 @@ export class TournamentDashboardPage {
   }
 
   async navigateToMatchControl() {
-    await this.matchControlButton.click();
+    if (await this.matchControlButton.isVisible().catch(() => false)) {
+      await this.matchControlButton.click();
+    } else {
+      await this.page.getByRole('button', { name: /match control/i }).click();
+    }
     await this.page.waitForURL(/\/tournaments\/.+\/match-control/);
   }
 
@@ -44,6 +48,6 @@ export class TournamentDashboardPage {
   }
 
   async expectTournamentName(name: string) {
-    await expect(this.page.getByRole('heading')).toContainText(name);
+    await expect(this.page.getByText(name).first()).toBeVisible();
   }
 }

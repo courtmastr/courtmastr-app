@@ -26,6 +26,62 @@
   fingerprint: "c4704a76"
   command: "npm run build:log"
   artifact_log: "docs/debug-kb/_artifacts/2026-03-11-22-31-51.vue-tsc-b.log"
+- id: 088c86ac
+  title: test:log fails before volunteer mutation routing is implemented
+  status: "✅ fixed"
+  date: "2026-03-11"
+  fingerprint: "088c86ac"
+  command: "npm run test:log -- --run tests/unit/registrations.store.test.ts tests/unit/matches.scoring.store.test.ts tests/unit/volunteerAccessCore.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-11-21-59-11.vitest-run-tests-unit-registrations-store-test-ts-.log"
+- id: f1fdd971
+  title: volunteer scoring route tests fail before kiosk detail wiring exists
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "f1fdd971"
+  command: "npm run test:log -- --run tests/unit/MatchListView.volunteerMode.test.ts tests/unit/ScoringInterfaceView.volunteerMode.test.ts tests/unit/router-guards-auth.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-12-25-36.vitest-run-tests-unit-MatchListView-volunteerMode-.log"
+- id: f7f2139b
+  title: Firestore adapter stringifies numeric bracket foreign keys
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "f7f2139b"
+  command: "npm run test:log -- --run tests/unit/firestoreAdapter.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-12-39-47.vitest-run-tests-unit-firestoreAdapter-test-ts.log"
+- id: ca582179
+  title: functions build fails when match_game insert can receive an undefined stage_id
+  status: "✅ fixed"
+  date: "2026-03-11"
+  fingerprint: "ca582179"
+  command: "npm --prefix functions run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-11-22-06-35.tsc.log"
+- id: 20d5d4c3
+  title: build:log fails on PrimaryActionEvent union mismatch in CategoryRegistrationStats
+  status: "🟡 workaround"
+  date: "2026-03-04"
+  fingerprint: "20d5d4c3"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-04-21-47-52.vue-tsc-b.log"
+- id: 6fc2f464
+  title: build:log fails on duplicate object keys in optimistic category state
+  status: "✅ fixed"
+  date: "2026-03-04"
+  fingerprint: "6fc2f464"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-04-00-33-17.vue-tsc-b.log"
+- id: e2eda530
+  title: test:log fails when BYE-filter scheduler test mock omits computeEpochs
+  status: "✅ fixed"
+  date: "2026-03-04"
+  fingerprint: "e2eda530"
+  command: "npm run test:log -- --run"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-04-00-33-17.vitest-run.log"
+- id: e718d58e
+  title: build:log fails on existing brackets-viewer typing baseline errors
+  status: "✅ fixed"
+  date: "2026-03-03"
+  fingerprint: "e718d58e"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-03-20-06-10.vue-tsc-b.log"
 - id: 2f6d5e1b
   title: build:log fails on workspace TypeScript baseline errors (updated fingerprint)
   status: "🟡 workaround"
@@ -586,3 +642,45 @@
   fingerprint: "38071083"
   command: "npm run build:log"
   artifact_log: "docs/debug-kb/_artifacts/2026-02-27-15-41-34.vue-tsc-b.log"
+- id: 41fece39
+  title: lint:log fails on existing repository-wide ESLint baseline violations
+  status: "🟡 workaround"
+  date: "2026-03-11"
+  fingerprint: "41fece39"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-11-21-12-30.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 5a37fca9
+  title: RegisterView public signup test fails because privileged roles are still exposed
+  status: "✅ fixed"
+  date: "2026-03-11"
+  fingerprint: "5a37fca9"
+  command: "npm run test:log -- --run tests/unit/RegisterView.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-11-20-58-03.vitest-run-tests-unit-RegisterView-test-ts.log"
+- id: 5658dd8b
+  title: volunteerAccessCore unit test fails because the module does not exist yet
+  status: "✅ fixed"
+  date: "2026-03-11"
+  fingerprint: "5658dd8b"
+  command: "npm run test:log -- --run tests/unit/volunteerAccessCore.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-11-21-24-29.vitest-run-tests-unit-volunteerAccessCore-test-ts.log"
+- id: 15848fde
+  title: functions build fails when volunteer session payload narrowing leaves numeric fields possibly undefined
+  status: "✅ fixed"
+  date: "2026-03-11"
+  fingerprint: "15848fde"
+  command: "npm --prefix functions run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-11-21-27-13.tsc.log"
+- id: 79014fe4
+  title: Task 3 volunteer route tests fail before store/view/router scaffolding exists
+  status: "✅ fixed"
+  date: "2026-03-11"
+  fingerprint: "79014fe4"
+  command: "npm run test:log -- --run tests/unit/volunteerAccessStore.test.ts tests/unit/VolunteerAccessView.test.ts tests/unit/router-guards-auth.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-11-21-34-00.vitest-run-tests-unit-volunteerAccessStore-test-ts.log"
+- id: 8d999250
+  title: build:log fails when VolunteerLayout null handling is not explicit
+  status: "✅ fixed"
+  date: "2026-03-11"
+  fingerprint: "8d999250"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-11-21-43-36.vue-tsc-b.log"

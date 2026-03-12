@@ -38,6 +38,7 @@ import {
 import { useAdvanceWinner } from '@/composables/useAdvanceWinner';
 import { useAuthStore } from '@/stores/auth';
 import { useAuditStore } from '@/stores/audit';
+import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import {
   saveManualPlannedTime as saveManualPlannedTimeOp,
   publishMatchSchedule as publishMatchScheduleOp,
@@ -45,6 +46,7 @@ import {
 import type { ScoreCorrectionRecord } from '@/types/scoring';
 
 const USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER = false;
+type VolunteerMatchUpdateStatus = 'in_progress' | 'completed' | 'walkover';
 
 // --- Shared helpers (pure, no store dependency) ---
 
@@ -156,6 +158,66 @@ export const useMatchStore = defineStore('matches', () => {
   function courtsPath(tournamentId: string): string {
     return `tournaments/${tournamentId}/courts`;
   }
+
+  const getVolunteerSessionToken = (
+    tournamentId: string,
+    role: 'checkin' | 'scorekeeper',
+  ): string | null => {
+    const volunteerAccessStore = useVolunteerAccessStore();
+    if (!volunteerAccessStore.hasValidSession(tournamentId, role)) {
+      return null;
+    }
+
+    return volunteerAccessStore.currentSession?.sessionToken ?? null;
+  };
+
+  const resolveMatchScope = (
+    matchId: string,
+    categoryId?: string,
+    levelId?: string,
+  ): { categoryId?: string; levelId?: string } => {
+    const match = currentMatch.value?.id === matchId
+      ? currentMatch.value
+      : matches.value.find((candidate) => candidate.id === matchId);
+
+    return {
+      categoryId: categoryId ?? match?.categoryId,
+      levelId: levelId ?? match?.levelId,
+    };
+  };
+
+  const applyVolunteerMatchUpdate = async (input: {
+    tournamentId: string;
+    matchId: string;
+    status: VolunteerMatchUpdateStatus;
+    scores: GameScore[];
+    winnerId?: string;
+    categoryId?: string;
+    levelId?: string;
+  }): Promise<boolean> => {
+    const sessionToken = getVolunteerSessionToken(input.tournamentId, 'scorekeeper');
+    if (!sessionToken) {
+      return false;
+    }
+
+    const scope = resolveMatchScope(input.matchId, input.categoryId, input.levelId);
+    if (!scope.categoryId) {
+      throw new Error('categoryId is required for volunteer scoring updates');
+    }
+
+    const updateMatchFn = httpsCallable(functions, 'updateMatch');
+    await updateMatchFn({
+      tournamentId: input.tournamentId,
+      categoryId: scope.categoryId,
+      levelId: scope.levelId,
+      matchId: input.matchId,
+      status: input.status,
+      scores: input.scores,
+      winnerId: input.winnerId,
+      sessionToken,
+    });
+    return true;
+  };
 
   // --- Interfaces ---
 
@@ -872,6 +934,18 @@ export const useMatchStore = defineStore('matches', () => {
       isComplete: false,
     }];
 
+    const usedVolunteerCallable = await applyVolunteerMatchUpdate({
+      tournamentId,
+      matchId,
+      categoryId,
+      levelId,
+      status: 'in_progress',
+      scores: initialScores,
+    });
+    if (usedVolunteerCallable) {
+      return;
+    }
+
     await setDoc(
       doc(db, matchScoresPath, matchId),
       {
@@ -924,6 +998,18 @@ export const useMatchStore = defineStore('matches', () => {
       return;
     }
 
+    const usedVolunteerCallable = await applyVolunteerMatchUpdate({
+      tournamentId,
+      matchId,
+      categoryId,
+      levelId,
+      status: 'in_progress',
+      scores,
+    });
+    if (usedVolunteerCallable) {
+      return;
+    }
+
     const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
     await setDoc(
       doc(db, matchScoresPath, matchId),
@@ -952,6 +1038,18 @@ export const useMatchStore = defineStore('matches', () => {
       currentGame.score2--;
     }
 
+    const usedVolunteerCallable = await applyVolunteerMatchUpdate({
+      tournamentId,
+      matchId,
+      categoryId,
+      levelId,
+      status: 'in_progress',
+      scores,
+    });
+    if (usedVolunteerCallable) {
+      return;
+    }
+
     const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
     await setDoc(
       doc(db, matchScoresPath, matchId),
@@ -968,6 +1066,19 @@ export const useMatchStore = defineStore('matches', () => {
     categoryId?: string,
     levelId?: string
   ): Promise<void> {
+    const usedVolunteerCallable = await applyVolunteerMatchUpdate({
+      tournamentId,
+      matchId,
+      categoryId,
+      levelId,
+      status: 'completed',
+      scores,
+      winnerId,
+    });
+    if (usedVolunteerCallable) {
+      return;
+    }
+
     const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
     // 1. Get current match data to find courtId
@@ -1025,6 +1136,19 @@ export const useMatchStore = defineStore('matches', () => {
       winnerId,
       isComplete: true,
     }];
+
+    const usedVolunteerCallable = await applyVolunteerMatchUpdate({
+      tournamentId,
+      matchId,
+      categoryId,
+      levelId,
+      status: 'walkover',
+      scores: walkoverScores,
+      winnerId,
+    });
+    if (usedVolunteerCallable) {
+      return;
+    }
 
     // Get courtId before completing
     const matchDoc = await getDoc(doc(db, matchScoresPath, matchId));
@@ -1194,6 +1318,18 @@ export const useMatchStore = defineStore('matches', () => {
     if (result.isComplete && result.winnerId) {
       await completeMatch(tournamentId, matchId, games, result.winnerId, categoryId, levelId);
     } else {
+      const usedVolunteerCallable = await applyVolunteerMatchUpdate({
+        tournamentId,
+        matchId,
+        categoryId,
+        levelId,
+        status: 'in_progress',
+        scores: games,
+      });
+      if (usedVolunteerCallable) {
+        return;
+      }
+
       const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
       await setDoc(
         doc(db, matchScoresPath, matchId),

@@ -50,6 +50,11 @@ export interface FrontDeskStats {
   ratePercent: number;
 }
 
+export interface FrontDeskThroughput {
+  checkInsLastFiveMinutes: number;
+  avgSecondsPerCheckIn: number;
+}
+
 export const computeFrontDeskStats = (input: FrontDeskStatsInput): FrontDeskStats => {
   const approvedTotal = input.approved + input.checkedIn + input.noShow;
   const ratePercent = approvedTotal > 0 ? Math.round((input.checkedIn / approvedTotal) * 100) : 0;
@@ -248,6 +253,7 @@ const isCheckInEligibleRegistration = (
   isCheckInSearchableStatus(registration.status);
 
 const normalizeText = (value: string): string => value.trim().toLowerCase();
+const THROUGHPUT_WINDOW_MS = 5 * 60_000;
 
 export const findRegistrationByTypedQuery = (
   query: string,
@@ -284,16 +290,19 @@ export const useFrontDeskCheckInWorkflow = (
   recentItems: ComputedRef<FrontDeskRecentItem[]>;
   bulkRows: ComputedRef<FrontDeskBulkRow[]>;
   stats: ComputedRef<FrontDeskStats>;
+  throughput: ComputedRef<FrontDeskThroughput>;
   bulkUndoToken: Ref<BulkUndoToken | null>;
   processScan: (raw: string, scanOptions?: ProcessScanOptions) => Promise<ProcessScanResult>;
   checkInOne: (registrationId: string, bibStartFrom?: number) => Promise<ProcessScanResult>;
   bulkCheckIn: (registrationIds: string[], bibStartFrom?: number) => Promise<BulkCheckInResult>;
   undoItem: (registrationId: string) => Promise<void>;
+  undoLatest: () => Promise<void>;
   undoBulk: () => Promise<BatchRunResult>;
 } => {
   const undoState = createUndoState();
   const nowMs = ref(Date.now());
   const recentRecords = ref<FrontDeskRecentRecord[]>([]);
+  const checkInTimestamps = ref<number[]>([]);
   const bulkUndoToken = ref<BulkUndoToken | null>(null);
 
   let tickTimer: ReturnType<typeof setInterval> | null = null;
@@ -320,6 +329,28 @@ export const useFrontDeskCheckInWorkflow = (
     const checkedIn = eligibleRegistrations.value.filter((registration) => registration.status === 'checked_in').length;
     const noShow = eligibleRegistrations.value.filter((registration) => registration.status === 'no_show').length;
     return computeFrontDeskStats({ approved, checkedIn, noShow });
+  });
+
+  const throughput = computed<FrontDeskThroughput>(() => {
+    const windowStartMs = nowMs.value - THROUGHPUT_WINDOW_MS;
+    const recentWindow = checkInTimestamps.value
+      .filter((timestamp) => timestamp >= windowStartMs)
+      .sort((a, b) => a - b);
+
+    if (recentWindow.length < 2) {
+      return {
+        checkInsLastFiveMinutes: recentWindow.length,
+        avgSecondsPerCheckIn: 0,
+      };
+    }
+
+    const totalDurationMs = recentWindow[recentWindow.length - 1] - recentWindow[0];
+    const avgSecondsPerCheckIn = Math.round(totalDurationMs / (recentWindow.length - 1) / 1000);
+
+    return {
+      checkInsLastFiveMinutes: recentWindow.length,
+      avgSecondsPerCheckIn,
+    };
   });
 
   const urgentItems = computed<FrontDeskUrgentItem[]>(() => {
@@ -363,8 +394,9 @@ export const useFrontDeskCheckInWorkflow = (
         };
       })
       .sort((a, b) => {
+        if (a.startAtMs !== b.startAtMs) return a.startAtMs - b.startAtMs;
         if (a.canCheckIn !== b.canCheckIn) return a.canCheckIn ? -1 : 1;
-        return a.startAtMs - b.startAtMs;
+        return a.title.localeCompare(b.title);
       })
       .map(({ startAtMs, ...item }) => item);
   });
@@ -450,6 +482,11 @@ export const useFrontDeskCheckInWorkflow = (
     };
 
     recentRecords.value = [nextRecord, ...recentRecords.value.filter((record) => record.id !== registration.id)].slice(0, 5);
+    const minTimestamp = token.createdAtMs - THROUGHPUT_WINDOW_MS;
+    checkInTimestamps.value = [
+      ...checkInTimestamps.value.filter((timestamp) => timestamp >= minTimestamp),
+      token.createdAtMs,
+    ];
   };
 
   const checkInOne = async (registrationId: string, bibStartFrom = 101): Promise<ProcessScanResult> => {
@@ -497,6 +534,12 @@ export const useFrontDeskCheckInWorkflow = (
     recentRecords.value = recentRecords.value.filter((record) => record.id !== registrationId);
   };
 
+  const undoLatest = async (): Promise<void> => {
+    const latestUndoable = recentItems.value.find((item) => item.canUndo);
+    if (!latestUndoable) throw new Error('No recent check-in available to undo');
+    await undoItem(latestUndoable.id);
+  };
+
   const undoBulk = async (): Promise<BatchRunResult> => {
     if (!bulkUndoToken.value) throw new Error('No bulk undo available');
     if (bulkUndoToken.value.expiresAtMs <= nowMs.value) {
@@ -518,11 +561,13 @@ export const useFrontDeskCheckInWorkflow = (
     recentItems,
     bulkRows,
     stats,
+    throughput,
     bulkUndoToken,
     processScan,
     checkInOne,
     bulkCheckIn,
     undoItem,
+    undoLatest,
     undoBulk,
   };
 };

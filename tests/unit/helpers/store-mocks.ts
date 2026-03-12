@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { User, UserRole } from '@/types';
+import type { User, UserRole, VolunteerRole, VolunteerSession } from '@/types';
 
 export interface MockAuthStore {
   currentUser: User | null;
@@ -16,6 +16,14 @@ export interface MockAuthStore {
 
 export interface MockNotificationStore {
   showToast: ReturnType<typeof vi.fn>;
+}
+
+export interface MockVolunteerAccessStore {
+  currentSession: VolunteerSession | null;
+  hasValidSession: ReturnType<typeof vi.fn>;
+  requestSession: ReturnType<typeof vi.fn>;
+  setSession: ReturnType<typeof vi.fn>;
+  clearSession: ReturnType<typeof vi.fn>;
 }
 
 const buildMockUser = (role: UserRole): User => ({
@@ -65,3 +73,27 @@ export const createNotificationStoreMock = (
 ): MockNotificationStore => ({
   showToast: overrides.showToast ?? vi.fn(),
 });
+
+const buildVolunteerSession = (
+  role: VolunteerRole = 'checkin',
+): VolunteerSession => ({
+  tournamentId: 't1',
+  role,
+  sessionToken: 'signed-token',
+  pinRevision: 1,
+  expiresAtMs: Date.now() + 60_000,
+});
+
+export const createVolunteerAccessStoreMock = (
+  overrides: Partial<MockVolunteerAccessStore> = {},
+): MockVolunteerAccessStore => {
+  const currentSession = overrides.currentSession ?? buildVolunteerSession();
+
+  return {
+    currentSession,
+    hasValidSession: overrides.hasValidSession ?? vi.fn().mockReturnValue(Boolean(currentSession)),
+    requestSession: overrides.requestSession ?? vi.fn().mockResolvedValue(currentSession),
+    setSession: overrides.setSession ?? vi.fn(),
+    clearSession: overrides.clearSession ?? vi.fn(),
+  };
+};

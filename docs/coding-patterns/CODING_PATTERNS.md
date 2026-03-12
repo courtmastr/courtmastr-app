@@ -2800,6 +2800,339 @@ rg -n "hasVisibleScheduleActivity|shouldShowUnpublishedScheduleAlert" src/featur
 
 ---
 
+### CP-057: Queue Wait Labels Must Use Timestamp Fallbacks and Numeric Output
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-03 |
+| **Source Bug** | Match queue rows could render `Waited` with no duration when `queuedAt` was missing, blocking manual urgency-threshold validation |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+function getWaitTime(match: Match): string {
+  if (!match.queuedAt) return '';
+  const minutes = differenceInMinutes(new Date(), match.queuedAt);
+  if (minutes < 1) return 'Just now';
+  return `${minutes} min`;
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+function getQueueTimestamp(match: Match): Date | undefined {
+  return match.queuedAt ?? match.plannedStartAt ?? match.scheduledTime;
+}
+
+function getWaitMinutes(match: Match): number {
+  const queueTimestamp = getQueueTimestamp(match);
+  if (!queueTimestamp) return 0;
+  return Math.max(0, differenceInMinutes(new Date(), queueTimestamp));
+}
+
+function getWaitTime(match: Match): string {
+  const minutes = getWaitMinutes(match);
+  if (minutes < 1) return '0 min';
+  return `${minutes} min`;
+}
+```
+
+**Rule:** Match queue wait display and urgency inputs must never depend exclusively on `queuedAt`; use `queuedAt ?? plannedStartAt ?? scheduledTime`, clamp negatives to `0`, and always render a numeric wait label.
+
+**Detection:**
+```bash
+if rg -n "if \\(!match\\.queuedAt\\) return '';" src/features/tournaments/components/MatchQueueList.vue; then
+  echo "Violation: queue wait label can render blank text"
+fi
+rg -n "getQueueTimestamp|plannedStartAt \\?\\? match\\.scheduledTime|Math.max\\(0, differenceInMinutes\\(" src/features/tournaments/components/MatchQueueList.vue
+```
+
+---
+
+### CP-058: Pinia Firestore Mutations Must Keep Local Reactive Collections in Sync
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-04 |
+| **Source Bug** | Category/Court UI stayed stale after add/update/maintenance actions because Firestore writes succeeded but local `categories`/`courts` refs were not updated |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+async function addCourt(tournamentId: string, courtData: CourtInput): Promise<string> {
+  const docRef = await addDoc(collection(db, `tournaments/${tournamentId}/courts`), courtData);
+  return docRef.id; // UI stays stale unless a separate fetch/subscription runs
+}
+
+async function setCourtMaintenance(tournamentId: string, courtId: string): Promise<void> {
+  await updateDoc(doc(db, `tournaments/${tournamentId}/courts`, courtId), { status: 'maintenance' });
+  // no local courts.value update
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+const createdAt = new Date();
+courts.value = [...courts.value, {
+  id: docRef.id,
+  tournamentId,
+  name: courtData.name,
+  number: courtData.number,
+  status: 'available',
+  createdAt,
+  updatedAt: createdAt,
+}];
+
+courts.value = courts.value.map((court) =>
+  court.id === courtId
+    ? { ...court, status: 'maintenance', currentMatchId: undefined, updatedAt: new Date() }
+    : court
+);
+```
+
+**Rule:** Any Pinia action that writes to Firestore collections backing active UI lists must either (1) maintain a guaranteed live subscription for that view or (2) apply a local reactive sync update (`categories.value` / `courts.value`) in the same action path.
+
+**Detection:**
+```bash
+rg -n "categories\\.value = \\[\\.\\.\\.categories\\.value, optimisticCategory\\]" src/stores/tournaments.ts
+rg -n "courts\\.value = \\[\\.\\.\\.courts\\.value, optimisticCourt\\]" src/stores/tournaments.ts
+rg -n "courts\\.value = courts\\.value\\.map\\(" src/stores/tournaments.ts
+```
+
+---
+
+### CP-059: E2E Auth Redirect Assertions Must Use URL Pattern Matching
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-04 |
+| **Source Bug** | E2E suites intermittently failed after login because tests waited for exact `'/tournaments'` while app redirects could include query/path variants (for example `/tournaments?foo=bar` or `/tournaments/...`) |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await page.getByRole('button', { name: 'Sign In' }).click();
+await page.waitForURL('/tournaments', { timeout: 10000 });
+```
+
+**Correct Pattern (✅):**
+```typescript
+await page.getByRole('button', { name: 'Sign In' }).click();
+await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 15000 });
+```
+
+**Rule:** E2E authentication flows must not assert exact post-login URL strings for tournament landing. Use regex/predicate assertions that accept `/tournaments`, nested tournament routes, and query-bearing redirects.
+
+**Detection:**
+```bash
+rg -n "waitForURL\\('/tournaments'|waitForURL\\(\"/tournaments\"" e2e
+```
+
+---
+
+### CP-060: Public Self-Registration Must Remain Player-Safe
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-11 |
+| **Source Bug** | Public registration exposed organizer and scorekeeper role selection, allowing privileged-looking account creation from `/register` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const selectedRole = ref('player');
+
+const roleOptions = [
+  { title: 'Player', value: 'player', description: 'Participate in tournaments' },
+  { title: 'Tournament Organizer', value: 'organizer', description: 'Create and manage tournaments' },
+  { title: 'Scorekeeper', value: 'scorekeeper', description: 'Record match scores' },
+];
+```
+```vue
+<v-select
+  v-model="selectedRole"
+  :items="roleOptions"
+  label="I am a..."
+/>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const selectedRole = ref<UserRole>('player');
+```
+```vue
+<v-alert type="info" variant="tonal" class="mb-3">
+  Player accounts are created here. Staff and volunteer access is issued from tournament settings.
+</v-alert>
+```
+
+**Rule:** The public `/register` flow may create player accounts only. Do not render organizer, scorekeeper, or other privileged role selection in public self-registration. Staff and volunteer access must be issued through staff-managed flows.
+
+**Detection:**
+```bash
+if rg -n "Tournament Organizer|Scorekeeper|value: 'organizer'|value: 'scorekeeper'" src/features/auth/views/RegisterView.vue; then
+  echo "Violation: privileged roles exposed in public registration"
+fi
+rg -n "const selectedRole = ref<UserRole>\\('player'\\)|Player accounts are created here" src/features/auth/views/RegisterView.vue
+```
+
+---
+
+### CP-061: Volunteer Kiosk Mutations Must Use Callable Session Paths
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-11 |
+| **Source Bug** | Volunteer routes could still mutate registrations and match scores through direct Firestore client writes, bypassing the tournament PIN session model |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await updateDoc(
+  doc(db, `tournaments/${tournamentId}/registrations`, registrationId),
+  { status: 'checked_in', updatedAt: serverTimestamp() },
+);
+
+await setDoc(
+  doc(db, matchScoresPath, matchId),
+  { scores, status: 'completed', winnerId, updatedAt: serverTimestamp() },
+  { merge: true },
+);
+```
+
+**Correct Pattern (✅):**
+```typescript
+const sessionToken = getVolunteerSessionToken(tournamentId, 'checkin');
+if (sessionToken) {
+  const volunteerCheckInFn = httpsCallable(functions, 'applyVolunteerCheckInAction');
+  await volunteerCheckInFn({ tournamentId, registrationId, action: 'check_in', sessionToken });
+  return;
+}
+
+const scorekeeperToken = getVolunteerSessionToken(tournamentId, 'scorekeeper');
+if (scorekeeperToken) {
+  const updateMatchFn = httpsCallable(functions, 'updateMatch');
+  await updateMatchFn({
+    tournamentId,
+    categoryId,
+    matchId,
+    status: 'in_progress',
+    scores,
+    sessionToken: scorekeeperToken,
+  });
+  return;
+}
+```
+
+**Rule:** Any mutation triggered from check-in or scorekeeper volunteer sessions must go through a callable that validates the tournament-scoped session token. Direct Firestore writes remain acceptable only for authenticated staff paths.
+
+**Detection:**
+```bash
+rg -n "applyVolunteerCheckInAction|applyVolunteerMatchUpdate|getVolunteerSessionToken" src/stores/registrations.ts src/stores/matches.ts
+```
+
+---
+
+### CP-062: Bracket Primary ID Queries Must Preserve Numeric IDs
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-11 |
+| **Source Bug** | Volunteer score submissions reached `updateMatch`, but the Cloud Function storage adapter queried bracket matches with string IDs while Firestore stored primary `id` fields as numbers |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (typeof arg === 'number' || typeof arg === 'string') {
+  const snapshot = await this.getCollectionRef(table)
+    .where('id', '==', String(arg))
+    .get();
+}
+
+for (const [key, val] of Object.entries(arg)) {
+  const queryVal = (key.endsWith('_id') || key === 'id') ? String(val) : val;
+  query = query.where(key, '==', queryVal);
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+private normalizeQueryValue(key: string, value: unknown): unknown {
+  if (key === 'id' && typeof value === 'string' && /^\\d+$/.test(value)) {
+    return Number.parseInt(value, 10);
+  }
+
+  if (key.endsWith('_id')) {
+    return value === null ? value : String(value);
+  }
+
+  return value;
+}
+
+query = query.where('id', '==', this.normalizeQueryValue('id', arg));
+```
+
+**Rule:** In bracket storage adapters, primary `id` queries must match the stored type. Numeric bracket IDs must stay numeric for `id` lookups, while foreign-key `*_id` fields may still be normalized to strings.
+
+**Detection:**
+```bash
+rg -n "where\\('id', '==', String\\(arg\\)\\)|key === 'id'\\) \\? String\\(val\\)|normalizeQueryValue" functions/src/storage/firestore-adapter.ts
+```
+
+### CP-063: Bracket Foreign-Key Queries Must Preserve Numeric IDs
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-12 |
+| **Source Bug** | Volunteer manual-score completion returned `Error getting rounds.` after `updateMatch` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (key.endsWith('_id')) {
+  if (value && typeof value === 'object' && 'id' in value) {
+    return String((value as { id?: unknown }).id);
+  }
+
+  return value === null ? value : String(value);
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+const normalizeBracketId = (candidate: unknown): unknown => {
+  if (typeof candidate === 'number') return candidate;
+  if (typeof candidate === 'string' && /^\d+$/.test(candidate)) {
+    return Number.parseInt(candidate, 10);
+  }
+  return candidate === null ? candidate : String(candidate);
+};
+
+if (key.endsWith('_id')) {
+  if (value && typeof value === 'object' && 'id' in value) {
+    return normalizeBracketId((value as { id?: unknown }).id);
+  }
+
+  return normalizeBracketId(value);
+}
+```
+
+**Rule:** In the server `FirestoreStorage` adapter, bracket-manager foreign-key filters such as `stage_id`, `group_id`, and `round_id` must preserve numeric IDs when the stored documents use numeric bracket IDs. Converting them to strings breaks `BracketsManager.update.match()` and similar traversal queries.
+
+**Detection:**
+```bash
+rg -n "key\\.endsWith\\('_id'\\).*String\\(|return value === null \\? value : String\\(value\\)" functions/src/storage/firestore-adapter.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

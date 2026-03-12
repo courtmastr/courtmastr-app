@@ -8,7 +8,7 @@ async function login(page: import('@playwright/test').Page, email: string, passw
   await page.getByLabel('Email').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole('button', { name: 'Sign In' }).click();
-  await page.waitForURL('/tournaments', { timeout: 15000 });
+  await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 15000 });
 }
 
 test.describe('P0 - Auth and Role Guards', () => {

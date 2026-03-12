@@ -19,8 +19,11 @@ test.describe('User Registration (/register)', () => {
     await expect(page.getByLabel('Confirm Password')).toBeVisible();
   });
 
-  test('should show role selector', async ({ page }) => {
-    await expect(page.getByLabel(/i am a/i)).toBeVisible();
+  test('should limit public signup to player accounts', async ({ page }) => {
+    await expect(page.getByText(/player accounts are created here/i)).toBeVisible();
+    await expect(page.getByLabel(/i am a/i)).toHaveCount(0);
+    await expect(page.getByText(/tournament organizer/i)).toHaveCount(0);
+    await expect(page.getByText(/scorekeeper/i)).toHaveCount(0);
   });
 
   test('should have terms checkbox', async ({ page }) => {
@@ -84,7 +87,7 @@ test.describe('User Registration (/register)', () => {
     await page.getByRole('button', { name: /create account/i }).click();
 
     // Should redirect to /tournaments
-    await page.waitForURL('/tournaments', { timeout: 15000 });
+    await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 15000 });
     await expect(page).toHaveURL('/tournaments');
   });
 

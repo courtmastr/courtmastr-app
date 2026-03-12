@@ -8,6 +8,7 @@ const mockDeps = vi.hoisted(() => ({
   checkInOne: vi.fn(),
   bulkCheckIn: vi.fn(),
   undoItem: vi.fn(),
+  undoLatest: vi.fn(),
   undoBulk: vi.fn(),
   showToast: vi.fn(),
   routerPush: vi.fn(),
@@ -89,11 +90,16 @@ vi.mock('@/features/checkin/composables/useFrontDeskCheckInWorkflow', () => ({
       noShow: 0,
       ratePercent: 0,
     }),
+    throughput: ref({
+      checkInsLastFiveMinutes: 0,
+      avgSecondsPerCheckIn: 0,
+    }),
     bulkUndoToken: ref(null),
     processScan: mockDeps.processScan,
     checkInOne: mockDeps.checkInOne,
     bulkCheckIn: mockDeps.bulkCheckIn,
     undoItem: mockDeps.undoItem,
+    undoLatest: mockDeps.undoLatest,
     undoBulk: mockDeps.undoBulk,
   }),
 }));
@@ -123,6 +129,7 @@ interface FrontDeskVm {
   selectedIds: string[];
   handleBulkCheckIn: () => Promise<void>;
   handleScanSubmit: (raw: string) => Promise<void>;
+  handleUndoLatestShortcut: () => Promise<void>;
 }
 
 describe('FrontDeskCheckInView', () => {
@@ -139,6 +146,7 @@ describe('FrontDeskCheckInView', () => {
       bulkUndoToken: null,
     });
     mockDeps.undoItem.mockReset().mockResolvedValue(undefined);
+    mockDeps.undoLatest.mockReset().mockResolvedValue(undefined);
     mockDeps.undoBulk.mockReset().mockResolvedValue({ successIds: ['reg-1'], failed: [] });
     mockDeps.showToast.mockReset();
     mockDeps.routerPush.mockReset();
@@ -177,5 +185,15 @@ describe('FrontDeskCheckInView', () => {
       'error',
       'Multiple participants match this name. Type more of the name or use bib number.'
     );
+  });
+
+  it('uses workflow undoLatest for keyboard shortcut path', async () => {
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as FrontDeskVm;
+
+    await vm.handleUndoLatestShortcut();
+
+    expect(mockDeps.undoLatest).toHaveBeenCalledTimes(1);
+    expect(mockDeps.showToast).toHaveBeenCalledWith('success', 'Last check-in undone');
   });
 });

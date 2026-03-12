@@ -2,6 +2,8 @@
 import { computed, onUnmounted, ref, useTemplateRef } from 'vue';
 import { useRoute } from 'vue-router';
 import type { SelfCheckInCandidate } from '@/features/checkin/composables/useSelfCheckIn';
+import { rankItemsByQuery } from '@/features/checkin/composables/checkInSearchUtils';
+import { useActiveIndexNavigation } from '@/features/checkin/composables/useActiveIndexNavigation';
 import { useSelfCheckIn } from '@/features/checkin/composables/useSelfCheckIn';
 
 const route = useRoute();
@@ -17,10 +19,36 @@ let searchDebounceTimer: number | null = null;
 let autoResetTimer: number | null = null;
 
 const { candidates, loading, submitting, error, search, submit } = useSelfCheckIn(tournamentId.value);
+const {
+  activeIndex: activeCandidateIndex,
+  resetActiveIndex,
+  setActiveIndex,
+  moveActiveIndex,
+} = useActiveIndexNavigation();
 
-const canCheckInMe = computed(() => Boolean(selected.value?.playerId));
+const displayCandidates = computed<SelfCheckInCandidate[]>(() => {
+  if (query.value.trim().length < 2) return [];
+  return rankItemsByQuery({
+    items: candidates.value,
+    query: query.value,
+    getSearchText: (candidate) =>
+      `${candidate.displayName} ${candidate.partnerName} ${candidate.categoryName}`,
+    limit: 6,
+  });
+});
+
+const hasMultipleMatches = computed(
+  () => query.value.trim().length >= 2 && displayCandidates.value.length > 1
+);
+const selectedAlreadyCheckedIn = computed(() => selected.value?.status === 'checked_in');
+
+const canCheckInMe = computed(
+  () => Boolean(selected.value?.playerId) && !selectedAlreadyCheckedIn.value && !submitting.value
+);
 const canCheckInMeAndPartner = computed(() =>
-  Boolean(selected.value?.playerId && selected.value?.partnerPlayerId)
+  Boolean(selected.value?.playerId && selected.value?.partnerPlayerId) &&
+  !selectedAlreadyCheckedIn.value &&
+  !submitting.value
 );
 
 const clearTimers = (): void => {
@@ -38,6 +66,7 @@ const resetToSearch = (): void => {
   selected.value = null;
   query.value = '';
   feedback.value = '';
+  resetActiveIndex();
   void search('');
   window.requestAnimationFrame(() => {
     searchInputRef.value?.focus?.();
@@ -48,12 +77,13 @@ const scheduleAutoReset = (): void => {
   if (autoResetTimer !== null) window.clearTimeout(autoResetTimer);
   autoResetTimer = window.setTimeout(() => {
     resetToSearch();
-  }, 1200);
+  }, 1800);
 };
 
 const handleSearchInput = (value: string): void => {
   feedback.value = '';
   selected.value = null;
+  resetActiveIndex();
 
   if (searchDebounceTimer !== null) window.clearTimeout(searchDebounceTimer);
 
@@ -67,9 +97,51 @@ const handleSearchInput = (value: string): void => {
   }, 180);
 };
 
-const selectCandidate = (candidate: SelfCheckInCandidate): void => {
+const selectCandidate = (candidate: SelfCheckInCandidate, index = -1): void => {
   selected.value = candidate;
   feedback.value = '';
+  if (index >= 0) {
+    setActiveIndex(index, displayCandidates.value.length);
+  }
+};
+
+const selectCandidateByIndex = (index: number): void => {
+  const candidate = displayCandidates.value[index];
+  if (!candidate) return;
+  selectCandidate(candidate, index);
+};
+
+const handleSearchKeydown = (event: KeyboardEvent): void => {
+  if (displayCandidates.value.length === 0) return;
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    moveActiveIndex(1, displayCandidates.value.length);
+    if (activeCandidateIndex.value >= 0) {
+      selectCandidateByIndex(activeCandidateIndex.value);
+    }
+    return;
+  }
+
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    moveActiveIndex(-1, displayCandidates.value.length);
+    if (activeCandidateIndex.value >= 0) {
+      selectCandidateByIndex(activeCandidateIndex.value);
+    }
+    return;
+  }
+
+  if (event.key === 'Enter' && activeCandidateIndex.value >= 0) {
+    event.preventDefault();
+    selectCandidateByIndex(activeCandidateIndex.value);
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    resetToSearch();
+  }
 };
 
 const runSubmit = async (participantIds: string[]): Promise<void> => {
@@ -83,16 +155,19 @@ const runSubmit = async (participantIds: string[]): Promise<void> => {
 
     if (result.waitingForPartner) {
       feedbackType.value = 'info';
-      feedback.value = `${selected.value.displayName} marked present. Waiting for partner to complete check-in.`;
+      feedback.value = `${selected.value.displayName} is checked in. Partner still needs to check in.`;
+    } else if (participantIds.length > 1) {
+      feedbackType.value = 'success';
+      feedback.value = `${selected.value.displayName} and partner are checked in.`;
     } else {
       feedbackType.value = 'success';
-      feedback.value = `${selected.value.displayName} check-in complete.`;
+      feedback.value = `${selected.value.displayName} is checked in.`;
     }
 
     scheduleAutoReset();
   } catch (err) {
     feedbackType.value = 'error';
-    feedback.value = error.value || 'Unable to complete check-in.';
+    feedback.value = error.value || 'Unable to complete check-in. Refine your name or ask front desk.';
   }
 };
 
@@ -145,6 +220,7 @@ onUnmounted(() => {
               clearable
               autofocus
               @update:model-value="handleSearchInput"
+              @keydown="handleSearchKeydown"
             />
 
             <div
@@ -152,6 +228,13 @@ onUnmounted(() => {
               class="text-caption text-medium-emphasis mb-3"
             >
               Type at least 2 characters to search.
+            </div>
+
+            <div
+              v-else-if="hasMultipleMatches"
+              class="text-caption text-medium-emphasis mb-3"
+            >
+              Multiple similar names found. Use ↑/↓ and Enter or tap the exact participant.
             </div>
 
             <v-progress-linear
@@ -180,20 +263,26 @@ onUnmounted(() => {
             </v-alert>
 
             <v-list
-              v-if="candidates.length > 0"
+              v-if="displayCandidates.length > 0"
               lines="two"
               class="mb-4"
               border
               rounded="lg"
             >
               <v-list-item
-                v-for="candidate in candidates"
+                v-for="(candidate, index) in displayCandidates"
                 :key="candidate.registrationId"
-                :active="selected?.registrationId === candidate.registrationId"
+                :active="selected?.registrationId === candidate.registrationId || activeCandidateIndex === index"
                 rounded="lg"
-                @click="selectCandidate(candidate)"
+                @click="selectCandidate(candidate, index)"
               >
                 <v-list-item-title>
+                  <span
+                    v-if="selected?.registrationId === candidate.registrationId || activeCandidateIndex === index"
+                    class="self-checkin-view__selected-indicator"
+                  >
+                    Selected •
+                  </span>
                   {{ candidate.displayName }}
                 </v-list-item-title>
                 <v-list-item-subtitle>
@@ -234,7 +323,16 @@ onUnmounted(() => {
                 {{ selected.categoryName }}
               </div>
 
-              <div class="d-flex flex-wrap ga-2">
+              <v-alert
+                v-if="selectedAlreadyCheckedIn"
+                type="info"
+                variant="tonal"
+                class="mb-4"
+              >
+                This participant is already checked in.
+              </v-alert>
+
+              <div class="self-checkin-view__actions d-flex flex-wrap ga-2">
                 <v-btn
                   color="success"
                   :disabled="!canCheckInMe"
@@ -247,12 +345,22 @@ onUnmounted(() => {
                 <v-btn
                   v-if="canCheckInMeAndPartner"
                   color="primary"
+                  :disabled="selectedAlreadyCheckedIn"
                   :loading="submitting"
                   prepend-icon="mdi-account-multiple-check"
                   @click="checkInMeAndPartner"
                 >
                   Check In Me + Partner
                 </v-btn>
+              </div>
+              <div class="text-caption text-medium-emphasis mt-3">
+                “Check In Me” marks only your presence.
+              </div>
+              <div
+                v-if="canCheckInMeAndPartner"
+                class="text-caption text-medium-emphasis"
+              >
+                “Check In Me + Partner” submits both players together.
               </div>
             </v-card>
           </v-card-text>
@@ -265,5 +373,17 @@ onUnmounted(() => {
 <style scoped>
 .self-checkin-view {
   min-height: 100vh;
+}
+
+.self-checkin-view__selected-indicator {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--v-theme-primary));
+}
+
+@media (max-width: 600px) {
+  .self-checkin-view__actions .v-btn {
+    width: 100%;
+  }
 }
 </style>

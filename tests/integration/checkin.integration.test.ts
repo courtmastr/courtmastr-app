@@ -66,12 +66,12 @@ describe('check-in integration workflow', () => {
     });
 
     const wrapper = mount(Harness);
-    expect(workflow).not.toBeNull();
-    if (!workflow) {
-      throw new Error('Workflow was not initialized');
-    }
+    // workflow is assigned inside setup() which TypeScript cannot track via control flow;
+    // use non-null assertion since mount() calls setup() synchronously
+    const wf = workflow!;
+    expect(wf).not.toBeNull();
 
-    const bulkResult = await workflow.bulkCheckIn(['reg-1', 'reg-2'], 101);
+    const bulkResult = await wf.bulkCheckIn(['reg-1', 'reg-2'], 101);
     expect(bulkResult.successIds).toEqual(['reg-1']);
     expect(bulkResult.failed).toEqual([
       {
@@ -79,9 +79,9 @@ describe('check-in integration workflow', () => {
         reason: 'registration locked by another station',
       },
     ]);
-    expect(workflow.bulkUndoToken.value?.registrationIds).toEqual(['reg-1']);
+    expect(wf.bulkUndoToken.value?.registrationIds).toEqual(['reg-1']);
 
-    const undoResult: BatchRunResult = await workflow.undoBulk();
+    const undoResult: BatchRunResult = await wf.undoBulk();
     expect(undoResult.successIds).toEqual(['reg-1']);
     expect(undoResult.failed).toEqual([]);
     expect(undoCheckInRegistration).toHaveBeenCalledWith('reg-1');

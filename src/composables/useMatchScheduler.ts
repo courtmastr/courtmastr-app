@@ -259,7 +259,7 @@ export function useMatchScheduler() {
         // TBD matches (no participants) are intentionally included for placeholder slots.
         matches = adaptedMatches.filter(m => {
           const scoreData = matchScoresMap.get(m.id);
-          if (scoreData?.lockedTime === true) return false; // Bug D fix: skip locked matches
+          if (scoreData?.lockedTime === true && scoreData?.plannedStartAt) return false; // Bug D fix: skip locked matches (only when they actually have a time to protect)
 
           if (!isSchedulableMatch(m)) {
             if (isByeMatch(m)) {
@@ -403,7 +403,7 @@ export function useMatchScheduler() {
     categoryId: string,
     matchId: string,
     courtId: string,
-    scheduledTime: Date,
+    _scheduledTime: Date,
     levelId?: string
   ): Promise<void> {
     const matchScoresPath = levelId

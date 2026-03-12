@@ -402,6 +402,20 @@ export const useTournamentStore = defineStore('tournaments', () => {
       await auditStore.logCategoryCreated(tournamentId, docRef.id, categoryData.name, {
         format: categoryData.format,
       });
+
+      const createdAt = new Date();
+      const optimisticCategory: Category = {
+        id: docRef.id,
+        tournamentId,
+        createdAt,
+        updatedAt: createdAt,
+        ...categoryData,
+      };
+
+      if (!categories.value.some((category) => category.id === docRef.id)) {
+        categories.value = [...categories.value, optimisticCategory];
+      }
+
       return docRef.id;
     } catch (err) {
       console.error('Error adding category:', err);
@@ -422,6 +436,15 @@ export const useTournamentStore = defineStore('tournaments', () => {
           updatedAt: serverTimestamp(),
         }
       );
+
+      categories.value = categories.value.map((category) => {
+        if (category.id !== categoryId) return category;
+        return {
+          ...category,
+          ...updates,
+          updatedAt: new Date(),
+        };
+      });
     } catch (err) {
       console.error('Error updating category:', err);
       throw err;
@@ -489,6 +512,22 @@ export const useTournamentStore = defineStore('tournaments', () => {
       );
       const auditStore = useAuditStore();
       await auditStore.logCourtCreated(tournamentId, docRef.id, courtData.name);
+
+      const createdAt = new Date();
+      const optimisticCourt: Court = {
+        id: docRef.id,
+        tournamentId,
+        name: courtData.name,
+        number: courtData.number,
+        status: 'available',
+        createdAt,
+        updatedAt: createdAt,
+      };
+
+      if (!courts.value.some((court) => court.id === docRef.id)) {
+        courts.value = [...courts.value, optimisticCourt];
+      }
+
       return docRef.id;
     } catch (err) {
       console.error('Error adding court:', err);
@@ -509,6 +548,15 @@ export const useTournamentStore = defineStore('tournaments', () => {
           updatedAt: serverTimestamp(),
         }
       );
+
+      courts.value = courts.value.map((court) => {
+        if (court.id !== courtId) return court;
+        return {
+          ...court,
+          ...updates,
+          updatedAt: new Date(),
+        };
+      });
     } catch (err) {
       console.error('Error updating court:', err);
       throw err;
@@ -593,6 +641,37 @@ export const useTournamentStore = defineStore('tournaments', () => {
         }
       );
 
+      const now = new Date();
+      const reassignedCourtMap = new Map<string, string>();
+      for (const reassignedMatch of reassignedMatches) {
+        if (reassignedMatch.newCourtId) {
+          reassignedCourtMap.set(reassignedMatch.newCourtId, reassignedMatch.matchId);
+        }
+      }
+
+      courts.value = courts.value.map((court) => {
+        if (court.id === courtId) {
+          return {
+            ...court,
+            status: 'maintenance',
+            currentMatchId: undefined,
+            updatedAt: now,
+          };
+        }
+
+        const reassignedMatchId = reassignedCourtMap.get(court.id);
+        if (reassignedMatchId) {
+          return {
+            ...court,
+            status: 'in_use',
+            currentMatchId: reassignedMatchId,
+            updatedAt: now,
+          };
+        }
+
+        return court;
+      });
+
       return { reassignedMatches };
     } catch (err) {
       console.error('Error setting court to maintenance:', err);
@@ -614,6 +693,16 @@ export const useTournamentStore = defineStore('tournaments', () => {
           updatedAt: serverTimestamp(),
         }
       );
+
+      courts.value = courts.value.map((court) => {
+        if (court.id !== courtId) return court;
+        return {
+          ...court,
+          status: 'available',
+          currentMatchId: undefined,
+          updatedAt: new Date(),
+        };
+      });
     } catch (err) {
       console.error('Error restoring court from maintenance:', err);
       throw err;

@@ -10,7 +10,7 @@ vi.mock('@/composables/useParticipantResolver', () => ({
 }));
 
 interface QueueVm {
-  sortedMatches: Array<{ id: string; urgency: 'urgent' | 'high' | 'normal' }>;
+  sortedMatches: Array<{ id: string; urgency: 'urgent' | 'high' | 'normal'; waitMinutes: number }>;
 }
 
 const minutesAgo = (minutes: number): Date => new Date(Date.now() - minutes * 60_000);
@@ -83,5 +83,51 @@ describe('MatchQueueList urgency', () => {
     expect(byId.get('m-fresh')).toBe('normal');
     expect(byId.get('m-waiting')).toBe('urgent');
     expect(byId.get('m-long')).toBe('high');
+  });
+
+  it('falls back to planned start time when queuedAt is missing', () => {
+    const wrapper = shallowMount(MatchQueueList, {
+      props: {
+        matches: [
+          {
+            id: 'm-fallback',
+            participant1Id: 'reg-1',
+            participant2Id: 'reg-2',
+            status: 'ready',
+            plannedStartAt: minutesAgo(12),
+          },
+        ],
+        availableCourts: [{ id: 'court-1', name: 'Court 1', number: 1 }],
+        autoAssignEnabled: false,
+        autoStartEnabled: false,
+      },
+      global: {
+        stubs: [
+          'v-card',
+          'v-card-title',
+          'v-divider',
+          'v-card-text',
+          'v-switch',
+          'v-list',
+          'v-list-item',
+          'v-avatar',
+          'v-icon',
+          'v-chip',
+          'v-list-item-title',
+          'v-list-item-subtitle',
+          'v-btn',
+          'v-menu',
+          'v-alert',
+          'v-spacer',
+        ],
+      },
+    });
+
+    const vm = wrapper.vm as unknown as QueueVm;
+    const fallbackMatch = vm.sortedMatches.find((match) => match.id === 'm-fallback');
+
+    expect(fallbackMatch).toBeDefined();
+    expect(fallbackMatch?.waitMinutes).toBe(12);
+    expect(fallbackMatch?.urgency).toBe('urgent');
   });
 });

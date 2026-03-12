@@ -18,6 +18,8 @@ interface Match {
   categoryName?: string;
   round?: number;
   queuedAt?: Date;
+  plannedStartAt?: Date;
+  scheduledTime?: Date;
   status?: string;
 }
 
@@ -48,16 +50,20 @@ const emit = defineEmits<{
 const { getMatchupString } = useParticipantResolver();
 
 function getWaitTime(match: Match): string {
-  if (!match.queuedAt) return '';
-  const minutes = differenceInMinutes(new Date(), match.queuedAt);
-  if (minutes < 1) return 'Just now';
+  const minutes = getWaitMinutes(match);
+  if (minutes < 1) return '0 min';
   if (minutes === 1) return '1 min';
   return `${minutes} min`;
 }
 
+function getQueueTimestamp(match: Match): Date | undefined {
+  return match.queuedAt ?? match.plannedStartAt ?? match.scheduledTime;
+}
+
 function getWaitMinutes(match: Match): number {
-  if (!match.queuedAt) return 0;
-  return differenceInMinutes(new Date(), match.queuedAt);
+  const queueTimestamp = getQueueTimestamp(match);
+  if (!queueTimestamp) return 0;
+  return Math.max(0, differenceInMinutes(new Date(), queueTimestamp));
 }
 
 function getUrgency(match: Match): UrgencyLevel {
@@ -252,7 +258,7 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
                   • Round {{ match.round }}
                 </template>
               </template>
-              <template v-if="match.queuedAt">
+              <template v-if="getQueueTimestamp(match)">
                 <v-chip
                   size="small"
                   :color="getUrgencyColor(match.urgency)"

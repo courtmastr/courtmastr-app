@@ -66,9 +66,13 @@ const mountView = () => shallowMount(SelfCheckInView, {
 });
 
 interface SelfCheckInVm {
+  query: string;
+  selected: SelfCheckInCandidate | null;
+  canCheckInMe: boolean;
   feedback: string;
   feedbackType: 'success' | 'info' | 'error';
-  selectCandidate: (candidate: SelfCheckInCandidate) => void;
+  selectCandidate: (candidate: SelfCheckInCandidate, index?: number) => void;
+  handleSearchKeydown: (event: KeyboardEvent) => void;
   checkInMe: () => Promise<void>;
   checkInMeAndPartner: () => Promise<void>;
 }
@@ -103,7 +107,7 @@ describe('SelfCheckInView', () => {
       participantIds: ['p1'],
     });
     expect(vm.feedbackType).toBe('info');
-    expect(vm.feedback).toContain('Waiting for partner');
+    expect(vm.feedback).toContain('Partner still needs to check in');
   });
 
   it('submits both participant ids for partner check-in path', async () => {
@@ -126,6 +130,45 @@ describe('SelfCheckInView', () => {
       participantIds: ['p1', 'p2'],
     });
     expect(vm.feedbackType).toBe('success');
-    expect(vm.feedback).toContain('check-in complete');
+    expect(vm.feedback).toContain('and partner are checked in');
+  });
+
+  it('uses arrow-key navigation to select matching participants', () => {
+    candidatesRef.value = [
+      baseCandidate,
+      {
+        ...baseCandidate,
+        registrationId: 'reg-2',
+        displayName: 'Aanya Krishnan / Rhea Patel',
+      },
+    ];
+
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as SelfCheckInVm;
+    vm.query = 'aanya';
+
+    vm.handleSearchKeydown({
+      key: 'ArrowDown',
+      preventDefault: vi.fn(),
+    } as unknown as KeyboardEvent);
+    expect(vm.selected?.registrationId).toBe('reg-1');
+
+    vm.handleSearchKeydown({
+      key: 'ArrowDown',
+      preventDefault: vi.fn(),
+    } as unknown as KeyboardEvent);
+    expect(vm.selected?.registrationId).toBe('reg-2');
+  });
+
+  it('disables check-in actions for already checked-in participants', () => {
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as SelfCheckInVm;
+
+    vm.selectCandidate({
+      ...baseCandidate,
+      status: 'checked_in',
+    });
+
+    expect(vm.canCheckInMe).toBe(false);
   });
 });

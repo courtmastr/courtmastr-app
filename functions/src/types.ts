@@ -3,6 +3,29 @@
 
 export type TournamentFormat = 'single_elimination' | 'double_elimination' | 'round_robin' | 'pool_to_elimination';
 export type MatchStatus = 'scheduled' | 'ready' | 'in_progress' | 'completed' | 'walkover' | 'cancelled';
+export type VolunteerRole = 'checkin' | 'scorekeeper';
+export type VolunteerCheckInAction = 'check_in' | 'undo_check_in' | 'assign_bib';
+
+export interface VolunteerSessionPayload {
+  tournamentId: string;
+  role: VolunteerRole;
+  pinRevision: number;
+  issuedAtMs: number;
+  expiresAtMs: number;
+}
+
+export interface VolunteerAccessEntry {
+  encryptedPin: string;
+  enabled: boolean;
+  pinRevision: number;
+  maskedPin?: string;
+  updatedBy?: string;
+}
+
+export interface VolunteerAccessConfig {
+  checkin?: VolunteerAccessEntry;
+  scorekeeper?: VolunteerAccessEntry;
+}
 
 export interface BracketPosition {
   bracket: 'winners' | 'losers' | 'finals';

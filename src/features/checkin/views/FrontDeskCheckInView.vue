@@ -30,6 +30,7 @@ const mode = ref<FrontDeskMode>('rapid');
 const scanLoading = ref(false);
 const bulkLoading = ref(false);
 const selectedIds = ref<string[]>([]);
+const pendingQuickCheckInIds = ref<string[]>([]);
 const bibStartFrom = ref(101);
 
 const scanOverlay = ref<{
@@ -68,6 +69,7 @@ const urgentItems = workflow.urgentItems;
 const recentItems = workflow.recentItems;
 const bulkRows = workflow.bulkRows;
 const stats = workflow.stats;
+const throughput = workflow.throughput;
 const bulkUndoToken = workflow.bulkUndoToken;
 
 const statsTone = computed(() => {
@@ -92,7 +94,7 @@ const toggleSelectRow = (registrationId: string): void => {
   }
 };
 
-  const toggleSelectAll = (): void => {
+const toggleSelectAll = (): void => {
   if (selectedIds.value.length === bulkRows.value.length) {
     selectedIds.value = [];
   } else {
@@ -127,12 +129,17 @@ const handleScanSubmit = async (raw: string): Promise<void> => {
 };
 
 const handleQuickCheckIn = async (registrationId: string): Promise<void> => {
+  if (pendingQuickCheckInIds.value.includes(registrationId)) return;
+
+  pendingQuickCheckInIds.value = [...pendingQuickCheckInIds.value, registrationId];
   try {
     const result = await workflow.checkInOne(registrationId, bibStartFrom.value);
     notificationStore.showToast('success', `${result.name} checked in`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to check in participant';
     notificationStore.showToast('error', message);
+  } finally {
+    pendingQuickCheckInIds.value = pendingQuickCheckInIds.value.filter((id) => id !== registrationId);
   }
 };
 
@@ -186,6 +193,16 @@ const handleBulkUndo = async (): Promise<void> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Bulk undo failed';
     notificationStore.showToast('error', message);
+  }
+};
+
+const handleUndoLatestShortcut = async (): Promise<void> => {
+  try {
+    await workflow.undoLatest();
+    notificationStore.showToast('success', 'Last check-in undone');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to undo last check-in';
+    notificationStore.showToast('warning', message);
   }
 };
 
@@ -291,6 +308,12 @@ onUnmounted(() => {
               {{ stats.ratePercent }}%
             </v-progress-circular>
           </div>
+          <div class="w-100 text-caption text-medium-emphasis mt-1">
+            Last 5 min: {{ throughput.checkInsLastFiveMinutes }}
+            <span v-if="throughput.avgSecondsPerCheckIn > 0">
+              • Avg/check-in: {{ throughput.avgSecondsPerCheckIn }}s
+            </span>
+          </div>
         </v-card-text>
       </v-card>
 
@@ -319,9 +342,11 @@ onUnmounted(() => {
         :recent-items="recentItems"
         :search-rows="bulkRows"
         :loading="scanLoading"
+        :pending-ids="pendingQuickCheckInIds"
         @scan-submit="handleScanSubmit"
         @quick-check-in="handleQuickCheckIn"
         @undo-item="handleUndoItem"
+        @undo-latest-shortcut="handleUndoLatestShortcut"
       />
 
       <bulk-check-in-panel

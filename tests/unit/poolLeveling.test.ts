@@ -21,6 +21,7 @@ function makeParticipant(
     poolRank,
     globalRank,
     seed: null,
+    matchesWon: 0,
     matchPoints: 0,
     winRate: 0,
     pointDifference: 0,

@@ -111,7 +111,7 @@ function canAddGame(): boolean {
             density="compact"
             hide-details
             min="0"
-            @update:model-value="(val) => updateScore(index, 'score1', Number(val))"
+            @update:model-value="(val: string | number) => updateScore(index, 'score1', Number(val))"
           />
         </v-col>
 
@@ -130,7 +130,7 @@ function canAddGame(): boolean {
             density="compact"
             hide-details
             min="0"
-            @update:model-value="(val) => updateScore(index, 'score2', Number(val))"
+            @update:model-value="(val: string | number) => updateScore(index, 'score2', Number(val))"
           />
         </v-col>
 

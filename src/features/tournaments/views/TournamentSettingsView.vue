@@ -4,6 +4,19 @@ import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import { functions, httpsCallable } from '@/services/firebase';
+import type {
+  Category,
+  RankingPresetId,
+  RankingProgressionMode,
+  ScoringConfig,
+  TournamentLogo,
+  TournamentSponsor,
+  TournamentVolunteerAccessEntry,
+  User,
+  VolunteerRole,
+} from '@/types';
+import { SCORING_PRESETS } from '@/types';
 import {
   getTournamentStateLabel,
   normalizeTournamentState,
@@ -16,16 +29,6 @@ import {
   uploadSponsorLogo,
   uploadTournamentLogo,
 } from '@/services/tournamentBrandingStorage';
-import type {
-  Category,
-  RankingPresetId,
-  RankingProgressionMode,
-  ScoringConfig,
-  TournamentLogo,
-  TournamentSponsor,
-  User,
-} from '@/types';
-import { SCORING_PRESETS } from '@/types';
 import { sanitizeScoringConfig } from '@/features/scoring/utils/validation';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import TournamentBrandingCard from '@/features/tournaments/components/TournamentBrandingCard.vue';
@@ -76,6 +79,17 @@ interface TournamentBrandingDraft {
   removeTournamentLogo: boolean;
   sponsors: TournamentSponsor[];
   sponsorLogoFiles: Record<string, File | null>;
+}
+
+interface VolunteerAccessForm {
+  enabled: boolean;
+  pin: string;
+  maskedPin: string;
+  revealedPin: string;
+  showRevealedPin: boolean;
+  pinRevision: number;
+  saving: boolean;
+  revealing: boolean;
 }
 
 const cloneScoringConfig = (config: ScoringConfig): ScoringConfig => ({
@@ -171,6 +185,33 @@ const settings = ref({
 const brandingSponsors = ref<TournamentSponsor[]>([]);
 const brandingTournamentLogo = ref<TournamentLogo | null>(null);
 const brandingDraft = ref<TournamentBrandingDraft>(buildBrandingDraft(null, []));
+const volunteerRoles: VolunteerRole[] = ['checkin', 'scorekeeper'];
+const volunteerRoleLabels: Record<VolunteerRole, string> = {
+  checkin: 'Check-in',
+  scorekeeper: 'Scorekeeper',
+};
+const volunteerAccessForms = ref<Record<VolunteerRole, VolunteerAccessForm>>({
+  checkin: {
+    enabled: false,
+    pin: '',
+    maskedPin: '',
+    revealedPin: '',
+    showRevealedPin: false,
+    pinRevision: 0,
+    saving: false,
+    revealing: false,
+  },
+  scorekeeper: {
+    enabled: false,
+    pin: '',
+    maskedPin: '',
+    revealedPin: '',
+    showRevealedPin: false,
+    pinRevision: 0,
+    saving: false,
+    revealing: false,
+  },
+});
 
 const initialScoringConfig = ref<ScoringConfig>(sanitizeScoringConfig(settings.value));
 const initialRankingDefaults = ref<{
@@ -295,6 +336,19 @@ const cloneCategoryRankingOverrides = (
   });
   return cloned;
 };
+
+const buildVolunteerAccessForm = (
+  entry?: TournamentVolunteerAccessEntry | null,
+): VolunteerAccessForm => ({
+  enabled: entry?.enabled ?? false,
+  pin: '',
+  maskedPin: entry?.maskedPin ?? '',
+  revealedPin: '',
+  showRevealedPin: false,
+  pinRevision: entry?.pinRevision ?? 0,
+  saving: false,
+  revealing: false,
+});
 
 const buildCategoryScoringForm = (category: Category, fallbackConfig: ScoringConfig): CategoryScoringOverrideForm => {
   const effectiveConfig = category.scoringOverrideEnabled
@@ -427,6 +481,10 @@ watch([tournament, categories], ([t, nextCategories]) => {
       brandingTournamentLogo.value,
       brandingSponsors.value
     );
+    volunteerAccessForms.value = {
+      checkin: buildVolunteerAccessForm(t.volunteerAccess?.checkin),
+      scorekeeper: buildVolunteerAccessForm(t.volunteerAccess?.scorekeeper),
+    };
   }
 }, { immediate: true });
 
@@ -651,6 +709,117 @@ async function removeOrganizerFromTournament(userId: string): Promise<void> {
     notificationStore.showToast('error', 'Failed to remove organizer');
   } finally {
     organizerLoading.value = false;
+  }
+}
+const getVolunteerDisplayPin = (role: VolunteerRole): string => {
+  const form = volunteerAccessForms.value[role];
+  if (form.showRevealedPin && form.revealedPin) {
+    return form.revealedPin;
+  }
+
+  if (form.maskedPin) {
+    return form.maskedPin;
+  }
+
+  return form.pinRevision > 0 ? 'Configured' : 'Not set';
+};
+
+const hasVolunteerPinConfigured = (role: VolunteerRole): boolean =>
+  volunteerAccessForms.value[role].pinRevision > 0;
+
+const getVolunteerAccessUrl = (role: VolunteerRole): string => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const suffix = role === 'scorekeeper' ? 'scoring-access' : 'checkin-access';
+  return `${origin}/tournaments/${tournamentId.value}/${suffix}`;
+};
+
+async function copyVolunteerAccessValue(value: string, successMessage: string): Promise<void> {
+  try {
+    if (!navigator.clipboard) {
+      throw new Error('Clipboard is not available');
+    }
+
+    await navigator.clipboard.writeText(value);
+    notificationStore.showToast('success', successMessage);
+  } catch (error) {
+    notificationStore.showToast('error', error instanceof Error ? error.message : 'Failed to copy value');
+  }
+}
+
+async function saveVolunteerPin(role: VolunteerRole): Promise<void> {
+  const form = volunteerAccessForms.value[role];
+  const nextPin = form.pin.trim();
+
+  if (!nextPin && form.pinRevision === 0) {
+    notificationStore.showToast('error', `Enter a PIN before enabling ${volunteerRoleLabels[role]} access`);
+    return;
+  }
+
+  form.saving = true;
+  try {
+    const setVolunteerPinFn = httpsCallable(functions, 'setVolunteerPin');
+    const response = await setVolunteerPinFn({
+      tournamentId: tournamentId.value,
+      role,
+      pin: nextPin || undefined,
+      enabled: form.enabled,
+    });
+    const data = (response as {
+      data?: {
+        enabled?: boolean;
+        pinRevision?: number;
+        maskedPin?: string;
+      };
+    }).data;
+
+    form.enabled = data?.enabled ?? form.enabled;
+    form.pinRevision = Number(data?.pinRevision ?? form.pinRevision);
+    form.maskedPin = data?.maskedPin ?? form.maskedPin;
+    form.pin = '';
+    form.revealedPin = '';
+    form.showRevealedPin = false;
+
+    await tournamentStore.fetchTournament(tournamentId.value);
+    notificationStore.showToast('success', `${volunteerRoleLabels[role]} PIN saved`);
+  } catch (error) {
+    notificationStore.showToast(
+      'error',
+      error instanceof Error ? error.message : `Failed to save ${volunteerRoleLabels[role]} PIN`,
+    );
+  } finally {
+    form.saving = false;
+  }
+}
+
+async function revealVolunteerPin(role: VolunteerRole): Promise<void> {
+  const form = volunteerAccessForms.value[role];
+  form.revealing = true;
+  try {
+    const revealVolunteerPinFn = httpsCallable(functions, 'revealVolunteerPin');
+    const response = await revealVolunteerPinFn({
+      tournamentId: tournamentId.value,
+      role,
+    });
+    const data = (response as {
+      data?: {
+        pin?: string;
+        enabled?: boolean;
+        pinRevision?: number;
+      };
+    }).data;
+
+    form.revealedPin = data?.pin ?? '';
+    form.showRevealedPin = Boolean(data?.pin);
+    form.enabled = data?.enabled ?? form.enabled;
+    form.pinRevision = Number(data?.pinRevision ?? form.pinRevision);
+    notificationStore.showToast('success', `${volunteerRoleLabels[role]} PIN revealed`);
+  } catch (error) {
+    notificationStore.showToast(
+      'error',
+      error instanceof Error ? error.message : `Failed to reveal ${volunteerRoleLabels[role]} PIN`,
+    );
+  } finally {
+    form.revealing = false;
   }
 }
 
@@ -1264,6 +1433,114 @@ async function confirmDelete() {
           :tournament-logo="brandingTournamentLogo"
           @update-branding="handleBrandingUpdate"
         />
+
+        <v-card class="mb-4">
+          <v-card-title>
+            <v-icon start>
+              mdi-lock-outline
+            </v-icon>
+            Volunteer Access
+          </v-card-title>
+          <v-card-text>
+            <v-alert
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="mb-4"
+            >
+              Create restricted PIN access for front-desk check-in and scorekeeper stations. These links open volunteer mode without the full staff navigation.
+            </v-alert>
+
+            <v-row>
+              <v-col
+                v-for="role in volunteerRoles"
+                :key="role"
+                cols="12"
+                md="6"
+              >
+                <v-card
+                  variant="outlined"
+                  class="h-100"
+                >
+                  <v-card-title class="text-subtitle-1">
+                    {{ volunteerRoleLabels[role] }}
+                  </v-card-title>
+                  <v-card-text>
+                    <v-switch
+                      v-model="volunteerAccessForms[role].enabled"
+                      :label="`Enable ${volunteerRoleLabels[role]} access`"
+                      color="primary"
+                    />
+
+                    <v-text-field
+                      :model-value="getVolunteerDisplayPin(role)"
+                      label="Current PIN"
+                      readonly
+                      variant="outlined"
+                      density="compact"
+                      :append-inner-icon="hasVolunteerPinConfigured(role) ? 'mdi-eye' : undefined"
+                      @click:append-inner="revealVolunteerPin(role)"
+                    />
+
+                    <div class="text-caption text-medium-emphasis mb-3">
+                      Revision {{ volunteerAccessForms[role].pinRevision || 0 }}
+                    </div>
+
+                    <v-text-field
+                      v-model="volunteerAccessForms[role].pin"
+                      label="Set or Reset PIN"
+                      type="password"
+                      variant="outlined"
+                      density="compact"
+                      hint="Use a 4 to 8 digit PIN"
+                      persistent-hint
+                    />
+
+                    <v-text-field
+                      :model-value="getVolunteerAccessUrl(role)"
+                      label="Direct Access Link"
+                      readonly
+                      variant="outlined"
+                      density="compact"
+                      class="mt-3"
+                    />
+
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                      <v-btn
+                        variant="tonal"
+                        @click="copyVolunteerAccessValue(getVolunteerAccessUrl(role), `${volunteerRoleLabels[role]} access link copied`)"
+                      >
+                        Copy Link
+                      </v-btn>
+                      <v-btn
+                        variant="tonal"
+                        :disabled="!volunteerAccessForms[role].showRevealedPin"
+                        @click="copyVolunteerAccessValue(getVolunteerDisplayPin(role), `${volunteerRoleLabels[role]} PIN copied`)"
+                      >
+                        Copy PIN
+                      </v-btn>
+                      <v-btn
+                        variant="tonal"
+                        :disabled="!hasVolunteerPinConfigured(role)"
+                        :loading="volunteerAccessForms[role].revealing"
+                        @click="revealVolunteerPin(role)"
+                      >
+                        Reveal PIN
+                      </v-btn>
+                      <v-btn
+                        color="primary"
+                        :loading="volunteerAccessForms[role].saving"
+                        @click="saveVolunteerPin(role)"
+                      >
+                        Save PIN
+                      </v-btn>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-card>
 
 
         <!-- Actions -->

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.healthCheck = exports.advanceWinner = exports.generateSchedule = exports.generateBracket = exports.submitSelfCheckIn = exports.searchSelfCheckInCandidates = exports.submitBugReport = exports.updateMatch = void 0;
+exports.healthCheck = exports.advanceWinner = exports.generateSchedule = exports.generateBracket = exports.applyVolunteerCheckInAction = exports.issueVolunteerSession = exports.revealVolunteerPin = exports.setVolunteerPin = exports.submitSelfCheckIn = exports.searchSelfCheckInCandidates = exports.submitBugReport = exports.updateMatch = void 0;
 // Cloud Functions Entry Point
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
@@ -43,6 +43,7 @@ const scheduling_1 = require("./scheduling");
 const updateMatch_1 = require("./updateMatch");
 const bugReport_1 = require("./bugReport");
 const selfCheckIn_1 = require("./selfCheckIn");
+const volunteerAccess_1 = require("./volunteerAccess");
 const firestore_adapter_1 = require("./storage/firestore-adapter");
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -51,6 +52,10 @@ exports.updateMatch = updateMatch_1.updateMatch;
 exports.submitBugReport = bugReport_1.submitBugReport;
 exports.searchSelfCheckInCandidates = selfCheckIn_1.searchSelfCheckInCandidates;
 exports.submitSelfCheckIn = selfCheckIn_1.submitSelfCheckIn;
+exports.setVolunteerPin = volunteerAccess_1.setVolunteerPin;
+exports.revealVolunteerPin = volunteerAccess_1.revealVolunteerPin;
+exports.issueVolunteerSession = volunteerAccess_1.issueVolunteerSession;
+exports.applyVolunteerCheckInAction = volunteerAccess_1.applyVolunteerCheckInAction;
 /**
  * Generate bracket for a tournament category
  */

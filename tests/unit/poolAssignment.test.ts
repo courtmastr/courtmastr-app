@@ -12,13 +12,6 @@ import type { PoolTeam } from '@/types/poolAssignment';
 // Test Helpers
 // ============================================
 
-function createTeams(count: number, seeds?: number[]): PoolTeam[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `team-${i + 1}`,
-    seed: seeds?.[i] ?? (i < (seeds?.length ?? 0) ? seeds?.[i] : undefined),
-  }));
-}
-
 function createSeededTeams(count: number): PoolTeam[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `team-${i + 1}`,
@@ -364,7 +357,9 @@ describe('validatePoolAssignment', () => {
         ['team-5', 'team-6', 'team-7', 'team-8'],
         ['team-9', 'team-10', 'team-11'], // Missing team-12
       ],
-      config: { byeDistributionMode: 'lastTierSkip', byePoolSelection: 'rng' },
+      byePools: [] as number[],
+      meta: { N: 12, K: 4, P: 3, tiers: 3, byes: 0 },
+      config: { byeDistributionMode: 'lastTierSkip' as const, byePoolSelection: 'rng' as const },
     };
 
     const validation = validatePoolAssignment(result, teams, 4);
@@ -376,7 +371,9 @@ describe('validatePoolAssignment', () => {
     const teams = createSeededTeams(4);
     const result = {
       pools: [['team-1', 'team-1', 'team-2', 'team-3']],
-      config: { byeDistributionMode: 'lastTierSkip', byePoolSelection: 'rng' },
+      byePools: [] as number[],
+      meta: { N: 4, K: 4, P: 1, tiers: 1, byes: 0 },
+      config: { byeDistributionMode: 'lastTierSkip' as const, byePoolSelection: 'rng' as const },
     };
 
     const validation = validatePoolAssignment(result, teams, 4);
@@ -391,7 +388,9 @@ describe('validatePoolAssignment', () => {
         ['team-1', 'team-2', 'team-3', 'team-4', 'team-extra'],
         ['team-5', 'team-6', 'team-7', 'team-8'],
       ],
-      config: { byeDistributionMode: 'lastTierSkip', byePoolSelection: 'rng' },
+      byePools: [] as number[],
+      meta: { N: 8, K: 4, P: 2, tiers: 2, byes: 0 },
+      config: { byeDistributionMode: 'lastTierSkip' as const, byePoolSelection: 'rng' as const },
     };
 
     const validation = validatePoolAssignment(result, teams, 4);
@@ -403,7 +402,9 @@ describe('validatePoolAssignment', () => {
     const teams = createSeededTeams(12);
     const result = {
       pools: [['team-1', 'team-2', 'team-3', 'team-4']],
-      config: { byeDistributionMode: 'lastTierSkip', byePoolSelection: 'rng' },
+      byePools: [] as number[],
+      meta: { N: 12, K: 4, P: 3, tiers: 3, byes: 0 },
+      config: { byeDistributionMode: 'lastTierSkip' as const, byePoolSelection: 'rng' as const },
     };
 
     const validation = validatePoolAssignment(result, teams, 4);
@@ -415,7 +416,9 @@ describe('validatePoolAssignment', () => {
     const teams = createSeededTeams(4);
     const result = {
       pools: [['team-1', 'unknown-team', 'team-2', 'team-3']],
-      config: { byeDistributionMode: 'lastTierSkip', byePoolSelection: 'rng' },
+      byePools: [] as number[],
+      meta: { N: 4, K: 4, P: 1, tiers: 1, byes: 0 },
+      config: { byeDistributionMode: 'lastTierSkip' as const, byePoolSelection: 'rng' as const },
     };
 
     const validation = validatePoolAssignment(result, teams, 4);

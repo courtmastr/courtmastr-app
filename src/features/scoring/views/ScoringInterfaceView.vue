@@ -7,6 +7,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
 import { useActivityStore } from '@/stores/activities';
 import { useAuthStore } from '@/stores/auth';
+import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { BADMINTON_CONFIG } from '@/types';
 import ScoreCorrectionDialog from '../components/ScoreCorrectionDialog.vue';
@@ -19,6 +20,7 @@ const tournamentStore = useTournamentStore();
 const notificationStore = useNotificationStore();
 const activityStore = useActivityStore();
 const authStore = useAuthStore();
+const volunteerAccessStore = useVolunteerAccessStore();
 const { getParticipantName } = useParticipantResolver();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
@@ -27,6 +29,10 @@ const match = computed(() => matchStore.currentMatch);
 const loading = ref(false);
 const pageError = ref<string | null>(null);
 const initialized = ref(false);
+const isVolunteerScorekeeperMode = computed(() => (
+  route.meta.volunteerRole === 'scorekeeper' &&
+  volunteerAccessStore.hasValidSession(tournamentId.value, 'scorekeeper')
+));
 
 // Manual scorecard mode
 const manualScores = ref<{ game1: { p1: number; p2: number }; game2: { p1: number; p2: number }; game3: { p1: number; p2: number } }>({
@@ -45,8 +51,10 @@ const showCorrectionDialog = ref(false);
 
 // Check if user can correct scores
 const canCorrectMatch = computed(() => {
-  return authStore.isAdmin || authStore.isScorekeeper;
+  return authStore.isAdmin || authStore.isScorekeeper || isVolunteerScorekeeperMode.value;
 });
+const manualEntryLabel = computed(() => isVolunteerScorekeeperMode.value ? 'Manual Fallback' : 'Manual Entry');
+const manualEntryVariant = computed(() => isVolunteerScorekeeperMode.value ? 'text' : 'outlined');
 
 // Get participant names using composable
 const participant1Name = computed(() => {
@@ -244,7 +252,7 @@ async function confirmWalkover() {
       match.value?.levelId
     );
     notificationStore.showToast('success', 'Walkover recorded');
-    router.back();
+    returnToMatchList();
   } catch (error) {
     notificationStore.showToast('error', 'Failed to record walkover');
   } finally {
@@ -330,7 +338,7 @@ async function submitManualScores() {
     // If match is complete, go back
     const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
     if (p1GamesWon >= gamesNeeded || p2GamesWon >= gamesNeeded) {
-      router.back();
+      returnToMatchList();
     }
   } catch (error) {
     notificationStore.showToast('error', 'Failed to submit scores');
@@ -343,12 +351,25 @@ function onScoreCorrected() {
   showCorrectionDialog.value = false;
 }
 
-const goBack = (): void => {
+const returnToMatchList = (): void => {
+  if (isVolunteerScorekeeperMode.value) {
+    router.push({
+      name: 'volunteer-scoring-kiosk',
+      params: { tournamentId: tournamentId.value },
+    });
+    return;
+  }
+
   if (window.history.length > 1) {
     router.back();
-  } else {
-    router.push(`/tournaments/${tournamentId.value}/match-control`);
+    return;
   }
+
+  router.push(`/tournaments/${tournamentId.value}/match-control`);
+};
+
+const goBack = (): void => {
+  returnToMatchList();
 };
 </script>
 
@@ -395,9 +416,10 @@ const goBack = (): void => {
 
   <v-container
     v-else-if="match"
-    class="fill-height"
+    class="fill-height scoring-shell"
   >
     <v-row
+      class="scoring-shell__row"
       justify="center"
       align="center"
     >
@@ -424,15 +446,15 @@ const goBack = (): void => {
           <v-spacer />
           <v-btn
             v-if="match.status === 'in_progress' || match.status === 'ready'"
-            variant="outlined"
+            :variant="manualEntryVariant"
             size="small"
-            class="mr-2"
+            class="mr-2 manual-entry-button"
             @click="openManualScoreDialog"
           >
             <v-icon start>
               mdi-clipboard-edit
             </v-icon>
-            Manual Entry
+            {{ manualEntryLabel }}
           </v-btn>
           <v-chip
             :color="match.status === 'in_progress' ? 'success' : 'grey'"
@@ -519,7 +541,8 @@ const goBack = (): void => {
             <v-row>
               <!-- Player 1 -->
               <v-col
-                cols="5"
+                cols="12"
+                sm="5"
                 class="text-center"
               >
                 <v-card
@@ -532,34 +555,40 @@ const goBack = (): void => {
                     {{ participant1Name }}
                   </h3>
                   <div
-                    class="text-h1 font-weight-bold"
+                    class="text-h1 font-weight-bold score-card__score"
                     :class="getScoreColor(currentGame.score1, currentGame.score2, true)"
                   >
                     {{ currentGame.score1 }}
                   </div>
                   <v-btn
-                    variant="text"
-                    size="default"
-                    class="mt-2"
+                    variant="tonal"
+                    size="large"
+                    block
+                    class="mt-4 score-card__undo"
                     :disabled="currentGame.score1 === 0"
                     @click.stop="removePoint('participant1')"
                   >
-                    <v-icon>mdi-minus</v-icon>
+                    <v-icon start>
+                      mdi-minus
+                    </v-icon>
+                    Undo Point
                   </v-btn>
                 </v-card>
               </v-col>
 
               <!-- VS -->
               <v-col
-                cols="2"
-                class="d-flex align-center justify-center"
+                cols="12"
+                sm="2"
+                class="d-flex align-center justify-center score-divider"
               >
                 <span class="text-h5 text-grey">vs</span>
               </v-col>
 
               <!-- Player 2 -->
               <v-col
-                cols="5"
+                cols="12"
+                sm="5"
                 class="text-center"
               >
                 <v-card
@@ -572,19 +601,23 @@ const goBack = (): void => {
                     {{ participant2Name }}
                   </h3>
                   <div
-                    class="text-h1 font-weight-bold"
+                    class="text-h1 font-weight-bold score-card__score"
                     :class="getScoreColor(currentGame.score1, currentGame.score2, false)"
                   >
                     {{ currentGame.score2 }}
                   </div>
                   <v-btn
-                    variant="text"
-                    size="default"
-                    class="mt-2"
+                    variant="tonal"
+                    size="large"
+                    block
+                    class="mt-4 score-card__undo"
                     :disabled="currentGame.score2 === 0"
                     @click.stop="removePoint('participant2')"
                   >
-                    <v-icon>mdi-minus</v-icon>
+                    <v-icon start>
+                      mdi-minus
+                    </v-icon>
+                    Undo Point
                   </v-btn>
                 </v-card>
               </v-col>
@@ -593,6 +626,12 @@ const goBack = (): void => {
             <!-- Instructions -->
             <p class="text-center text-body-2 text-grey mt-4">
               Tap on a player's score to add a point
+            </p>
+            <p
+              v-if="isVolunteerScorekeeperMode"
+              class="text-center text-caption text-grey mt-2"
+            >
+              Use Manual Fallback only if point-by-point scoring is unavailable.
             </p>
           </v-card-text>
 
@@ -941,5 +980,49 @@ const goBack = (): void => {
   text-align: center;
   font-weight: bold;
   font-size: 1.2rem;
+}
+
+.scoring-shell__row {
+  min-height: calc(100vh - 176px);
+}
+
+.manual-entry-button {
+  opacity: 0.92;
+}
+
+.score-card__score {
+  line-height: 1;
+}
+
+.score-card__undo {
+  min-height: 48px;
+}
+
+.score-divider {
+  min-height: 56px;
+}
+
+@media (max-width: 599px) {
+  .scoring-shell {
+    padding-top: 12px;
+  }
+
+  .scoring-shell__row {
+    min-height: auto;
+    align-items: flex-start !important;
+  }
+
+  .score-card {
+    min-height: 168px;
+    padding: 20px 16px;
+  }
+
+  .score-card__score {
+    font-size: 4rem !important;
+  }
+
+  .manual-entry-button {
+    min-height: 40px;
+  }
 }
 </style>

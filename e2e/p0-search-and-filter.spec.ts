@@ -35,7 +35,7 @@ test.describe('P0 - Search and Filter', () => {
     });
 
     test('should filter by category', async ({ page }) => {
-      const categoryFilter = page.getByTestId('filter-category-select').or(page.getByLabel(/category/i).first());
+      const categoryFilter = page.getByRole('combobox', { name: 'Category' }).first();
       await expect(categoryFilter).toBeVisible();
       await categoryFilter.click();
       await page.getByRole('option').first().click();
@@ -44,14 +44,17 @@ test.describe('P0 - Search and Filter', () => {
     });
 
     test('should search by participant name', async ({ page }) => {
-      // Try data-testid first, fall back to placeholder-based search input
-      const searchByTestId = page.getByTestId('search-participant-input');
-      const searchByPlaceholder = page.getByPlaceholder(/search by name/i);
-      const searchInput = (await searchByTestId.isVisible()) ? searchByTestId : searchByPlaceholder;
+      const searchInput = page.getByPlaceholder('Search participant name');
       await expect(searchInput).toBeVisible();
-      await searchInput.fill('John');
+
+      const firstRow = page.locator('tbody tr').first();
+      await expect(firstRow).toBeVisible();
+      const firstRowText = (await firstRow.innerText()).trim();
+      const firstToken = firstRowText.split(/\s+/).find((token) => token.length >= 3) || 'a';
+
+      await searchInput.fill(firstToken);
       await page.waitForTimeout(500);
-      await expect(page.getByText(/john/i).first()).toBeVisible();
+      await expect(page.locator('tbody tr').first()).toContainText(new RegExp(firstToken, 'i'));
     });
   });
 });

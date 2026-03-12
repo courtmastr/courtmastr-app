@@ -100,5 +100,9 @@ export default createVuetify({
     VDataTable: {
       hover: true,
     },
+    VDialog: {
+      scrim: 'black',
+      scrimOpacity: 0.5,
+    },
   },
 });

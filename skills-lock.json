@@ -21,6 +21,11 @@
       "sourceType": "github",
       "computedHash": "eef7ee82688c9541f91b3f1050e79a5c978ddcc2c776a4bf31a11ba37c7901e8"
     },
+    "vue-pinia-best-practices": {
+      "source": "vuejs-ai/skills",
+      "sourceType": "github",
+      "computedHash": "d4ba913bec21910b8e37b2115cd964df2dc43ad62346b981c7b88d4ddc8cf792"
+    },
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",

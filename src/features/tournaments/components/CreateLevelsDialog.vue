@@ -557,7 +557,7 @@ async function generateLevels(): Promise<void> {
             density="compact"
             hide-details
             :disabled="!isPoolStageComplete"
-            @update:model-value="(value) => setManualLevel(item.registrationId, Number(value))"
+            @update:model-value="(value: string | number | null) => setManualLevel(item.registrationId, Number(value))"
           />
         </template>
       </v-data-table>

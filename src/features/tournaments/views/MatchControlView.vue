@@ -41,6 +41,7 @@ import {
   parseScheduleQueryLayout,
   parseScheduleQueryPublicState,
 } from './matchControlScheduleQuery';
+import { saveDragReschedule } from '@/scheduling/useScheduleStore';
 
 const route = useRoute();
 const router = useRouter();
@@ -815,6 +816,26 @@ async function confirmSchedulePublishNow(): Promise<void> {
   }
 }
 
+async function onDragReschedule(payload: {
+  matchId: string;
+  categoryId: string;
+  levelId?: string;
+  newStartAt: Date;
+  durationMinutes: number;
+  newCourtId: string;
+}) {
+  try {
+    await saveDragReschedule({
+      tournamentId: tournamentId.value,
+      ...payload,
+    });
+    notificationStore.showToast('success', 'Match rescheduled and locked');
+  } catch (error) {
+    console.error('Failed to drag-reschedule match:', error);
+    notificationStore.showToast('error', 'Failed to reschedule match');
+  }
+}
+
 async function confirmReleaseCourt() {
   if (!courtToReleaseId.value) return;
 
@@ -1541,7 +1562,7 @@ async function confirmCompleteTournament(): Promise<void> {
                   class="mt-1"
                 >
                   <span class="font-mono text-caption text-grey">
-                    {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
+                    {{ item.scores.map((s: { score1: number; score2: number }) => `${s.score1}-${s.score2}`).join(', ') }}
                   </span>
                 </div>
               </div>
@@ -1712,7 +1733,7 @@ async function confirmCompleteTournament(): Promise<void> {
                     <div><strong>Public:</strong> {{ getMatchScheduleStateLabel(item) }}</div>
                     <div v-if="item.scores && item.scores.length > 0">
                       <strong>Score:</strong>
-                      {{ item.scores.map(s => `${s.score1}-${s.score2}`).join(', ') }}
+                      {{ item.scores.map((s: { score1: number; score2: number }) => `${s.score1}-${s.score2}`).join(', ') }}
                     </div>
                   </div>
                 </td>
@@ -1732,6 +1753,7 @@ async function confirmCompleteTournament(): Promise<void> {
             :public-state="scheduleFilters.publicState"
             :get-category-name="getCategoryName"
             :get-participant-name="getParticipantName"
+            @drag-reschedule="onDragReschedule"
           />
         </div>
       </div>

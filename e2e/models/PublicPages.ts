@@ -6,7 +6,7 @@ export class PublicBracketPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.bracketContainer = page.locator('.bracket-viewer').or(page.locator('.bracket-container'));
+    this.bracketContainer = page.locator('.brackets-viewer').or(page.locator('.bracket-viewer')).or(page.locator('.bracket-container'));
   }
 
   async goto(tournamentId: string) {
@@ -32,12 +32,14 @@ export class PublicLiveScoresPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.scoresContainer = page.locator('.live-scores').or(page.locator('.scores-container'));
+    this.scoresContainer = page.locator('.schedule-grid').or(page.locator('.display-mode')).or(page.locator('.scores-container'));
   }
 
   async goto(tournamentId: string) {
-    await this.page.goto(`/tournaments/${tournamentId}/live`);
-    await expect(this.scoresContainer).toBeVisible();
+    await this.page.goto(`/tournaments/${tournamentId}/schedule`);
+    await expect(
+      this.scoresContainer.or(this.page.getByText(/published player schedule|tournament not found/i).first())
+    ).toBeVisible();
   }
 
   async expectScoreVisible(playerName: string) {

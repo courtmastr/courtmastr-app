@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Router } from 'vue-router';
-import type { UserRole } from '@/types';
+import type { UserRole, VolunteerRole } from '@/types';
 import {
   createAuthStoreMock,
   createGuestAuthStoreMock,
   type MockAuthStore,
+  createVolunteerAccessStoreMock,
+  type MockVolunteerAccessStore,
 } from '@tests/unit/helpers/store-mocks';
 
 interface GuardAuthState {
@@ -20,6 +22,7 @@ interface GuardResult {
   name: string | null;
   fullPath: string;
   authStore: MockAuthStore;
+  volunteerStore: MockVolunteerAccessStore;
 }
 
 const createAuthState = (state: GuardAuthState): MockAuthStore => {
@@ -45,19 +48,49 @@ const createAuthState = (state: GuardAuthState): MockAuthStore => {
   });
 };
 
-const loadRouter = async (authStore: MockAuthStore): Promise<Router> => {
+const createVolunteerState = (
+  hasSession = false,
+  role: VolunteerRole = 'checkin',
+): MockVolunteerAccessStore => createVolunteerAccessStoreMock({
+  currentSession: hasSession
+    ? {
+        tournamentId: 't1',
+        role,
+        sessionToken: 'signed-token',
+        pinRevision: 1,
+        expiresAtMs: Date.now() + 60_000,
+      }
+    : null,
+  hasValidSession: vi.fn().mockImplementation((tournamentId: string, volunteerRole: VolunteerRole) => (
+    hasSession && tournamentId === 't1' && volunteerRole === role
+  )),
+});
+
+const loadRouter = async (
+  authStore: MockAuthStore,
+  volunteerStore: MockVolunteerAccessStore,
+): Promise<Router> => {
   vi.resetModules();
   vi.doMock('@/stores/auth', () => ({
     useAuthStore: () => authStore,
+  }));
+  vi.doMock('@/stores/volunteerAccess', () => ({
+    useVolunteerAccessStore: () => volunteerStore,
   }));
 
   const routerModule = await import('@/router');
   return routerModule.default;
 };
 
-const runGuard = async (path: string, state: GuardAuthState = {}): Promise<GuardResult> => {
+const runGuard = async (
+  path: string,
+  state: GuardAuthState = {},
+  volunteerSession = false,
+  volunteerRole: VolunteerRole = 'checkin',
+): Promise<GuardResult> => {
   const authStore = createAuthState(state);
-  const router = await loadRouter(authStore);
+  const volunteerStore = createVolunteerState(volunteerSession, volunteerRole);
+  const router = await loadRouter(authStore, volunteerStore);
 
   await router.push(path).catch(() => undefined);
   await router.isReady();
@@ -70,6 +103,7 @@ const runGuard = async (path: string, state: GuardAuthState = {}): Promise<Guard
     name: current.name ? String(current.name) : null,
     fullPath: current.fullPath,
     authStore,
+    volunteerStore,
   };
 };
 
@@ -129,6 +163,34 @@ describe('router auth guards', () => {
 
     expect(viewer.type).toBe('redirect');
     expect(viewer.name).toBe('tournament-list');
+  });
+
+  it('requires a matching volunteer session for kiosk routes', async () => {
+    const allowed = await runGuard('/tournaments/t1/checkin-kiosk', { isAuthenticated: false }, true, 'checkin');
+    expect(allowed.type).toBe('allow');
+
+    const redirected = await runGuard('/tournaments/t1/checkin-kiosk', { isAuthenticated: false }, false, 'checkin');
+    expect(redirected.type).toBe('redirect');
+    expect(redirected.name).toBe('volunteer-checkin-access');
+  });
+
+  it('requires a matching volunteer session for volunteer scoring detail routes', async () => {
+    const allowed = await runGuard(
+      '/tournaments/t1/scoring-kiosk/matches/m1/score?category=cat-1',
+      { isAuthenticated: false },
+      true,
+      'scorekeeper'
+    );
+    expect(allowed.type).toBe('allow');
+
+    const redirected = await runGuard(
+      '/tournaments/t1/scoring-kiosk/matches/m1/score?category=cat-1',
+      { isAuthenticated: false },
+      false,
+      'scorekeeper'
+    );
+    expect(redirected.type).toBe('redirect');
+    expect(redirected.name).toBe('volunteer-scoring-access');
   });
 
   it('initializes auth when the store is still loading', async () => {
