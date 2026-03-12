@@ -684,3 +684,17 @@
   fingerprint: "8d999250"
   command: "npm run build:log"
   artifact_log: "docs/debug-kb/_artifacts/2026-03-11-21-43-36.vue-tsc-b.log"
+- id: 85c68363
+  title: test:log fails in matches scoring store with new explicit game-completion assertions
+  status: "❌ unresolved"
+  date: "2026-03-12"
+  fingerprint: "85c68363"
+  command: "npm run test:log -- --run tests/unit/matches.scoring.store.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-17-24-17.vitest-run-tests-unit-matches-scoring-store-test-t.log"
+- id: a79a28bf
+  title: Scoring tests fail before explicit complete-game behavior is implemented
+  status: "🔍 investigating"
+  date: "2026-03-12"
+  fingerprint: "a79a28bf"
+  command: "npm run test:log -- --run tests/unit/matches.scoring.store.test.ts tests/unit/ScoringInterfaceView.volunteerMode.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-17-24-31.vitest-run-tests-unit-matches-scoring-store-test-t.log"

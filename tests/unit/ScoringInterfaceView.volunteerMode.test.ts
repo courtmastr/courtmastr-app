@@ -20,6 +20,9 @@ const mockDeps = vi.hoisted(() => ({
   clearCurrentMatch: vi.fn(),
   subscribeRegistrations: vi.fn(),
   subscribePlayers: vi.fn(),
+  updateScore: vi.fn(),
+  decrementScore: vi.fn(),
+  completeCurrentGame: vi.fn(),
   logMatchCompleted: vi.fn(),
   logMatchStarted: vi.fn(),
   showToast: vi.fn(),
@@ -80,8 +83,9 @@ vi.mock('@/stores/matches', () => ({
     subscribeMatch: mockDeps.subscribeMatch,
     clearCurrentMatch: mockDeps.clearCurrentMatch,
     startMatch: vi.fn(),
-    updateScore: vi.fn(),
-    decrementScore: vi.fn(),
+    updateScore: mockDeps.updateScore,
+    decrementScore: mockDeps.decrementScore,
+    completeCurrentGame: mockDeps.completeCurrentGame,
     recordWalkover: vi.fn(),
     submitManualScores: vi.fn(),
   }),
@@ -141,6 +145,11 @@ vi.mock('@/composables/useParticipantResolver', () => ({
 
 interface ScoringVm {
   canCorrectMatch: boolean;
+  scoreEntryLocked: boolean;
+  currentGameReadyToComplete: boolean;
+  addPoint: (participant: 'participant1' | 'participant2') => Promise<void>;
+  removePoint: (participant: 'participant1' | 'participant2') => Promise<void>;
+  completeCurrentGame: () => Promise<void>;
   goBack: () => void;
 }
 
@@ -184,6 +193,9 @@ describe('ScoringInterfaceView volunteer mode', () => {
     mockDeps.clearCurrentMatch.mockReset();
     mockDeps.subscribeRegistrations.mockReset();
     mockDeps.subscribePlayers.mockReset();
+    mockDeps.updateScore.mockReset().mockResolvedValue(undefined);
+    mockDeps.decrementScore.mockReset().mockResolvedValue(undefined);
+    mockDeps.completeCurrentGame.mockReset().mockResolvedValue(undefined);
     mockDeps.logMatchCompleted.mockReset().mockResolvedValue(undefined);
     mockDeps.logMatchStarted.mockReset().mockResolvedValue(undefined);
     mockDeps.showToast.mockReset();
@@ -238,5 +250,33 @@ describe('ScoringInterfaceView volunteer mode', () => {
     const vm = wrapper.vm as unknown as ScoringVm;
 
     expect(vm.canCorrectMatch).toBe(true);
+  });
+
+  it('locks point entry at game point and requires explicit complete-game action', async () => {
+    matchRef.value = {
+      ...inProgressMatch,
+      scores: [{
+        gameNumber: 1,
+        score1: 21,
+        score2: 19,
+        isComplete: false,
+      }],
+    };
+
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as ScoringVm;
+
+    expect(vm.scoreEntryLocked).toBe(true);
+    expect(vm.currentGameReadyToComplete).toBe(true);
+    expect(wrapper.text()).toContain('Complete Game');
+
+    await vm.addPoint('participant1');
+    expect(mockDeps.updateScore).not.toHaveBeenCalled();
+
+    await vm.removePoint('participant1');
+    expect(mockDeps.decrementScore).toHaveBeenCalledTimes(1);
+
+    await vm.completeCurrentGame();
+    expect(mockDeps.completeCurrentGame).toHaveBeenCalledTimes(1);
   });
 });
