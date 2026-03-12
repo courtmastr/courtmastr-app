@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { BADMINTON_CONFIG } from '@/types';
+import { validateCompletedGameScore } from '../utils/validation';
 import ScoreCorrectionDialog from '../components/ScoreCorrectionDialog.vue';
 
 const route = useRoute();
@@ -72,6 +73,20 @@ const currentGame = computed(() => {
   if (!match.value?.scores || match.value.scores.length === 0) return null;
   return match.value.scores[match.value.scores.length - 1];
 });
+
+const scoringConfig = computed(() => match.value?.scoringConfig ?? BADMINTON_CONFIG);
+const currentGameReadyToComplete = computed(() => {
+  if (!currentGame.value || currentGame.value.isComplete) return false;
+
+  const validation = validateCompletedGameScore(
+    currentGame.value.score1,
+    currentGame.value.score2,
+    scoringConfig.value
+  );
+  return validation.isValid;
+});
+
+const scoreEntryLocked = computed(() => currentGameReadyToComplete.value);
 
 // Game scores summary
 const gamesWon = computed(() => {
@@ -203,7 +218,7 @@ async function startMatch() {
 }
 
 async function addPoint(participant: 'participant1' | 'participant2') {
-  if (isMatchComplete.value || !match.value) return;
+  if (isMatchComplete.value || !match.value || scoreEntryLocked.value) return;
 
   try {
     await matchStore.updateScore(
@@ -231,6 +246,26 @@ async function removePoint(participant: 'participant1' | 'participant2') {
     );
   } catch (error) {
     notificationStore.showToast('error', 'Failed to update score');
+  }
+}
+
+async function completeCurrentGame() {
+  if (isMatchComplete.value || !match.value || !currentGameReadyToComplete.value) return;
+
+  loading.value = true;
+  try {
+    await matchStore.completeCurrentGame(
+      tournamentId.value,
+      matchId.value,
+      match.value.categoryId,
+      match.value.levelId
+    );
+    notificationStore.showToast('success', 'Game completed');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to complete game';
+    notificationStore.showToast('error', message);
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -548,7 +583,10 @@ const goBack = (): void => {
                 <v-card
                   variant="outlined"
                   class="pa-4 score-card"
-                  :class="{ 'score-leading': currentGame.score1 > currentGame.score2 }"
+                  :class="{
+                    'score-leading': currentGame.score1 > currentGame.score2,
+                    'score-card--locked': scoreEntryLocked,
+                  }"
                   @click="addPoint('participant1')"
                 >
                   <h3 class="text-subtitle-1 font-weight-bold mb-2">
@@ -594,7 +632,10 @@ const goBack = (): void => {
                 <v-card
                   variant="outlined"
                   class="pa-4 score-card"
-                  :class="{ 'score-leading': currentGame.score2 > currentGame.score1 }"
+                  :class="{
+                    'score-leading': currentGame.score2 > currentGame.score1,
+                    'score-card--locked': scoreEntryLocked,
+                  }"
                   @click="addPoint('participant2')"
                 >
                   <h3 class="text-subtitle-1 font-weight-bold mb-2">
@@ -624,7 +665,16 @@ const goBack = (): void => {
             </v-row>
 
             <!-- Instructions -->
-            <p class="text-center text-body-2 text-grey mt-4">
+            <p
+              v-if="currentGameReadyToComplete"
+              class="text-center text-body-2 text-warning mt-4 font-weight-medium"
+            >
+              Game point reached. Complete the game or undo the last point.
+            </p>
+            <p
+              v-else
+              class="text-center text-body-2 text-grey mt-4"
+            >
               Tap on a player's score to add a point
             </p>
             <p
@@ -633,6 +683,18 @@ const goBack = (): void => {
             >
               Use Manual Fallback only if point-by-point scoring is unavailable.
             </p>
+
+            <v-btn
+              v-if="currentGameReadyToComplete"
+              color="primary"
+              size="large"
+              block
+              class="mt-4"
+              :loading="loading"
+              @click="completeCurrentGame"
+            >
+              Complete Game
+            </v-btn>
           </v-card-text>
 
           <v-divider />
