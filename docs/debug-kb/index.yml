@@ -1,3 +1,10 @@
+- id: ee7b2215
+  title: test:log fails when TournamentBrandMark component import does not exist yet
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "ee7b2215"
+  command: "npm run test:log -- --run tests/unit/TournamentBrandMark.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-12-28-27.vitest-run-tests-unit-TournamentBrandMark-test-ts.log"
 - id: c4704a76
   title: build:log fails on existing repository-wide TypeScript baseline errors in sponsor-branding worktree
   status: "🟡 workaround"
