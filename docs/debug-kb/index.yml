@@ -1,3 +1,10 @@
+- id: 64c1dcea
+  title: test:log fails when TournamentSponsorStrip component import does not exist yet
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "64c1dcea"
+  command: "npm run test:log -- --run tests/unit/TournamentSponsorStrip.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-12-31-43.vitest-run-tests-unit-TournamentSponsorStrip-test-.log"
 - id: ee7b2215
   title: test:log fails when TournamentBrandMark component import does not exist yet
   status: "✅ fixed"
