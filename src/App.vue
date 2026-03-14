@@ -4,12 +4,14 @@ import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import AppLayout from '@/components/layout/AppLayout.vue';
+import VolunteerLayout from '@/components/layout/VolunteerLayout.vue';
 
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
 const route = useRoute();
 
-const isLoading = computed(() => authStore.loading);
+const usesVolunteerLayout = computed(() => route.meta.volunteerLayout === true);
+const isLoading = computed(() => !usesVolunteerLayout.value && authStore.loading);
 const isOverlayRoute = computed(() => route.meta.overlayPage === true);
 
 // Toggle 'overlay-page' class on <html> based on route meta for overlay transparency
@@ -43,7 +45,12 @@ watch(
     </v-overlay>
 
     <!-- Main layout -->
-    <AppLayout v-if="!isLoading" />
+    <VolunteerLayout
+      v-if="usesVolunteerLayout && !isLoading"
+    />
+    <AppLayout
+      v-else-if="!isLoading"
+    />
 
     <!-- Toast notifications -->
     <v-snackbar

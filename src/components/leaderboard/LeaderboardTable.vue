@@ -24,18 +24,18 @@ const resolutionMap = computed(() => {
 
 const compactHeaders = computed(() => {
   const cols = [
-    { key: 'rank', title: '#', width: '60px', align: 'center' as const },
+    { key: 'rank', title: '#', width: '56px', align: 'center' as const },
     { key: 'participant', title: 'Participant', width: '28%' },
     ...(props.showCategory
-      ? [{ key: 'category', title: 'Category', width: '120px' }]
+      ? [{ key: 'category', title: 'Category', width: '130px' }]
       : []),
     { key: 'status', title: 'Status', width: '110px' },
-    { key: 'matchPoints', title: 'MP', width: '70px', align: 'center' as const },
-    { key: 'record', title: 'W-L', width: '80px', align: 'center' as const },
-    { key: 'played', title: 'Played', width: '75px', align: 'center' as const },
-    { key: 'games', title: 'Set W-L', width: '90px', align: 'center' as const },
-    { key: 'points', title: 'Pts For/Ag', width: '110px', align: 'center' as const },
-    { key: 'pointDiff', title: 'Pts +/-', width: '80px', align: 'center' as const },
+    { key: 'matchPoints', title: 'MP', width: '68px', align: 'center' as const },
+    { key: 'record', title: 'W-L', width: '72px', align: 'center' as const },
+    { key: 'played', title: 'Played', width: '80px', align: 'center' as const },
+    { key: 'games', title: 'Set W-L', width: '100px', align: 'center' as const },
+    { key: 'points', title: 'Pts For/Ag', width: '120px', align: 'center' as const },
+    { key: 'pointDiff', title: 'Pts +/-', width: '90px', align: 'center' as const },
   ];
   return cols;
 });
@@ -505,6 +505,17 @@ function statusColor(entry: LeaderboardEntry): string {
 .leaderboard-table :deep(tbody tr:hover) {
   background-color: rgba(var(--v-theme-primary), 0.04) !important;
 }
+
+/* Prevent ALL header cells from wrapping */
+.leaderboard-table :deep(thead th) {
+  white-space: nowrap !important;
+}
+
+/* Tooltip-activated header spans should also not wrap */
+.leaderboard-table :deep(thead th span) {
+  white-space: nowrap;
+}
+
 .cursor-help {
   cursor: help;
 }

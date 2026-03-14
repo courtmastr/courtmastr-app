@@ -325,7 +325,7 @@ async function clearAllSeeds(): Promise<void> {
                     :data-testid="`seed-input-${reg.id}`"
                     :min="1"
                     :max="seedingRegistrations.length"
-                    @update:model-value="(val) => handleSeedInput(reg.id, val)"
+                    @update:model-value="(val: string | null) => handleSeedInput(reg.id, val)"
                   >
                     <template #prepend-inner>
                       <v-icon

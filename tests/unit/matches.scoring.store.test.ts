@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import type { GameScore } from '@/types';
+import type { GameScore, Match, VolunteerSession } from '@/types';
 
 const mockDeps = vi.hoisted(() => ({
   doc: vi.fn(),
@@ -16,6 +16,12 @@ const mockDeps = vi.hoisted(() => ({
   onSnapshot: vi.fn(),
   increment: vi.fn(),
   advanceWinner: vi.fn(),
+  callableFactory: vi.fn(),
+  updateMatchCallable: vi.fn(),
+}));
+
+const runtime = vi.hoisted(() => ({
+  volunteerSession: null as VolunteerSession | null,
 }));
 
 vi.mock('@/stores/auth', () => ({
@@ -40,6 +46,15 @@ vi.mock('@/stores/audit', () => ({
 vi.mock('@/composables/useAdvanceWinner', () => ({
   useAdvanceWinner: () => ({
     advanceWinner: mockDeps.advanceWinner,
+  }),
+}));
+
+vi.mock('@/stores/volunteerAccess', () => ({
+  useVolunteerAccessStore: () => ({
+    currentSession: runtime.volunteerSession,
+    hasValidSession: (tournamentId: string, role: 'checkin' | 'scorekeeper') =>
+      runtime.volunteerSession?.tournamentId === tournamentId &&
+      runtime.volunteerSession?.role === role,
   }),
 }));
 
@@ -72,7 +87,7 @@ vi.mock('@/services/firebase', () => ({
   onSnapshot: mockDeps.onSnapshot,
   serverTimestamp: mockDeps.serverTimestamp,
   Timestamp: MockTimestamp,
-  httpsCallable: vi.fn(),
+  httpsCallable: mockDeps.callableFactory,
   increment: mockDeps.increment,
 }));
 
@@ -111,6 +126,15 @@ describe('matches store scoring completion', () => {
     mockDeps.onSnapshot.mockReset().mockImplementation(() => () => {});
     mockDeps.increment.mockReset().mockImplementation((amount: number) => ({ amount }));
     mockDeps.advanceWinner.mockReset().mockResolvedValue(undefined);
+    mockDeps.callableFactory.mockReset().mockImplementation((_functions: unknown, name: string) => {
+      if (name === 'updateMatch') {
+        return mockDeps.updateMatchCallable;
+      }
+
+      return vi.fn();
+    });
+    mockDeps.updateMatchCallable.mockReset().mockResolvedValue({ data: { success: true } });
+    runtime.volunteerSession = null;
   });
 
   it('releases assigned court and advances bracket when completeMatch succeeds', async () => {
@@ -157,5 +181,167 @@ describe('matches store scoring completion', () => {
       })
     );
     expect(mockDeps.advanceWinner).toHaveBeenCalledWith('t1', 'cat-1', 'm1', 'reg-1', undefined);
+  });
+
+  it('uses the callable path for volunteer scorekeeper start-match updates', async () => {
+    runtime.volunteerSession = {
+      tournamentId: 't1',
+      role: 'scorekeeper',
+      sessionToken: 'score-token',
+      pinRevision: 4,
+      expiresAtMs: Date.now() + 60_000,
+    };
+
+    const { useMatchStore } = await import('@/stores/matches');
+    const store = useMatchStore();
+
+    await store.startMatch('t1', 'm1', 'cat-1', 'level-1');
+
+    expect(mockDeps.updateMatchCallable).toHaveBeenCalledWith({
+      tournamentId: 't1',
+      categoryId: 'cat-1',
+      levelId: 'level-1',
+      matchId: 'm1',
+      status: 'in_progress',
+      scores: [{
+        gameNumber: 1,
+        score1: 0,
+        score2: 0,
+        isComplete: false,
+      }],
+      sessionToken: 'score-token',
+    });
+    expect(mockDeps.setDoc).not.toHaveBeenCalled();
+  });
+
+  it('uses the callable path for volunteer scorekeeper match completion', async () => {
+    runtime.volunteerSession = {
+      tournamentId: 't1',
+      role: 'scorekeeper',
+      sessionToken: 'score-token',
+      pinRevision: 4,
+      expiresAtMs: Date.now() + 60_000,
+    };
+
+    const { useMatchStore } = await import('@/stores/matches');
+    const store = useMatchStore();
+
+    const scores: GameScore[] = [
+      {
+        gameNumber: 1,
+        score1: 21,
+        score2: 14,
+        winnerId: 'reg-1',
+        isComplete: true,
+      },
+    ];
+
+    await store.completeMatch('t1', 'm1', scores, 'reg-1', 'cat-1');
+
+    expect(mockDeps.updateMatchCallable).toHaveBeenCalledWith({
+      tournamentId: 't1',
+      categoryId: 'cat-1',
+      levelId: undefined,
+      matchId: 'm1',
+      status: 'completed',
+      winnerId: 'reg-1',
+      scores,
+      sessionToken: 'score-token',
+    });
+    expect(mockDeps.setDoc).not.toHaveBeenCalled();
+    expect(mockDeps.updateDoc).not.toHaveBeenCalled();
+    expect(mockDeps.advanceWinner).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-complete a game when score reaches a legal finish until confirmed', async () => {
+    const { useMatchStore } = await import('@/stores/matches');
+    const store = useMatchStore();
+
+    store.currentMatch = {
+      id: 'm1',
+      tournamentId: 't1',
+      categoryId: 'cat-1',
+      round: 1,
+      matchNumber: 1,
+      bracketPosition: { bracket: 'winners', round: 1, position: 1 },
+      participant1Id: 'reg-1',
+      participant2Id: 'reg-2',
+      status: 'in_progress',
+      scores: [{
+        gameNumber: 1,
+        score1: 20,
+        score2: 12,
+        isComplete: false,
+      }],
+      scoringConfig: {
+        gamesPerMatch: 3,
+        pointsToWin: 21,
+        mustWinBy: 2,
+        maxPoints: 30,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Match;
+
+    await store.updateScore('t1', 'm1', 'participant1', 'cat-1');
+
+    const firstUpdatePayload = mockDeps.setDoc.mock.calls[0]?.[1] as { scores: GameScore[] };
+    expect(firstUpdatePayload.scores[0]).toMatchObject({
+      score1: 21,
+      score2: 12,
+      isComplete: false,
+    });
+
+    await store.updateScore('t1', 'm1', 'participant1', 'cat-1');
+
+    expect(mockDeps.setDoc).toHaveBeenCalledTimes(1);
+  });
+
+  it('completes the current game only when completeCurrentGame is called', async () => {
+    const { useMatchStore } = await import('@/stores/matches');
+    const store = useMatchStore();
+
+    store.currentMatch = {
+      id: 'm1',
+      tournamentId: 't1',
+      categoryId: 'cat-1',
+      round: 1,
+      matchNumber: 1,
+      bracketPosition: { bracket: 'winners', round: 1, position: 1 },
+      participant1Id: 'reg-1',
+      participant2Id: 'reg-2',
+      status: 'in_progress',
+      scores: [{
+        gameNumber: 1,
+        score1: 21,
+        score2: 19,
+        isComplete: false,
+      }],
+      scoringConfig: {
+        gamesPerMatch: 3,
+        pointsToWin: 21,
+        mustWinBy: 2,
+        maxPoints: 30,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Match;
+
+    await store.completeCurrentGame('t1', 'm1', 'cat-1');
+
+    const updatePayload = mockDeps.setDoc.mock.calls[0]?.[1] as { scores: GameScore[] };
+    expect(updatePayload.scores[0]).toMatchObject({
+      score1: 21,
+      score2: 19,
+      isComplete: true,
+      winnerId: 'reg-1',
+    });
+    expect(updatePayload.scores[1]).toMatchObject({
+      gameNumber: 2,
+      score1: 0,
+      score2: 0,
+      isComplete: false,
+    });
+    expect(mockDeps.advanceWinner).not.toHaveBeenCalled();
   });
 });

@@ -105,7 +105,6 @@ const makeCourt = (id: string, number: number): Court => ({
   name: `Court ${number}`,
   number,
   status: 'available',
-  isActive: true,
   createdAt: baseDate,
   updatedAt: baseDate,
 });

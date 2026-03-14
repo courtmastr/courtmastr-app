@@ -15,11 +15,16 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  functions,
+  httpsCallable,
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
 import type { Registration, RegistrationStatus, Player } from '@/types';
 import { useAuditStore } from '@/stores/audit';
 import { useAuthStore } from '@/stores/auth';
+import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
+
+type VolunteerCheckInAction = 'check_in' | 'undo_check_in' | 'assign_bib';
 
 export const useRegistrationStore = defineStore('registrations', () => {
   // State
@@ -55,6 +60,40 @@ export const useRegistrationStore = defineStore('registrations', () => {
     }
     return grouped;
   });
+
+  const getVolunteerSessionToken = (
+    tournamentId: string,
+    role: 'checkin' | 'scorekeeper',
+  ): string | null => {
+    const volunteerAccessStore = useVolunteerAccessStore();
+    if (!volunteerAccessStore.hasValidSession(tournamentId, role)) {
+      return null;
+    }
+
+    return volunteerAccessStore.currentSession?.sessionToken ?? null;
+  };
+
+  const applyVolunteerCheckInAction = async (
+    tournamentId: string,
+    registrationId: string,
+    action: VolunteerCheckInAction,
+    bibNumber?: number,
+  ): Promise<boolean> => {
+    const sessionToken = getVolunteerSessionToken(tournamentId, 'checkin');
+    if (!sessionToken) {
+      return false;
+    }
+
+    const volunteerCheckInFn = httpsCallable(functions, 'applyVolunteerCheckInAction');
+    await volunteerCheckInFn({
+      tournamentId,
+      registrationId,
+      action,
+      bibNumber,
+      sessionToken,
+    });
+    return true;
+  };
 
   // Fetch registrations for a tournament
   async function fetchRegistrations(tournamentId: string, categoryId?: string): Promise<void> {
@@ -338,7 +377,14 @@ export const useRegistrationStore = defineStore('registrations', () => {
     const registration = registrations.value.find(r => r.id === registrationId);
     const participantName = registration?.teamName || registration?.playerId || registrationId;
 
-    await updateRegistrationStatus(tournamentId, registrationId, 'checked_in');
+    const usedVolunteerCallable = await applyVolunteerCheckInAction(
+      tournamentId,
+      registrationId,
+      'check_in',
+    );
+    if (!usedVolunteerCallable) {
+      await updateRegistrationStatus(tournamentId, registrationId, 'checked_in');
+    }
 
     const auditStore = useAuditStore();
     const authStore = useAuthStore();
@@ -362,7 +408,14 @@ export const useRegistrationStore = defineStore('registrations', () => {
     const registration = registrations.value.find(r => r.id === registrationId);
     const participantName = registration?.teamName || registration?.playerId || registrationId;
 
-    await updateRegistrationStatus(tournamentId, registrationId, 'approved', approvedBy);
+    const usedVolunteerCallable = await applyVolunteerCheckInAction(
+      tournamentId,
+      registrationId,
+      'undo_check_in',
+    );
+    if (!usedVolunteerCallable) {
+      await updateRegistrationStatus(tournamentId, registrationId, 'approved', approvedBy);
+    }
 
     const auditStore = useAuditStore();
     const authStore = useAuthStore();
@@ -449,6 +502,16 @@ export const useRegistrationStore = defineStore('registrations', () => {
     bibNumber: number
   ): Promise<void> {
     try {
+      const usedVolunteerCallable = await applyVolunteerCheckInAction(
+        tournamentId,
+        registrationId,
+        'assign_bib',
+        bibNumber,
+      );
+      if (usedVolunteerCallable) {
+        return;
+      }
+
       await updateDoc(
         doc(db, `tournaments/${tournamentId}/registrations`, registrationId),
         {

@@ -1,4 +1,22 @@
 {
   "cookies": [],
-  "origins": []
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "firestore_clients_firestore/[DEFAULT]/demo-courtmaster/_60KIHouQen4zxQGBpgU7",
+          "value": "{\"activeTargetIds\":[4,6],\"updateTimeMs\":1773328949284}"
+        },
+        {
+          "name": "firestore_sequence_number_firestore/[DEFAULT]/demo-courtmaster/",
+          "value": "12"
+        },
+        {
+          "name": "firestore_online_state_firestore/[DEFAULT]/demo-courtmaster/",
+          "value": "{\"clientId\":\"60KIHouQen4zxQGBpgU7\",\"onlineState\":\"Online\"}"
+        }
+      ]
+    }
+  ]
 }

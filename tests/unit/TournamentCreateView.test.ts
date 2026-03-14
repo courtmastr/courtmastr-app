@@ -60,10 +60,31 @@ const mountView = () => shallowMount(TournamentCreateView, {
       'v-checkbox',
       'v-select',
       'v-switch',
+      'v-tooltip',
       'v-spacer',
     ],
   },
 });
+
+const readValue = <T>(value: T | { value: T }): T => {
+  if (value && typeof value === 'object' && 'value' in value) {
+    return value.value;
+  }
+  return value as T;
+};
+
+interface TournamentCreateVm {
+  name: string;
+  startDate: string;
+  endDate: string;
+  selectedCategories: string[];
+  customCategories: Array<{ name: string; type: string; gender: string }>;
+  courts: Array<{ name: string; number: number }>;
+  currentStep: number;
+  canContinue: boolean | { value: boolean };
+  continueDisabledReason: string | { value: string };
+  createTournament: () => Promise<void>;
+}
 
 describe('TournamentCreateView', () => {
   beforeEach(() => {
@@ -135,5 +156,36 @@ describe('TournamentCreateView', () => {
       'Tournament created successfully!'
     );
     expect(mockDeps.push).toHaveBeenCalledWith('/tournaments/tournament-1');
+  });
+
+  it('maps continue state and disabled reason to the active step', () => {
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as TournamentCreateVm;
+
+    expect(readValue(vm.canContinue)).toBe(false);
+    expect(readValue(vm.continueDisabledReason)).toContain('basic info');
+
+    vm.name = 'Spring Open';
+    vm.startDate = '2026-03-15';
+    vm.endDate = '2026-03-16';
+
+    expect(readValue(vm.canContinue)).toBe(true);
+    expect(readValue(vm.continueDisabledReason)).toBe('');
+
+    vm.currentStep = 2;
+    vm.selectedCategories = [];
+    vm.customCategories = [];
+
+    expect(readValue(vm.canContinue)).toBe(false);
+    expect(readValue(vm.continueDisabledReason)).toContain('category');
+
+    vm.selectedCategories = ['0'];
+    expect(readValue(vm.canContinue)).toBe(true);
+
+    vm.currentStep = 3;
+    vm.courts = [];
+
+    expect(readValue(vm.canContinue)).toBe(false);
+    expect(readValue(vm.continueDisabledReason)).toContain('court');
   });
 });

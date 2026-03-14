@@ -19,6 +19,30 @@ class FirestoreStorage {
     getCollectionRef(table) {
         return this.db.doc(this.rootPath).collection(table);
     }
+    normalizeQueryValue(key, value) {
+        if (value === undefined) {
+            return value;
+        }
+        const normalizeBracketId = (candidate) => {
+            if (typeof candidate === 'number') {
+                return candidate;
+            }
+            if (typeof candidate === 'string' && /^\d+$/.test(candidate)) {
+                return Number.parseInt(candidate, 10);
+            }
+            return candidate === null ? candidate : String(candidate);
+        };
+        if (key === 'id') {
+            return normalizeBracketId(value);
+        }
+        if (key.endsWith('_id')) {
+            if (value && typeof value === 'object' && 'id' in value) {
+                return normalizeBracketId(value.id);
+            }
+            return normalizeBracketId(value);
+        }
+        return value;
+    }
     removeUndefined(obj) {
         if (obj === null || obj === undefined)
             return obj;
@@ -156,7 +180,9 @@ class FirestoreStorage {
         }
         if (typeof arg === 'number' || typeof arg === 'string') {
             console.log(`🔍 [FirestoreAdapter] Selecting ${table} by id: ${arg}`);
-            const snapshot = await this.getCollectionRef(table).where('id', '==', String(arg)).get();
+            const snapshot = await this.getCollectionRef(table)
+                .where('id', '==', this.normalizeQueryValue('id', arg))
+                .get();
             if (snapshot.empty) {
                 console.log(`   ⚠️  No document found with id=${arg}`);
                 return null;
@@ -169,9 +195,7 @@ class FirestoreStorage {
         let query = this.getCollectionRef(table);
         for (const [key, val] of Object.entries(arg)) {
             if (val !== undefined) {
-                // Convert numeric values to strings for ID fields
-                const queryVal = (key.endsWith('_id') || key === 'id') ? String(val) : val;
-                query = query.where(key, '==', queryVal);
+                query = query.where(key, '==', this.normalizeQueryValue(key, val));
             }
         }
         const snapshot = await query.get();
@@ -187,13 +211,12 @@ class FirestoreStorage {
         console.log(`📝 [FirestoreAdapter] Updating ${table}`);
         let query = this.getCollectionRef(table);
         if (typeof arg === 'number' || typeof arg === 'string') {
-            query = query.where('id', '==', String(arg));
+            query = query.where('id', '==', this.normalizeQueryValue('id', arg));
         }
         else {
             for (const [key, val] of Object.entries(arg)) {
                 if (val !== undefined) {
-                    const queryVal = (key.endsWith('_id') || key === 'id') ? String(val) : val;
-                    query = query.where(key, '==', queryVal);
+                    query = query.where(key, '==', this.normalizeQueryValue(key, val));
                 }
             }
         }
@@ -231,13 +254,12 @@ class FirestoreStorage {
             return true;
         }
         if (typeof arg === 'number' || typeof arg === 'string') {
-            query = query.where('id', '==', String(arg));
+            query = query.where('id', '==', this.normalizeQueryValue('id', arg));
         }
         else {
             for (const [key, val] of Object.entries(arg)) {
                 if (val !== undefined) {
-                    const queryVal = (key.endsWith('_id') || key === 'id') ? String(val) : val;
-                    query = query.where(key, '==', queryVal);
+                    query = query.where(key, '==', this.normalizeQueryValue(key, val));
                 }
             }
         }

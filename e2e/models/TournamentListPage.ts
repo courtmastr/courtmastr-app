@@ -13,7 +13,7 @@ export class TournamentListPage {
 
   async goto() {
     await this.page.goto('/tournaments');
-    await expect(this.page.getByRole('heading', { name: 'Tournaments' })).toBeVisible();
+    await expect(this.page.getByRole('heading', { name: 'Tournaments', exact: true })).toBeVisible();
   }
 
   async clickCreateTournament() {

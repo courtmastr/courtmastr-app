@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
-import type { Court, Match } from '@/types';
+import type { Court, Match, TournamentSponsor } from '@/types';
 import OverlayBoardView from '@/features/overlay/views/OverlayBoardView.vue';
 
 const runtime = {
@@ -11,7 +11,7 @@ const runtime = {
   currentTournament: {
     id: 't1',
     name: 'Spring Open',
-    sponsors: [] as string[],
+    sponsors: [] as TournamentSponsor[],
   },
   activeAnnouncements: [] as Array<{ id: string; text: string }>,
 };
@@ -118,7 +118,16 @@ const unwrap = <T>(value: T | { value: T }): T => {
   return value as T;
 };
 
-const mountView = () => mount(OverlayBoardView);
+const mountView = () => mount(OverlayBoardView, {
+  global: {
+    stubs: {
+      TournamentBrandMark: {
+        props: ['tournamentName'],
+        template: '<div data-testid="brand-mark">{{ tournamentName }}</div>',
+      },
+    },
+  },
+});
 
 describe('OverlayBoardView', () => {
   beforeEach(() => {
@@ -204,5 +213,34 @@ describe('OverlayBoardView', () => {
 
     expect(unwrap(vm.carouselPage)).toBe(1);
     expect(unwrap(vm.carouselRangeLabel)).toBe('COURTS 5-5 OF 5');
+  });
+
+  it('renders structured sponsor data without object-string coercion', async () => {
+    runtime.currentTournament = {
+      id: 't1',
+      name: 'Spring Open',
+      sponsors: [
+        {
+          id: 's1',
+          name: 'Ace Sports',
+          logoUrl: 'https://example.com/ace.png',
+          logoPath: 'tournaments/t1/branding/sponsors/s1/ace.png',
+          displayOrder: 0,
+        },
+        {
+          id: 's2',
+          name: 'Fallback Sponsor',
+          logoUrl: '',
+          logoPath: '',
+          displayOrder: 1,
+        },
+      ],
+    };
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Fallback Sponsor');
+    expect(wrapper.text()).not.toContain('[object Object]');
   });
 });

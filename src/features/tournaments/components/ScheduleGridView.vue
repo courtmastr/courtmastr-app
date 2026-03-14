@@ -11,6 +11,7 @@ import {
   buildGridCellMap,
   computeMatchRowSpan,
   computeTimeSlots,
+  computeValidDropTargets,
   type GridCellMatch,
   type GridCellValue,
 } from './ScheduleGridView';
@@ -26,6 +27,24 @@ const props = defineProps<{
   getCategoryName: (id: string) => string;
   getParticipantName: (id: string | undefined) => string;
 }>();
+
+interface DragReschedulePayload {
+  matchId: string;
+  categoryId: string;
+  levelId?: string;
+  newStartAt: Date;
+  durationMinutes: number;
+  newCourtId: string;
+}
+
+const emit = defineEmits<{
+  (e: 'drag-reschedule', payload: DragReschedulePayload): void;
+}>();
+
+const isDragging = ref(false);
+const validDropKeys = ref<Set<string>>(new Set());
+const draggedMatchId = ref<string | null>(null);
+const dragOverKey = ref<string | null>(null);
 
 const SLOT_INTERVAL_MINUTES = SCHEDULE_DEFAULTS.slotIntervalMinutes;
 const CELL_HEIGHT_PX = 40;
@@ -236,6 +255,95 @@ const visibleLegendItems = computed<CategoryLegendItem[]>(() => categoryLegendIt
 const hiddenLegendCount = computed<number>(() =>
   Math.max(0, categoryLegendItems.value.length - visibleLegendItems.value.length)
 );
+
+const getDurationMs = (match: Match): number => {
+  const start = getMatchStart(match);
+  const end = getMatchEnd(match);
+  if (start && end) return end.getTime() - start.getTime();
+  return SCHEDULE_DEFAULTS.matchDurationMinutes * 60_000;
+};
+
+function onMatchDragStart(event: DragEvent, match: Match): void {
+  if (getScheduleState(match) === 'published') return;
+  event.dataTransfer!.effectAllowed = 'move';
+  event.dataTransfer!.setData(
+    'text/plain',
+    JSON.stringify({ matchId: match.id, categoryId: match.categoryId, levelId: match.levelId })
+  );
+  isDragging.value = true;
+  draggedMatchId.value = match.id;
+  validDropKeys.value = computeValidDropTargets({
+    matchId: match.id,
+    participant1Id: match.participant1Id,
+    participant2Id: match.participant2Id,
+    durationMs: getDurationMs(match),
+    allMatches: (props.allMatches ?? props.matches) as Array<{
+      id: string;
+      participant1Id?: string;
+      participant2Id?: string;
+      plannedStartAt?: Date;
+      plannedEndAt?: Date;
+    }>,
+    timeSlots: timeSlots.value,
+    courtIds: courtIds.value,
+    minRestMs: SCHEDULE_DEFAULTS.minRestTimeMinutes * 60_000,
+    intervalMinutes: SLOT_INTERVAL_MINUTES,
+    cellMap: cellMap.value,
+  });
+}
+
+function onDragEnd(): void {
+  isDragging.value = false;
+  draggedMatchId.value = null;
+  validDropKeys.value = new Set();
+  dragOverKey.value = null;
+}
+
+function onCellDragEnter(slotIndex: number, courtIndex: number): void {
+  const key = `${slotIndex}:${courtIndex}`;
+  if (validDropKeys.value.has(key)) {
+    dragOverKey.value = key;
+  }
+}
+
+function onCellDragLeave(event: DragEvent, slotIndex: number, courtIndex: number): void {
+  const key = `${slotIndex}:${courtIndex}`;
+  if (dragOverKey.value === key && event.relatedTarget === null) {
+    dragOverKey.value = null;
+  }
+}
+
+function onCellDragOver(event: DragEvent, slotIndex: number, courtIndex: number): void {
+  if (validDropKeys.value.has(`${slotIndex}:${courtIndex}`)) {
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = 'move';
+  }
+}
+
+function onCellDrop(event: DragEvent, slotIndex: number, courtIndex: number): void {
+  const key = `${slotIndex}:${courtIndex}`;
+  if (!validDropKeys.value.has(key)) return;
+  event.preventDefault();
+  const raw = event.dataTransfer?.getData('text/plain');
+  if (!raw) return;
+  const { matchId, categoryId, levelId } = JSON.parse(raw) as {
+    matchId: string;
+    categoryId: string;
+    levelId?: string;
+  };
+  const newStartAt = timeSlots.value[slotIndex];
+  const newCourtId = courtIds.value[courtIndex];
+  const match = (props.allMatches ?? props.matches).find((m) => m.id === matchId);
+  if (!match || !newStartAt || !newCourtId) return;
+  emit('drag-reschedule', {
+    matchId,
+    categoryId,
+    levelId,
+    newStartAt,
+    durationMinutes: getDurationMs(match) / 60_000,
+    newCourtId,
+  });
+}
 </script>
 
 <template>
@@ -314,6 +422,7 @@ const hiddenLegendCount = computed<number>(() =>
     <div
       v-else
       class="schedule-grid"
+      :class="{ 'schedule-grid--dragging': isDragging }"
       :style="{
         '--grid-toolbar-offset': `${GRID_TOOLBAR_HEIGHT_PX}px`,
         gridTemplateColumns: `70px repeat(${activeCourts.length}, minmax(160px, 1fr))`,
@@ -352,10 +461,17 @@ const hiddenLegendCount = computed<number>(() =>
               <div
                 v-bind="tooltipProps"
                 class="grid-match-card"
+                :draggable="getScheduleState(getMatchFromCell(slotIndex, courtIndex) as Match) !== 'published'"
+                :class="{
+                  'grid-match-card--dragging': draggedMatchId === (getMatchFromCell(slotIndex, courtIndex) as Match).id,
+                  'grid-match-card--locked': getScheduleState(getMatchFromCell(slotIndex, courtIndex) as Match) === 'published',
+                }"
                 :style="{
                   gridRow: `${slotIndex + 2} / span ${getMatchRowSpan(getMatchFromCell(slotIndex, courtIndex) as Match)}`,
                   gridColumn: `${courtIndex + 2}`,
                 }"
+                @dragstart="onMatchDragStart($event, getMatchFromCell(slotIndex, courtIndex) as Match)"
+                @dragend="onDragEnd"
               >
                 <div class="grid-match-head">
                   <span
@@ -402,7 +518,15 @@ const hiddenLegendCount = computed<number>(() =>
           <div
             v-else-if="!cellMap.has(getCellKey(slotIndex, courtIndex))"
             class="grid-empty-cell"
+            :class="{
+              'drag-valid': isDragging && validDropKeys.has(getCellKey(slotIndex, courtIndex)),
+              'drag-over': isDragging && dragOverKey === getCellKey(slotIndex, courtIndex),
+            }"
             :style="{ gridRow: slotIndex + 2, gridColumn: courtIndex + 2 }"
+            @dragenter="onCellDragEnter(slotIndex, courtIndex)"
+            @dragleave="onCellDragLeave($event, slotIndex, courtIndex)"
+            @dragover="onCellDragOver($event, slotIndex, courtIndex)"
+            @drop="onCellDrop($event, slotIndex, courtIndex)"
           />
         </template>
       </template>
@@ -429,6 +553,10 @@ const hiddenLegendCount = computed<number>(() =>
               :key="match.id"
               :title="`${getDisplayCode(match)} • ${getMatchLabel(match)}`"
               :subtitle="getCategoryName(match.categoryId)"
+              draggable="true"
+              class="unscheduled-draggable"
+              @dragstart="onMatchDragStart($event, match)"
+              @dragend="onDragEnd"
             />
           </v-list>
         </v-expansion-panel-text>
@@ -578,5 +706,34 @@ const hiddenLegendCount = computed<number>(() =>
 .grid-empty-cell {
   border-right: 1px solid rgb(var(--v-theme-outline-variant));
   border-bottom: 1px solid rgb(var(--v-theme-outline-variant));
+}
+
+/* Valid drop target: subtle tint only, no border noise */
+.schedule-grid--dragging .grid-empty-cell.drag-valid {
+  background: rgba(var(--v-theme-primary), 0.04);
+  transition: background 0.1s ease, box-shadow 0.1s ease;
+  cursor: copy;
+}
+
+/* Active hover on a valid target: crisp inset ring, no border override */
+.schedule-grid--dragging .grid-empty-cell.drag-over {
+  background: rgba(var(--v-theme-primary), 0.12);
+  box-shadow: inset 0 0 0 2px rgb(var(--v-theme-primary));
+}
+
+.grid-match-card[draggable='true'] {
+  cursor: grab;
+}
+
+.grid-match-card--dragging {
+  opacity: 0.5;
+}
+
+.grid-match-card--locked {
+  cursor: default;
+}
+
+.unscheduled-draggable {
+  cursor: grab;
 }
 </style>

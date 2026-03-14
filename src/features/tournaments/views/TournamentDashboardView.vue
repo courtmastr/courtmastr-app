@@ -8,12 +8,16 @@ import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
+import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
+import TournamentSponsorStrip from '@/components/common/TournamentSponsorStrip.vue';
 import { exportTournamentMatchesToCSV } from '../utils/export';
 import OrganizerChecklist from '../components/OrganizerChecklist.vue';
 import ActiveMatchesSection from '../components/ActiveMatchesSection.vue';
 import ReadyQueue from '../components/ReadyQueue.vue';
 import ScoringQrDialog from '../components/ScoringQrDialog.vue';
+import TournamentAnnouncementCardDialog from '../components/TournamentAnnouncementCardDialog.vue';
 import MatchStatsDashboard from '../components/MatchStatsDashboard.vue';
 
 const route = useRoute();
@@ -33,6 +37,7 @@ const matches = computed(() => matchStore.matches);
 const registrations = computed(() => registrationStore.registrations);
 const loading = computed(() => tournamentStore.loading);
 const isAdmin = computed(() => authStore.isAdmin);
+const { normalizedSponsors, tournamentLogoUrl } = useTournamentBranding(tournament);
 
 const selectedCategory = ref<string | null>(null);
 const statsLoaded = ref(false);
@@ -229,6 +234,7 @@ const showCompleteDialog = ref(false);
 
 // Scoring QR dialog
 const showScoringQrDialog = ref(false);
+const showAnnouncementCardDialog = ref(false);
 
 // Delete Tournament
 const showDeleteDialog = ref(false);
@@ -286,8 +292,8 @@ function handleExport() {
       class="mb-6 bg-transparent"
     >
       <div class="d-flex flex-column flex-md-row align-md-center justify-space-between gap-4">
-        <div>
-          <div class="d-flex align-center mb-1">
+        <div class="flex-grow-1">
+          <div class="d-flex align-center flex-wrap gap-4 mb-1">
             <v-btn
               icon
               variant="text"
@@ -301,27 +307,44 @@ function handleExport() {
                 size="20"
               />
             </v-btn>
-            <h1 class="text-h4 font-weight-bold text-gradient">
-              {{ tournament.name }}
-            </h1>
+            <TournamentBrandMark
+              :tournament-name="tournament.name"
+              :logo-url="tournamentLogoUrl"
+              :width="72"
+              :height="72"
+            />
+            <div>
+              <h1 class="text-h4 font-weight-bold text-gradient">
+                {{ tournament.name }}
+              </h1>
+              <div class="d-flex align-center text-body-2 text-grey-darken-1 flex-wrap">
+                <v-icon
+                  icon="mdi-calendar"
+                  size="16"
+                  class="mr-2"
+                />
+                {{ formatDate(tournament.startDate) }}
+                <span
+                  v-if="tournament.location"
+                  class="mx-2"
+                >•</span>
+                <v-icon
+                  icon="mdi-map-marker"
+                  size="16"
+                  class="mr-2"
+                />
+                <span v-if="tournament.location">{{ tournament.location }}</span>
+              </div>
+            </div>
           </div>
-          <div class="d-flex align-center text-body-2 text-grey-darken-1 ml-10">
-            <v-icon
-              icon="mdi-calendar"
-              size="16"
-              class="mr-2"
+          <div
+            v-if="normalizedSponsors.length > 0"
+            class="mt-4"
+          >
+            <TournamentSponsorStrip
+              :sponsors="normalizedSponsors"
+              dense
             />
-            {{ formatDate(tournament.startDate) }}
-            <span
-              v-if="tournament.location"
-              class="mx-2"
-            >•</span>
-            <v-icon
-              icon="mdi-map-marker"
-              size="16"
-              class="mr-2"
-            />
-            <span v-if="tournament.location">{{ tournament.location }}</span>
           </div>
         </div>
 
@@ -435,6 +458,18 @@ function handleExport() {
                 <template #prepend>
                   <v-icon
                     icon="mdi-qrcode"
+                    size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
+                </template>
+              </v-list-item>
+              <v-list-item
+                title="Download Announcement Card"
+                @click="showAnnouncementCardDialog = true"
+              >
+                <template #prepend>
+                  <v-icon
+                    icon="mdi-image-outline"
                     size="18"
                     class="mr-3 text-grey-darken-1"
                   />
@@ -1131,6 +1166,15 @@ function handleExport() {
     :tournament-id="tournamentId"
     @copied="notificationStore.showToast('success', 'Scoring link copied!')"
   />
+
+  <TournamentAnnouncementCardDialog
+    v-model="showAnnouncementCardDialog"
+    :tournament-name="tournament?.name || 'Tournament'"
+    :tournament-date="tournament?.startDate || null"
+    :tournament-location="tournament?.location || null"
+    :logo-url="tournamentLogoUrl"
+    @downloaded="notificationStore.showToast('success', 'Announcement card downloaded')"
+  />
 </template>
 
 <style scoped lang="scss">
@@ -1248,4 +1292,3 @@ function handleExport() {
 .bg-success-subtle { background-color: rgba($success, 0.1) !important; }
 .bg-warning-subtle { background-color: rgba($warning, 0.1) !important; }
 </style>
-

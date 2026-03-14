@@ -1,4 +1,4 @@
-# Coding Pattern Guide — CourtMaster v2
+# Coding Pattern Guide — CourtMastr v2
 
 > **Living Document.** Every bug fix MUST add or update a pattern here.
 > See [AGENTS.md § 12](../../AGENTS.md) for the Post-Fix Protocol.
@@ -121,6 +121,44 @@ fi
 ---
 
 ## Category: Data Integrity
+
+### CP-067: Mock or Provide Vuetify Display in AppLayout Unit Tests
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-13 |
+| **Source Bug** | Horizon-2A regression — `useDisplay()` threw "Could not find Vuetify display injection" in `AppLayout` tests |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// AppLayout uses useDisplay() internally, but test provides no Vuetify injection.
+const wrapper = shallowMount(AppLayout, {
+  global: {
+    stubs: ['v-layout', 'v-main'],
+  },
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+// Provide display context in unit tests (mock or real plugin).
+vi.mock('vuetify', () => ({
+  useDisplay: () => ({ smAndDown: false }),
+}));
+
+const wrapper = shallowMount(AppLayout, { /* ... */ });
+```
+
+**Rule:** If a component calls `useDisplay()` (or other Vuetify composables using injection), unit tests must either install Vuetify or mock the composable.
+
+**Detection:**
+```bash
+# Find AppLayout tests and verify they provide display context
+rg -n "mount\\(AppLayout|shallowMount\\(AppLayout" tests/unit --glob "*.test.ts"
+rg -n "vi\\.mock\\('vuetify'|createVuetify\\(" tests/unit/AppLayout*.test.ts
+```
 
 ### CP-002: Reverse Lookups for Cross-Collection References
 
@@ -810,6 +848,91 @@ rg -n "Search participants|Filter by Category|Filter by Court|Clear Filters" src
 ```bash
 rg -n "v-else-if=\"viewMode === 'command'\" -A 120 src/features/tournaments/views/MatchControlView.vue | rg "v-col|md=\"6\"|lg=\"7\"|md=\"3\"|lg=\"2\"|lg=\"3\""
 rg -n "command-layout|command-resizer|beginCommandResize" src/features/tournaments/views/MatchControlView.vue
+```
+
+---
+
+### CP-068: Public Website Footer Must Render Inside `v-main`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-14 |
+| **Source Bug** | Public footer rendered as a right-side column (Terms link isolated) when mounted as a `v-layout` sibling |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-main id="main-content">
+  <v-container fluid>
+    <router-view />
+  </v-container>
+</v-main>
+
+<PublicWebsiteFooter v-if="showPublicWebsiteFooter" />
+```
+
+**Correct Pattern (✅):**
+```vue
+<v-main id="main-content" class="app-main">
+  <v-container fluid class="app-main__content">
+    <router-view />
+  </v-container>
+  <PublicWebsiteFooter v-if="showPublicWebsiteFooter" />
+</v-main>
+```
+
+**Rule:** In Vuetify app-shell layouts, public footers belong inside `v-main` (column flow), not as standalone siblings under `v-layout`.
+
+**Detection:**
+```bash
+rg -n "<PublicWebsiteFooter|</v-main>" src/components/layout/AppLayout.vue
+awk '/<PublicWebsiteFooter/{f=NR} /<\\/v-main>/{m=NR} END { if (f && m && f < m) print "OK: footer inside v-main"; else print "Violation: footer outside v-main"; }' src/components/layout/AppLayout.vue
+```
+
+---
+
+### CP-069: `PrimaryActionEvent` Literals Must Match the Union Exactly
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-14 |
+| **Source Bug** | `build:log` fingerprint `20d5d4c3` (`'publish-schedule'` not assignable to `PrimaryActionEvent`) |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+type PrimaryActionEvent =
+  | 'setup-category'
+  | 'manage-registrations'
+  | 'generate-bracket'
+  | 'view-bracket'
+  | 'schedule-times'
+  | 'open-checkin'
+  | 'create-levels';
+
+// Invalid literal (not in union) triggers TS2322
+return {
+  label: 'Publish Level Schedule',
+  event: 'publish-schedule',
+};
+```
+
+**Correct Pattern (✅):**
+```ts
+return {
+  label: 'Publish Level Schedule',
+  event: 'schedule-times',
+};
+```
+
+**Rule:** Any object field typed as `PrimaryActionEvent` must use an exact union member literal. Introducing a nearby-but-different event string causes compile-time failure and blocks `build`/`build:log`.
+
+**Detection:**
+```bash
+rg -n "type PrimaryActionEvent|event:\\s*'publish-schedule'|event:\\s*'unpublish-schedule'" src/features/tournaments/components/CategoryRegistrationStats.vue
+npm run build:log
 ```
 
 ---
@@ -2749,6 +2872,504 @@ rg -n "stageId: result.stageId,\\s*poolStageId: result.stageId" src/composables/
 **Detection:**
 ```bash
 rg -n "is-round-robin-stage|isRoundRobinStageLayout|round-robin \\.group|round-robin \\.group table" src/features/brackets/components/BracketsManagerViewer.vue
+```
+
+---
+
+### CP-056: Public Schedule Unpublished Banner Must Respect Visible Live Activity
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-03 |
+| **Source Bug** | Public Schedule could show `Schedule not published yet.` even when live/queue/category activity was visible, creating contradictory state messaging |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-alert v-if="!hasPublishedSchedule" type="info" variant="tonal">
+  Schedule not published yet.
+</v-alert>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const hasVisibleScheduleActivity = computed(() =>
+  nowPlayingItems.value.length > 0 ||
+  displayQueueItems.value.length > 0 ||
+  recentResultItems.value.length > 0 ||
+  categoryPulseItems.value.length > 0
+);
+
+const shouldShowUnpublishedScheduleAlert = computed(
+  () => !hasPublishedSchedule.value && !hasVisibleScheduleActivity.value
+);
+```
+```vue
+<v-alert v-if="shouldShowUnpublishedScheduleAlert" type="info" variant="tonal">
+  Schedule not published yet.
+</v-alert>
+```
+
+**Rule:** Public Schedule "unpublished" messaging must be gated by both publish state and visible live/schedule activity. Never key the banner only off `!hasPublishedSchedule`.
+
+**Detection:**
+```bash
+if rg -n "v-if=\"!hasPublishedSchedule\"" src/features/public/views/PublicScheduleView.vue; then
+  echo "Violation: unpublished banner is keyed only to publish state"
+fi
+rg -n "hasVisibleScheduleActivity|shouldShowUnpublishedScheduleAlert" src/features/public/views/PublicScheduleView.vue
+```
+
+---
+
+### CP-057: Queue Wait Labels Must Use Timestamp Fallbacks and Numeric Output
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-03 |
+| **Source Bug** | Match queue rows could render `Waited` with no duration when `queuedAt` was missing, blocking manual urgency-threshold validation |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+function getWaitTime(match: Match): string {
+  if (!match.queuedAt) return '';
+  const minutes = differenceInMinutes(new Date(), match.queuedAt);
+  if (minutes < 1) return 'Just now';
+  return `${minutes} min`;
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+function getQueueTimestamp(match: Match): Date | undefined {
+  return match.queuedAt ?? match.plannedStartAt ?? match.scheduledTime;
+}
+
+function getWaitMinutes(match: Match): number {
+  const queueTimestamp = getQueueTimestamp(match);
+  if (!queueTimestamp) return 0;
+  return Math.max(0, differenceInMinutes(new Date(), queueTimestamp));
+}
+
+function getWaitTime(match: Match): string {
+  const minutes = getWaitMinutes(match);
+  if (minutes < 1) return '0 min';
+  return `${minutes} min`;
+}
+```
+
+**Rule:** Match queue wait display and urgency inputs must never depend exclusively on `queuedAt`; use `queuedAt ?? plannedStartAt ?? scheduledTime`, clamp negatives to `0`, and always render a numeric wait label.
+
+**Detection:**
+```bash
+if rg -n "if \\(!match\\.queuedAt\\) return '';" src/features/tournaments/components/MatchQueueList.vue; then
+  echo "Violation: queue wait label can render blank text"
+fi
+rg -n "getQueueTimestamp|plannedStartAt \\?\\? match\\.scheduledTime|Math.max\\(0, differenceInMinutes\\(" src/features/tournaments/components/MatchQueueList.vue
+```
+
+---
+
+### CP-058: Pinia Firestore Mutations Must Keep Local Reactive Collections in Sync
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-04 |
+| **Source Bug** | Category/Court UI stayed stale after add/update/maintenance actions because Firestore writes succeeded but local `categories`/`courts` refs were not updated |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+async function addCourt(tournamentId: string, courtData: CourtInput): Promise<string> {
+  const docRef = await addDoc(collection(db, `tournaments/${tournamentId}/courts`), courtData);
+  return docRef.id; // UI stays stale unless a separate fetch/subscription runs
+}
+
+async function setCourtMaintenance(tournamentId: string, courtId: string): Promise<void> {
+  await updateDoc(doc(db, `tournaments/${tournamentId}/courts`, courtId), { status: 'maintenance' });
+  // no local courts.value update
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+const createdAt = new Date();
+courts.value = [...courts.value, {
+  id: docRef.id,
+  tournamentId,
+  name: courtData.name,
+  number: courtData.number,
+  status: 'available',
+  createdAt,
+  updatedAt: createdAt,
+}];
+
+courts.value = courts.value.map((court) =>
+  court.id === courtId
+    ? { ...court, status: 'maintenance', currentMatchId: undefined, updatedAt: new Date() }
+    : court
+);
+```
+
+**Rule:** Any Pinia action that writes to Firestore collections backing active UI lists must either (1) maintain a guaranteed live subscription for that view or (2) apply a local reactive sync update (`categories.value` / `courts.value`) in the same action path.
+
+**Detection:**
+```bash
+rg -n "categories\\.value = \\[\\.\\.\\.categories\\.value, optimisticCategory\\]" src/stores/tournaments.ts
+rg -n "courts\\.value = \\[\\.\\.\\.courts\\.value, optimisticCourt\\]" src/stores/tournaments.ts
+rg -n "courts\\.value = courts\\.value\\.map\\(" src/stores/tournaments.ts
+```
+
+---
+
+### CP-059: E2E Auth Redirect Assertions Must Use URL Pattern Matching
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-04 |
+| **Source Bug** | E2E suites intermittently failed after login because tests waited for exact `'/tournaments'` while app redirects could include query/path variants (for example `/tournaments?foo=bar` or `/tournaments/...`) |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await page.getByRole('button', { name: 'Sign In' }).click();
+await page.waitForURL('/tournaments', { timeout: 10000 });
+```
+
+**Correct Pattern (✅):**
+```typescript
+await page.getByRole('button', { name: 'Sign In' }).click();
+await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 15000 });
+```
+
+**Rule:** E2E authentication flows must not assert exact post-login URL strings for tournament landing. Use regex/predicate assertions that accept `/tournaments`, nested tournament routes, and query-bearing redirects.
+
+**Detection:**
+```bash
+rg -n "waitForURL\\('/tournaments'|waitForURL\\(\"/tournaments\"" e2e
+```
+
+---
+
+### CP-060: Public Self-Registration Must Remain Player-Safe
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-11 |
+| **Source Bug** | Public registration exposed organizer and scorekeeper role selection, allowing privileged-looking account creation from `/register` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const selectedRole = ref('player');
+
+const roleOptions = [
+  { title: 'Player', value: 'player', description: 'Participate in tournaments' },
+  { title: 'Tournament Organizer', value: 'organizer', description: 'Create and manage tournaments' },
+  { title: 'Scorekeeper', value: 'scorekeeper', description: 'Record match scores' },
+];
+```
+```vue
+<v-select
+  v-model="selectedRole"
+  :items="roleOptions"
+  label="I am a..."
+/>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const selectedRole = ref<UserRole>('player');
+```
+```vue
+<v-alert type="info" variant="tonal" class="mb-3">
+  Player accounts are created here. Staff and volunteer access is issued from tournament settings.
+</v-alert>
+```
+
+**Rule:** The public `/register` flow may create player accounts only. Do not render organizer, scorekeeper, or other privileged role selection in public self-registration. Staff and volunteer access must be issued through staff-managed flows.
+
+**Detection:**
+```bash
+if rg -n "Tournament Organizer|Scorekeeper|value: 'organizer'|value: 'scorekeeper'" src/features/auth/views/RegisterView.vue; then
+  echo "Violation: privileged roles exposed in public registration"
+fi
+rg -n "const selectedRole = ref<UserRole>\\('player'\\)|Player accounts are created here" src/features/auth/views/RegisterView.vue
+```
+
+---
+
+### CP-061: Volunteer Kiosk Mutations Must Use Callable Session Paths
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-11 |
+| **Source Bug** | Volunteer routes could still mutate registrations and match scores through direct Firestore client writes, bypassing the tournament PIN session model |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await updateDoc(
+  doc(db, `tournaments/${tournamentId}/registrations`, registrationId),
+  { status: 'checked_in', updatedAt: serverTimestamp() },
+);
+
+await setDoc(
+  doc(db, matchScoresPath, matchId),
+  { scores, status: 'completed', winnerId, updatedAt: serverTimestamp() },
+  { merge: true },
+);
+```
+
+**Correct Pattern (✅):**
+```typescript
+const sessionToken = getVolunteerSessionToken(tournamentId, 'checkin');
+if (sessionToken) {
+  const volunteerCheckInFn = httpsCallable(functions, 'applyVolunteerCheckInAction');
+  await volunteerCheckInFn({ tournamentId, registrationId, action: 'check_in', sessionToken });
+  return;
+}
+
+const scorekeeperToken = getVolunteerSessionToken(tournamentId, 'scorekeeper');
+if (scorekeeperToken) {
+  const updateMatchFn = httpsCallable(functions, 'updateMatch');
+  await updateMatchFn({
+    tournamentId,
+    categoryId,
+    matchId,
+    status: 'in_progress',
+    scores,
+    sessionToken: scorekeeperToken,
+  });
+  return;
+}
+```
+
+**Rule:** Any mutation triggered from check-in or scorekeeper volunteer sessions must go through a callable that validates the tournament-scoped session token. Direct Firestore writes remain acceptable only for authenticated staff paths.
+
+**Detection:**
+```bash
+rg -n "applyVolunteerCheckInAction|applyVolunteerMatchUpdate|getVolunteerSessionToken" src/stores/registrations.ts src/stores/matches.ts
+```
+
+---
+
+### CP-062: Bracket Primary ID Queries Must Preserve Numeric IDs
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-11 |
+| **Source Bug** | Volunteer score submissions reached `updateMatch`, but the Cloud Function storage adapter queried bracket matches with string IDs while Firestore stored primary `id` fields as numbers |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (typeof arg === 'number' || typeof arg === 'string') {
+  const snapshot = await this.getCollectionRef(table)
+    .where('id', '==', String(arg))
+    .get();
+}
+
+for (const [key, val] of Object.entries(arg)) {
+  const queryVal = (key.endsWith('_id') || key === 'id') ? String(val) : val;
+  query = query.where(key, '==', queryVal);
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+private normalizeQueryValue(key: string, value: unknown): unknown {
+  if (key === 'id' && typeof value === 'string' && /^\\d+$/.test(value)) {
+    return Number.parseInt(value, 10);
+  }
+
+  if (key.endsWith('_id')) {
+    return value === null ? value : String(value);
+  }
+
+  return value;
+}
+
+query = query.where('id', '==', this.normalizeQueryValue('id', arg));
+```
+
+**Rule:** In bracket storage adapters, primary `id` queries must match the stored type. Numeric bracket IDs must stay numeric for `id` lookups, while foreign-key `*_id` fields may still be normalized to strings.
+
+**Detection:**
+```bash
+rg -n "where\\('id', '==', String\\(arg\\)\\)|key === 'id'\\) \\? String\\(val\\)|normalizeQueryValue" functions/src/storage/firestore-adapter.ts
+```
+
+### CP-063: Bracket Foreign-Key Queries Must Preserve Numeric IDs
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-12 |
+| **Source Bug** | Volunteer manual-score completion returned `Error getting rounds.` after `updateMatch` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (key.endsWith('_id')) {
+  if (value && typeof value === 'object' && 'id' in value) {
+    return String((value as { id?: unknown }).id);
+  }
+
+  return value === null ? value : String(value);
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+const normalizeBracketId = (candidate: unknown): unknown => {
+  if (typeof candidate === 'number') return candidate;
+  if (typeof candidate === 'string' && /^\d+$/.test(candidate)) {
+    return Number.parseInt(candidate, 10);
+  }
+  return candidate === null ? candidate : String(candidate);
+};
+
+if (key.endsWith('_id')) {
+  if (value && typeof value === 'object' && 'id' in value) {
+    return normalizeBracketId((value as { id?: unknown }).id);
+  }
+
+  return normalizeBracketId(value);
+}
+```
+
+**Rule:** In the server `FirestoreStorage` adapter, bracket-manager foreign-key filters such as `stage_id`, `group_id`, and `round_id` must preserve numeric IDs when the stored documents use numeric bracket IDs. Converting them to strings breaks `BracketsManager.update.match()` and similar traversal queries.
+
+**Detection:**
+```bash
+rg -n "key\\.endsWith\\('_id'\\).*String\\(|return value === null \\? value : String\\(value\\)" functions/src/storage/firestore-adapter.ts
+```
+
+---
+
+### CP-064: Point-by-Point Scoring Must Require Explicit Game Completion
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-12 |
+| **Source Bug** | Accidental tap at game point (for example 20→21) immediately ended the game without scorer confirmation, preventing safe undo workflows |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (validation.isValid) {
+  currentGame.isComplete = true;
+  currentGame.winnerId = participant === 'participant1' ? match.participant1Id : match.participant2Id;
+  scores.push({ gameNumber: 2, score1: 0, score2: 0, isComplete: false });
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+const pendingCompletion = getPendingGameCompletion(currentGame, match.participant1Id, match.participant2Id, config);
+if (pendingCompletion.canComplete) {
+  return; // Lock further +1 taps until scorer confirms or undoes
+}
+```
+```typescript
+async function completeCurrentGame(...) {
+  // Validate legal finish, then mark winner and advance game/match explicitly
+}
+```
+```vue
+<p v-if="currentGameReadyToComplete">
+  Game point reached. Complete the game or undo the last point.
+</p>
+<v-btn v-if="currentGameReadyToComplete" @click="completeCurrentGame">
+  Complete Game
+</v-btn>
+```
+
+**Rule:** Reaching a legal winning score must lock further point increments and require an explicit scorer action (`Complete Game`) before the game is finalized. Undo must remain available while locked.
+
+**Detection:**
+```bash
+rg -n "completeCurrentGame|getPendingGameCompletion|scoreEntryLocked|currentGameReadyToComplete" src/stores/matches.ts src/features/scoring/views/ScoringInterfaceView.vue
+```
+
+---
+
+### CP-065: Match Detail Must Apply Full `match_scores` Overlay
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-12 |
+| **Source Bug** | Match detail view stayed in `ready` after Start Match because `fetchMatch()` copied only scores/court fields and ignored `match_scores.status` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (scoreDoc.exists()) {
+  const scoreData = scoreDoc.data();
+  adapted.scores = scoreData.scores || [];
+  if (scoreData.courtId) adapted.courtId = scoreData.courtId;
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+if (scoreDoc.exists()) {
+  applyScoreOverlay(adapted, scoreDoc.data(), bMatch);
+}
+```
+
+**Rule:** Single-match loaders (`fetchMatch`) must reuse the same score-overlay adapter used by list loaders (`fetchMatches`) so `status`, `winnerId`, court metadata, and timing fields stay consistent across views.
+
+**Detection:**
+```bash
+rg -n "applyScoreOverlay\\(adapted, scoreDoc\\.data\\(\\), bMatch\\)" src/stores/matches.ts
+```
+
+---
+
+### CP-066: E2E Scoring Completion Assertions Must Be Capability-Gated
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-12 |
+| **Source Bug** | Scorekeeper concurrency E2E expected automatic completion artifacts (`Recent Results`, completed status) even when completion controls were manual/role-gated |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await addPointsToParticipantOne(page, 3);
+await expect.poll(async () => getCompletedMatchesCount(db, scenario)).toBe(5);
+await expect(schedulePage.getByText('Recent Results')).toBeVisible();
+```
+
+**Correct Pattern (✅):**
+```typescript
+await expect.poll(async () => arePointScoresUpdated(db, scenario)).toBe(true);
+
+const completionResults = await Promise.all(scorerPages.map((page) => completeCurrentGame(page)));
+if (completionResults.every(Boolean)) {
+  await expect.poll(async () => getCompletedMatchesCount(db, scenario)).toBe(5);
+  await expect(schedulePage.getByText('Recent Results')).toBeVisible();
+}
+```
+
+**Rule:** E2E scoring tests must always verify point propagation, then assert completion-specific UI/data only when the acting role/view can perform completion (`Complete Game` or manual entry controls available).
+
+**Detection:**
+```bash
+rg -n "getCompletedMatchesCount\\(db, scenario\\)|Recent Results|Games 1 - 0" e2e/concurrent-five-scorers.spec.ts
 ```
 
 ---

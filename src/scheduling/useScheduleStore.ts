@@ -76,6 +76,34 @@ export const saveManualPlannedTime = async (
   );
 };
 
+export interface DragRescheduleInput {
+  tournamentId: string;
+  categoryId: string;
+  levelId?: string;
+  matchId: string;
+  newStartAt: Date;
+  durationMinutes: number;
+  newCourtId: string;
+}
+
+export const saveDragReschedule = async (input: DragRescheduleInput): Promise<void> => {
+  const { tournamentId, categoryId, levelId, matchId, newStartAt, durationMinutes, newCourtId } =
+    input;
+  const newEndAt = new Date(newStartAt.getTime() + durationMinutes * 60_000);
+  await setDoc(
+    doc(db, getMatchScoresPath(tournamentId, categoryId, levelId), matchId),
+    {
+      [SCHEDULE_FIELDS.plannedStartAt]: Timestamp.fromDate(newStartAt),
+      [SCHEDULE_FIELDS.plannedEndAt]: Timestamp.fromDate(newEndAt),
+      [SCHEDULE_FIELDS.courtId]: newCourtId,
+      [SCHEDULE_FIELDS.scheduleStatus]: SCHEDULE_STATUS.draft,
+      [SCHEDULE_FIELDS.lockedTime]: true,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+};
+
 export const publishMatchSchedule = async (
   input: PublishMatchScheduleInput
 ): Promise<void> => {

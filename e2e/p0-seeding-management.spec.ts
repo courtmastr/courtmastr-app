@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures/auth-fixtures';
 import { getTournamentId } from './utils/test-data';
+import type { Page } from '@playwright/test';
 
 test.describe('P0 - Seeding Management', () => {
   let tournamentId: string;
@@ -8,47 +9,44 @@ test.describe('P0 - Seeding Management', () => {
     tournamentId = await getTournamentId();
   });
 
+  const openSeedsDialog = async (page: Page, categoryName: string): Promise<void> => {
+    const categoryCard = page.locator('.category-card', { hasText: categoryName }).first();
+    await expect(categoryCard).toBeVisible({ timeout: 10000 });
+    await categoryCard.getByLabel(/open actions menu/i).click();
+    await page.locator('.v-overlay-container .v-list-item', { hasText: 'Seeds' }).first().click();
+    await expect(page.locator('.v-dialog').filter({ hasText: 'Manage Seeds' }).last()).toBeVisible();
+  };
+
   test.beforeEach(async ({ page }) => {
-    await page.goto(`/tournaments/${tournamentId}`);
-    await page.waitForSelector('text=Tournament Status', { timeout: 10000 });
+    await page.goto(`/tournaments/${tournamentId}/categories`);
+    await expect(page.getByTestId('add-category-btn')).toBeVisible({ timeout: 10000 });
   });
 
   test('should open seeding dialog for category', async ({ page }) => {
-    const categoryCard = page.locator('.v-card', { hasText: "Men's Singles" });
-    await categoryCard.getByTestId('manage-seeds-btn').click();
-
-    const dialog = page.locator('.v-dialog');
-    await dialog.waitFor({ state: 'visible' });
-    
+    await openSeedsDialog(page, "Men's Singles");
+    const dialog = page.locator('.v-dialog').filter({ hasText: 'Manage Seeds' }).last();
     await expect(dialog.getByText(/seeding/i)).toBeVisible();
   });
 
   test('should assign seed number to participant', async ({ page }) => {
-    const categoryCard = page.locator('.v-card', { hasText: "Men's Singles" });
-    await categoryCard.getByTestId('manage-seeds-btn').click();
+    await openSeedsDialog(page, "Men's Singles");
+    const dialog = page.locator('.v-dialog').filter({ hasText: 'Manage Seeds' }).last();
 
-    const dialog = page.locator('.v-dialog');
-    await dialog.waitFor({ state: 'visible' });
+    const seedInput = dialog.locator('[data-testid^="seed-input-"]').first().locator('input');
+    await seedInput.fill('1');
 
-    const seedSelect = dialog.locator('[data-testid^="seed-input-"]').first();
-    await seedSelect.click();
-    await page.getByRole('option', { name: 'Seed #1' }).click();
-
-    await dialog.getByRole('button', { name: /done/i }).click();
+    await dialog.getByTestId('close-seeding-dialog-btn').click();
     
     await expect(dialog).not.toBeVisible();
   });
 
   test('should auto-seed participants', async ({ page }) => {
-    const categoryCard = page.locator('.v-card', { hasText: "Men's Singles" });
-    await categoryCard.getByTestId('manage-seeds-btn').click();
-
-    const dialog = page.locator('.v-dialog');
-    await dialog.waitFor({ state: 'visible' });
+    await openSeedsDialog(page, "Men's Singles");
+    const dialog = page.locator('.v-dialog').filter({ hasText: 'Manage Seeds' }).last();
 
     await dialog.getByTestId('auto-assign-seeds-btn').click();
-
-    await expect(page.getByText(/Auto-assigned|success/i)).toBeVisible();
+    const firstSeedInput = dialog.locator('[data-testid^="seed-input-"]').first().locator('input');
+    await expect(firstSeedInput).toHaveValue('1');
     
     await dialog.getByTestId('close-seeding-dialog-btn').click();
   });

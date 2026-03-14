@@ -3,190 +3,287 @@ import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { BracketsManager } from 'brackets-manager';
 import { FirestoreStorage } from './storage/firestore-adapter';
+import type { GameScore, MatchStatus } from './types';
+import { verifyVolunteerSession } from './volunteerAccess';
 
-// const db = admin.firestore(); // Moved inside function to avoid init order issues
+type MatchMutationStatus = Extract<MatchStatus, 'ready' | 'in_progress' | 'completed' | 'walkover'>;
 
-/**
- * Update match score and advance bracket if match is complete
- */
-export const updateMatch = functions.https.onCall(
-    async (request) => {
-        const db = admin.firestore();
+interface UpdateMatchRequestData {
+  tournamentId?: unknown;
+  categoryId?: unknown;
+  levelId?: unknown;
+  matchId?: unknown;
+  status?: unknown;
+  winnerId?: unknown;
+  scores?: unknown;
+  sessionToken?: unknown;
+}
 
-        // Verify authentication
-        if (!request.auth) {
-            throw new functions.https.HttpsError(
-                'unauthenticated',
-                'User must be authenticated'
-            );
-        }
+interface BracketOpponent {
+  id?: string | number;
+  result?: 'win' | 'loss';
+}
 
-        const { tournamentId, categoryId, matchId, status, winnerId, scores } = request.data;
+interface StoredBracketMatch {
+  id: string | number;
+  stage_id?: string | number;
+  opponent1?: BracketOpponent;
+  opponent2?: BracketOpponent;
+}
 
-        console.log('🎯 [updateMatch] Called with:', {
-            tournamentId,
-            categoryId,
-            matchId,
-            status,
-            winnerId,
-            scoresLength: scores?.length,
-        });
+interface StoredBracketParticipant {
+  id: string | number;
+  name?: string;
+}
 
-        if (!tournamentId || !matchId || status === undefined) {
-            throw new functions.https.HttpsError(
-                'invalid-argument',
-                'tournamentId, matchId, and status are required'
-            );
-        }
+const parseRequiredString = (value: unknown, fieldName: string): string => {
+  const parsed = String(value || '').trim();
+  if (!parsed) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `${fieldName} is required`,
+    );
+  }
 
-        if (!categoryId) {
-            throw new functions.https.HttpsError(
-                'invalid-argument',
-                'categoryId is required for match updates'
-            );
-        }
+  return parsed;
+};
 
-        try {
-            // 1. Update match_scores collection (our custom storage for detailed scores)
-            if (scores) {
-                console.log('📝 [updateMatch] Updating match_scores with scores:', scores);
-                await db
-                    .collection('tournaments')
-                    .doc(tournamentId)
-                    .collection('categories')
-                    .doc(categoryId)
-                    .collection('match_scores')
-                    .doc(matchId)
-                    .set({ scores, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-                console.log('✅ [updateMatch] match_scores updated successfully');
-            }
+const parseOptionalString = (value: unknown): string | undefined => {
+  const parsed = String(value || '').trim();
+  return parsed || undefined;
+};
 
-            // 2. Update brackets-manager match status/result
-            // Use the category document as the root with full path including categories
-            // Sub-collections will be created under it: tournaments/T1/categories/C1/participant, .../match, etc.
-            const rootPath = `tournaments/${tournamentId}/categories/${categoryId}`;
-            console.log('🔧 [updateMatch] Creating BracketsManager with rootPath:', rootPath);
-            const manager = new BracketsManager(new FirestoreStorage(db, rootPath));
+const parseStatus = (value: unknown): MatchMutationStatus => {
+  const status = String(value || '').trim();
+  if (
+    status !== 'ready' &&
+    status !== 'in_progress' &&
+    status !== 'completed' &&
+    status !== 'walkover'
+  ) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'status must be ready, in_progress, completed, or walkover',
+    );
+  }
 
-            // STATUS MAPPING: Convert app string status to brackets-manager numeric status
-            // /match_scores.status (string) -> /match.status (number)
-            // "completed" -> 4, "in_progress" -> 3, "ready"/"scheduled" -> 2
-            const bmStatus = status === 'completed' ? 4 : (status === 'in_progress' ? 3 : 2);
-            console.log('📊 [updateMatch] Mapped status:', { clientStatus: status, bmStatus });
+  return status;
+};
 
-            const updateData: any = {
-                id: matchId,
-                status: bmStatus,
-            };
+const parseScores = (value: unknown): GameScore[] | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
 
-            if (status === 'completed' && winnerId) {
-                console.log('🏆 [updateMatch] Match completed with winnerId (registration ID):', winnerId);
+  if (!Array.isArray(value)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'scores must be an array when provided',
+    );
+  }
 
-                // winnerId is a registration ID, but brackets-manager uses numeric participant IDs
-                // We need to map the registration ID to the bracket participant numeric ID
+  return value as GameScore[];
+};
 
-                // 1. Fetch match data
-                console.log('🔍 [updateMatch] Fetching match data for matchId:', matchId);
-                const matchData = await manager.storage.select('match', matchId);
-                console.log('📋 [updateMatch] Match data retrieved:', {
-                    matchId: matchData?.id,
-                    opponent1Id: matchData?.opponent1?.id,
-                    opponent2Id: matchData?.opponent2?.id,
-                });
-
-                if (!matchData) throw new Error('Match not found');
-
-                // 2. Fetch participants to map registration ID to numeric ID
-                console.log('👥 [updateMatch] Fetching participants to map registration ID');
-                const participants = await manager.storage.select('participant');
-                console.log('📋 [updateMatch] Participants fetched:', participants?.length);
-
-                // Find participant by registration ID (stored in participant.name field)
-                // participant.name = registration ID (Firestore document ID)
-                // participant.id = numeric brackets-manager ID
-                const winnerParticipant = participants?.find((p: any) => p.name === winnerId);
-
-                if (!winnerParticipant) {
-                    console.warn(`⚠️  [updateMatch] No participant found with name=${winnerId}`);
-                    throw new Error(`Winner participant not found for registration ID: ${winnerId}`);
-                }
-
-                const bracketWinnerId = winnerParticipant.id;
-                console.log('🎯 [updateMatch] Mapped registration ID to bracket participant ID:', {
-                    registrationId: winnerId,
-                    bracketParticipantId: bracketWinnerId
-                });
-
-                // 3. Check which opponent won and update accordingly
-                const opponent1Id = matchData.opponent1?.id;
-                const opponent2Id = matchData.opponent2?.id;
-
-                // Use loose equality to handle string/number type differences
-                if (opponent1Id == bracketWinnerId) {
-                    console.log('✅ [updateMatch] Winner is opponent1');
-                    updateData.opponent1 = { ...matchData.opponent1, result: 'win' };
-                    updateData.opponent2 = { ...matchData.opponent2, result: 'loss' };
-                } else if (opponent2Id == bracketWinnerId) {
-                    console.log('✅ [updateMatch] Winner is opponent2');
-                    updateData.opponent1 = { ...matchData.opponent1, result: 'loss' };
-                    updateData.opponent2 = { ...matchData.opponent2, result: 'win' };
-                } else {
-                    console.warn(`⚠️  [updateMatch] Bracket winner ID ${bracketWinnerId} does not match opponent1 (${opponent1Id}) or opponent2 (${opponent2Id})`);
-                    throw new Error(`Winner participant ID ${bracketWinnerId} does not match either opponent in match ${matchId}`);
-                }
-
-                if (scores && scores.length > 0 && opponent1Id && opponent2Id) {
-                    console.log('🎮 [updateMatch] Creating match_game documents for', scores.length, 'games');
-                    for (let i = 0; i < scores.length; i++) {
-                        const game = scores[i];
-                        const gameNumber = i + 1;
-
-                        let gameWinner1: 'win' | 'loss' = 'loss';
-                        let gameWinner2: 'win' | 'loss' = 'loss';
-                        if (game.score1 > game.score2) {
-                            gameWinner1 = 'win';
-                        } else if (game.score2 > game.score1) {
-                            gameWinner2 = 'win';
-                        }
-
-                        const matchGameData = {
-                            stage_id: matchData.stage_id,
-                            parent_id: matchId,
-                            number: gameNumber,
-                            status: 4,
-                            opponent1: {
-                                id: opponent1Id,
-                                score: game.score1,
-                                result: gameWinner1,
-                            },
-                            opponent2: {
-                                id: opponent2Id,
-                                score: game.score2,
-                                result: gameWinner2,
-                            },
-                        };
-
-                        await manager.storage.insert('match_game', matchGameData);
-                        console.log(`✅ [updateMatch] Created match_game ${gameNumber}:`, { parent_id: matchId, gameNumber, score1: game.score1, score2: game.score2 });
-                    }
-                }
-            }
-
-            console.log('🚀 [updateMatch] Calling manager.update.match with updateData:', updateData);
-            await manager.update.match(updateData);
-            console.log('✅ [updateMatch] manager.update.match completed successfully');
-
-            return { success: true };
-
-        } catch (error) {
-            console.error('❌ [updateMatch] Error updating match:', error);
-            if (error instanceof Error) {
-                console.error('   Stack trace:', error.stack);
-            }
-            throw new functions.https.HttpsError(
-                'internal',
-                error instanceof Error ? error.message : 'Failed to update match'
-            );
-        }
-    }
+const getBracketBasePath = (
+  tournamentId: string,
+  categoryId: string,
+  levelId?: string,
+): string => (
+  levelId
+    ? `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}`
+    : `tournaments/${tournamentId}/categories/${categoryId}`
 );
+
+const resolveCourtId = async (
+  db: admin.firestore.Firestore,
+  tournamentId: string,
+  matchId: string,
+  docCourtId?: string,
+): Promise<string | undefined> => {
+  if (docCourtId) {
+    return docCourtId;
+  }
+
+  const courtSnapshot = await db
+    .collection(`tournaments/${tournamentId}/courts`)
+    .where('currentMatchId', '==', matchId)
+    .limit(1)
+    .get();
+
+  return courtSnapshot.empty ? undefined : courtSnapshot.docs[0]?.id;
+};
+
+const mapBracketStatus = (status: MatchMutationStatus): number => {
+  if (status === 'completed' || status === 'walkover') {
+    return 4;
+  }
+
+  if (status === 'in_progress') {
+    return 3;
+  }
+
+  return 2;
+};
+
+export const updateMatch = functions.https.onCall(async (request) => {
+  const db = admin.firestore();
+  const data = (request.data ?? {}) as UpdateMatchRequestData;
+  const tournamentId = parseRequiredString(data.tournamentId, 'tournamentId');
+  const categoryId = parseRequiredString(data.categoryId, 'categoryId');
+  const levelId = parseOptionalString(data.levelId);
+  const matchId = parseRequiredString(data.matchId, 'matchId');
+  const status = parseStatus(data.status);
+  const winnerId = parseOptionalString(data.winnerId);
+  const scores = parseScores(data.scores);
+  const sessionToken = parseOptionalString(data.sessionToken);
+
+  if (!request.auth && !sessionToken) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated or provide a volunteer session',
+    );
+  }
+
+  if (!request.auth && sessionToken) {
+    await verifyVolunteerSession(sessionToken, tournamentId, 'scorekeeper');
+  }
+
+  if ((status === 'in_progress' || status === 'completed' || status === 'walkover') && !scores) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'scores are required for in-progress and completed match updates',
+    );
+  }
+
+  if ((status === 'completed' || status === 'walkover') && !winnerId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'winnerId is required for completed or walkover updates',
+    );
+  }
+
+  try {
+    const rootPath = getBracketBasePath(tournamentId, categoryId, levelId);
+    const manager = new BracketsManager(new FirestoreStorage(db, rootPath));
+    const matchScoresRef = db.doc(`${rootPath}/match_scores/${matchId}`);
+    const matchScoresSnapshot = await matchScoresRef.get();
+    const existingMatchScoreData = matchScoresSnapshot.exists ? matchScoresSnapshot.data() : undefined;
+
+    const matchScoreUpdates: Record<string, unknown> = {
+      status,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    if (scores) {
+      matchScoreUpdates.scores = scores;
+    }
+
+    if (winnerId) {
+      matchScoreUpdates.winnerId = winnerId;
+    }
+
+    if (status === 'in_progress' && !existingMatchScoreData?.startedAt) {
+      matchScoreUpdates.startedAt = FieldValue.serverTimestamp();
+    }
+
+    if (status === 'completed' || status === 'walkover') {
+      matchScoreUpdates.completedAt = FieldValue.serverTimestamp();
+    }
+
+    await matchScoresRef.set(matchScoreUpdates, { merge: true });
+
+    const updateData: Record<string, unknown> = {
+      id: matchId,
+      status: mapBracketStatus(status),
+    };
+
+    if ((status === 'completed' || status === 'walkover') && winnerId) {
+      const matchData = await manager.storage.select('match', matchId) as StoredBracketMatch | null;
+      if (!matchData) {
+        throw new Error('Match not found');
+      }
+
+      const participants = await manager.storage.select('participant') as StoredBracketParticipant[] | null;
+      const winnerParticipant = participants?.find((participant) => participant.name === winnerId);
+      if (!winnerParticipant) {
+        throw new Error(`Winner participant not found for registration ID: ${winnerId}`);
+      }
+
+      const bracketWinnerId = winnerParticipant.id;
+      const opponent1Id = matchData.opponent1?.id;
+      const opponent2Id = matchData.opponent2?.id;
+
+      if (opponent1Id == bracketWinnerId) {
+        updateData.opponent1 = { ...matchData.opponent1, result: 'win' };
+        updateData.opponent2 = { ...matchData.opponent2, result: 'loss' };
+      } else if (opponent2Id == bracketWinnerId) {
+        updateData.opponent1 = { ...matchData.opponent1, result: 'loss' };
+        updateData.opponent2 = { ...matchData.opponent2, result: 'win' };
+      } else {
+        throw new Error(
+          `Winner participant ID ${bracketWinnerId} does not match either opponent in match ${matchId}`,
+        );
+      }
+
+      if (scores && scores.length > 0 && opponent1Id !== undefined && opponent2Id !== undefined) {
+        const stageId = matchData.stage_id;
+        if (stageId === undefined) {
+          throw new Error(`Match ${matchId} is missing stage_id`);
+        }
+
+        for (let index = 0; index < scores.length; index += 1) {
+          const game = scores[index];
+          const opponent1Result: 'win' | 'loss' =
+            game.score1 > game.score2 ? 'win' : 'loss';
+          const opponent2Result: 'win' | 'loss' =
+            game.score2 > game.score1 ? 'win' : 'loss';
+
+          await manager.storage.insert('match_game', {
+            stage_id: stageId,
+            parent_id: matchId,
+            number: index + 1,
+            status: 4,
+            opponent1: {
+              id: opponent1Id,
+              score: game.score1,
+              result: opponent1Result,
+            },
+            opponent2: {
+              id: opponent2Id,
+              score: game.score2,
+              result: opponent2Result,
+            },
+          });
+        }
+      }
+
+      const courtId = await resolveCourtId(
+        db,
+        tournamentId,
+        matchId,
+        typeof existingMatchScoreData?.courtId === 'string' ? existingMatchScoreData.courtId : undefined,
+      );
+
+      if (courtId) {
+        await db.doc(`tournaments/${tournamentId}/courts/${courtId}`).update({
+          status: 'available',
+          currentMatchId: null,
+          assignedMatchId: null,
+          lastFreedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    await manager.update.match(updateData);
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ [updateMatch] Error updating match:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      error instanceof Error ? error.message : 'Failed to update match',
+    );
+  }
+});

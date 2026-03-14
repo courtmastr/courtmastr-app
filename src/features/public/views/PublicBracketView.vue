@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import { useTournamentStore } from '@/stores/tournaments';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import type { LevelDefinition } from '@/types';
@@ -49,43 +50,21 @@ watch(selectedCategory, async (categoryId) => {
 </script>
 
 <template>
-  <v-container fluid>
-    <!-- Header -->
-    <v-row class="mb-4">
-      <v-col cols="12">
-        <div
-          v-if="tournament"
-          class="pa-6 rounded-lg bg-primary text-white mb-6"
-        >
-          <div class="d-flex align-center gap-4">
-            <v-icon
-              size="40"
-              color="white"
-              class="opacity-80"
-            >
-              mdi-tournament
-            </v-icon>
-            <div>
-              <h1 class="text-h4 font-weight-bold mb-1">
-                {{ tournament.name }}
-              </h1>
-              <p class="text-subtitle-1 text-primary-lighten-4 font-weight-medium">
-                Live Tournament Bracket
-              </p>
-            </div>
-          </div>
-        </div>
-        <v-skeleton-loader
-          v-else-if="!notFound"
-          type="heading"
-        />
-      </v-col>
-    </v-row>
+  <TournamentPublicShell
+    :tournament="tournament"
+    eyebrow="Bracket View"
+    page-title="Live Tournament Bracket"
+    page-subtitle="Scrollable, branded bracket viewing with category and level switching."
+    fallback-icon="mdi-tournament"
+  >
+    <v-skeleton-loader
+      v-if="!tournament && !notFound"
+      type="heading"
+    />
 
-    <!-- Not Found -->
-    <v-row v-if="notFound">
+    <v-row v-else-if="notFound">
       <v-col cols="12">
-        <v-card>
+        <v-card class="bracket-surface-card">
           <v-card-text class="text-center py-8">
             <v-icon
               size="64"
@@ -105,42 +84,47 @@ watch(selectedCategory, async (categoryId) => {
     </v-row>
 
     <template v-else>
-      <!-- Category + Level Selection -->
-      <div class="bracket-filters mb-4">
-        <div class="bracket-filters__label">
-          Category
-        </div>
-        <div class="bracket-filters__controls">
-          <v-select
-            v-model="selectedCategory"
-            :items="categories"
-            item-title="name"
-            item-value="id"
-            label="Select Category"
-            :loading="loading"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            style="max-width: 280px"
-          />
-          <v-select
-            v-if="selectedCategoryLevels.length > 0"
-            v-model="selectedLevelId"
-            :items="selectedCategoryLevels"
-            item-title="name"
-            item-value="id"
-            label="Level Bracket"
-            placeholder="All levels"
-            clearable
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            style="max-width: 280px"
-          />
-        </div>
-      </div>
+      <v-card
+        class="bracket-surface-card mb-4"
+        elevation="0"
+      >
+        <v-card-text class="pa-4 pa-sm-5">
+          <div class="bracket-filters">
+            <div class="bracket-filters__label">
+              Category
+            </div>
+            <div class="bracket-filters__controls">
+              <v-select
+                v-model="selectedCategory"
+                :items="categories"
+                item-title="name"
+                item-value="id"
+                label="Select Category"
+                :loading="loading"
+                variant="outlined"
+                density="comfortable"
+                hide-details
+                style="max-width: 280px"
+              />
+              <v-select
+                v-if="selectedCategoryLevels.length > 0"
+                v-model="selectedLevelId"
+                :items="selectedCategoryLevels"
+                item-title="name"
+                item-value="id"
+                label="Level Bracket"
+                placeholder="All levels"
+                clearable
+                variant="outlined"
+                density="comfortable"
+                hide-details
+                style="max-width: 280px"
+              />
+            </div>
+          </div>
+        </v-card-text>
+      </v-card>
 
-      <!-- Bracket -->
       <BracketsManagerViewer
         v-if="selectedCategory"
         :tournament-id="tournamentId"
@@ -149,8 +133,8 @@ watch(selectedCategory, async (categoryId) => {
       />
       <v-card
         v-else
-        flat
-        class="text-center pa-12"
+        class="bracket-surface-card text-center pa-12"
+        elevation="0"
       >
         <v-icon
           size="64"
@@ -164,11 +148,18 @@ watch(selectedCategory, async (categoryId) => {
         </div>
       </v-card>
     </template>
-  </v-container>
+  </TournamentPublicShell>
 </template>
 <style scoped>
 .opacity-80 {
   opacity: 0.8;
+}
+
+.bracket-surface-card {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 24px;
+  background: rgba(var(--v-theme-surface), 0.92);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
 }
 
 /* Category filter bar */

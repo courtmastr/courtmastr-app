@@ -85,7 +85,7 @@ function handleCancel(): void {
     :max-width="maxWidth"
     :persistent="persistent"
     :aria-labelledby="titleId"
-    @update:model-value="(value) => emit('update:modelValue', value)"
+    @update:model-value="(value: boolean) => emit('update:modelValue', value)"
   >
     <v-card>
       <!-- Title Section -->

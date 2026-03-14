@@ -335,4 +335,13 @@ describe('MatchControlView assignment actions', () => {
     expect(vm.getMatchParticipantsTooltip(byeMatch)).toContain('BYE');
     expect(vm.getMatchParticipantsTooltip(tbdMatch)).toContain('TBD');
   });
+
+  it('renders queue mode as read-only for court grid and queue list', () => {
+    runtimeState.routeQuery = { view: 'queue' };
+
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as MatchControlAssignmentsVm;
+
+    expect(vm.viewMode).toBe('queue');
+  });
 });

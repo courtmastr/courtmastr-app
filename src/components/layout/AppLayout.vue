@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useDisplay } from 'vuetify';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import AppNavigation from '@/components/navigation/AppNavigation.vue';
@@ -8,9 +9,11 @@ import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation.v
 import ContextualNavigation from '@/components/navigation/ContextualNavigation.vue';
 import GlobalSearch from '@/components/navigation/GlobalSearch.vue';
 import BaseDialog from '@/components/common/BaseDialog.vue';
+import PublicWebsiteFooter from '@/components/common/PublicWebsiteFooter.vue';
 
 const router = useRouter();
 const route = useRoute();
+const display = useDisplay();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
 
@@ -37,6 +40,13 @@ const showSearch = computed(() => {
   // Show search on most pages except very specific ones
   return true; // Always show search for now
 });
+
+const showPublicWebsiteFooter = computed(() =>
+  route.meta.publicMarketingPage === true &&
+  route.meta.overlayPage !== true &&
+  route.meta.obsOverlay !== true &&
+  route.meta.volunteerLayout !== true
+);
 
 // User menu items
 const userMenuItems = computed(() => {
@@ -207,8 +217,8 @@ async function submitBugReport() {
     <AppNavigation
       v-if="isAuthenticated"
       v-model:drawer="drawer"
-      :temporary="$vuetify.display.smAndDown"
-      :permanent="!$vuetify.display.smAndDown"
+      :temporary="display.smAndDown"
+      :permanent="!display.smAndDown"
       app
       width="280"
     />
@@ -232,7 +242,7 @@ async function submitBugReport() {
         >
           <img
             src="@/assets/brand/courtmaster-lockup.svg"
-            alt="CourtMaster Logo"
+            alt="CourtMastr Logo"
             width="180"
             height="36"
             class="app-logo"
@@ -443,8 +453,14 @@ async function submitBugReport() {
     </v-app-bar>
 
     <!-- Main Content -->
-    <v-main id="main-content">
-      <v-container fluid>
+    <v-main
+      id="main-content"
+      class="app-main"
+    >
+      <v-container
+        fluid
+        class="app-main__content"
+      >
         <!-- Breadcrumb Navigation -->
         <BreadcrumbNavigation v-if="showBreadcrumbs" />
         
@@ -454,6 +470,8 @@ async function submitBugReport() {
         <!-- Page content -->
         <router-view />
       </v-container>
+
+      <PublicWebsiteFooter v-if="showPublicWebsiteFooter" />
     </v-main>
 
     <!-- Bug Report Dialog -->
@@ -599,6 +617,16 @@ async function submitBugReport() {
   border-bottom: 1px solid $border-light;
   box-shadow: $shadow-sm;
   background-color: $white !important;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 64px);
+}
+
+.app-main__content {
+  flex: 1 0 auto;
 }
 
 .app-logo {

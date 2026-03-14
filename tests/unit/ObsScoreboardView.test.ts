@@ -175,4 +175,16 @@ describe('ObsScoreboardView', () => {
     expect(currentGame.score1).toBe(8);
     expect(currentGame.score2).toBe(10);
   });
+
+  it('renders the CourtMastr watermark overlay', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    const watermark = wrapper.find('.obs-courtmaster-watermark');
+    expect(watermark.exists()).toBe(true);
+    expect(wrapper.text()).toContain('CourtMastr');
+    const logoSrc = wrapper.find('.obs-courtmaster-watermark__logo').attributes('src');
+    expect(logoSrc).toContain('data:image/svg+xml');
+    expect(logoSrc).toContain('%23FFFFFF');
+  });
 });

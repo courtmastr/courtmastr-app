@@ -1,326 +1,238 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import PublicFeatureGrid from '@/features/public/components/PublicFeatureGrid.vue';
+import PublicHeroSection from '@/features/public/components/PublicHeroSection.vue';
+import PublicMetricsStrip from '@/features/public/components/PublicMetricsStrip.vue';
+import PublicTrustReviewsSection from '@/features/public/components/PublicTrustReviewsSection.vue';
+import ReviewSubmissionDialog from '@/features/reviews/components/ReviewSubmissionDialog.vue';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
+import { useFeaturedTournamentMetrics } from '@/composables/useFeaturedTournamentMetrics';
 import { useAuthStore } from '@/stores/auth';
+import { useReviewStore } from '@/stores/reviews';
+import type { ReviewRecord } from '@/types';
+
+usePublicPageMetadata({
+  title: 'CourtMastr',
+  description: 'CourtMastr helps badminton organizers run check-in, scheduling, and live scoring with confidence.',
+  canonicalPath: '/',
+});
 
 const authStore = useAuthStore();
+const reviewStore = useReviewStore();
+const showReviewDialog = ref(false);
+
 const isAuthenticated = computed(() => authStore.isAuthenticated);
+
+const {
+  hasFeaturedTournament,
+  loading: featuredMetricsLoading,
+  errorMessage: featuredMetricsError,
+  metrics: featuredMetrics,
+  loadMetrics,
+} = useFeaturedTournamentMetrics();
 
 const features = [
   {
-    icon: 'mdi-trophy',
-    title: 'Tournament Management',
-    description: 'Create and manage badminton tournaments with ease. Support for single and double elimination formats.',
-  },
-  {
-    icon: 'mdi-monitor-play',
-    title: 'Live Scoring',
-    description: 'Mobile-optimized scoring interface for scorekeepers. Real-time score updates across all devices.',
-  },
-  {
     icon: 'mdi-calendar-clock',
-    title: 'Smart Scheduling',
-    description: 'Automated scheduling algorithm that respects player rest time and optimizes court usage.',
+    title: 'Schedule Control',
+    description: 'Publish reliable match timelines, reduce desk confusion, and keep courts moving.',
   },
   {
-    icon: 'mdi-account-group',
-    title: 'Easy Registration',
-    description: 'Self-service registration for players or bulk import by administrators.',
+    icon: 'mdi-scoreboard',
+    title: 'Live Scoring',
+    description: 'Scorekeepers update matches from mobile while spectators see immediate public updates.',
+  },
+  {
+    icon: 'mdi-account-check',
+    title: 'Check-In Operations',
+    description: 'Run both self check-in and front-desk workflows without duplicate data entry.',
+  },
+  {
+    icon: 'mdi-cast',
+    title: 'Broadcast Overlays',
+    description: 'Use OBS-ready score bug and scoreboard overlays for streams and venue displays.',
   },
 ];
+
+const fallbackReviews: ReviewRecord[] = [
+  {
+    id: 'fallback-mcia',
+    status: 'approved',
+    rating: 5,
+    quote: 'CourtMastr helped MCIA run a full tournament day on schedule with fewer manual updates and better player communication.',
+    displayName: 'MCIA Operations Team',
+    organization: 'MCIA - McLean County Indian Association',
+    source: 'public',
+    createdAt: new Date('2026-03-14T00:00:00.000Z'),
+    updatedAt: new Date('2026-03-14T00:00:00.000Z'),
+  },
+  {
+    id: 'fallback-tnf',
+    status: 'approved',
+    rating: 5,
+    quote: 'From check-in to finals, CourtMastr gave our TNF volunteers a clear workflow and real-time visibility on every court.',
+    displayName: 'Tournament Volunteers',
+    organization: 'Tamilnadu Foundation (TNF)',
+    source: 'public',
+    createdAt: new Date('2026-03-14T00:00:00.000Z'),
+    updatedAt: new Date('2026-03-14T00:00:00.000Z'),
+  },
+  {
+    id: 'fallback-og',
+    status: 'approved',
+    rating: 5,
+    quote: 'Our OG Badminton Club events now feel professionally managed, and players always know where they need to be next.',
+    displayName: 'Event Coordination Team',
+    organization: 'OG Badminton Club',
+    source: 'public',
+    createdAt: new Date('2026-03-14T00:00:00.000Z'),
+    updatedAt: new Date('2026-03-14T00:00:00.000Z'),
+  },
+];
+
+const credibilityStats = computed(() => {
+  if (!featuredMetrics.value) {
+    return [
+      { label: 'Registered', value: '--' },
+      { label: 'Completed Matches', value: '--' },
+      { label: 'Check-In Rate', value: '--' },
+    ];
+  }
+
+  return [
+    { label: 'Registered', value: String(featuredMetrics.value.registered) },
+    { label: 'Completed Matches', value: String(featuredMetrics.value.completedMatches) },
+    { label: 'Check-In Rate', value: `${featuredMetrics.value.checkInRate}%` },
+  ];
+});
+
+const featuredMetricsFallbackMessage = computed(() => {
+  if (featuredMetricsLoading.value) {
+    return 'Loading real tournament metrics...';
+  }
+
+  if (featuredMetrics.value) {
+    return `Featured metrics from ${featuredMetrics.value.tournamentName}.`;
+  }
+
+  if (!hasFeaturedTournament.value) {
+    return 'Set VITE_MARKETING_FEATURED_TOURNAMENT_ID to show live tournament metrics.';
+  }
+
+  return featuredMetricsError.value || 'Featured tournament metrics are temporarily unavailable.';
+});
+
+const reviewsForDisplay = computed(() => (
+  reviewStore.approvedReviews.length > 0
+    ? reviewStore.approvedReviews
+    : fallbackReviews
+));
+
+const reviewFallbackMarker = computed(() => (
+  reviewStore.approvedReviews.length > 0
+    ? ''
+    : 'Community launch partners include MCIA, TNF, and OG Badminton Club.'
+));
+
+onMounted(() => {
+  void loadMetrics();
+  reviewStore.subscribeApprovedReviews({ featuredOnly: false, limitCount: 6 });
+});
+
+onUnmounted(() => {
+  reviewStore.unsubscribeApprovedReviews();
+});
 </script>
 
 <template>
   <div class="home-view">
-    <v-container>
-      <!-- Hero Section -->
-      <v-row
-        class="hero-section py-12"
-        align="center"
-      >
-        <v-col
-          cols="12"
-          md="5"
-          class="hero-content"
-        >
-          <h1 class="hero-title mb-6">
-            The Professional Standard for
-            <span class="text-primary">Tournament Management</span>
-          </h1>
-          <p class="hero-subtitle mb-8 text-body-1">
-            CourtMaster provides organizers with a robust, reliable platform to schedule matches, manage registrations, and record live scores efficiently.
-          </p>
-          <div class="d-flex flex-wrap gap-4">
-            <v-btn
-              v-if="!isAuthenticated"
-              color="primary"
-              size="x-large"
-              elevation="0"
-              class="cta-button px-8 text-none font-weight-bold"
-              to="/register"
-            >
-              Get Started
-            </v-btn>
-            <v-btn
-              v-if="!isAuthenticated"
-              variant="outlined"
-              size="x-large"
-              color="secondary"
-              class="outline-button px-8 text-none font-weight-bold bg-white"
-              to="/login"
-            >
-              Sign In
-            </v-btn>
-            <v-btn
-              v-else
-              color="primary"
-              size="x-large"
-              elevation="0"
-              class="cta-button px-8 text-none font-weight-bold"
-              to="/tournaments"
-            >
-              Go to Dashboard
-            </v-btn>
-          </div>
-        </v-col>
-        
-        <v-col
-          cols="12"
-          md="7"
-          class="hero-image-col pl-md-8 mt-10 mt-md-0"
-        >
-          <div class="dashboard-mockup rounded-lg overflow-hidden border">
-            <img
-              src="/app-screenshot.png"
-              alt="CourtMaster Live Match Control"
-              width="700"
-              height="440"
-              class="w-100 h-auto d-block"
-              style="object-fit: cover;"
-              loading="lazy"
-            >
-          </div>
-        </v-col>
-      </v-row>
+    <v-container class="py-8 py-md-12 home-view__container">
+      <PublicHeroSection :is-authenticated="isAuthenticated" />
 
       <v-divider class="my-8" />
 
-      <!-- Credibility Section -->
-      <v-row class="credibility-section py-4 mb-4">
-        <v-col cols="12">
-          <div class="d-flex flex-column flex-md-row justify-space-around align-center text-center gap-8">
-            <div class="stat-block">
-              <div class="text-h4 font-weight-bold text-primary mb-1">
-                Reliable
-              </div>
-              <div class="text-subtitle-2 text-grey-darken-1 text-uppercase letter-spacing-1">
-                Cloud Infrastructure
-              </div>
-            </div>
-            <div class="stat-block">
-              <div class="text-h4 font-weight-bold text-primary mb-1">
-                Real-Time
-              </div>
-              <div class="text-subtitle-2 text-grey-darken-1 text-uppercase letter-spacing-1">
-                Match Synchronization
-              </div>
-            </div>
-            <div class="stat-block">
-              <div class="text-h4 font-weight-bold text-primary mb-1">
-                Secure
-              </div>
-              <div class="text-subtitle-2 text-grey-darken-1 text-uppercase letter-spacing-1">
-                Role-Based Access
-              </div>
-            </div>
-          </div>
-        </v-col>
-      </v-row>
+      <PublicMetricsStrip
+        :metrics="credibilityStats"
+        :helper-text="featuredMetricsFallbackMessage"
+      />
 
-      <!-- Features Section -->
-      <v-row class="features-section py-16 bg-white rounded-xl border mt-8">
-        <v-col
-          cols="12"
-          class="text-center mb-8"
-        >
-          <h2 class="section-title">
-            Purpose-Built for Organizers
-          </h2>
-          <p class="section-subtitle mt-2">
-            Every feature is designed to eliminate operational friction during tournaments.
-          </p>
-        </v-col>
+      <v-divider class="my-8" />
 
-        <v-col
-          v-for="feature in features"
-          :key="feature.title"
-          cols="12"
-          sm="6"
-          md="3"
-          class="feature-col px-4"
-        >
-          <div class="feature-item text-center">
-            <div
-              class="icon-wrapper bg-grey-lighten-4 mx-auto mb-4 d-flex align-center justify-center rounded-circle border"
-              style="width: 64px; height: 64px;"
-            >
-              <v-icon
-                :icon="feature.icon"
-                size="32"
-                class="text-primary"
-              />
-            </div>
-            <h3 class="feature-title mb-2 text-subtitle-1 font-weight-bold">
-              {{ feature.title }}
-            </h3>
-            <p class="feature-description text-body-2 text-grey-darken-1">
-              {{ feature.description }}
-            </p>
-          </div>
-        </v-col>
-      </v-row>
+      <PublicTrustReviewsSection
+        :reviews="reviewsForDisplay"
+        :fallback-marker="reviewFallbackMarker"
+        photo-url="/images/social-proof-mcia-2026.svg"
+        photo-credit="Photo: MCIA Spring Open 2026 media mock · by CourtMastr / Marvy Technologies."
+        @leave-review="showReviewDialog = true"
+      />
 
-      <!-- CTA Section -->
-      <v-row class="cta-section py-16 mt-8">
-        <v-col cols="12">
-          <v-card
-            class="cta-card pa-12 text-center bg-primary"
-            elevation="0"
+      <v-divider class="my-8" />
+
+      <PublicFeatureGrid :features="features" />
+
+      <v-card
+        class="home-view__cta pa-6 pa-md-8 mt-8"
+        elevation="0"
+      >
+        <h2 class="home-view__cta-title mb-3">
+          Ready for your next tournament day?
+        </h2>
+        <p class="text-body-1 text-medium-emphasis mb-5">
+          Start with Free Beta and run your event on a platform designed specifically for badminton operations.
+        </p>
+        <div class="d-flex flex-wrap ga-3">
+          <v-btn
+            v-if="!isAuthenticated"
+            color="primary"
+            to="/register"
           >
-            <h2 class="cta-title mb-4">
-              Streamline Your Next Tournament
-            </h2>
-            <p class="cta-subtitle mb-8 text-primary-lighten-4">
-              Deploy CourtMaster for your organization and experience frictionless match management.
-            </p>
-            <v-btn
-              v-if="!isAuthenticated"
-              color="white"
-              size="x-large"
-              elevation="0"
-              class="cta-action-button text-primary font-weight-bold text-none"
-              to="/register"
-            >
-              Start Organizing
-            </v-btn>
-            <v-btn
-              v-else
-              color="white"
-              size="x-large"
-              elevation="0"
-              class="cta-action-button text-primary font-weight-bold text-none"
-              to="/tournaments/create"
-            >
-              Create Tournament
-            </v-btn>
-          </v-card>
-        </v-col>
-      </v-row>
+            Create Free Account
+          </v-btn>
+          <v-btn
+            v-if="!isAuthenticated"
+            variant="outlined"
+            to="/pricing"
+          >
+            View Pricing
+          </v-btn>
+          <v-btn
+            v-else
+            color="primary"
+            to="/tournaments/create"
+          >
+            Create Tournament
+          </v-btn>
+        </div>
+      </v-card>
     </v-container>
+
+    <ReviewSubmissionDialog
+      v-model="showReviewDialog"
+      @submitted="showReviewDialog = false"
+    />
   </div>
 </template>
 
-<style scoped lang="scss">
-@use '@/styles/variables.scss' as *;
-
+<style scoped>
 .home-view {
+  background: #f8fafc;
   min-height: 100vh;
-  background-color: $background;
-  font-family: $font-family-body;
 }
 
-/* Hero Section */
-.hero-section {
-  min-height: 50vh;
+.home-view__container {
+  max-width: 1120px;
 }
 
-.hero-title {
-  font-size: 3rem;
-  font-weight: 800;
-  line-height: $line-height-tight;
-  color: $text-primary;
-  letter-spacing: -0.02em;
-  
-  @media (max-width: 960px) {
-    font-size: 2.25rem;
-  }
+.home-view__cta {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 20px;
 }
 
-.hero-subtitle {
-  color: $text-secondary;
-  max-width: 480px;
-}
-
-.cta-button {
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background-color: $primary-dark !important;
-  }
-}
-
-.outline-button {
-  border: 1px solid $border;
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background-color: $background-dark !important;
-  }
-}
-
-/* Dashboard Mockup */
-.dashboard-mockup {
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
-}
-
-.mockup-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.bg-primary-lighten-2 {
-  background-color: rgba($primary-base, 0.1);
-}
-
-/* Details and Spacing */
-.letter-spacing-1 {
-  letter-spacing: 1px;
-}
-
-.section-title {
-  font-size: $font-size-xl;
-  font-weight: $font-weight-bold;
-  color: $text-primary;
-  letter-spacing: -0.01em;
-}
-
-.section-subtitle {
-  color: $text-secondary;
-}
-
-/* CTA Section */
-.cta-card {
-  border-radius: $border-radius-lg;
-}
-
-.cta-title {
-  font-size: $font-size-2xl;
-  font-weight: $font-weight-bold;
-  color: $white;
-  letter-spacing: -0.02em;
-}
-
-@media (max-width: 960px) {
-  .hero-section {
-    text-align: center;
-  }
-  
-  .hero-subtitle {
-    margin: 0 auto;
-  }
-  
-  .d-flex.flex-wrap {
-    justify-content: center;
-  }
+.home-view__cta-title {
+  margin: 0;
+  font-family: 'Barlow Condensed', 'Avenir Next Condensed', sans-serif;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  line-height: 0.95;
+  text-wrap: balance;
 }
 </style>

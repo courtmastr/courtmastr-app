@@ -254,7 +254,7 @@ function onGameComplete(game: GameScore) {
           rows="3"
           counter="500"
           maxlength="500"
-          :rules="[v => !!v || 'Reason is required']"
+          :rules="[(v: string) => !!v || 'Reason is required']"
         />
 
         <v-alert

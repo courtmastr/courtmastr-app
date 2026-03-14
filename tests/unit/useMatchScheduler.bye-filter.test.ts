@@ -12,6 +12,7 @@ const mockDeps = vi.hoisted(() => ({
   serverTimestamp: vi.fn(() => 'SERVER_TS'),
   setDoc: vi.fn(),
   scheduleTimes: vi.fn(),
+  computeEpochs: vi.fn((matches: unknown) => matches),
   saveTimedSchedule: vi.fn(),
   adaptBracketsMatchToLegacyMatch: vi.fn(),
   buildMatchStructureMaps: vi.fn(() => ({
@@ -44,6 +45,7 @@ vi.mock('@/stores/bracketMatchAdapter', () => ({
 
 vi.mock('@/composables/useTimeScheduler', () => ({
   scheduleTimes: mockDeps.scheduleTimes,
+  computeEpochs: mockDeps.computeEpochs,
   saveTimedSchedule: mockDeps.saveTimedSchedule,
 }));
 

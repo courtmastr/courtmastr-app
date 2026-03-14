@@ -48,7 +48,7 @@ export class TestDataFactory {
       await this.page.locator('input[type="email"]').fill('admin@courtmastr.com');
       await this.page.locator('input[type="password"]').fill('admin123');
       await this.page.getByRole('button', { name: 'Sign In' }).click();
-      await this.page.waitForURL('/tournaments', { timeout: 10000 });
+      await this.page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 10000 });
     }
   }
 
@@ -86,12 +86,11 @@ export class TestDataFactory {
     await this.page.getByRole('button', { name: /continue/i }).click();
     await this.page.waitForTimeout(1000);
 
-    await this.page.getByLabel('Single Elimination').click();
-    await this.page.getByRole('button', { name: /continue/i }).click();
-    await this.page.waitForTimeout(1000);
-
     await this.page.getByLabel("Men's Singles").click();
-    await this.page.getByLabel("Women's Singles").click();
+    const womensSingles = this.page.getByLabel("Women's Singles");
+    if (await womensSingles.isVisible().catch(() => false)) {
+      await womensSingles.click();
+    }
     await this.page.getByRole('button', { name: /continue/i }).click();
     await this.page.waitForTimeout(1000);
 
@@ -158,13 +157,13 @@ export class TestDataFactory {
     await this.page.goto(`/tournaments/${tournamentId}/registrations`);
     await this.page.getByRole('button', { name: /add player/i }).click();
 
-    const dialog = this.page.locator('.v-dialog');
+    const dialog = this.page.locator('.v-overlay--active .v-dialog').last();
     await dialog.getByLabel('First Name').fill(player.firstName);
     await dialog.getByLabel('Last Name').fill(player.lastName);
     await dialog.getByLabel('Email').fill(player.email);
     await dialog.getByLabel('Phone').fill(player.phone);
 
-    await dialog.getByRole('button', { name: 'Add Player' }).click();
+    await dialog.getByRole('button', { name: /confirm|add player/i }).click();
     await this.page.waitForTimeout(500);
 
     return {
@@ -180,7 +179,7 @@ export class TestDataFactory {
         await this.page.getByRole('button', { name: /settings/i }).click();
         await this.page.getByRole('button', { name: /delete tournament/i }).click();
         await this.page.getByRole('button', { name: /confirm|yes|delete/i }).click();
-        await this.page.waitForURL('/tournaments', { timeout: 10000 });
+        await this.page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 10000 });
       } catch (e) {
         console.log(`Failed to cleanup tournament ${tournament.name}:`, e);
       }

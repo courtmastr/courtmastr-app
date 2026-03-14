@@ -18,10 +18,14 @@ interface Match {
   categoryName?: string;
   round?: number;
   queuedAt?: Date;
+  plannedStartAt?: Date;
+  scheduledTime?: Date;
   status?: string;
 }
 
 type UrgencyLevel = 'urgent' | 'high' | 'normal';
+const URGENT_WAIT_MINUTES = 10;
+const HIGH_WAIT_MINUTES = 15;
 
 interface MatchWithUrgency extends Match {
   urgency: UrgencyLevel;
@@ -46,16 +50,20 @@ const emit = defineEmits<{
 const { getMatchupString } = useParticipantResolver();
 
 function getWaitTime(match: Match): string {
-  if (!match.queuedAt) return '';
-  const minutes = differenceInMinutes(new Date(), match.queuedAt);
-  if (minutes < 1) return 'Just now';
+  const minutes = getWaitMinutes(match);
+  if (minutes < 1) return '0 min';
   if (minutes === 1) return '1 min';
   return `${minutes} min`;
 }
 
+function getQueueTimestamp(match: Match): Date | undefined {
+  return match.queuedAt ?? match.plannedStartAt ?? match.scheduledTime;
+}
+
 function getWaitMinutes(match: Match): number {
-  if (!match.queuedAt) return 0;
-  return differenceInMinutes(new Date(), match.queuedAt);
+  const queueTimestamp = getQueueTimestamp(match);
+  if (!queueTimestamp) return 0;
+  return Math.max(0, differenceInMinutes(new Date(), queueTimestamp));
 }
 
 function getUrgency(match: Match): UrgencyLevel {
@@ -63,13 +71,13 @@ function getUrgency(match: Match): UrgencyLevel {
   const isReady = match.status === 'ready';
   const hasCourtsAvailable = props.availableCourts.length > 0;
 
-  // URGENT: Ready status + courts available
-  if (isReady && hasCourtsAvailable) {
+  // URGENT: Ready + courts available + meaningful wait
+  if (isReady && hasCourtsAvailable && minutes >= URGENT_WAIT_MINUTES) {
     return 'urgent';
   }
 
-  // HIGH: Waiting >15 minutes
-  if (minutes >= 15) {
+  // HIGH: Long wait queue items that are not yet urgent
+  if (minutes >= HIGH_WAIT_MINUTES) {
     return 'high';
   }
 
@@ -105,9 +113,9 @@ function getUrgencyIcon(urgency: UrgencyLevel): string {
 
  function getUrgencyLabel(urgency: UrgencyLevel): string {
    switch (urgency) {
-     case 'urgent': return '🔴 URGENT';
-     case 'high': return '🟡 HIGH';
-     case 'normal': return '⚪ NORMAL';
+     case 'urgent': return 'URGENT';
+     case 'high': return 'HIGH';
+     case 'normal': return 'NORMAL';
    }
  }
 
@@ -250,7 +258,7 @@ const sortedMatches = computed<MatchWithUrgency[]>(() => {
                   • Round {{ match.round }}
                 </template>
               </template>
-              <template v-if="match.queuedAt">
+              <template v-if="getQueueTimestamp(match)">
                 <v-chip
                   size="small"
                   :color="getUrgencyColor(match.urgency)"

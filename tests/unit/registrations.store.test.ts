@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import type { Player } from '@/types';
+import type { Player, VolunteerSession } from '@/types';
 
 const mockDeps = vi.hoisted(() => {
   const collection = vi.fn();
@@ -9,6 +9,8 @@ const mockDeps = vi.hoisted(() => {
   const updateDoc = vi.fn();
   const doc = vi.fn();
   const serverTimestamp = vi.fn();
+  const callableFactory = vi.fn();
+  const volunteerCheckInCallable = vi.fn();
 
   return {
     collection,
@@ -17,8 +19,14 @@ const mockDeps = vi.hoisted(() => {
     updateDoc,
     doc,
     serverTimestamp,
+    callableFactory,
+    volunteerCheckInCallable,
   };
 });
+
+const runtime = vi.hoisted(() => ({
+  volunteerSession: null as VolunteerSession | null,
+}));
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
@@ -34,8 +42,19 @@ vi.mock('@/stores/audit', () => ({
   }),
 }));
 
+vi.mock('@/stores/volunteerAccess', () => ({
+  useVolunteerAccessStore: () => ({
+    currentSession: runtime.volunteerSession,
+    hasValidSession: (tournamentId: string, role: 'checkin' | 'scorekeeper') =>
+      runtime.volunteerSession?.tournamentId === tournamentId &&
+      runtime.volunteerSession?.role === role,
+  }),
+}));
+
 vi.mock('@/services/firebase', () => ({
   db: { __name: 'mock-db' },
+  functions: { __mock: true },
+  httpsCallable: mockDeps.callableFactory,
   collection: mockDeps.collection,
   doc: mockDeps.doc,
   getDocs: mockDeps.getDocs,
@@ -67,6 +86,15 @@ describe('registration store', () => {
     mockDeps.updateDoc.mockReset().mockResolvedValue(undefined);
     mockDeps.doc.mockReset().mockReturnValue('registration-doc-ref');
     mockDeps.serverTimestamp.mockReset().mockReturnValue('SERVER_TS');
+    mockDeps.callableFactory.mockReset().mockImplementation((_functions: unknown, name: string) => {
+      if (name === 'applyVolunteerCheckInAction') {
+        return mockDeps.volunteerCheckInCallable;
+      }
+
+      return vi.fn();
+    });
+    mockDeps.volunteerCheckInCallable.mockReset().mockResolvedValue({ data: { success: true } });
+    runtime.volunteerSession = null;
   });
 
   it('rejects duplicate email against local cache and remote snapshot', async () => {
@@ -123,5 +151,52 @@ describe('registration store', () => {
         approvedBy: 'admin-1',
       })
     );
+  });
+
+  it('routes check-in mutations through the volunteer callable when a kiosk session is active', async () => {
+    runtime.volunteerSession = {
+      tournamentId: 't1',
+      role: 'checkin',
+      sessionToken: 'checkin-token',
+      pinRevision: 2,
+      expiresAtMs: Date.now() + 60_000,
+    };
+
+    const { useRegistrationStore } = await import('@/stores/registrations');
+    const store = useRegistrationStore();
+
+    await store.checkInRegistration('t1', 'reg-9');
+
+    expect(mockDeps.volunteerCheckInCallable).toHaveBeenCalledWith({
+      tournamentId: 't1',
+      registrationId: 'reg-9',
+      action: 'check_in',
+      sessionToken: 'checkin-token',
+    });
+    expect(mockDeps.updateDoc).not.toHaveBeenCalled();
+  });
+
+  it('routes volunteer bib assignment through the callable instead of direct writes', async () => {
+    runtime.volunteerSession = {
+      tournamentId: 't1',
+      role: 'checkin',
+      sessionToken: 'checkin-token',
+      pinRevision: 2,
+      expiresAtMs: Date.now() + 60_000,
+    };
+
+    const { useRegistrationStore } = await import('@/stores/registrations');
+    const store = useRegistrationStore();
+
+    await store.assignBibNumber('t1', 'reg-9', 41);
+
+    expect(mockDeps.volunteerCheckInCallable).toHaveBeenCalledWith({
+      tournamentId: 't1',
+      registrationId: 'reg-9',
+      action: 'assign_bib',
+      bibNumber: 41,
+      sessionToken: 'checkin-token',
+    });
+    expect(mockDeps.updateDoc).not.toHaveBeenCalled();
   });
 });

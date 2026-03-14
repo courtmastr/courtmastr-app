@@ -74,7 +74,7 @@ const showSort = computed(() => props.sortOptions.length > 0);
             variant="outlined"
             hide-details
             clearable
-            @update:model-value="(value) => emit('update:search', typeof value === 'string' ? value : '')"
+            @update:model-value="(value: string | null | undefined) => emit('update:search', typeof value === 'string' ? value : '')"
           />
         </v-col>
 
@@ -95,7 +95,7 @@ const showSort = computed(() => props.sortOptions.length > 0);
             density="compact"
             variant="outlined"
             hide-details
-            @update:model-value="(value) => emit('update:category', value as string | null)"
+            @update:model-value="(value: string | null) => emit('update:category', value)"
           />
         </v-col>
 
@@ -116,7 +116,7 @@ const showSort = computed(() => props.sortOptions.length > 0);
             density="compact"
             variant="outlined"
             hide-details
-            @update:model-value="(value) => emit('update:status', value as string | null)"
+            @update:model-value="(value: string | null) => emit('update:status', value)"
           />
         </v-col>
 
@@ -137,7 +137,7 @@ const showSort = computed(() => props.sortOptions.length > 0);
             density="compact"
             variant="outlined"
             hide-details
-            @update:model-value="(value) => emit('update:court', value as string | null)"
+            @update:model-value="(value: string | null) => emit('update:court', value)"
           />
         </v-col>
 
@@ -160,7 +160,7 @@ const showSort = computed(() => props.sortOptions.length > 0);
             density="compact"
             variant="outlined"
             hide-details
-            @update:model-value="(value) => emit('update:sort', value as string | null)"
+            @update:model-value="(value: string | null) => emit('update:sort', value)"
           />
         </v-col>
 

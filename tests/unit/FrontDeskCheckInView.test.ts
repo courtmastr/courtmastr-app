@@ -8,6 +8,7 @@ const mockDeps = vi.hoisted(() => ({
   checkInOne: vi.fn(),
   bulkCheckIn: vi.fn(),
   undoItem: vi.fn(),
+  undoLatest: vi.fn(),
   undoBulk: vi.fn(),
   showToast: vi.fn(),
   routerPush: vi.fn(),
@@ -64,7 +65,11 @@ vi.mock('@/stores/registrations', () => ({
 
 vi.mock('@/stores/tournaments', () => ({
   useTournamentStore: () => ({
-    currentTournament: { id: 't1', name: 'Spring Open' },
+    currentTournament: {
+      id: 't1',
+      name: 'Spring Open',
+      startDate: new Date('2026-03-15T00:00:00.000Z'),
+    },
     categories: [],
     fetchTournament: mockDeps.fetchTournament,
     subscribeTournament: mockDeps.subscribeTournament,
@@ -89,33 +94,41 @@ vi.mock('@/features/checkin/composables/useFrontDeskCheckInWorkflow', () => ({
       noShow: 0,
       ratePercent: 0,
     }),
+    throughput: ref({
+      checkInsLastFiveMinutes: 0,
+      avgSecondsPerCheckIn: 0,
+    }),
     bulkUndoToken: ref(null),
     processScan: mockDeps.processScan,
     checkInOne: mockDeps.checkInOne,
     bulkCheckIn: mockDeps.bulkCheckIn,
     undoItem: mockDeps.undoItem,
+    undoLatest: mockDeps.undoLatest,
     undoBulk: mockDeps.undoBulk,
   }),
 }));
 
 const mountView = () => shallowMount(FrontDeskCheckInView, {
   global: {
-    stubs: [
-      'v-container',
-      'v-toolbar',
-      'v-btn',
-      'v-toolbar-title',
-      'v-spacer',
-      'v-btn-toggle',
-      'v-card',
-      'v-card-text',
-      'v-chip',
-      'v-text-field',
-      'v-progress-circular',
-      'v-alert',
-      'rapid-check-in-panel',
-      'bulk-check-in-panel',
-    ],
+    renderStubDefaultSlot: true,
+    stubs: {
+      'v-container': true,
+      'v-toolbar': {
+        template: '<div class=\"v-toolbar-stub\"><slot /></div>',
+      },
+      'v-btn': true,
+      'v-toolbar-title': true,
+      'v-spacer': true,
+      'v-btn-toggle': true,
+      'v-card': true,
+      'v-card-text': true,
+      'v-chip': true,
+      'v-text-field': true,
+      'v-progress-circular': true,
+      'v-alert': true,
+      'rapid-check-in-panel': true,
+      'bulk-check-in-panel': true,
+    },
   },
 });
 
@@ -123,6 +136,7 @@ interface FrontDeskVm {
   selectedIds: string[];
   handleBulkCheckIn: () => Promise<void>;
   handleScanSubmit: (raw: string) => Promise<void>;
+  handleUndoLatestShortcut: () => Promise<void>;
 }
 
 describe('FrontDeskCheckInView', () => {
@@ -139,6 +153,7 @@ describe('FrontDeskCheckInView', () => {
       bulkUndoToken: null,
     });
     mockDeps.undoItem.mockReset().mockResolvedValue(undefined);
+    mockDeps.undoLatest.mockReset().mockResolvedValue(undefined);
     mockDeps.undoBulk.mockReset().mockResolvedValue({ successIds: ['reg-1'], failed: [] });
     mockDeps.showToast.mockReset();
     mockDeps.routerPush.mockReset();
@@ -177,5 +192,25 @@ describe('FrontDeskCheckInView', () => {
       'error',
       'Multiple participants match this name. Type more of the name or use bib number.'
     );
+  });
+
+  it('uses workflow undoLatest for keyboard shortcut path', async () => {
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as FrontDeskVm;
+
+    await vm.handleUndoLatestShortcut();
+
+    expect(mockDeps.undoLatest).toHaveBeenCalledTimes(1);
+    expect(mockDeps.showToast).toHaveBeenCalledWith('success', 'Last check-in undone');
+  });
+
+  it('renders app logo and tournament date in the branded header', () => {
+    const wrapper = mountView();
+    const expectedDate = new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(
+      new Date('2026-03-15T00:00:00.000Z')
+    );
+
+    expect(wrapper.find('.frontdesk-checkin__app-logo').exists()).toBe(true);
+    expect(wrapper.text()).toContain(expectedDate);
   });
 });

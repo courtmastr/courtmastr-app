@@ -3,12 +3,18 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import { functions, httpsCallable } from '@/services/firebase';
 import type {
   Category,
   RankingPresetId,
   RankingProgressionMode,
   ScoringConfig,
+  TournamentLogo,
+  TournamentSponsor,
+  TournamentVolunteerAccessEntry,
   User,
+  VolunteerRole,
 } from '@/types';
 import { SCORING_PRESETS } from '@/types';
 import {
@@ -18,8 +24,14 @@ import {
   isScoringLocked,
 } from '@/guards/tournamentState';
 import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
+import {
+  deleteBrandingAsset,
+  uploadSponsorLogo,
+  uploadTournamentLogo,
+} from '@/services/tournamentBrandingStorage';
 import { sanitizeScoringConfig } from '@/features/scoring/utils/validation';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
+import TournamentBrandingCard from '@/features/tournaments/components/TournamentBrandingCard.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useUserStore } from '@/stores/users';
 import {
@@ -44,6 +56,10 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const loading = ref(false);
+const {
+  normalizedSponsors,
+  tournamentLogo: normalizedTournamentLogo,
+} = useTournamentBranding(tournament);
 
 interface CategoryScoringOverrideForm {
   enabled: boolean;
@@ -57,12 +73,94 @@ interface CategoryRankingOverrideForm {
   progressionMode: RankingProgressionMode;
 }
 
+interface TournamentBrandingDraft {
+  tournamentLogo: TournamentLogo | null;
+  tournamentLogoFile: File | null;
+  removeTournamentLogo: boolean;
+  sponsors: TournamentSponsor[];
+  sponsorLogoFiles: Record<string, File | null>;
+}
+
+interface VolunteerAccessForm {
+  enabled: boolean;
+  pin: string;
+  maskedPin: string;
+  revealedPin: string;
+  showRevealedPin: boolean;
+  pinRevision: number;
+  saving: boolean;
+  revealing: boolean;
+}
+
 const cloneScoringConfig = (config: ScoringConfig): ScoringConfig => ({
   gamesPerMatch: config.gamesPerMatch,
   pointsToWin: config.pointsToWin,
   mustWinBy: config.mustWinBy,
   maxPoints: config.maxPoints,
 });
+
+const cloneTournamentLogo = (logo: TournamentLogo | null | undefined): TournamentLogo | null =>
+  logo ? { ...logo } : null;
+
+const cloneTournamentSponsor = (sponsor: TournamentSponsor): TournamentSponsor => ({
+  ...sponsor,
+});
+
+const cloneSponsorLogoFiles = (
+  files: Record<string, File | null>
+): Record<string, File | null> => ({ ...files });
+
+const buildBrandingDraft = (
+  logo: TournamentLogo | null,
+  sponsors: TournamentSponsor[]
+): TournamentBrandingDraft => ({
+  tournamentLogo: cloneTournamentLogo(logo),
+  tournamentLogoFile: null,
+  removeTournamentLogo: false,
+  sponsors: sponsors.map(cloneTournamentSponsor),
+  sponsorLogoFiles: {},
+});
+
+const normalizeSponsorsForSave = (
+  sponsors: TournamentSponsor[]
+): TournamentSponsor[] => sponsors.map((sponsor, index) => ({
+  ...sponsor,
+  name: sponsor.name.trim(),
+  website: sponsor.website?.trim() ? sponsor.website.trim() : undefined,
+  displayOrder: index,
+}));
+
+const isValidWebsite = (value: string): boolean => {
+  try {
+    const parsedUrl = new URL(value);
+    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const validateBrandingDraft = (draft: TournamentBrandingDraft): string | null => {
+  if (draft.sponsors.length > 20) {
+    return 'You can add up to 20 sponsors per tournament.';
+  }
+
+  for (const sponsor of draft.sponsors) {
+    if (!sponsor.name.trim()) {
+      return 'Every sponsor needs a name before saving.';
+    }
+
+    const selectedLogoFile = draft.sponsorLogoFiles[sponsor.id];
+    if (!sponsor.logoUrl && !selectedLogoFile) {
+      return `Sponsor "${sponsor.name.trim()}" needs a logo before saving.`;
+    }
+
+    if (sponsor.website?.trim() && !isValidWebsite(sponsor.website.trim())) {
+      return `Sponsor "${sponsor.name.trim()}" needs a valid website URL.`;
+    }
+  }
+
+  return null;
+};
 
 // Form state
 const name = ref('');
@@ -84,8 +182,36 @@ const settings = ref({
   rankingPresetDefault: DEFAULT_RANKING_PRESET as RankingPresetId,
   progressionModeDefault: DEFAULT_RANKING_PROGRESSION as RankingProgressionMode,
 });
-const sponsors = ref<string[]>([]);
-const newSponsor = ref('');
+const brandingSponsors = ref<TournamentSponsor[]>([]);
+const brandingTournamentLogo = ref<TournamentLogo | null>(null);
+const brandingDraft = ref<TournamentBrandingDraft>(buildBrandingDraft(null, []));
+const volunteerRoles: VolunteerRole[] = ['checkin', 'scorekeeper'];
+const volunteerRoleLabels: Record<VolunteerRole, string> = {
+  checkin: 'Check-in',
+  scorekeeper: 'Scorekeeper',
+};
+const volunteerAccessForms = ref<Record<VolunteerRole, VolunteerAccessForm>>({
+  checkin: {
+    enabled: false,
+    pin: '',
+    maskedPin: '',
+    revealedPin: '',
+    showRevealedPin: false,
+    pinRevision: 0,
+    saving: false,
+    revealing: false,
+  },
+  scorekeeper: {
+    enabled: false,
+    pin: '',
+    maskedPin: '',
+    revealedPin: '',
+    showRevealedPin: false,
+    pinRevision: 0,
+    saving: false,
+    revealing: false,
+  },
+});
 
 const initialScoringConfig = ref<ScoringConfig>(sanitizeScoringConfig(settings.value));
 const initialRankingDefaults = ref<{
@@ -210,6 +336,19 @@ const cloneCategoryRankingOverrides = (
   });
   return cloned;
 };
+
+const buildVolunteerAccessForm = (
+  entry?: TournamentVolunteerAccessEntry | null,
+): VolunteerAccessForm => ({
+  enabled: entry?.enabled ?? false,
+  pin: '',
+  maskedPin: entry?.maskedPin ?? '',
+  revealedPin: '',
+  showRevealedPin: false,
+  pinRevision: entry?.pinRevision ?? 0,
+  saving: false,
+  revealing: false,
+});
 
 const buildCategoryScoringForm = (category: Category, fallbackConfig: ScoringConfig): CategoryScoringOverrideForm => {
   const effectiveConfig = category.scoringOverrideEnabled
@@ -336,8 +475,16 @@ watch([tournament, categories], ([t, nextCategories]) => {
     initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryOverrides);
     categoryRankingOverrides.value = categoryRankingOverrideValues;
     initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrideValues);
-    // Populate sponsors
-    sponsors.value = t.sponsors ?? [];
+    brandingSponsors.value = normalizedSponsors.value.map(cloneTournamentSponsor);
+    brandingTournamentLogo.value = cloneTournamentLogo(normalizedTournamentLogo.value);
+    brandingDraft.value = buildBrandingDraft(
+      brandingTournamentLogo.value,
+      brandingSponsors.value
+    );
+    volunteerAccessForms.value = {
+      checkin: buildVolunteerAccessForm(t.volunteerAccess?.checkin),
+      scorekeeper: buildVolunteerAccessForm(t.volunteerAccess?.scorekeeper),
+    };
   }
 }, { immediate: true });
 
@@ -357,6 +504,73 @@ async function saveSettings() {
       assertCanEditScoring(tournamentState.value);
     }
 
+    const brandingError = validateBrandingDraft(brandingDraft.value);
+    if (brandingError) {
+      notificationStore.showToast('error', brandingError);
+      return;
+    }
+
+    const nextSponsorsBase = normalizeSponsorsForSave(brandingDraft.value.sponsors);
+    const sponsorLogoFiles = cloneSponsorLogoFiles(brandingDraft.value.sponsorLogoFiles);
+    const originalSponsorsById = new Map(
+      brandingSponsors.value.map((sponsor) => [sponsor.id, sponsor] as const)
+    );
+    const logoPathsToDelete = new Set<string>();
+
+    let nextTournamentLogo = brandingDraft.value.removeTournamentLogo
+      ? null
+      : cloneTournamentLogo(brandingDraft.value.tournamentLogo);
+
+    if (brandingDraft.value.tournamentLogoFile) {
+      const uploadedTournamentLogo = await uploadTournamentLogo(
+        tournamentId.value,
+        brandingDraft.value.tournamentLogoFile
+      );
+      nextTournamentLogo = {
+        url: uploadedTournamentLogo.downloadUrl,
+        storagePath: uploadedTournamentLogo.storagePath,
+        uploadedAt: new Date(),
+      };
+      if (brandingTournamentLogo.value?.storagePath) {
+        logoPathsToDelete.add(brandingTournamentLogo.value.storagePath);
+      }
+    } else if (brandingDraft.value.removeTournamentLogo && brandingTournamentLogo.value?.storagePath) {
+      logoPathsToDelete.add(brandingTournamentLogo.value.storagePath);
+    }
+
+    const nextSponsors = await Promise.all(
+      nextSponsorsBase.map(async (sponsor) => {
+        const selectedLogoFile = sponsorLogoFiles[sponsor.id];
+
+        if (!selectedLogoFile) {
+          return sponsor;
+        }
+
+        const uploadedSponsorLogo = await uploadSponsorLogo(
+          tournamentId.value,
+          sponsor.id,
+          selectedLogoFile
+        );
+        const originalSponsor = originalSponsorsById.get(sponsor.id);
+
+        if (originalSponsor?.logoPath) {
+          logoPathsToDelete.add(originalSponsor.logoPath);
+        }
+
+        return {
+          ...sponsor,
+          logoUrl: uploadedSponsorLogo.downloadUrl,
+          logoPath: uploadedSponsorLogo.storagePath,
+        };
+      })
+    );
+
+    brandingSponsors.value.forEach((sponsor) => {
+      if (!nextSponsors.some((item) => item.id === sponsor.id) && sponsor.logoPath) {
+        logoPathsToDelete.add(sponsor.logoPath);
+      }
+    });
+
     await tournamentStore.updateTournament(tournamentId.value, {
       name: name.value,
       description: description.value,
@@ -367,7 +581,8 @@ async function saveSettings() {
         ? new Date(registrationDeadline.value)
         : undefined,
       settings: settings.value,
-      sponsors: sponsors.value,
+      tournamentLogo: nextTournamentLogo,
+      sponsors: nextSponsors,
     });
 
     await Promise.all(
@@ -396,6 +611,29 @@ async function saveSettings() {
     };
     initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryScoringOverrides.value);
     initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrides.value);
+
+    brandingSponsors.value = nextSponsors.map(cloneTournamentSponsor);
+    brandingTournamentLogo.value = cloneTournamentLogo(nextTournamentLogo);
+    brandingDraft.value = buildBrandingDraft(
+      brandingTournamentLogo.value,
+      brandingSponsors.value
+    );
+
+    const deleteTargets = [...logoPathsToDelete].filter((path) => {
+      if (!path) return false;
+      if (nextTournamentLogo?.storagePath === path) return false;
+      return !nextSponsors.some((sponsor) => sponsor.logoPath === path);
+    });
+
+    const deleteResults = await Promise.allSettled(
+      deleteTargets.map((storagePath) => deleteBrandingAsset(storagePath))
+    );
+    deleteResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error('Error deleting old branding asset:', deleteTargets[index], result.reason);
+      }
+    });
+
     notificationStore.showToast('success', 'Settings saved successfully!');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to save settings';
@@ -403,6 +641,16 @@ async function saveSettings() {
   } finally {
     loading.value = false;
   }
+}
+
+function handleBrandingUpdate(payload: TournamentBrandingDraft): void {
+  brandingDraft.value = {
+    tournamentLogo: cloneTournamentLogo(payload.tournamentLogo),
+    tournamentLogoFile: payload.tournamentLogoFile,
+    removeTournamentLogo: payload.removeTournamentLogo,
+    sponsors: payload.sponsors.map(cloneTournamentSponsor),
+    sponsorLogoFiles: cloneSponsorLogoFiles(payload.sponsorLogoFiles),
+  };
 }
 
 // Co-organizer management
@@ -463,17 +711,117 @@ async function removeOrganizerFromTournament(userId: string): Promise<void> {
     organizerLoading.value = false;
   }
 }
-// Sponsor management
-function addSponsor(): void {
-  if (!newSponsor.value.trim()) return;
-  sponsors.value.push(newSponsor.value.trim());
-  newSponsor.value = '';
+const getVolunteerDisplayPin = (role: VolunteerRole): string => {
+  const form = volunteerAccessForms.value[role];
+  if (form.showRevealedPin && form.revealedPin) {
+    return form.revealedPin;
+  }
+
+  if (form.maskedPin) {
+    return form.maskedPin;
+  }
+
+  return form.pinRevision > 0 ? 'Configured' : 'Not set';
+};
+
+const hasVolunteerPinConfigured = (role: VolunteerRole): boolean =>
+  volunteerAccessForms.value[role].pinRevision > 0;
+
+const getVolunteerAccessUrl = (role: VolunteerRole): string => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const suffix = role === 'scorekeeper' ? 'scoring-access' : 'checkin-access';
+  return `${origin}/tournaments/${tournamentId.value}/${suffix}`;
+};
+
+async function copyVolunteerAccessValue(value: string, successMessage: string): Promise<void> {
+  try {
+    if (!navigator.clipboard) {
+      throw new Error('Clipboard is not available');
+    }
+
+    await navigator.clipboard.writeText(value);
+    notificationStore.showToast('success', successMessage);
+  } catch (error) {
+    notificationStore.showToast('error', error instanceof Error ? error.message : 'Failed to copy value');
+  }
 }
 
-function removeSponsor(index: number): void {
-  sponsors.value.splice(index, 1);
+async function saveVolunteerPin(role: VolunteerRole): Promise<void> {
+  const form = volunteerAccessForms.value[role];
+  const nextPin = form.pin.trim();
+
+  if (!nextPin && form.pinRevision === 0) {
+    notificationStore.showToast('error', `Enter a PIN before enabling ${volunteerRoleLabels[role]} access`);
+    return;
+  }
+
+  form.saving = true;
+  try {
+    const setVolunteerPinFn = httpsCallable(functions, 'setVolunteerPin');
+    const response = await setVolunteerPinFn({
+      tournamentId: tournamentId.value,
+      role,
+      pin: nextPin || undefined,
+      enabled: form.enabled,
+    });
+    const data = (response as {
+      data?: {
+        enabled?: boolean;
+        pinRevision?: number;
+        maskedPin?: string;
+      };
+    }).data;
+
+    form.enabled = data?.enabled ?? form.enabled;
+    form.pinRevision = Number(data?.pinRevision ?? form.pinRevision);
+    form.maskedPin = data?.maskedPin ?? form.maskedPin;
+    form.pin = '';
+    form.revealedPin = '';
+    form.showRevealedPin = false;
+
+    await tournamentStore.fetchTournament(tournamentId.value);
+    notificationStore.showToast('success', `${volunteerRoleLabels[role]} PIN saved`);
+  } catch (error) {
+    notificationStore.showToast(
+      'error',
+      error instanceof Error ? error.message : `Failed to save ${volunteerRoleLabels[role]} PIN`,
+    );
+  } finally {
+    form.saving = false;
+  }
 }
 
+async function revealVolunteerPin(role: VolunteerRole): Promise<void> {
+  const form = volunteerAccessForms.value[role];
+  form.revealing = true;
+  try {
+    const revealVolunteerPinFn = httpsCallable(functions, 'revealVolunteerPin');
+    const response = await revealVolunteerPinFn({
+      tournamentId: tournamentId.value,
+      role,
+    });
+    const data = (response as {
+      data?: {
+        pin?: string;
+        enabled?: boolean;
+        pinRevision?: number;
+      };
+    }).data;
+
+    form.revealedPin = data?.pin ?? '';
+    form.showRevealedPin = Boolean(data?.pin);
+    form.enabled = data?.enabled ?? form.enabled;
+    form.pinRevision = Number(data?.pinRevision ?? form.pinRevision);
+    notificationStore.showToast('success', `${volunteerRoleLabels[role]} PIN revealed`);
+  } catch (error) {
+    notificationStore.showToast(
+      'error',
+      error instanceof Error ? error.message : `Failed to reveal ${volunteerRoleLabels[role]} PIN`,
+    );
+  } finally {
+    form.revealing = false;
+  }
+}
 
 const showDeleteDialog = ref(false);
 const typedDeleteName = ref('');
@@ -1079,13 +1427,19 @@ async function confirmDelete() {
             />
           </v-card-text>
         </v-card>
-        <!-- Sponsor Management -->
+        <TournamentBrandingCard
+          :tournament-id="tournamentId"
+          :sponsors="brandingSponsors"
+          :tournament-logo="brandingTournamentLogo"
+          @update-branding="handleBrandingUpdate"
+        />
+
         <v-card class="mb-4">
           <v-card-title>
             <v-icon start>
-              mdi-domain
+              mdi-lock-outline
             </v-icon>
-            Tournament Sponsors
+            Volunteer Access
           </v-card-title>
           <v-card-text>
             <v-alert
@@ -1094,60 +1448,97 @@ async function confirmDelete() {
               density="compact"
               class="mb-4"
             >
-              Sponsors will be displayed in the tournament board overlay.
+              Create restricted PIN access for front-desk check-in and scorekeeper stations. These links open volunteer mode without the full staff navigation.
             </v-alert>
-            <!-- Current sponsors list -->
-            <v-list
-              v-if="sponsors.length > 0"
-              lines="one"
-              class="mb-4"
-            >
-              <v-list-item
-                v-for="(sponsor, index) in sponsors"
-                :key="index"
-                :title="sponsor"
-                prepend-icon="mdi-domain"
-              >
-                <template #append>
-                  <v-btn
-                    icon="mdi-close"
-                    variant="text"
-                    size="small"
-                    color="error"
-                    title="Remove sponsor"
-                    @click="removeSponsor(index)"
-                  />
-                </template>
-              </v-list-item>
-            </v-list>
-            <p
-              v-else
-              class="text-medium-emphasis text-body-2 mb-4"
-            >
-              No sponsors added yet.
-            </p>
 
-            <!-- Add sponsor -->
-            <div class="d-flex align-center gap-2">
-              <v-text-field
-                v-model="newSponsor"
-                label="Add sponsor"
-                placeholder="e.g., YONEX, LI-NING..."
-                variant="outlined"
-                density="compact"
-                clearable
-                hide-details
-                @keyup.enter="addSponsor"
-              />
-              <v-btn
-                color="primary"
-                variant="elevated"
-                :disabled="!newSponsor?.trim()"
-                @click="addSponsor"
+            <v-row>
+              <v-col
+                v-for="role in volunteerRoles"
+                :key="role"
+                cols="12"
+                md="6"
               >
-                Add
-              </v-btn>
-            </div>
+                <v-card
+                  variant="outlined"
+                  class="h-100"
+                >
+                  <v-card-title class="text-subtitle-1">
+                    {{ volunteerRoleLabels[role] }}
+                  </v-card-title>
+                  <v-card-text>
+                    <v-switch
+                      v-model="volunteerAccessForms[role].enabled"
+                      :label="`Enable ${volunteerRoleLabels[role]} access`"
+                      color="primary"
+                    />
+
+                    <v-text-field
+                      :model-value="getVolunteerDisplayPin(role)"
+                      label="Current PIN"
+                      readonly
+                      variant="outlined"
+                      density="compact"
+                      :append-inner-icon="hasVolunteerPinConfigured(role) ? 'mdi-eye' : undefined"
+                      @click:append-inner="revealVolunteerPin(role)"
+                    />
+
+                    <div class="text-caption text-medium-emphasis mb-3">
+                      Revision {{ volunteerAccessForms[role].pinRevision || 0 }}
+                    </div>
+
+                    <v-text-field
+                      v-model="volunteerAccessForms[role].pin"
+                      label="Set or Reset PIN"
+                      type="password"
+                      variant="outlined"
+                      density="compact"
+                      hint="Use a 4 to 8 digit PIN"
+                      persistent-hint
+                    />
+
+                    <v-text-field
+                      :model-value="getVolunteerAccessUrl(role)"
+                      label="Direct Access Link"
+                      readonly
+                      variant="outlined"
+                      density="compact"
+                      class="mt-3"
+                    />
+
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                      <v-btn
+                        variant="tonal"
+                        @click="copyVolunteerAccessValue(getVolunteerAccessUrl(role), `${volunteerRoleLabels[role]} access link copied`)"
+                      >
+                        Copy Link
+                      </v-btn>
+                      <v-btn
+                        variant="tonal"
+                        :disabled="!volunteerAccessForms[role].showRevealedPin"
+                        @click="copyVolunteerAccessValue(getVolunteerDisplayPin(role), `${volunteerRoleLabels[role]} PIN copied`)"
+                      >
+                        Copy PIN
+                      </v-btn>
+                      <v-btn
+                        variant="tonal"
+                        :disabled="!hasVolunteerPinConfigured(role)"
+                        :loading="volunteerAccessForms[role].revealing"
+                        @click="revealVolunteerPin(role)"
+                      >
+                        Reveal PIN
+                      </v-btn>
+                      <v-btn
+                        color="primary"
+                        :loading="volunteerAccessForms[role].saving"
+                        @click="saveVolunteerPin(role)"
+                      >
+                        Save PIN
+                      </v-btn>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
           </v-card-text>
         </v-card>
 

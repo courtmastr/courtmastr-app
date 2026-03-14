@@ -1,5 +1,5 @@
 // ============================================
-// CourtMaster v2 - Core Type Definitions
+// CourtMastr v2 - Core Type Definitions
 // ============================================
 
 export type {
@@ -13,6 +13,28 @@ export type {
 
 // User Roles
 export type UserRole = 'admin' | 'organizer' | 'scorekeeper' | 'player' | 'viewer';
+export type VolunteerRole = 'checkin' | 'scorekeeper';
+
+export interface VolunteerSession {
+  tournamentId: string;
+  role: VolunteerRole;
+  sessionToken: string;
+  pinRevision: number;
+  expiresAtMs: number;
+}
+
+export interface TournamentVolunteerAccessEntry {
+  enabled: boolean;
+  pinRevision: number;
+  maskedPin?: string;
+  updatedBy?: string;
+  updatedAt?: Date;
+}
+
+export interface TournamentVolunteerAccess {
+  checkin?: TournamentVolunteerAccessEntry;
+  scorekeeper?: TournamentVolunteerAccessEntry;
+}
 
 export interface User {
   id: string;
@@ -39,6 +61,23 @@ export type TournamentLifecycleState =
   | 'LIVE'
   | 'COMPLETED';
 
+export interface TournamentLogo {
+  url: string;
+  storagePath: string;
+  uploadedAt?: Date;
+}
+
+export interface TournamentSponsor {
+  id: string;
+  name: string;
+  logoUrl: string;
+  logoPath: string;
+  website?: string;
+  displayOrder: number;
+}
+
+export type TournamentSponsorRecord = TournamentSponsor | string;
+
 export interface Tournament {
   id: string;
   name: string;
@@ -55,7 +94,9 @@ export interface Tournament {
   settings: TournamentSettings;
   createdBy: string;
   organizerIds?: string[];
-  sponsors?: string[]; // Tournament sponsors for overlay display
+  tournamentLogo?: TournamentLogo | null;
+  sponsors?: TournamentSponsorRecord[];
+  volunteerAccess?: TournamentVolunteerAccess;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -449,6 +490,46 @@ export interface Notification {
   data?: Record<string, unknown>;
   read: boolean;
   createdAt: Date;
+}
+
+// Review Types
+export type ReviewStatus = 'pending' | 'approved' | 'rejected';
+export type ReviewSource = 'public' | 'authenticated';
+
+export interface ReviewRecord {
+  id: string;
+  status: ReviewStatus;
+  rating: number;
+  quote: string;
+  displayName: string;
+  organization?: string;
+  source: ReviewSource;
+  submitterUserId?: string | null;
+  submitterEmail?: string | null;
+  tournamentId?: string;
+  tournamentName?: string;
+  isFeatured?: boolean;
+  moderationNote?: string;
+  moderatedByUserId?: string;
+  moderatedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SubmitReviewPayload {
+  rating: number;
+  quote: string;
+  displayName: string;
+  organization?: string;
+  source?: ReviewSource;
+  tournamentId?: string;
+  tournamentName?: string;
+}
+
+export interface SubmitReviewResponse {
+  success: boolean;
+  reviewId: string;
+  status: ReviewStatus;
 }
 
 // Audit Log Types

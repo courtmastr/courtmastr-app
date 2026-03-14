@@ -257,12 +257,19 @@ onUnmounted(() => {
 
 <style scoped>
 .overlay-url-cell {
-  max-width: 700px;
+  max-width: min(700px, 46vw);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-family: monospace;
   font-size: 0.82rem;
+  display: inline-block;
+}
+
+@media (max-width: 960px) {
+  .overlay-url-cell {
+    max-width: 220px;
+  }
 }
 
 .obs-steps {

@@ -16,13 +16,13 @@
           <img
             v-if="!rail"
             src="@/assets/brand/courtmaster-lockup.svg"
-            alt="CourtMaster"
+            alt="CourtMastr"
             class="app-logo-expanded"
           >
           <img
             v-else
             src="@/assets/brand/courtmaster-mark.svg"
-            alt="CourtMaster"
+            alt="CourtMastr"
             class="app-logo-collapsed"
           >
         </div>
@@ -57,6 +57,14 @@
         to="/tournaments/create"
         prepend-icon="mdi-plus-circle"
         title="Create Tournament"
+        rounded="lg"
+        :ripple="false"
+      />
+      <v-list-item
+        v-if="isWebAdmin"
+        to="/admin/reviews"
+        prepend-icon="mdi-message-badge"
+        title="Review Moderation"
         rounded="lg"
         :ripple="false"
       />
@@ -232,6 +240,7 @@ const route = useRoute();
 const router = useRouter();
 
 const isOrganizer = computed(() => authStore.isOrganizer);
+const isWebAdmin = computed(() => authStore.currentUser?.role === 'admin');
 const categories = computed(() => tournamentStore.categories);
 const currentTournamentId = computed(() => {
   // Try to get tournament ID from route, otherwise use the current tournament from store

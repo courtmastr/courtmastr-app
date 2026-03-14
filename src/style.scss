@@ -341,10 +341,20 @@ button,
   &:hover {
     transform: translateY(-4px);
     box-shadow: $shadow-lg;
-    
+
     &::before {
       opacity: 0.25;
     }
+  }
+}
+
+// Suppress gradient border inside dialogs/overlays to prevent bleed-through
+// Also suppress on outlined cards: their background is transparent, so the gradient
+// shows through the full card body and contrasts with white child elements (e.g. text fields)
+.v-overlay__content .v-card,
+.v-card--variant-outlined {
+  &::before {
+    display: none;
   }
 }
 
@@ -384,10 +394,15 @@ button,
   }
 }
 
-// Accessibility enhancements
+// Accessibility enhancements — keyboard focus ring for non-Vuetify elements
 :focus-visible {
   outline: 2px solid $primary-base !important;
   outline-offset: 2px;
+}
+// Vuetify form fields have their own focused-state indicators; suppress the browser ring
+.v-field :focus-visible,
+.v-field:focus-visible {
+  outline: none !important;
 }
 
 // High contrast mode support

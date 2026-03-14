@@ -19,12 +19,18 @@ const categoryId = computed(() => route.params.categoryId as string | undefined)
 
 const isTournamentWide = computed(() => !categoryId.value);
 const showBwfDialog = ref(false);
-const selectedPhaseScope = ref<LeaderboardPhaseScope>('tournament');
+
+// URL-persisted: scope (?scope=pool|category|tournament)
+const selectedPhaseScope = ref<LeaderboardPhaseScope>(
+  (route.query.scope as LeaderboardPhaseScope) || 'tournament'
+);
 
 const { leaderboard, stage, error, generate, exportData } = useLeaderboard();
 
-// Local filter state (applied client-side after generation)
-const activeFilters = ref<LeaderboardOptions & { search?: string }>({});
+// Local filter state — search is URL-persisted (?q=)
+const activeFilters = ref<LeaderboardOptions & { search?: string }>({
+  search: (route.query.q as string) || undefined,
+});
 
 const filteredEntries = computed(() => {
   if (!leaderboard.value) return [];
@@ -83,6 +89,13 @@ const activeProgressionLabel = computed(() => {
 
 function onFiltersUpdate(filters: LeaderboardOptions & { search?: string }) {
   activeFilters.value = filters;
+  // Persist search to URL
+  router.replace({
+    query: {
+      ...route.query,
+      q: filters.search || undefined,
+    },
+  });
 }
 
 async function onRefresh() {
@@ -107,6 +120,13 @@ async function runGeneration(): Promise<void> {
 async function switchPhaseScope(scope: 'pool' | 'category'): Promise<void> {
   if (!supportsPoolScope.value || selectedPhaseScope.value === scope) return;
   selectedPhaseScope.value = scope;
+  // Persist scope to URL
+  router.replace({
+    query: {
+      ...route.query,
+      scope,
+    },
+  });
   await runGeneration();
 }
 
@@ -137,116 +157,154 @@ onMounted(() => {
 
 <template>
   <v-container>
-    <!-- Header -->
-    <div class="d-flex align-center mb-4 flex-wrap gap-2">
+    <!-- Hero Header Card -->
+    <div class="leaderboard-hero mb-5">
+      <!-- Back button (floats top-left) -->
       <v-btn
+        class="back-btn"
         variant="text"
         icon="mdi-arrow-left"
         size="small"
         @click="router.back()"
       />
-      <div>
-        <h1 class="text-h5 font-weight-bold">
-          {{ isTournamentWide ? 'Tournament Leaderboard' : 'Category Leaderboard' }}
-        </h1>
-        <div
-          v-if="leaderboard"
-          class="text-caption text-medium-emphasis"
-        >
-          Generated {{ leaderboard.generatedAt.toLocaleTimeString() }}
+
+      <!-- Icon + Title -->
+      <div class="hero-content">
+        <div class="hero-icon-wrap">
+          <v-icon
+            icon="mdi-podium"
+            size="32"
+            color="white"
+          />
+        </div>
+
+        <div class="hero-text">
+          <h1 class="hero-title">
+            {{ isTournamentWide ? 'Tournament Leaderboard' : 'Category Leaderboard' }}
+          </h1>
+          <p
+            v-if="leaderboard"
+            class="hero-subtitle"
+          >
+            <v-icon
+              size="13"
+              class="mr-1"
+            >
+              mdi-clock-outline
+            </v-icon>
+            Updated {{ leaderboard.generatedAt.toLocaleTimeString() }}
+          </p>
+          <p
+            v-else
+            class="hero-subtitle"
+          >
+            Live standings &amp; rankings
+          </p>
         </div>
       </div>
 
-      <v-spacer />
+      <!-- Action buttons -->
+      <div class="hero-actions">
+        <v-btn
+          variant="text"
+          icon="mdi-information-outline"
+          size="small"
+          class="action-icon-btn"
+          @click="showBwfDialog = true"
+        />
 
-      <!-- BWF Info button -->
-      <v-btn
-        variant="text"
-        icon="mdi-information-outline"
-        size="small"
-        @click="showBwfDialog = true"
-      />
+        <v-menu v-if="leaderboard">
+          <template #activator="{ props: menuProps }">
+            <v-btn
+              v-bind="menuProps"
+              variant="outlined"
+              prepend-icon="mdi-download"
+              size="small"
+              class="export-btn"
+              :disabled="isLoading"
+            >
+              Export
+            </v-btn>
+          </template>
+          <v-list density="compact">
+            <v-list-item
+              prepend-icon="mdi-file-delimited"
+              title="CSV"
+              @click="onExport('csv')"
+            />
+            <v-list-item
+              prepend-icon="mdi-code-json"
+              title="JSON"
+              @click="onExport('json')"
+            />
+          </v-list>
+        </v-menu>
 
-      <!-- Export menu -->
-      <v-menu v-if="leaderboard">
-        <template #activator="{ props: menuProps }">
+        <v-btn
+          variant="flat"
+          :loading="isLoading"
+          prepend-icon="mdi-refresh"
+          size="small"
+          class="refresh-btn"
+          @click="onRefresh"
+        >
+          Refresh
+        </v-btn>
+      </div>
+    </div>
+
+    <!-- Preset & Scope chips row -->
+    <div class="d-flex align-center flex-wrap gap-2 mb-4">
+      <!-- Pool scope toggle -->
+      <template v-if="supportsPoolScope">
+        <v-btn-toggle
+          :model-value="selectedPhaseScope"
+          density="compact"
+          variant="outlined"
+          color="primary"
+          rounded="lg"
+          mandatory
+        >
           <v-btn
-            v-bind="menuProps"
-            variant="outlined"
-            prepend-icon="mdi-download"
+            value="pool"
             size="small"
-            :disabled="isLoading"
+            @click="switchPhaseScope('pool')"
           >
-            Export
+            Pool
           </v-btn>
-        </template>
-        <v-list density="compact">
-          <v-list-item
-            prepend-icon="mdi-file-delimited"
-            title="CSV"
-            @click="onExport('csv')"
-          />
-          <v-list-item
-            prepend-icon="mdi-code-json"
-            title="JSON"
-            @click="onExport('json')"
-          />
-        </v-list>
-      </v-menu>
+          <v-btn
+            value="category"
+            size="small"
+            @click="switchPhaseScope('category')"
+          >
+            Category
+          </v-btn>
+        </v-btn-toggle>
+        <v-divider
+          vertical
+          class="mx-1"
+          style="height: 20px; align-self: center;"
+        />
+      </template>
 
-      <!-- Refresh button -->
-      <v-btn
-        variant="tonal"
-        :loading="isLoading"
-        prepend-icon="mdi-refresh"
-        size="small"
-        @click="onRefresh"
-      >
-        Refresh
-      </v-btn>
-    </div>
-
-    <div
-      v-if="supportsPoolScope"
-      class="d-flex align-center mb-3"
-    >
-      <span class="text-caption text-medium-emphasis mr-2">Scope:</span>
-      <v-btn
-        size="small"
-        :variant="selectedPhaseScope === 'pool' ? 'elevated' : 'text'"
-        @click="switchPhaseScope('pool')"
-      >
-        Pool
-      </v-btn>
-      <v-btn
-        size="small"
-        :variant="selectedPhaseScope === 'category' ? 'elevated' : 'text'"
-        @click="switchPhaseScope('category')"
-      >
-        Category
-      </v-btn>
-    </div>
-
-    <div
-      v-if="leaderboard"
-      class="d-flex align-center mb-3 flex-wrap"
-    >
-      <v-chip
-        size="small"
-        color="primary"
-        variant="tonal"
-        class="mr-2 mb-1"
-      >
-        Preset: {{ activePresetLabel }}
-      </v-chip>
-      <v-chip
-        size="small"
-        color="secondary"
-        variant="tonal"
-        class="mb-1"
-      >
-        Progression: {{ activeProgressionLabel }}
-      </v-chip>
+      <template v-if="leaderboard">
+        <v-chip
+          size="small"
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-trophy-outline"
+        >
+          {{ activePresetLabel }}
+        </v-chip>
+        <v-chip
+          size="small"
+          color="secondary"
+          variant="tonal"
+          prepend-icon="mdi-swap-horizontal"
+        >
+          {{ activeProgressionLabel }}
+        </v-chip>
+      </template>
     </div>
 
     <!-- Summary cards -->
@@ -495,3 +553,107 @@ onMounted(() => {
     </v-dialog>
   </v-container>
 </template>
+
+<style scoped>
+/* ---- Hero Header ---- */
+.leaderboard-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1D4ED8 0%, #2563EB 50%, #1E40AF 100%);
+  box-shadow: 0 8px 32px rgba(29, 78, 216, 0.25), 0 2px 8px rgba(29, 78, 216, 0.15);
+  overflow: hidden;
+  flex-wrap: wrap;
+}
+
+/* Subtle decorative glow blob in the corner */
+.leaderboard-hero::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+}
+
+.back-btn {
+  color: rgba(255, 255, 255, 0.85) !important;
+  flex-shrink: 0;
+}
+
+.hero-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.hero-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+  backdrop-filter: blur(8px);
+}
+
+.hero-text {
+  min-width: 0;
+}
+
+.hero-title {
+  font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.15;
+  color: #ffffff;
+  margin: 0 0 4px;
+}
+
+.hero-subtitle {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.action-icon-btn {
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+.export-btn {
+  color: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.refresh-btn {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  backdrop-filter: blur(8px);
+}
+
+.refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.28) !important;
+}
+</style>

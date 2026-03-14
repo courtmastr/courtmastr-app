@@ -162,7 +162,7 @@ const mountComponent = (): VueWrapper =>
     },
   });
 
-const getPrimaryActionButton = (wrapper: VueWrapper): VueWrapper =>
+const getPrimaryActionButton = (wrapper: VueWrapper) =>
   wrapper.find('.card-primary-actions button');
 
 describe('CategoryRegistrationStats primary CTA behavior', () => {

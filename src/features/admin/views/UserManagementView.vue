@@ -209,7 +209,7 @@ async function confirmStatusChange(): Promise<void> {
             hide-details
             variant="outlined"
             style="max-width: 140px;"
-            @update:model-value="(value) => handleRoleChange(item, value as UserRole)"
+            @update:model-value="(value: UserRole) => handleRoleChange(item, value)"
           />
         </template>
 

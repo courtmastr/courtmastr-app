@@ -7,6 +7,8 @@ export interface CheckInSearchRow {
   id: RegistrationId | string;
   name: string;
   category: string;
+  bibNumber?: number | null;
+  partnerName?: string | null;
   status: CheckInStatus;
 }
 

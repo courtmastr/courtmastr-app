@@ -1,5 +1,5 @@
 import 'vue-router';
-import type { UserRole } from '@/types';
+import type { UserRole, VolunteerRole } from '@/types';
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -7,6 +7,10 @@ declare module 'vue-router' {
     guestOnly?: boolean;
     requiresAdmin?: boolean;
     requiresScorekeeper?: boolean;
+    requiresVolunteerSession?: boolean;
+    volunteerAccessPage?: boolean;
+    volunteerLayout?: boolean;
+    volunteerRole?: VolunteerRole;
     overlayPage?: boolean;
     obsOverlay?: boolean;
     roles?: readonly UserRole[];
