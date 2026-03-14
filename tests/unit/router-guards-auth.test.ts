@@ -137,6 +137,9 @@ describe('router auth guards', () => {
 
     const termsRoute = await runGuard('/terms', { isAuthenticated: false });
     expect(termsRoute.type).toBe('allow');
+
+    const landingRoute = await runGuard('/tournaments/t1/landing', { isAuthenticated: false });
+    expect(landingRoute.type).toBe('allow');
   });
 
   it('blocks non-web-admin users from /admin/reviews and allows admin users', async () => {

@@ -38,6 +38,7 @@ const PublicBracket = () => import('@/features/public/views/PublicBracketView.vu
 const PublicScoring = () => import('@/features/public/views/PublicScoringView.vue');
 const PublicSchedule = () => import('@/features/public/views/PublicScheduleView.vue');
 const PublicPlayer = () => import('@/features/public/views/PublicPlayerView.vue');
+const TournamentLandingTemplate = () => import('@/features/public/views/TournamentLandingTemplateView.vue');
 const About = () => import('@/features/public/views/AboutView.vue');
 const Pricing = () => import('@/features/public/views/PricingView.vue');
 const Privacy = () => import('@/features/public/views/PrivacyView.vue');
@@ -204,6 +205,12 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/player',
     name: 'public-player',
     component: PublicPlayer,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/tournaments/:tournamentId/landing',
+    name: 'public-landing-template',
+    component: TournamentLandingTemplate,
     meta: { requiresAuth: false },
   },
 
