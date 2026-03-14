@@ -36,6 +36,7 @@ npm run emulators        # Start Firebase emulators
 npm run seed:simple      # Seed emulator with test data
 
 # Build & Deploy
+npm run check:firebase-env # Validate required Firebase web env before production build/deploy
 npm run build            # Type-check + build for production
 npm run preview          # Preview production build locally
 npm run deploy           # Build + deploy to Firebase
@@ -130,6 +131,7 @@ npm run deploy:log
 - Search codebase before creating files.
 - Run `npm run build` after every change to ensure the code is not broken.
 - Run `:log` commands after changes.
+- Run `npm run check:firebase-env` before production deploys (especially in new checkouts/worktrees).
 - Update `docs/deployment/LAST_DEPLOY.md` after any production deploy.
 - Follow Debug KB Protocol on failures.
 
