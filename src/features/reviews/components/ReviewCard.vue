@@ -12,10 +12,6 @@ const props = withDefaults(defineProps<ReviewCardProps>(), {
 });
 
 const ratingLabel = computed(() => `Rated ${props.review.rating} out of 5`);
-const formattedDate = computed(() => {
-  if (!props.review.createdAt) return '';
-  return new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(props.review.createdAt);
-});
 </script>
 
 <template>
@@ -50,12 +46,6 @@ const formattedDate = computed(() => {
           class="review-card__organization"
         >
           {{ review.organization }}
-        </p>
-        <p
-          v-if="formattedDate"
-          class="review-card__date"
-        >
-          {{ formattedDate }}
         </p>
       </div>
     </v-card-text>
@@ -92,8 +82,7 @@ const formattedDate = computed(() => {
   font-weight: 700;
 }
 
-.review-card__organization,
-.review-card__date {
+.review-card__organization {
   margin: 2px 0 0;
   font-size: 0.84rem;
   color: rgba(var(--v-theme-on-surface), 0.65);
