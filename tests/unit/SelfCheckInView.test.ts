@@ -1,12 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
-import { shallowMount } from '@vue/test-utils';
+import { flushPromises, shallowMount } from '@vue/test-utils';
 import SelfCheckInView from '@/features/checkin/views/SelfCheckInView.vue';
 import type { SelfCheckInCandidate } from '@/features/checkin/composables/useSelfCheckIn';
 
 const mockDeps = vi.hoisted(() => ({
   search: vi.fn(),
   submit: vi.fn(),
+  fetchTournament: vi.fn(),
+  subscribeTournament: vi.fn(),
+  unsubscribeTournament: vi.fn(),
 }));
 
 const candidatesRef = ref<SelfCheckInCandidate[]>([]);
@@ -28,6 +31,19 @@ vi.mock('@/features/checkin/composables/useSelfCheckIn', () => ({
     error: errorRef,
     search: mockDeps.search,
     submit: mockDeps.submit,
+  }),
+}));
+
+vi.mock('@/stores/tournaments', () => ({
+  useTournamentStore: () => ({
+    currentTournament: {
+      id: 't1',
+      name: 'Spring Open',
+      startDate: new Date('2026-03-15T00:00:00.000Z'),
+    },
+    fetchTournament: mockDeps.fetchTournament,
+    subscribeTournament: mockDeps.subscribeTournament,
+    unsubscribeAll: mockDeps.unsubscribeTournament,
   }),
 }));
 
@@ -85,6 +101,18 @@ describe('SelfCheckInView', () => {
     errorRef.value = null;
     mockDeps.search.mockReset().mockResolvedValue(undefined);
     mockDeps.submit.mockReset();
+    mockDeps.fetchTournament.mockReset().mockResolvedValue(undefined);
+    mockDeps.subscribeTournament.mockReset();
+    mockDeps.unsubscribeTournament.mockReset();
+  });
+
+  it('loads tournament metadata for branded header rendering', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(mockDeps.fetchTournament).toHaveBeenCalledWith('t1');
+    expect(mockDeps.subscribeTournament).toHaveBeenCalledWith('t1');
+    expect(wrapper.text()).toContain('CourtMastr');
   });
 
   it('shows waiting-for-partner message when single participant checks in first', async () => {

@@ -5,6 +5,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import courtmasterMarkWhite from '@/assets/brand/courtmaster-mark-white.svg';
 import type { Match } from '@/types';
 
 const route = useRoute();
@@ -159,6 +160,20 @@ onUnmounted(() => {
         {{ categoryName }}
       </div>
     </template>
+
+    <div
+      class="obs-courtmaster-watermark"
+      aria-hidden="true"
+    >
+      <img
+        :src="courtmasterMarkWhite"
+        alt=""
+        width="16"
+        height="16"
+        class="obs-courtmaster-watermark__logo"
+      >
+      <span class="obs-courtmaster-watermark__text">CourtMastr</span>
+    </div>
   </div>
 </template>
 

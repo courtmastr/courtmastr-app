@@ -26,6 +26,7 @@ const Leaderboard = () => import('@/features/tournaments/views/LeaderboardView.v
 
 // Admin views
 const AuditLogView = () => import('@/features/admin/views/AuditLogView.vue');
+const AdminReviewsView = () => import('@/features/reviews/views/AdminReviewsView.vue');
 
 // Scoring views
 const ScoringInterface = () => import('@/features/scoring/views/ScoringInterfaceView.vue');
@@ -37,6 +38,10 @@ const PublicBracket = () => import('@/features/public/views/PublicBracketView.vu
 const PublicScoring = () => import('@/features/public/views/PublicScoringView.vue');
 const PublicSchedule = () => import('@/features/public/views/PublicScheduleView.vue');
 const PublicPlayer = () => import('@/features/public/views/PublicPlayerView.vue');
+const About = () => import('@/features/public/views/AboutView.vue');
+const Pricing = () => import('@/features/public/views/PricingView.vue');
+const Privacy = () => import('@/features/public/views/PrivacyView.vue');
+const Terms = () => import('@/features/public/views/TermsView.vue');
 
 // Overlay views
 const OverlayCourtView = () => import('@/features/overlay/views/OverlayCourtView.vue');
@@ -58,7 +63,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'home',
     component: Home,
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: false, publicMarketingPage: true },
   },
   {
     path: '/login',
@@ -71,6 +76,30 @@ const routes: RouteRecordRaw[] = [
     name: 'register',
     component: Register,
     meta: { requiresAuth: false, guestOnly: true },
+  },
+  {
+    path: '/about',
+    name: 'about',
+    component: About,
+    meta: { requiresAuth: false, publicMarketingPage: true },
+  },
+  {
+    path: '/pricing',
+    name: 'pricing',
+    component: Pricing,
+    meta: { requiresAuth: false, publicMarketingPage: true },
+  },
+  {
+    path: '/privacy',
+    name: 'privacy',
+    component: Privacy,
+    meta: { requiresAuth: false, publicMarketingPage: true },
+  },
+  {
+    path: '/terms',
+    name: 'terms',
+    component: Terms,
+    meta: { requiresAuth: false, publicMarketingPage: true },
   },
   {
     path: '/tournaments/:tournamentId/checkin-access',
@@ -306,6 +335,12 @@ const routes: RouteRecordRaw[] = [
     component: AuditLogView,
     meta: { requiresAuth: true, requiresAdmin: true },
   },
+  {
+    path: '/admin/reviews',
+    name: 'admin-reviews',
+    component: AdminReviewsView,
+    meta: { requiresAuth: true, requiresWebAdmin: true },
+  },
 
   // Leaderboard routes
   {
@@ -445,6 +480,7 @@ router.beforeEach(async (to, _from, next) => {
   const requiresAuth = to.meta.requiresAuth === true;
   const guestOnly = to.meta.guestOnly === true;
   const requiresAdmin = to.meta.requiresAdmin === true;
+  const requiresWebAdmin = to.meta.requiresWebAdmin === true;
   const requiresScorekeeper = to.meta.requiresScorekeeper === true;
 
   // Redirect authenticated users away from guest-only pages
@@ -461,6 +497,11 @@ router.beforeEach(async (to, _from, next) => {
 
   // Check admin role
   if (requiresAdmin && !authStore.isAdmin) {
+    next({ name: 'tournament-list' });
+    return;
+  }
+
+  if (requiresWebAdmin && authStore.currentUser?.role !== 'admin') {
     next({ name: 'tournament-list' });
     return;
   }

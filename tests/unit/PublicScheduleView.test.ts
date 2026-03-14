@@ -255,4 +255,19 @@ describe('PublicScheduleView', () => {
     expect(readArray<Match>(vm.nowPlayingItems)).toHaveLength(1);
     expect(readBoolean(vm.shouldShowUnpublishedScheduleAlert)).toBe(false);
   });
+
+  it('exposes live-match status for header live badge rendering', async () => {
+    const liveMatch = makeMatch('m-live', 'published', new Date('2026-02-27T12:00:00.000Z'));
+    liveMatch.status = 'in_progress';
+    runtime.matches = [liveMatch];
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      hasLiveMatches: boolean | { value: boolean };
+    };
+
+    expect(readBoolean(vm.hasLiveMatches)).toBe(true);
+  });
 });

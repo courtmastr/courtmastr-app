@@ -6,11 +6,12 @@ import { useActivityStore } from '@/stores/activities';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
+import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
+import LiveBadge from '@/components/common/LiveBadge.vue';
 import { useDurationFormatter } from '@/composables/useDurationFormatter';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
-import TournamentSponsorStrip from '@/components/common/TournamentSponsorStrip.vue';
 import type { Match } from '@/types';
 
 type PublicMatchStatus = 'on_court' | 'upcoming' | 'delayed' | 'finished' | 'cancelled';
@@ -67,9 +68,12 @@ const notFound = ref(false);
 let clockInterval: ReturnType<typeof setInterval> | null = null;
 
 const tournament = computed(() => tournamentStore.currentTournament);
-const { normalizedSponsors, tournamentLogoUrl } = useTournamentBranding(tournament);
+const { tournamentLogoUrl } = useTournamentBranding(tournament);
 const categories = computed(() => tournamentStore.categories);
 const activities = computed(() => activityStore.recentActivities);
+const hasLiveMatches = computed(() =>
+  matchStore.matches.some((match) => match.status === 'in_progress')
+);
 const registrationsById = computed(() =>
   new Map(registrationStore.registrations.map((registration) => [registration.id, registration]))
 );
@@ -295,6 +299,8 @@ const publishedMatches = computed(() =>
   scheduledMatches.value.filter((match) => isMatchPublished(match))
 );
 
+const hasPublishedSchedule = computed(() => publishedMatches.value.length > 0);
+
 const hasDraftMatches = computed(
   () => scheduledMatches.value.length > publishedMatches.value.length
 );
@@ -463,6 +469,10 @@ const nowPlayingItems = computed<PublicScheduleItem[]>(() =>
     })
     .slice(0, 12)
 );
+
+const shouldShowUnpublishedScheduleAlert = computed(() => (
+  hasDraftMatches.value && !hasPublishedSchedule.value && nowPlayingItems.value.length === 0
+));
 
 // No artificial cap — show all upcoming/delayed matches so players
 // further down the queue can find themselves
@@ -839,80 +849,78 @@ onUnmounted(() => {
     </footer>
   </div>
 
-  <v-container
+  <TournamentPublicShell
     v-else
-    max-width="1180"
-    class="pb-8"
+    :tournament="tournament"
+    eyebrow="Public Schedule"
+    page-title="Live Tournament Schedule"
+    page-subtitle="Scrollable public schedule browsing with search, live progress, and one-tap access to display mode."
+    fallback-icon="mdi-calendar-clock"
+    :max-width="1180"
   >
+    <template #actions>
+      <LiveBadge v-if="hasLiveMatches" />
+      <v-btn
+        class="schedule-header__btn"
+        size="small"
+        variant="outlined"
+        prepend-icon="mdi-monitor"
+        @click="setDisplayMode(true)"
+      >
+        <span class="schedule-header__btn-label">Display Mode</span>
+      </v-btn>
+      <v-btn
+        :to="`/tournaments/${tournamentId}/player`"
+        class="schedule-header__btn"
+        size="small"
+        variant="tonal"
+        color="primary"
+        prepend-icon="mdi-account-clock"
+      >
+        <span class="schedule-header__btn-label">My Schedule</span>
+      </v-btn>
+      <v-btn
+        :to="`/tournaments/${tournamentId}/bracket`"
+        class="schedule-header__btn"
+        size="small"
+        variant="outlined"
+        prepend-icon="mdi-tournament"
+      >
+        <span class="schedule-header__btn-label">Brackets</span>
+      </v-btn>
+    </template>
+
+    <template #metrics>
+      <div class="schedule-shell__metric px-4 py-3">
+        <span class="text-caption text-medium-emphasis">Now Playing</span>
+        <strong class="text-h5">{{ nowPlayingItems.length }}</strong>
+      </div>
+      <div class="schedule-shell__metric px-4 py-3">
+        <span class="text-caption text-medium-emphasis">Up Next</span>
+        <strong class="text-h5">{{ displayQueueItems.length }}</strong>
+      </div>
+      <div class="schedule-shell__metric px-4 py-3">
+        <span class="text-caption text-medium-emphasis">Progress</span>
+        <strong class="text-h5">{{ tournamentProgress.percent }}%</strong>
+      </div>
+      <div class="schedule-shell__metric px-4 py-3">
+        <span class="text-caption text-medium-emphasis">Refresh</span>
+        <strong class="text-body-1">{{ lastUpdatedLabel }}</strong>
+      </div>
+    </template>
+
     <v-alert
       v-if="notFound"
       type="error"
-      class="mt-8"
+      class="mt-2"
     >
       Tournament not found.
     </v-alert>
 
     <template v-else>
-      <!-- ─── Header ──────────────────────────────────────────────── -->
-      <div class="schedule-header mt-6 mb-3">
-        <div class="schedule-header__brand">
-          <TournamentBrandMark
-            :tournament-name="tournament?.name || 'Tournament'"
-            :logo-url="tournamentLogoUrl"
-            :fallback-icon="'mdi-calendar-clock'"
-            :width="72"
-            :height="72"
-          />
-          <div>
-            <h1 class="text-h5 font-weight-bold">
-              {{ tournament?.name || 'Tournament' }}
-            </h1>
-            <div class="text-caption text-medium-emphasis">
-              Live Schedule · Auto-refreshing every 30s · Times in your local timezone
-            </div>
-          </div>
-        </div>
-        <div class="schedule-header__actions">
-          <v-btn
-            class="schedule-header__btn"
-            size="small"
-            variant="outlined"
-            prepend-icon="mdi-monitor"
-            @click="setDisplayMode(true)"
-          >
-            <span class="schedule-header__btn-label">Display Mode</span>
-          </v-btn>
-          <v-btn
-            :to="`/tournaments/${tournamentId}/player`"
-            class="schedule-header__btn"
-            size="small"
-            variant="tonal"
-            color="primary"
-            prepend-icon="mdi-account-clock"
-          >
-            <span class="schedule-header__btn-label">My Schedule</span>
-          </v-btn>
-          <v-btn
-            :to="`/tournaments/${tournamentId}/bracket`"
-            class="schedule-header__btn"
-            size="small"
-            variant="outlined"
-            prepend-icon="mdi-tournament"
-          >
-            <span class="schedule-header__btn-label">Brackets</span>
-          </v-btn>
-        </div>
-      </div>
-      <TournamentSponsorStrip
-        v-if="normalizedSponsors.length > 0"
-        :sponsors="normalizedSponsors"
-        class="mb-5"
-        dense
-      />
-
       <!-- ─── Draft badge ─────────────────────────────────────────── -->
       <v-alert
-        v-if="hasDraftMatches"
+        v-if="shouldShowUnpublishedScheduleAlert"
         type="info"
         variant="tonal"
         density="compact"
@@ -1394,7 +1402,7 @@ onUnmounted(() => {
         </template>
       </section>
     </template>
-  </v-container>
+  </TournamentPublicShell>
 </template>
 
 <style scoped>
@@ -1425,6 +1433,21 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.schedule-shell__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 16px;
+  background: rgba(var(--v-theme-surface), 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.schedule-shell__metric strong {
+  font-family: 'Barlow Condensed', 'Avenir Next Condensed', sans-serif;
+  line-height: 1;
 }
 
 /* ─── Search & Filters ────────────────────────────────────────────── */

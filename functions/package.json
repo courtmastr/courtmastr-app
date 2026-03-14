@@ -1,7 +1,7 @@
 {
   "name": "courtmaster-functions",
   "version": "1.0.0",
-  "description": "Cloud Functions for CourtMaster Tournament Manager",
+  "description": "Cloud Functions for CourtMastr Tournament Manager",
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc",

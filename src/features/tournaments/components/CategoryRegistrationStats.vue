@@ -704,7 +704,7 @@ function getPrimaryAction(stats: CategoryStats): PrimaryAction | null {
         label: 'Publish Level Schedule',
         icon: 'mdi-publish',
         color: 'warning',
-        event: 'publish-schedule',
+        event: 'schedule-times',
       };
 
     case 'elimination':

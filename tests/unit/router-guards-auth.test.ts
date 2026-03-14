@@ -125,6 +125,37 @@ describe('router auth guards', () => {
     expect(obsRoute.type).toBe('allow');
   });
 
+  it('allows unauthenticated access to public marketing routes', async () => {
+    const aboutRoute = await runGuard('/about', { isAuthenticated: false });
+    expect(aboutRoute.type).toBe('allow');
+
+    const pricingRoute = await runGuard('/pricing', { isAuthenticated: false });
+    expect(pricingRoute.type).toBe('allow');
+
+    const privacyRoute = await runGuard('/privacy', { isAuthenticated: false });
+    expect(privacyRoute.type).toBe('allow');
+
+    const termsRoute = await runGuard('/terms', { isAuthenticated: false });
+    expect(termsRoute.type).toBe('allow');
+  });
+
+  it('blocks non-web-admin users from /admin/reviews and allows admin users', async () => {
+    const organizerResult = await runGuard('/admin/reviews', {
+      isAuthenticated: true,
+      role: 'organizer',
+      isAdmin: true,
+    });
+    expect(organizerResult.type).toBe('redirect');
+    expect(organizerResult.name).toBe('tournament-list');
+
+    const adminResult = await runGuard('/admin/reviews', {
+      isAuthenticated: true,
+      role: 'admin',
+      isAdmin: true,
+    });
+    expect(adminResult.type).toBe('allow');
+  });
+
   it('redirects unauthenticated users to login for protected routes', async () => {
     const result = await runGuard('/tournaments/t1/checkin', { isAuthenticated: false });
 

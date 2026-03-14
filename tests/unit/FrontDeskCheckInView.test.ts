@@ -65,7 +65,11 @@ vi.mock('@/stores/registrations', () => ({
 
 vi.mock('@/stores/tournaments', () => ({
   useTournamentStore: () => ({
-    currentTournament: { id: 't1', name: 'Spring Open' },
+    currentTournament: {
+      id: 't1',
+      name: 'Spring Open',
+      startDate: new Date('2026-03-15T00:00:00.000Z'),
+    },
     categories: [],
     fetchTournament: mockDeps.fetchTournament,
     subscribeTournament: mockDeps.subscribeTournament,
@@ -106,22 +110,25 @@ vi.mock('@/features/checkin/composables/useFrontDeskCheckInWorkflow', () => ({
 
 const mountView = () => shallowMount(FrontDeskCheckInView, {
   global: {
-    stubs: [
-      'v-container',
-      'v-toolbar',
-      'v-btn',
-      'v-toolbar-title',
-      'v-spacer',
-      'v-btn-toggle',
-      'v-card',
-      'v-card-text',
-      'v-chip',
-      'v-text-field',
-      'v-progress-circular',
-      'v-alert',
-      'rapid-check-in-panel',
-      'bulk-check-in-panel',
-    ],
+    renderStubDefaultSlot: true,
+    stubs: {
+      'v-container': true,
+      'v-toolbar': {
+        template: '<div class=\"v-toolbar-stub\"><slot /></div>',
+      },
+      'v-btn': true,
+      'v-toolbar-title': true,
+      'v-spacer': true,
+      'v-btn-toggle': true,
+      'v-card': true,
+      'v-card-text': true,
+      'v-chip': true,
+      'v-text-field': true,
+      'v-progress-circular': true,
+      'v-alert': true,
+      'rapid-check-in-panel': true,
+      'bulk-check-in-panel': true,
+    },
   },
 });
 
@@ -195,5 +202,15 @@ describe('FrontDeskCheckInView', () => {
 
     expect(mockDeps.undoLatest).toHaveBeenCalledTimes(1);
     expect(mockDeps.showToast).toHaveBeenCalledWith('success', 'Last check-in undone');
+  });
+
+  it('renders app logo and tournament date in the branded header', () => {
+    const wrapper = mountView();
+    const expectedDate = new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(
+      new Date('2026-03-15T00:00:00.000Z')
+    );
+
+    expect(wrapper.find('.frontdesk-checkin__app-logo').exists()).toBe(true);
+    expect(wrapper.text()).toContain(expectedDate);
   });
 });

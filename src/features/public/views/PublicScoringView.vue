@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
+import LiveBadge from '@/components/common/LiveBadge.vue';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
-import { useTournamentBranding } from '@/composables/useTournamentBranding';
-import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
-import TournamentSponsorStrip from '@/components/common/TournamentSponsorStrip.vue';
 import type { Match } from '@/types';
 
 const route = useRoute();
@@ -19,7 +18,6 @@ const { getParticipantName } = useParticipantResolver();
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const courts = computed(() => tournamentStore.courts);
-const { normalizedSponsors, tournamentLogoUrl } = useTournamentBranding(tournament);
 
 // View state
 const selectedMatch = ref<Match | null>(null);
@@ -40,6 +38,9 @@ const scorableMatches = computed(() => {
     return a.matchNumber - b.matchNumber;
   });
 });
+const hasLiveMatches = computed(() =>
+  matchStore.matches.some((match) => match.status === 'in_progress')
+);
 
 // Current game for selected match
 const currentGame = computed(() => {
@@ -179,13 +180,27 @@ watch(currentMatch, (newMatch) => {
 </script>
 
 <template>
-  <v-container
-    fluid
-    class="pa-2"
+  <TournamentPublicShell
+    :tournament="tournament"
+    eyebrow="Public Scoring"
+    page-title="Live Match Scoring"
+    page-subtitle="Designed for public-facing scoring stations with large touch targets and visible tournament branding."
+    fallback-icon="mdi-scoreboard"
+    :max-width="960"
   >
+    <template #actions>
+      <LiveBadge v-if="hasLiveMatches" />
+    </template>
+
+    <template #metrics>
+      <p class="text-caption text-medium-emphasis">
+        Scores update automatically - no refresh needed.
+      </p>
+    </template>
+
     <v-row v-if="notFound">
       <v-col cols="12">
-        <v-card>
+        <v-card class="public-scoring__surface-card">
           <v-card-text class="text-center py-8">
             <v-icon
               size="64"
@@ -205,46 +220,33 @@ watch(currentMatch, (newMatch) => {
     </v-row>
 
     <template v-else>
-      <!-- Header -->
       <div class="public-scoring-header mb-4">
-        <div class="d-flex align-center">
+        <div class="d-flex align-center justify-space-between flex-wrap ga-3">
+          <div>
+            <div class="text-overline public-scoring-header__eyebrow mb-1">
+              {{ scoringMode ? 'Live Match' : 'Ready Queue' }}
+            </div>
+            <h2 class="text-h5 font-weight-bold mb-1">
+              {{ scoringMode ? 'Public Scoring Workspace' : 'Select a match to score' }}
+            </h2>
+            <p class="text-body-2 public-scoring-header__subtitle">
+              {{ scoringMode ? 'Point-by-point scoring with visible branding and large tap zones.' : 'Matches appear here as soon as they are assigned and ready.' }}
+            </p>
+          </div>
           <v-btn
             v-if="scoringMode"
             icon="mdi-arrow-left"
             variant="text"
             @click="backToList"
           />
-          <TournamentBrandMark
-            v-if="tournament"
-            :tournament-name="tournament.name"
-            :logo-url="tournamentLogoUrl"
-            :fallback-icon="'mdi-scoreboard'"
-            :width="56"
-            :height="56"
-            class="mr-3"
-          />
-          <div class="ml-2">
-            <h1 class="text-h6 font-weight-bold">
-              {{ tournament?.name }}
-            </h1>
-            <p class="text-caption text-grey">
-              {{ scoringMode ? 'Scoring' : 'Select a match to score' }}
-            </p>
-          </div>
         </div>
-        <TournamentSponsorStrip
-          v-if="normalizedSponsors.length > 0"
-          :sponsors="normalizedSponsors"
-          dense
-          class="mt-3"
-        />
       </div>
 
       <!-- Match Selection List -->
       <template v-if="!scoringMode">
         <v-card
           v-if="scorableMatches.length === 0"
-          class="text-center py-8"
+          class="text-center py-8 public-scoring__surface-card"
         >
           <v-icon
             size="64"
@@ -267,7 +269,7 @@ watch(currentMatch, (newMatch) => {
           <v-card
             v-for="match in scorableMatches"
             :key="match.id"
-            class="mb-3"
+            class="mb-3 public-scoring__surface-card"
             :color="match.status === 'in_progress' ? 'success-lighten-5' : undefined"
             @click="selectMatch(match)"
           >
@@ -318,7 +320,6 @@ watch(currentMatch, (newMatch) => {
         <v-card
           class="mb-3 match-header"
           elevation="0"
-          color="primary"
         >
           <v-card-text class="pa-3 text-center">
             <div class="d-flex justify-center align-center gap-3">
@@ -351,7 +352,7 @@ watch(currentMatch, (newMatch) => {
         <!-- Games Scoreboard -->
         <v-card
           v-if="selectedMatch.scores && selectedMatch.scores.length > 0"
-          class="mb-4 games-scoreboard"
+          class="mb-4 games-scoreboard public-scoring__surface-card"
           elevation="2"
         >
           <v-card-text class="pa-4">
@@ -396,7 +397,7 @@ watch(currentMatch, (newMatch) => {
 
           <!-- Scoreboard -->
           <v-card
-            class="scoreboard-container mb-4"
+            class="scoreboard-container mb-4 public-scoring__surface-card"
             elevation="4"
           >
             <v-row class="ma-0">
@@ -520,7 +521,7 @@ watch(currentMatch, (newMatch) => {
           <!-- Previous Games -->
           <v-card
             v-if="selectedMatch.scores.filter((s: any) => s.isComplete).length > 0"
-            class="mt-4 previous-games"
+            class="mt-4 previous-games public-scoring__surface-card"
             elevation="0"
           >
             <v-card-text class="py-3">
@@ -546,7 +547,7 @@ watch(currentMatch, (newMatch) => {
         <!-- Match Complete -->
         <v-card
           v-else-if="isMatchComplete"
-          class="text-center"
+          class="text-center public-scoring__surface-card"
         >
           <v-card-text class="py-8">
             <v-icon
@@ -578,7 +579,7 @@ watch(currentMatch, (newMatch) => {
         </v-card>
       </template>
     </template>
-  </v-container>
+  </TournamentPublicShell>
 </template>
 
 <style scoped>
@@ -587,9 +588,28 @@ watch(currentMatch, (newMatch) => {
   flex-direction: column;
 }
 
+.public-scoring-header__eyebrow {
+  letter-spacing: 0.14em;
+  color: rgba(var(--v-theme-primary), 0.88);
+}
+
+.public-scoring-header__subtitle {
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
+.public-scoring__surface-card {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 24px;
+  background: rgba(var(--v-theme-surface), 0.94);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
+}
+
 /* Match Header */
 .match-header {
-  background: linear-gradient(135deg, rgb(var(--v-theme-primary)) 0%, rgb(var(--v-theme-primary-darken-1)) 100%);
+  border: 1px solid rgba(var(--v-theme-primary), 0.18);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.92) 0%, rgba(var(--v-theme-secondary), 0.84) 100%);
 }
 
 /* Games Scoreboard */

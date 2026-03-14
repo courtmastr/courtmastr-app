@@ -180,4 +180,19 @@ describe('PublicScoringView', () => {
     expect(mockDeps.startMatch).toHaveBeenCalledTimes(1);
     expect(mockDeps.updateScore).toHaveBeenCalledTimes(2);
   });
+
+  it('exposes live-match state for shell live badge rendering', async () => {
+    const liveMatch = makeReadyMatch();
+    liveMatch.status = 'in_progress';
+    runtime.matches = [liveMatch];
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      hasLiveMatches: boolean | { value: boolean };
+    };
+
+    expect(unwrapBoolean(vm.hasLiveMatches)).toBe(true);
+  });
 });

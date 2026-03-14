@@ -1,5 +1,5 @@
 // ============================================
-// CourtMaster v2 - Core Type Definitions
+// CourtMastr v2 - Core Type Definitions
 // ============================================
 
 export type {
@@ -490,6 +490,46 @@ export interface Notification {
   data?: Record<string, unknown>;
   read: boolean;
   createdAt: Date;
+}
+
+// Review Types
+export type ReviewStatus = 'pending' | 'approved' | 'rejected';
+export type ReviewSource = 'public' | 'authenticated';
+
+export interface ReviewRecord {
+  id: string;
+  status: ReviewStatus;
+  rating: number;
+  quote: string;
+  displayName: string;
+  organization?: string;
+  source: ReviewSource;
+  submitterUserId?: string | null;
+  submitterEmail?: string | null;
+  tournamentId?: string;
+  tournamentName?: string;
+  isFeatured?: boolean;
+  moderationNote?: string;
+  moderatedByUserId?: string;
+  moderatedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SubmitReviewPayload {
+  rating: number;
+  quote: string;
+  displayName: string;
+  organization?: string;
+  source?: ReviewSource;
+  tournamentId?: string;
+  tournamentName?: string;
+}
+
+export interface SubmitReviewResponse {
+  success: boolean;
+  reviewId: string;
+  status: ReviewStatus;
 }
 
 // Audit Log Types

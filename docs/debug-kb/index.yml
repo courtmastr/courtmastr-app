@@ -1,3 +1,24 @@
+- id: 8625c320
+  title: build:log fails when compatibility computed is reintroduced but not consumed
+  status: "✅ fixed"
+  date: "2026-03-13"
+  fingerprint: "8625c320"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-13-14-20-26.vue-tsc-b.log"
+- id: a79a28bf
+  title: test:log red phase caught auto-complete scoring flow before explicit game confirmation
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "a79a28bf"
+  command: "npm run test:log -- --run tests/unit/matches.scoring.store.test.ts tests/unit/ScoringInterfaceView.volunteerMode.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-17-53-32.vitest-run-tests-unit-matches-scoring-store-test-t.log"
+- id: f630d850
+  title: ScoringInterface shallow-stub text assertion failed despite correct lock behavior
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "f630d850"
+  command: "npm run test:log -- --run tests/unit/matches.scoring.store.test.ts tests/unit/ScoringInterfaceView.volunteerMode.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-17-53-32.vitest-run-tests-unit-matches-scoring-store-test-t.log"
 - id: 7d5ef9fc
   title: test:log fails because OverlayBoardView still stringifies structured sponsor objects
   status: "✅ fixed"
@@ -56,11 +77,11 @@
   artifact_log: "docs/debug-kb/_artifacts/2026-03-11-22-06-35.tsc.log"
 - id: 20d5d4c3
   title: build:log fails on PrimaryActionEvent union mismatch in CategoryRegistrationStats
-  status: "🟡 workaround"
-  date: "2026-03-04"
+  status: "✅ fixed"
+  date: "2026-03-14"
   fingerprint: "20d5d4c3"
   command: "npm run build:log"
-  artifact_log: "docs/debug-kb/_artifacts/2026-03-04-21-47-52.vue-tsc-b.log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-14-16-18-16.vue-tsc-b.log"
 - id: 6fc2f464
   title: build:log fails on duplicate object keys in optimistic category state
   status: "✅ fixed"
@@ -698,3 +719,10 @@
   fingerprint: "a79a28bf"
   command: "npm run test:log -- --run tests/unit/matches.scoring.store.test.ts tests/unit/ScoringInterfaceView.volunteerMode.test.ts"
   artifact_log: "docs/debug-kb/_artifacts/2026-03-12-17-24-31.vitest-run-tests-unit-matches-scoring-store-test-t.log"
+- id: 444f8dfd
+  title: functions build fails when volunteer secret binding uses unavailable runWith API
+  status: "✅ fixed"
+  date: "2026-03-12"
+  fingerprint: "444f8dfd"
+  command: "npm run build:log --prefix functions"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-12-21-30-23.tsc.log"

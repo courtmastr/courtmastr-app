@@ -180,4 +180,16 @@ describe('ObsScoreBugView', () => {
     expect(mockDeps.subscribeMatch).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalled();
   });
+
+  it('renders the CourtMastr watermark overlay', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    const watermark = wrapper.find('.obs-courtmaster-watermark');
+    expect(watermark.exists()).toBe(true);
+    expect(wrapper.text()).toContain('CourtMastr');
+    const logoSrc = wrapper.find('.obs-courtmaster-watermark__logo').attributes('src');
+    expect(logoSrc).toContain('data:image/svg+xml');
+    expect(logoSrc).toContain('%23FFFFFF');
+  });
 });

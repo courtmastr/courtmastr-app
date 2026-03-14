@@ -1,4 +1,4 @@
-# Coding Pattern Guide — CourtMaster v2
+# Coding Pattern Guide — CourtMastr v2
 
 > **Living Document.** Every bug fix MUST add or update a pattern here.
 > See [AGENTS.md § 12](../../AGENTS.md) for the Post-Fix Protocol.
@@ -121,6 +121,44 @@ fi
 ---
 
 ## Category: Data Integrity
+
+### CP-067: Mock or Provide Vuetify Display in AppLayout Unit Tests
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-13 |
+| **Source Bug** | Horizon-2A regression — `useDisplay()` threw "Could not find Vuetify display injection" in `AppLayout` tests |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// AppLayout uses useDisplay() internally, but test provides no Vuetify injection.
+const wrapper = shallowMount(AppLayout, {
+  global: {
+    stubs: ['v-layout', 'v-main'],
+  },
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+// Provide display context in unit tests (mock or real plugin).
+vi.mock('vuetify', () => ({
+  useDisplay: () => ({ smAndDown: false }),
+}));
+
+const wrapper = shallowMount(AppLayout, { /* ... */ });
+```
+
+**Rule:** If a component calls `useDisplay()` (or other Vuetify composables using injection), unit tests must either install Vuetify or mock the composable.
+
+**Detection:**
+```bash
+# Find AppLayout tests and verify they provide display context
+rg -n "mount\\(AppLayout|shallowMount\\(AppLayout" tests/unit --glob "*.test.ts"
+rg -n "vi\\.mock\\('vuetify'|createVuetify\\(" tests/unit/AppLayout*.test.ts
+```
 
 ### CP-002: Reverse Lookups for Cross-Collection References
 
@@ -810,6 +848,91 @@ rg -n "Search participants|Filter by Category|Filter by Court|Clear Filters" src
 ```bash
 rg -n "v-else-if=\"viewMode === 'command'\" -A 120 src/features/tournaments/views/MatchControlView.vue | rg "v-col|md=\"6\"|lg=\"7\"|md=\"3\"|lg=\"2\"|lg=\"3\""
 rg -n "command-layout|command-resizer|beginCommandResize" src/features/tournaments/views/MatchControlView.vue
+```
+
+---
+
+### CP-068: Public Website Footer Must Render Inside `v-main`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-14 |
+| **Source Bug** | Public footer rendered as a right-side column (Terms link isolated) when mounted as a `v-layout` sibling |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-main id="main-content">
+  <v-container fluid>
+    <router-view />
+  </v-container>
+</v-main>
+
+<PublicWebsiteFooter v-if="showPublicWebsiteFooter" />
+```
+
+**Correct Pattern (✅):**
+```vue
+<v-main id="main-content" class="app-main">
+  <v-container fluid class="app-main__content">
+    <router-view />
+  </v-container>
+  <PublicWebsiteFooter v-if="showPublicWebsiteFooter" />
+</v-main>
+```
+
+**Rule:** In Vuetify app-shell layouts, public footers belong inside `v-main` (column flow), not as standalone siblings under `v-layout`.
+
+**Detection:**
+```bash
+rg -n "<PublicWebsiteFooter|</v-main>" src/components/layout/AppLayout.vue
+awk '/<PublicWebsiteFooter/{f=NR} /<\\/v-main>/{m=NR} END { if (f && m && f < m) print "OK: footer inside v-main"; else print "Violation: footer outside v-main"; }' src/components/layout/AppLayout.vue
+```
+
+---
+
+### CP-069: `PrimaryActionEvent` Literals Must Match the Union Exactly
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-14 |
+| **Source Bug** | `build:log` fingerprint `20d5d4c3` (`'publish-schedule'` not assignable to `PrimaryActionEvent`) |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+type PrimaryActionEvent =
+  | 'setup-category'
+  | 'manage-registrations'
+  | 'generate-bracket'
+  | 'view-bracket'
+  | 'schedule-times'
+  | 'open-checkin'
+  | 'create-levels';
+
+// Invalid literal (not in union) triggers TS2322
+return {
+  label: 'Publish Level Schedule',
+  event: 'publish-schedule',
+};
+```
+
+**Correct Pattern (✅):**
+```ts
+return {
+  label: 'Publish Level Schedule',
+  event: 'schedule-times',
+};
+```
+
+**Rule:** Any object field typed as `PrimaryActionEvent` must use an exact union member literal. Introducing a nearby-but-different event string causes compile-time failure and blocks `build`/`build:log`.
+
+**Detection:**
+```bash
+rg -n "type PrimaryActionEvent|event:\\s*'publish-schedule'|event:\\s*'unpublish-schedule'" src/features/tournaments/components/CategoryRegistrationStats.vue
+npm run build:log
 ```
 
 ---
@@ -3129,6 +3252,124 @@ if (key.endsWith('_id')) {
 **Detection:**
 ```bash
 rg -n "key\\.endsWith\\('_id'\\).*String\\(|return value === null \\? value : String\\(value\\)" functions/src/storage/firestore-adapter.ts
+```
+
+---
+
+### CP-064: Point-by-Point Scoring Must Require Explicit Game Completion
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-12 |
+| **Source Bug** | Accidental tap at game point (for example 20→21) immediately ended the game without scorer confirmation, preventing safe undo workflows |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (validation.isValid) {
+  currentGame.isComplete = true;
+  currentGame.winnerId = participant === 'participant1' ? match.participant1Id : match.participant2Id;
+  scores.push({ gameNumber: 2, score1: 0, score2: 0, isComplete: false });
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+const pendingCompletion = getPendingGameCompletion(currentGame, match.participant1Id, match.participant2Id, config);
+if (pendingCompletion.canComplete) {
+  return; // Lock further +1 taps until scorer confirms or undoes
+}
+```
+```typescript
+async function completeCurrentGame(...) {
+  // Validate legal finish, then mark winner and advance game/match explicitly
+}
+```
+```vue
+<p v-if="currentGameReadyToComplete">
+  Game point reached. Complete the game or undo the last point.
+</p>
+<v-btn v-if="currentGameReadyToComplete" @click="completeCurrentGame">
+  Complete Game
+</v-btn>
+```
+
+**Rule:** Reaching a legal winning score must lock further point increments and require an explicit scorer action (`Complete Game`) before the game is finalized. Undo must remain available while locked.
+
+**Detection:**
+```bash
+rg -n "completeCurrentGame|getPendingGameCompletion|scoreEntryLocked|currentGameReadyToComplete" src/stores/matches.ts src/features/scoring/views/ScoringInterfaceView.vue
+```
+
+---
+
+### CP-065: Match Detail Must Apply Full `match_scores` Overlay
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-12 |
+| **Source Bug** | Match detail view stayed in `ready` after Start Match because `fetchMatch()` copied only scores/court fields and ignored `match_scores.status` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (scoreDoc.exists()) {
+  const scoreData = scoreDoc.data();
+  adapted.scores = scoreData.scores || [];
+  if (scoreData.courtId) adapted.courtId = scoreData.courtId;
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+if (scoreDoc.exists()) {
+  applyScoreOverlay(adapted, scoreDoc.data(), bMatch);
+}
+```
+
+**Rule:** Single-match loaders (`fetchMatch`) must reuse the same score-overlay adapter used by list loaders (`fetchMatches`) so `status`, `winnerId`, court metadata, and timing fields stay consistent across views.
+
+**Detection:**
+```bash
+rg -n "applyScoreOverlay\\(adapted, scoreDoc\\.data\\(\\), bMatch\\)" src/stores/matches.ts
+```
+
+---
+
+### CP-066: E2E Scoring Completion Assertions Must Be Capability-Gated
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-12 |
+| **Source Bug** | Scorekeeper concurrency E2E expected automatic completion artifacts (`Recent Results`, completed status) even when completion controls were manual/role-gated |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await addPointsToParticipantOne(page, 3);
+await expect.poll(async () => getCompletedMatchesCount(db, scenario)).toBe(5);
+await expect(schedulePage.getByText('Recent Results')).toBeVisible();
+```
+
+**Correct Pattern (✅):**
+```typescript
+await expect.poll(async () => arePointScoresUpdated(db, scenario)).toBe(true);
+
+const completionResults = await Promise.all(scorerPages.map((page) => completeCurrentGame(page)));
+if (completionResults.every(Boolean)) {
+  await expect.poll(async () => getCompletedMatchesCount(db, scenario)).toBe(5);
+  await expect(schedulePage.getByText('Recent Results')).toBeVisible();
+}
+```
+
+**Rule:** E2E scoring tests must always verify point propagation, then assert completion-specific UI/data only when the acting role/view can perform completion (`Complete Game` or manual entry controls available).
+
+**Detection:**
+```bash
+rg -n "getCompletedMatchesCount\\(db, scenario\\)|Recent Results|Games 1 - 0" e2e/concurrent-five-scorers.spec.ts
 ```
 
 ---

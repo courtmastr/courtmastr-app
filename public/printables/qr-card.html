@@ -1,0 +1,202 @@
+<!--
+  Usage: /printables/qr-card.html?url=https://yourapp.com/t/TOURNAMENT_ID/scores&name=My+Tournament
+  Print at A6 or index card size. Post at the venue entrance and each court.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CourtMastr QR Card</title>
+    <style>
+      :root {
+        --cm-navy: #0f172a;
+        --cm-blue: #1d4ed8;
+        --cm-white: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--cm-navy);
+        color: var(--cm-white);
+        font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+        padding: 16px;
+      }
+
+      .qr-card {
+        width: 105mm;
+        min-height: 148mm;
+        background: linear-gradient(180deg, #0f172a 0%, #111b34 100%);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-top: 6px solid var(--cm-blue);
+        border-radius: 14px;
+        padding: 18px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      .brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .brand img {
+        width: 34px;
+        height: 34px;
+      }
+
+      .brand-name {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .tournament-name {
+        margin: 8px 0 12px;
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .qr-frame {
+        width: 220px;
+        min-height: 220px;
+        border-radius: 12px;
+        background: #ffffff;
+        padding: 10px;
+        display: grid;
+        place-items: center;
+        margin: 6px 0 10px;
+      }
+
+      .qr-fallback {
+        color: #475569;
+        font-size: 12px;
+        line-height: 1.4;
+        padding: 0 10px;
+      }
+
+      .helper {
+        margin-top: 8px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .tagline {
+        margin-top: auto;
+        padding-top: 16px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.86);
+        line-height: 1.45;
+      }
+
+      .print-btn {
+        margin-top: 14px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--cm-blue);
+        color: var(--cm-white);
+        font-size: 12px;
+        font-weight: 700;
+        padding: 9px 14px;
+        cursor: pointer;
+      }
+
+      @page {
+        size: A6 portrait;
+        margin: 8mm;
+      }
+
+      @media print {
+        body {
+          padding: 0;
+          background: #fff;
+        }
+
+        .print-btn {
+          display: none;
+        }
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  </head>
+  <body>
+    <main class="qr-card" role="main">
+      <div class="brand">
+        <img src="/logo.svg" alt="CourtMastr logo">
+        <div class="brand-name">CourtMastr</div>
+      </div>
+
+      <h1 id="tournamentName" class="tournament-name">Tournament</h1>
+
+      <div id="qrFrame" class="qr-frame">
+        <div class="qr-fallback">Generating QR code...</div>
+      </div>
+
+      <p class="helper">Scan to follow live scores</p>
+
+      <p class="tagline">
+        Run Every Rally. - Powered by CourtMastr
+      </p>
+
+      <button class="print-btn" type="button" onclick="window.print()">
+        Print Card
+      </button>
+    </main>
+
+    <script>
+      window.onload = function () {
+        const query = new URLSearchParams(window.location.search);
+        const targetUrl = (query.get('url') || '').trim();
+        const tournamentName = (query.get('name') || 'Tournament').trim();
+        const tournamentNameNode = document.getElementById('tournamentName');
+        const qrFrame = document.getElementById('qrFrame');
+
+        if (tournamentNameNode) {
+          tournamentNameNode.textContent = tournamentName || 'Tournament';
+        }
+
+        if (!qrFrame) {
+          return;
+        }
+
+        if (!targetUrl) {
+          qrFrame.innerHTML = '<div class=\"qr-fallback\">Missing ?url= query parameter.</div>';
+          return;
+        }
+
+        QRCode.toCanvas(targetUrl, {
+          width: 200,
+          margin: 1,
+          color: {
+            dark: '#0F172A',
+            light: '#FFFFFF',
+          },
+        }, function (error, canvas) {
+          if (error || !canvas) {
+            qrFrame.innerHTML = '<div class=\"qr-fallback\">Unable to generate QR code.</div>';
+            return;
+          }
+
+          qrFrame.innerHTML = '';
+          qrFrame.appendChild(canvas);
+          window.setTimeout(function () {
+            window.print();
+          }, 300);
+        });
+      };
+    </script>
+  </body>
+</html>

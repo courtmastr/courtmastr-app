@@ -17,6 +17,7 @@ import OrganizerChecklist from '../components/OrganizerChecklist.vue';
 import ActiveMatchesSection from '../components/ActiveMatchesSection.vue';
 import ReadyQueue from '../components/ReadyQueue.vue';
 import ScoringQrDialog from '../components/ScoringQrDialog.vue';
+import TournamentAnnouncementCardDialog from '../components/TournamentAnnouncementCardDialog.vue';
 import MatchStatsDashboard from '../components/MatchStatsDashboard.vue';
 
 const route = useRoute();
@@ -233,6 +234,7 @@ const showCompleteDialog = ref(false);
 
 // Scoring QR dialog
 const showScoringQrDialog = ref(false);
+const showAnnouncementCardDialog = ref(false);
 
 // Delete Tournament
 const showDeleteDialog = ref(false);
@@ -456,6 +458,18 @@ function handleExport() {
                 <template #prepend>
                   <v-icon
                     icon="mdi-qrcode"
+                    size="18"
+                    class="mr-3 text-grey-darken-1"
+                  />
+                </template>
+              </v-list-item>
+              <v-list-item
+                title="Download Announcement Card"
+                @click="showAnnouncementCardDialog = true"
+              >
+                <template #prepend>
+                  <v-icon
+                    icon="mdi-image-outline"
                     size="18"
                     class="mr-3 text-grey-darken-1"
                   />
@@ -1151,6 +1165,15 @@ function handleExport() {
     v-model="showScoringQrDialog"
     :tournament-id="tournamentId"
     @copied="notificationStore.showToast('success', 'Scoring link copied!')"
+  />
+
+  <TournamentAnnouncementCardDialog
+    v-model="showAnnouncementCardDialog"
+    :tournament-name="tournament?.name || 'Tournament'"
+    :tournament-date="tournament?.startDate || null"
+    :tournament-location="tournament?.location || null"
+    :logo-url="tournamentLogoUrl"
+    @downloaded="notificationStore.showToast('success', 'Announcement card downloaded')"
   />
 </template>
 

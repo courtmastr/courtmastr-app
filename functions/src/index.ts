@@ -6,6 +6,7 @@ import { generateBracket as createBracket } from './bracket';
 import { generateSchedule as createSchedule } from './scheduling';
 import { updateMatch as updateMatchFn } from './updateMatch';
 import { submitBugReport as submitBugReportFn } from './bugReport';
+import { submitReview as submitReviewFn } from './reviews';
 import { searchSelfCheckInCandidates as searchSelfCheckInCandidatesFn, submitSelfCheckIn as submitSelfCheckInFn } from './selfCheckIn';
 import {
   applyVolunteerCheckInAction as applyVolunteerCheckInActionFn,
@@ -22,6 +23,7 @@ const db = admin.firestore();
 
 export const updateMatch = updateMatchFn;
 export const submitBugReport = submitBugReportFn;
+export const submitReview = submitReviewFn;
 export const searchSelfCheckInCandidates = searchSelfCheckInCandidatesFn;
 export const submitSelfCheckIn = submitSelfCheckInFn;
 export const setVolunteerPin = setVolunteerPinFn;

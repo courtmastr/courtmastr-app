@@ -6,6 +6,9 @@ This document is **authoritative**. All agents MUST follow it. Violations consti
 
 ## 1. Project Snapshot
 
+**Brand**
+- User-facing product name spelling is **CourtMastr** (never `CourtMaster`).
+
 **Stack**
 - Frontend: Vue 3 + TypeScript + Vite
 - UI: Vuetify 3 (Material Design only)
@@ -328,7 +331,7 @@ await browser.open('http://localhost:3000');
 const snapshot = await browser.snapshot();
 // snapshot.data.refs contains @e1, @e2, etc.
 await browser.click('@e5');
-await browser.fill('@e3', 'admin@courtmaster.local');
+await browser.fill('@e3', 'admin@courtmastr.local');
 ```
 
 **Integration with Playwright**
