@@ -75,13 +75,13 @@ async function handleGoogleLogin() {
             <div>
               <img
                 src="@/assets/brand/courtmaster-mark.svg"
-                alt="CourtMaster Logo"
+                alt="CourtMastr Logo"
                 width="48"
                 height="48"
                 class="mb-2"
               >
               <h1 class="text-h5 font-weight-bold">
-                CourtMaster
+                CourtMastr
               </h1>
               <p class="text-body-2 text-grey mt-1">
                 Sign in to continue

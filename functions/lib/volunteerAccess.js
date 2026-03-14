@@ -150,7 +150,9 @@ const getTournamentForVolunteer = async (tournamentId) => {
     }
     return snapshot.data();
 };
-exports.setVolunteerPin = functions.https.onCall(async (request) => {
+exports.setVolunteerPin = functions.https.onCall({
+    secrets: [VOLUNTEER_PIN_SECRET_ENV],
+}, async (request) => {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     const tournamentId = parseTournamentId((_a = request.data) === null || _a === void 0 ? void 0 : _a.tournamentId);
     const role = parseVolunteerRole((_b = request.data) === null || _b === void 0 ? void 0 : _b.role);
@@ -196,7 +198,9 @@ exports.setVolunteerPin = functions.https.onCall(async (request) => {
         maskedPin,
     };
 });
-exports.revealVolunteerPin = functions.https.onCall(async (request) => {
+exports.revealVolunteerPin = functions.https.onCall({
+    secrets: [VOLUNTEER_PIN_SECRET_ENV],
+}, async (request) => {
     var _a, _b;
     const tournamentId = parseTournamentId((_a = request.data) === null || _a === void 0 ? void 0 : _a.tournamentId);
     const role = parseVolunteerRole((_b = request.data) === null || _b === void 0 ? void 0 : _b.role);
@@ -214,7 +218,9 @@ exports.revealVolunteerPin = functions.https.onCall(async (request) => {
         pin: (0, volunteerAccessCore_1.decryptPin)(entry.encryptedPin, pinSecret),
     };
 });
-exports.issueVolunteerSession = functions.https.onCall(async (request) => {
+exports.issueVolunteerSession = functions.https.onCall({
+    secrets: [VOLUNTEER_PIN_SECRET_ENV, VOLUNTEER_SESSION_SECRET_ENV],
+}, async (request) => {
     var _a, _b, _c;
     const tournamentId = parseTournamentId((_a = request.data) === null || _a === void 0 ? void 0 : _a.tournamentId);
     const role = parseVolunteerRole((_b = request.data) === null || _b === void 0 ? void 0 : _b.role);
@@ -289,7 +295,9 @@ const verifyVolunteerSession = async (sessionToken, tournamentId, role) => {
     }
 };
 exports.verifyVolunteerSession = verifyVolunteerSession;
-exports.applyVolunteerCheckInAction = functions.https.onCall(async (request) => {
+exports.applyVolunteerCheckInAction = functions.https.onCall({
+    secrets: [VOLUNTEER_SESSION_SECRET_ENV],
+}, async (request) => {
     var _a, _b, _c, _d, _e;
     const tournamentId = parseTournamentId((_a = request.data) === null || _a === void 0 ? void 0 : _a.tournamentId);
     const registrationId = parseRegistrationId((_b = request.data) === null || _b === void 0 ? void 0 : _b.registrationId);

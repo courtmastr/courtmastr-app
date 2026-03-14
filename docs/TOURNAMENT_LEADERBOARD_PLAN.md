@@ -30,7 +30,7 @@
 
 ## 1. Executive Summary
 
-This document specifies the complete implementation plan for a **Tournament Leaderboard** system for CourtMaster v2. The leaderboard supports both **per-category** and **tournament-wide** (all-category) views, implementing **BWF Article 16.2 compliant tiebreaker logic**.
+This document specifies the complete implementation plan for a **Tournament Leaderboard** system for CourtMastr v2. The leaderboard supports both **per-category** and **tournament-wide** (all-category) views, implementing **BWF Article 16.2 compliant tiebreaker logic**.
 
 ### Key Features
 - Data sourced from `/match_scores` + `/match` join (see §2 for why both are needed)

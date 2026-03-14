@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { getTournamentId } from './utils/test-data';
 
 /**
- * Comprehensive Edge Case Tests for CourtMaster
+ * Comprehensive Edge Case Tests for CourtMastr
  * These tests cover boundary conditions, race conditions, and unusual scenarios
  */
 

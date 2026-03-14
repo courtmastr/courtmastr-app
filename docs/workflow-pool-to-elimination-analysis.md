@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document provides a complete analysis of the **Pool Play to Elimination** tournament workflow in CourtMaster v2. The workflow follows a specific sequence: **Add Players → Seed Players → Configure Format → Generate Pool Play → Play Pool Matches → Generate Elimination Bracket → Play Elimination Matches**.
+This document provides a complete analysis of the **Pool Play to Elimination** tournament workflow in CourtMastr v2. The workflow follows a specific sequence: **Add Players → Seed Players → Configure Format → Generate Pool Play → Play Pool Matches → Generate Elimination Bracket → Play Elimination Matches**.
 
 ---
 

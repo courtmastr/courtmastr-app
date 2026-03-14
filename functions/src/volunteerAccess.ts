@@ -201,7 +201,9 @@ const getTournamentForVolunteer = async (
   return snapshot.data() as TournamentAccessDoc;
 };
 
-export const setVolunteerPin = functions.https.onCall(async (request) => {
+export const setVolunteerPin = functions.https.onCall({
+  secrets: [VOLUNTEER_PIN_SECRET_ENV],
+}, async (request) => {
   const tournamentId = parseTournamentId(request.data?.tournamentId);
   const role = parseVolunteerRole(request.data?.role);
   const enabledInput = request.data?.enabled;
@@ -260,7 +262,9 @@ export const setVolunteerPin = functions.https.onCall(async (request) => {
   };
 });
 
-export const revealVolunteerPin = functions.https.onCall(async (request) => {
+export const revealVolunteerPin = functions.https.onCall({
+  secrets: [VOLUNTEER_PIN_SECRET_ENV],
+}, async (request) => {
   const tournamentId = parseTournamentId(request.data?.tournamentId);
   const role = parseVolunteerRole(request.data?.role);
   const pinSecret = requireConfiguredSecret(VOLUNTEER_PIN_SECRET_ENV);
@@ -280,7 +284,9 @@ export const revealVolunteerPin = functions.https.onCall(async (request) => {
   };
 });
 
-export const issueVolunteerSession = functions.https.onCall(async (request) => {
+export const issueVolunteerSession = functions.https.onCall({
+  secrets: [VOLUNTEER_PIN_SECRET_ENV, VOLUNTEER_SESSION_SECRET_ENV],
+}, async (request) => {
   const tournamentId = parseTournamentId(request.data?.tournamentId);
   const role = parseVolunteerRole(request.data?.role);
   const pin = normalizePin(request.data?.pin);
@@ -377,7 +383,9 @@ export const verifyVolunteerSession = async (
   }
 };
 
-export const applyVolunteerCheckInAction = functions.https.onCall(async (request) => {
+export const applyVolunteerCheckInAction = functions.https.onCall({
+  secrets: [VOLUNTEER_SESSION_SECRET_ENV],
+}, async (request) => {
   const tournamentId = parseTournamentId(request.data?.tournamentId);
   const registrationId = parseRegistrationId(request.data?.registrationId);
   const action = parseCheckInAction(request.data?.action);

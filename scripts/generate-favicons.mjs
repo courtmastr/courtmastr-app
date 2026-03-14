@@ -30,8 +30,8 @@ async function generateFavicons() {
     console.log('Copied favicon.ico');
 
     const manifest = {
-        name: 'CourtMaster',
-        short_name: 'CourtMaster',
+        name: 'CourtMastr',
+        short_name: 'CourtMastr',
         start_url: '/',
         display: 'standalone',
         background_color: '#F8FAFC',

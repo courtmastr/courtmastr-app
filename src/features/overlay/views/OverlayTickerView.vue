@@ -5,6 +5,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import type { GameScore, Match } from '@/types';
 import '../overlay.css';
 
@@ -27,6 +28,17 @@ const { getParticipantName } = useParticipantResolver();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const speed = computed(() => route.query.speed as string | undefined);
+const tournament = computed(() => tournamentStore.currentTournament);
+const tournamentName = computed(() => tournament.value?.name?.trim() || 'Tournament');
+const tournamentInitials = computed(() => (
+  tournamentName.value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() || '')
+    .join('') || 'TM'
+));
+const { tournamentLogoUrl } = useTournamentBranding(tournament);
 
 const scrollDuration = computed(() => {
   if (speed.value === 'slow') return 90;
@@ -121,7 +133,24 @@ onUnmounted(() => {
   <div class="overlay-ticker-canvas">
     <div class="overlay-ticker-bar">
       <div class="overlay-ticker-badge">
-        🏸 LIVE
+        <div class="overlay-ticker-badge__mark">
+          <img
+            v-if="tournamentLogoUrl"
+            :src="tournamentLogoUrl"
+            :alt="`${tournamentName} logo`"
+            class="overlay-ticker-badge__logo"
+          >
+          <span
+            v-else
+            class="overlay-ticker-badge__fallback"
+          >
+            {{ tournamentInitials }}
+          </span>
+        </div>
+        <div class="overlay-ticker-badge__copy">
+          <span class="overlay-ticker-badge__event">{{ tournamentName }}</span>
+          <span class="overlay-ticker-badge__state">Live Feed</span>
+        </div>
       </div>
       <div class="overlay-ticker-track-wrap">
         <div
@@ -203,13 +232,60 @@ onUnmounted(() => {
   height: 100%;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0 24px;
+  gap: 12px;
+  padding: 0 18px;
   border-right: 1px solid rgba(255, 255, 255, 0.22);
+  min-width: 296px;
+}
+
+.overlay-ticker-badge__mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.overlay-ticker-badge__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.overlay-ticker-badge__fallback {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+  text-transform: uppercase;
+}
+
+.overlay-ticker-badge__copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.overlay-ticker-badge__event {
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.overlay-ticker-badge__state {
   color: #7ed957;
-  font-size: 0.95rem;
+  font-size: 0.72rem;
   font-weight: 900;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 

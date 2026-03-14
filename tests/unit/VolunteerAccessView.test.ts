@@ -23,6 +23,12 @@ vi.mock('@/stores/volunteerAccess', () => ({
   }),
 }));
 
+vi.mock('@/stores/tournaments', () => ({
+  useTournamentStore: () => ({
+    currentTournament: { id: 't1', name: 'Spring Open' },
+  }),
+}));
+
 interface VolunteerAccessVm {
   pin: string;
   submitPin: () => Promise<void>;
@@ -41,6 +47,7 @@ const mountView = () => shallowMount(VolunteerAccessView, {
       'v-alert',
       'v-text-field',
       'v-btn',
+      'v-chip',
       'v-icon',
     ],
   },

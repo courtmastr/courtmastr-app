@@ -1,4 +1,4 @@
-# Claude AI Instructions — CourtMaster v2
+# Claude AI Instructions — CourtMastr v2
 
 > **This file is a pointer.** The authoritative project rules are in `AGENTS.md`.
 

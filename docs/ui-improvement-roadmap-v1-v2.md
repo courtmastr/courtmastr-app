@@ -1,4 +1,4 @@
-# CourtMaster UI Improvement Roadmap: v1 vs v2
+# CourtMastr UI Improvement Roadmap: v1 vs v2
 
 ## Overview
 

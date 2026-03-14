@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('basic page load test', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByText('CourtMaster').first()).toBeVisible();
+  await expect(page.getByText('CourtMastr').first()).toBeVisible();
 });
 
 test('login page loads', async ({ page }) => {

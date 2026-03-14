@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines UI/UX improvements for the Match Control interface in CourtMaster v2. The improvements aim to enhance the tournament organizer experience while preserving all existing functionality. These changes focus on visual hierarchy, information architecture, and operational efficiency.
+This document outlines UI/UX improvements for the Match Control interface in CourtMastr v2. The improvements aim to enhance the tournament organizer experience while preserving all existing functionality. These changes focus on visual hierarchy, information architecture, and operational efficiency.
 
 ## Current State Analysis
 

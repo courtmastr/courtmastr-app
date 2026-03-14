@@ -2,7 +2,7 @@
 
 ## Overview
 
-`BaseDialog.vue` is a standardized dialog wrapper component that provides consistent modal behavior across the CourtMaster application. It uses Vuetify 3's `v-dialog` component and follows the project's Vue 3 + TypeScript conventions.
+`BaseDialog.vue` is a standardized dialog wrapper component that provides consistent modal behavior across the CourtMastr application. It uses Vuetify 3's `v-dialog` component and follows the project's Vue 3 + TypeScript conventions.
 
 ## Basic Usage
 

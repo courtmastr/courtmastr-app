@@ -892,10 +892,7 @@ export const useMatchStore = defineStore('matches', () => {
       const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
       const scoreDoc = await getDoc(doc(db, matchScoresPath, matchId));
       if (scoreDoc.exists()) {
-        const scoreData = scoreDoc.data();
-        adapted.scores = scoreData.scores || [];
-        if (scoreData.courtId) adapted.courtId = scoreData.courtId;
-        adapted.scheduledTime = toDate(scoreData.scheduledTime) ?? adapted.scheduledTime;
+        applyScoreOverlay(adapted, scoreDoc.data(), bMatch);
       }
 
       currentMatch.value = adapted;

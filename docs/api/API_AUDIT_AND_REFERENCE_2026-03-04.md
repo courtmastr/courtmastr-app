@@ -1,4 +1,4 @@
-# CourtMaster API Audit and Reference (2026-03-04)
+# CourtMastr API Audit and Reference (2026-03-04)
 
 ## Scope
 - Backend surface reviewed: Firebase Cloud Functions in `functions/src/*.ts`

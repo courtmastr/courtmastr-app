@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.svg', 'favicon.png', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'CourtMaster Tournament Manager',
-        short_name: 'CourtMaster',
+        name: 'CourtMastr Tournament Manager',
+        short_name: 'CourtMastr',
         description: 'Tournament management system for badminton and racquet sports',
         theme_color: '#1976D2',
         background_color: '#FAFAFA',

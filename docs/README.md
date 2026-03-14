@@ -1,6 +1,6 @@
-# CourtMaster Documentation
+# CourtMastr Documentation
 
-Welcome to the CourtMaster v2 documentation. This directory contains comprehensive documentation for the tournament management system, organized by purpose and audience.
+Welcome to the CourtMastr v2 documentation. This directory contains comprehensive documentation for the tournament management system, organized by purpose and audience.
 
 ## 📚 Documentation Quick Links
 

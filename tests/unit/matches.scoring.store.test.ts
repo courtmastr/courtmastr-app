@@ -99,6 +99,16 @@ const makeDocSnapshot = (
   data: () => data,
 });
 
+const makeQuerySnapshot = (
+  docs: Array<{ id: string; data: Record<string, unknown> }>
+): { empty: boolean; docs: Array<{ id: string; data: () => Record<string, unknown> }> } => ({
+  empty: docs.length === 0,
+  docs: docs.map((entry) => ({
+    id: entry.id,
+    data: () => entry.data,
+  })),
+});
+
 const configureGetDoc = (
   docs: Record<string, { exists: boolean; data: Record<string, unknown> }>
 ): void => {
@@ -343,5 +353,72 @@ describe('matches store scoring completion', () => {
       isComplete: false,
     });
     expect(mockDeps.advanceWinner).not.toHaveBeenCalled();
+  });
+
+  it('fetchMatch applies match_scores overlay status so started matches render as in-progress', async () => {
+    configureGetDoc({
+      'tournaments/t1/categories/cat-1/match/m2': {
+        exists: true,
+        data: {
+          id: 'm2',
+          stage_id: 1,
+          number: 3,
+          status: 2,
+          opponent1: { id: 1, position: 1 },
+          opponent2: { id: 2, position: 2 },
+        },
+      },
+      'tournaments/t1/categories/cat-1/stage/1': {
+        exists: false,
+        data: {},
+      },
+      'tournaments/t1': {
+        exists: false,
+        data: {},
+      },
+      'tournaments/t1/categories/cat-1/match_scores/m2': {
+        exists: true,
+        data: {
+          status: 'in_progress',
+          scores: [{
+            gameNumber: 1,
+            score1: 6,
+            score2: 4,
+            isComplete: false,
+          }],
+        },
+      },
+    });
+
+    mockDeps.getDocs.mockImplementation(async (path: string) => {
+      if (path === 'tournaments/t1/registrations') {
+        return makeQuerySnapshot([
+          { id: 'reg-1', data: {} },
+          { id: 'reg-2', data: {} },
+        ]);
+      }
+
+      if (path === 'tournaments/t1/categories/cat-1/participant') {
+        return makeQuerySnapshot([
+          { id: '1', data: { name: 'reg-1', tournament_id: 't1' } },
+          { id: '2', data: { name: 'reg-2', tournament_id: 't1' } },
+        ]);
+      }
+
+      return makeQuerySnapshot([]);
+    });
+
+    const { useMatchStore } = await import('@/stores/matches');
+    const store = useMatchStore();
+
+    await store.fetchMatch('t1', 'm2', 'cat-1');
+
+    expect(store.currentMatch?.status).toBe('in_progress');
+    expect(store.currentMatch?.scores[0]).toMatchObject({
+      gameNumber: 1,
+      score1: 6,
+      score2: 4,
+      isComplete: false,
+    });
   });
 });

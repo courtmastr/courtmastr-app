@@ -503,7 +503,7 @@ In Firestore, under `tournaments/{tournamentId}/categories/{categoryId}/particip
 #### Why This Structure Exists
 
 1. **brackets-manager** requires numeric IDs (1, 2, 3...) for its internal algorithms
-2. **CourtMaster** uses Firestore document IDs (UUIDs) for registrations
+2. **CourtMastr** uses Firestore document IDs (UUIDs) for registrations
 3. The `participant.name` field bridges these two systems
 
 #### The Correct Pattern

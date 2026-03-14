@@ -108,7 +108,7 @@ async function handleGoogleRegister() {
                 Create Account
               </h1>
               <p class="text-body-2 text-grey mt-1">
-                Join CourtMaster today
+                Join CourtMastr today
               </p>
             </div>
           </v-card-title>

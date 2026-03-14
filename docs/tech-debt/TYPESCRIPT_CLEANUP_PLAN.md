@@ -6,7 +6,7 @@
 
 ## Overview
 
-During the production deployment of CourtMaster v2, several TypeScript errors were identified. While critical errors preventing runtime functionality were resolved, strict type checking was bypassed to ensure timely deployment. This document outlines the plan to address the remaining technical debt.
+During the production deployment of CourtMastr v2, several TypeScript errors were identified. While critical errors preventing runtime functionality were resolved, strict type checking was bypassed to ensure timely deployment. This document outlines the plan to address the remaining technical debt.
 
 ## Categories of Issues
 

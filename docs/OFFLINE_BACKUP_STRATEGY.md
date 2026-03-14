@@ -1,7 +1,7 @@
 # Offline Backup and Recovery Strategy Brainstorm
 
 ## The Problem
-What happens if the primary application (CourtMaster) experiences an outage, server failure, or complete loss of internet connectivity halfway through a tournament? Tournament directors need assurance that the event will continue smoothly regardless of technical difficulties.
+What happens if the primary application (CourtMastr) experiences an outage, server failure, or complete loss of internet connectivity halfway through a tournament? Tournament directors need assurance that the event will continue smoothly regardless of technical difficulties.
 
 ## Industry Standards for Tournament Applications
 
@@ -27,9 +27,9 @@ What happens if the primary application (CourtMaster) experiences an outage, ser
 
 ---
 
-## Proposed Strategy for CourtMaster
+## Proposed Strategy for CourtMastr
 
-Since CourtMaster is built with Vue and Firebase, we can approach this in a tiered system based on development effort and reliability.
+Since CourtMastr is built with Vue and Firebase, we can approach this in a tiered system based on development effort and reliability.
 
 ### Tier 1: The "Paper & PDF" Backup (Recommended MVP)
 Provides immediate peace of mind for pilot users with minimal development effort.
@@ -44,7 +44,7 @@ Allows the director to safely manipulate data and standings digitally if the app
 *   **What it is:** A state export feature coupled with a companion Excel template.
 *   **Features:**
     *   "Download State Export" button exports the current matches, players, and scores into a structured Excel (`.xlsx`) or JSON file.
-    *   Provide a standardized "CourtMaster Emergency Offline Template" (an Excel file with pre-built formulas for pool/bracket advancement).
+    *   Provide a standardized "CourtMastr Emergency Offline Template" (an Excel file with pre-built formulas for pool/bracket advancement).
 *   **Execution during failure:** The director opens the offline template, pastes in the latest data dump, and continues logging scores locally.
 
 ### Tier 3: Firebase Offline Persistence (The PWA Approach)

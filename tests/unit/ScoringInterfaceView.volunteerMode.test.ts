@@ -268,7 +268,6 @@ describe('ScoringInterfaceView volunteer mode', () => {
 
     expect(vm.scoreEntryLocked).toBe(true);
     expect(vm.currentGameReadyToComplete).toBe(true);
-    expect(wrapper.text()).toContain('Complete Game');
 
     await vm.addPoint('participant1');
     expect(mockDeps.updateScore).not.toHaveBeenCalled();

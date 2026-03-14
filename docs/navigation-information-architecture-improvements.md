@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines specific improvements to the navigation and information architecture of the CourtMaster application. These changes will enhance the user experience for tournament organizers while maintaining all existing functionality and without any backend changes.
+This document outlines specific improvements to the navigation and information architecture of the CourtMastr application. These changes will enhance the user experience for tournament organizers while maintaining all existing functionality and without any backend changes.
 
 ## Current State Analysis
 

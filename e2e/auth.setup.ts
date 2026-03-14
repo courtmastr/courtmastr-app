@@ -8,11 +8,41 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const authDir = join(__dirname, '.auth');
 const testDataFile = join(process.cwd(), 'e2e', '.test-data.json');
+const isVerboseSetupLog = process.env.PW_SEED_VERBOSE === '1';
+
+interface ProcessOutputError {
+  stdout?: string | Buffer;
+  stderr?: string | Buffer;
+}
+
+const normalizeProcessOutput = (value: string | Buffer | undefined): string => {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (value instanceof Buffer) {
+    return value.toString('utf-8');
+  }
+
+  return '';
+};
+
+const getProcessErrorOutput = (error: unknown): string => {
+  if (!error || typeof error !== 'object') {
+    return '';
+  }
+
+  const processError = error as ProcessOutputError;
+  const stdout = normalizeProcessOutput(processError.stdout).trim();
+  const stderr = normalizeProcessOutput(processError.stderr).trim();
+
+  return [stdout, stderr].filter(Boolean).join('\n');
+};
 
 setup.describe.configure({ mode: 'serial' });
 
 setup('seed test tournament', async () => {
-  console.log('🌱 Seeding test tournament data via local seed script...');
+  console.log('Seeding test tournament data...');
   
   try {
     const result = execSync('npx tsx scripts/seed/local.ts', {
@@ -20,16 +50,19 @@ setup('seed test tournament', async () => {
       timeout: 60000,
       cwd: process.cwd(),
     });
-    
-    console.log(result);
-    
+
     const tournamentIdMatch = result.match(/Tournament ID:\s*([a-zA-Z0-9]+)/);
     if (!tournamentIdMatch) {
       throw new Error('Could not extract tournament ID from seed script output');
     }
     
     const tournamentId = tournamentIdMatch[1];
-    console.log(`✓ Extracted tournament ID: ${tournamentId}`);
+    console.log(`Seeded tournament: ${tournamentId}`);
+
+    if (isVerboseSetupLog) {
+      console.log('Seed output:');
+      console.log(result.trim());
+    }
     
     const testData = {
       tournamentId,
@@ -37,9 +70,14 @@ setup('seed test tournament', async () => {
     };
     
     fs.writeFileSync(testDataFile, JSON.stringify(testData, null, 2));
-    console.log(`✓ Test data saved to ${testDataFile}`);
+    console.log(`Saved test data: ${testDataFile}`);
   } catch (error) {
-    console.error('❌ Failed to seed test tournament:', error);
+    const processErrorOutput = getProcessErrorOutput(error);
+    if (processErrorOutput) {
+      console.error('Seed command output:');
+      console.error(processErrorOutput);
+    }
+    console.error('Failed to seed test tournament:', error);
     throw error;
   }
 });

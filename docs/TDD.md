@@ -1,8 +1,8 @@
-# CourtMaster v2 - Technical Design Document
+# CourtMastr v2 - Technical Design Document
 
 ## Overview
 
-This document describes the technical architecture and implementation details of CourtMaster v2, a badminton tournament management system built with Vue 3, TypeScript, and Firebase.
+This document describes the technical architecture and implementation details of CourtMastr v2, a badminton tournament management system built with Vue 3, TypeScript, and Firebase.
 
 ## Technology Stack
 

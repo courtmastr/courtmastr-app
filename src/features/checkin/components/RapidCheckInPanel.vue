@@ -273,7 +273,7 @@ const handleInputKeydown = (event: KeyboardEvent): void => {
 
     <div class="rapid-checkin-panel__lists d-flex flex-column ga-4">
       <v-card
-        class="pa-3"
+        class="pa-3 rapid-checkin-panel__lane"
         variant="outlined"
       >
         <div class="text-subtitle-2 mb-2">
@@ -329,7 +329,7 @@ const handleInputKeydown = (event: KeyboardEvent): void => {
       </v-card>
 
       <v-card
-        class="pa-3"
+        class="pa-3 rapid-checkin-panel__lane"
         variant="outlined"
       >
         <div class="text-subtitle-2 mb-2">
@@ -374,11 +374,25 @@ const handleInputKeydown = (event: KeyboardEvent): void => {
 
 .rapid-checkin-panel__scanner {
   flex: 0 0 440px;
+  border-radius: 18px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.09);
+  background: linear-gradient(165deg, rgba(var(--v-theme-surface), 0.97) 0%, rgba(var(--v-theme-surface), 0.92) 100%);
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.07);
 }
 
 .rapid-checkin-panel__lists {
   min-width: 0;
   flex: 1;
+}
+
+.rapid-checkin-panel__lane {
+  border-radius: 16px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  background: rgba(var(--v-theme-surface), 0.94);
+}
+
+.rapid-checkin-panel__scanner :deep(.v-field) {
+  border-radius: 14px;
 }
 
 .rapid-checkin-panel__suggestion--active {
@@ -444,6 +458,29 @@ kbd {
 
   .rapid-checkin-panel__scanner {
     flex-basis: auto;
+  }
+
+  .rapid-checkin-panel__lists {
+    width: 100%;
+  }
+}
+
+@media (max-width: 599px) {
+  .rapid-checkin-panel {
+    gap: 12px !important;
+  }
+
+  .rapid-checkin-panel__scanner,
+  .rapid-checkin-panel__lane {
+    border-radius: 14px;
+  }
+
+  .urgent-item-actions {
+    min-width: 0;
+  }
+
+  .suggestion-actions {
+    align-items: stretch;
   }
 }
 </style>

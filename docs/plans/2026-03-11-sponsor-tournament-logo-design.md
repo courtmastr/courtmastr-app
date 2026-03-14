@@ -8,7 +8,7 @@
 
 ## Problem Summary
 
-CourtMaster currently supports tournament sponsors only as a plain `string[]` on the tournament document. That is enough for the existing text-only overlay ticker, but it does not support sponsor logos, sponsor links, tournament logos, or consistent branding across organizer, public, and overlay surfaces.
+CourtMastr currently supports tournament sponsors only as a plain `string[]` on the tournament document. That is enough for the existing text-only overlay ticker, but it does not support sponsor logos, sponsor links, tournament logos, or consistent branding across organizer, public, and overlay surfaces.
 
 The goal for v1 is to add tournament-scoped branding that lets admins manage:
 
