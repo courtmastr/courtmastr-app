@@ -16,7 +16,7 @@ Legal contact: legal@courtmastr.com
 
 - [x] Approved copy reference: `docs/ops/social-proof-copy-bank.md`
 - [x] Tournament announcement card export path validated (PNG download)
-- [x] Social proof media mock added at `/public/images/social-proof-mcia-2026.svg`
+- [x] Social proof photo/media block removed from homepage (text-first “Community Voices” strip retained)
 - [x] Approved testimonial set includes MCIA, TNF, and OG Badminton Club
 - [x] Launch post set drafted (intro, live update, organizer value)
 

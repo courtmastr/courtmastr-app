@@ -73,6 +73,12 @@ npm run emulators:log
 npm run deploy:log
 ```
 
+### 2.1 Process Guides (Required)
+
+- Branching workflow: `docs/process/BRANCHING_STRATEGY.md`
+- Verification workflow: `docs/process/TEST_STRATEGY.md`
+- Deployment record: `docs/deployment/LAST_DEPLOY.md`
+
 ---
 
 ## 3. Code Style Guidelines
@@ -117,11 +123,14 @@ npm run deploy:log
 
 **MUST:**
 - **Check `docs/coding-patterns/CODING_PATTERNS.md` BEFORE writing code.**
+- Follow `docs/process/BRANCHING_STRATEGY.md` for branch naming, merge flow, and hotfix handling.
+- Follow `docs/process/TEST_STRATEGY.md` for test scope and release gates.
 - Make smallest possible change (No "Fluff" Changes).
 - Reuse existing patterns, components, stores.
 - Search codebase before creating files.
 - Run `npm run build` after every change to ensure the code is not broken.
 - Run `:log` commands after changes.
+- Update `docs/deployment/LAST_DEPLOY.md` after any production deploy.
 - Follow Debug KB Protocol on failures.
 
 **MUST NOT:**

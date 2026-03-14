@@ -161,8 +161,6 @@ onUnmounted(() => {
       <PublicTrustReviewsSection
         :reviews="reviewsForDisplay"
         :fallback-marker="reviewFallbackMarker"
-        photo-url="/images/social-proof-mcia-2026.svg"
-        photo-credit="Photo: MCIA Spring Open 2026 media mock · by CourtMastr / Marvy Technologies."
         @leave-review="showReviewDialog = true"
       />
 

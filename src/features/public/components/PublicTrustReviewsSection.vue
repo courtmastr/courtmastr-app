@@ -5,14 +5,10 @@ import type { ReviewRecord } from '@/types';
 interface PublicTrustReviewsSectionProps {
   reviews: ReviewRecord[];
   fallbackMarker?: string;
-  photoUrl?: string;
-  photoCredit?: string;
 }
 
 withDefaults(defineProps<PublicTrustReviewsSectionProps>(), {
   fallbackMarker: '',
-  photoUrl: '',
-  photoCredit: '',
 });
 
 defineEmits<{
@@ -43,40 +39,12 @@ defineEmits<{
 
     <ReviewList
       :reviews="reviews"
-      title="Recent Reviews"
+      title="Community Voices"
       empty-message="No approved reviews yet. Be the first to leave feedback."
       :max-items="3"
+      moving
       compact
     />
-
-    <v-card
-      class="public-trust-reviews__photo"
-      elevation="0"
-    >
-      <v-card-text class="pa-4">
-        <p class="text-subtitle-2 mb-1">
-          Social Proof Photo
-        </p>
-        <img
-          v-if="photoUrl"
-          :src="photoUrl"
-          alt="Tournament social proof"
-          class="public-trust-reviews__photo-image"
-        >
-        <p
-          v-else
-          class="text-body-2 text-medium-emphasis mb-0"
-        >
-          Add one tournament action photo (landscape 16:9) with venue context and player activity.
-        </p>
-        <p
-          v-if="photoCredit"
-          class="text-caption text-medium-emphasis mt-2 mb-0"
-        >
-          {{ photoCredit }}
-        </p>
-      </v-card-text>
-    </v-card>
   </section>
 </template>
 
@@ -106,17 +74,5 @@ defineEmits<{
   margin: 10px 0 0;
   color: rgba(var(--v-theme-on-surface), 0.68);
   text-wrap: pretty;
-}
-
-.public-trust-reviews__photo {
-  border: 1px dashed rgba(var(--v-theme-on-surface), 0.2);
-  border-radius: 14px;
-}
-
-.public-trust-reviews__photo-image {
-  width: 100%;
-  height: auto;
-  border-radius: 10px;
-  display: block;
 }
 </style>
