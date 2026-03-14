@@ -160,6 +160,50 @@ rg -n "mount\\(AppLayout|shallowMount\\(AppLayout" tests/unit --glob "*.test.ts"
 rg -n "vi\\.mock\\('vuetify'|createVuetify\\(" tests/unit/AppLayout*.test.ts
 ```
 
+### CP-068: Validate Firebase Web Env Before Production Build/Deploy
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-14 |
+| **Source Bug** | Production deploy shipped `VITE_FIREBASE_*` as `undefined` from a worktree missing `.env.production`, causing `auth/invalid-api-key` |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```bash
+# Build/deploy without checking env propagation in current checkout/worktree
+npm run build
+firebase deploy
+```
+
+**Correct Pattern (✅):**
+```bash
+# Fail fast if Firebase web config is missing/placeholder in this checkout
+npm run check:firebase-env
+npm run build
+npm run deploy
+```
+
+```json
+{
+  "scripts": {
+    "check:firebase-env": "node scripts/check-firebase-env.mjs --mode production",
+    "build": "npm run check:firebase-env && vue-tsc -b && vite build"
+  }
+}
+```
+
+**Rule:** Production builds/deploys must validate `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, and `VITE_FIREBASE_APP_ID` before bundling.
+
+**Detection:**
+```bash
+# Ensure guard exists in scripts
+rg -n "\"check:firebase-env\"|scripts/check-firebase-env\\.mjs" package.json scripts/
+
+# Ensure build is gated by env check
+node -e "const p=require('./package.json'); console.log(p.scripts.build.includes('check:firebase-env')?'OK':'MISSING')"
+```
+
 ### CP-002: Reverse Lookups for Cross-Collection References
 
 | Field | Value |

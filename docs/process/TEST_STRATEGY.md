@@ -24,11 +24,13 @@ For every feature branch before merge:
    - `npm run test -- --run <changed-test-files>`
 2. Logged targeted test run
    - `npm run test:log -- --run <same-files>`
-3. Build gate
+3. Firebase env gate
+   - `npm run check:firebase-env`
+4. Build gate
    - `npm run build`
-4. Logged build gate
+5. Logged build gate
    - `npm run build:log`
-5. Optional lint confirmation when touching shared UI/system files
+6. Optional lint confirmation when touching shared UI/system files
    - `npm run lint:log`
 
 For release/deploy:
