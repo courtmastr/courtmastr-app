@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+
+# Fail-fast signal for missing Firebase web env in new checkouts/worktrees.
+# Keep checkout non-blocking; just surface the issue immediately.
+if [ ! -f package.json ]; then
+  exit 0
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "[post-checkout] npm not found; skipping Firebase env check."
+  exit 0
+fi
+
+if npm run --silent check:firebase-env >/dev/null 2>&1; then
+  echo "[post-checkout] Firebase env check passed."
+else
+  echo "[post-checkout] Firebase env check failed for this checkout/worktree."
+  echo "[post-checkout] Add .env.production or set VITE_FIREBASE_* env vars."
+  echo "[post-checkout] Then run: npm run check:firebase-env"
+fi
+
+exit 0

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:log": "node scripts/run-and-log.mjs vite",
+    "hooks:enable": "git config core.hooksPath .githooks",
     "check:firebase-env": "node scripts/check-firebase-env.mjs --mode production",
     "build": "npm run check:firebase-env && vue-tsc -b && vite build",
     "build:log": "node scripts/run-and-log.mjs npm run check:firebase-env && vue-tsc -b && vite build",

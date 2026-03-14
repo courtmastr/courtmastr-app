@@ -36,8 +36,9 @@ For every feature branch before merge:
 For release/deploy:
 
 1. Confirm `master` contains merged changes.
-2. Run `npm run deploy` and `npm run deploy:log` from a clean `master` context.
-3. Record deploy output (project, URL, and functions updated) in `docs/deployment/LAST_DEPLOY.md`.
+2. Enable checkout guard once (per local repo): `npm run hooks:enable`.
+3. Run `npm run deploy` and `npm run deploy:log` from a clean `master` context.
+4. Record deploy output (project, URL, and functions updated) in `docs/deployment/LAST_DEPLOY.md`.
 
 ## UI Change Coverage
 

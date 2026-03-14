@@ -4,19 +4,21 @@ Updated: 2026-03-14 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-03-14 12:13 CDT
+- Date: 2026-03-14 12:31 CDT
 - Deployed branch: `master`
-- Deployed commit: `4b5bac8` (`merge: Horizon 2 community voices polish`)
+- Deployed commit: `c05ceaa` (`merge: add Firebase env preflight guard for deploy/build`)
 - Commands:
-  - `npm run deploy`
   - `npm run deploy:log`
 - Firebase project: `courtmaster-v2`
 - Hosting URL: `https://courtmaster-v2.web.app`
 - Deploy result:
   - Hosting: released successfully
-  - Functions: updated successfully on first deploy, unchanged/skipped on second deploy
+  - Functions: unchanged/skipped (no function source changes)
 - Build log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-03-14-17-12-57.npm-run-build.log`
+  - `docs/debug-kb/_artifacts/2026-03-14-17-31-22.npm-run-build.log`
+- Incident note:
+  - Earlier 2026-03-14 deployment built in a worktree missing `.env.production`, causing `auth/invalid-api-key` in production.
+  - Recovery completed by redeploying with valid Firebase env and then adding `check:firebase-env` preflight guard.
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
