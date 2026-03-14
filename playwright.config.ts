@@ -1,9 +1,22 @@
 import { defineConfig, devices } from '@playwright/test';
+import type { ReporterDescription } from '@playwright/test';
 
 const isProduction = process.env.TEST_ENV === 'production';
-const baseURL = isProduction 
+const baseURL = isProduction
   ? process.env.PRODUCTION_URL || 'https://your-app.web.app'
   : 'http://localhost:3000';
+
+const reporters: ReporterDescription[] = [
+  ['list'],
+  ['html', { outputFolder: 'e2e-report/html', open: 'never' }],
+  ['json', { outputFile: 'e2e-report/results.json' }],
+];
+
+if (process.env.CI) {
+  reporters.push(['junit', { outputFile: 'e2e-report/results.xml' }]);
+}
+
+const AUTH_STORAGE = 'e2e/.auth/admin.json';
 
 export default defineConfig({
   testDir: './e2e',
@@ -11,11 +24,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: [
-    ['html', { outputFolder: 'e2e-report' }],
-    ['list'],
-    ...(process.env.CI ? [['junit', { outputFile: 'e2e-results.xml' }]] : [])
-  ] as any,
+  reporter: reporters,
+  outputDir: 'test-results/e2e',
   use: {
     baseURL,
     trace: 'on-first-retry',
@@ -31,50 +41,87 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
     },
     {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/admin.json',
-      },
-      dependencies: ['setup'],
-      testIgnore: [/smoke\.spec\.ts/, /scorekeeper.*\.spec\.ts/, /user-registration\.spec\.ts/],
-    },
-    {
-      name: 'chromium-no-auth',
+      name: 'feature-smoke',
       use: {
         ...devices['Desktop Chrome'],
       },
-      testMatch: [/smoke\.spec\.ts/, /user-registration\.spec\.ts/],
+      dependencies: ['setup'],
+      testMatch: [/smoke\.spec\.ts$/],
     },
     {
-      name: 'chromium-p0',
+      name: 'feature-auth',
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/admin.json',
       },
       dependencies: ['setup'],
-      testMatch: /p0-.*\.spec\.ts/,
+      testMatch: [/p0-auth-and-role-guards\.spec\.ts$/, /p0-user-management\.spec\.ts$/],
     },
     {
-      name: 'chromium-scorekeeper',
+      name: 'feature-registration',
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/scorekeeper.json',
       },
       dependencies: ['setup'],
-      testMatch: /scorekeeper.*\.spec\.ts/,
+      testMatch: [
+        /user-registration\.spec\.ts$/,
+        /self-registration\.spec\.ts$/,
+        /p0-front-desk-checkin\.spec\.ts$/,
+        /p0-self-checkin-kiosk\.spec\.ts$/,
+        /p0-search-and-filter\.spec\.ts$/,
+      ],
     },
     {
-      name: 'mobile-chrome',
+      name: 'feature-scoring',
       use: {
-        ...devices['Pixel 5'],
-        storageState: 'e2e/.auth/admin.json',
+        ...devices['Desktop Chrome'],
       },
       dependencies: ['setup'],
-      testMatch: /.*mobile\.spec\.ts/,
+      testMatch: [
+        /scorekeeper-flow\.spec\.ts$/,
+        /p0-match-control-scoring\.spec\.ts$/,
+        /p0-score-correction\.spec\.ts$/,
+        /concurrent-five-scorers\.spec\.ts$/,
+      ],
+    },
+    {
+      name: 'feature-tournament-admin',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: AUTH_STORAGE,
+      },
+      dependencies: ['setup'],
+      testMatch: [
+        /p0-category-management\.spec\.ts$/,
+        /p0-court-management\.spec\.ts$/,
+        /p0-seeding-management\.spec\.ts$/,
+        /p0-tournament-settings\.spec\.ts$/,
+        /p0-branding-logos\.spec\.ts$/,
+        /tournament-lifecycle\.spec\.ts$/,
+      ],
+    },
+    {
+      name: 'feature-public-leaderboard',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: AUTH_STORAGE,
+      },
+      dependencies: ['setup'],
+      testMatch: [
+        /p0-public-views\.spec\.ts$/,
+        /leaderboard\.spec\.ts$/,
+        /leaderboard-pool-to-elimination\.spec\.ts$/,
+      ],
+    },
+    {
+      name: 'feature-regression',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+      dependencies: ['setup'],
+      testMatch: [/negative-tests\.spec\.ts$/, /edge-cases\.spec\.ts$/],
     },
   ],
-  webServer: isProduction 
+  webServer: isProduction
     ? undefined 
     : [
         {

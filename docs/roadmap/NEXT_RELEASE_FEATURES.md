@@ -1,4 +1,4 @@
-# CourtMaster v2 - Next Release Features
+# CourtMastr v2 - Next Release Features
 
 This document tracks features that are planned for future releases but are not included in the current version.
 

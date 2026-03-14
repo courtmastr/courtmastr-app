@@ -264,5 +264,14 @@ service cloud.firestore {
       // Only admins can update or delete
       allow update, delete: if isAdmin();
     }
+
+    // Reviews collection (moderated via callable + admin tooling)
+    match /reviews/{reviewId} {
+      // Public can read only approved reviews; admins can read all
+      allow read: if resource.data.status == 'approved' || isAdmin();
+      // Direct writes are blocked; review creation runs via callable/admin SDK
+      allow create: if false;
+      allow update, delete: if isAdmin();
+    }
   }
 }

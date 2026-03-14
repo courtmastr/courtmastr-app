@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# CourtMaster Pattern Detection Script
+# CourtMastr Pattern Detection Script
 # Detects violations of coding patterns CP-016, CP-017, CP-018
 # Usage: ./scripts/detect-patterns.sh
 
@@ -21,7 +21,7 @@ cp016_count=0
 cp017_count=0
 cp018_count=0
 
-echo "=== CourtMaster Pattern Detection Report ==="
+echo "=== CourtMastr Pattern Detection Report ==="
 echo "Generated: $(date)"
 echo "Project: $PROJECT_ROOT"
 echo ""

@@ -8,7 +8,7 @@
 
 ## Problem Summary
 
-CourtMaster already has global user roles and some role-gated routes, but the live tournament experience is still centered on a shared authenticated shell. In practice:
+CourtMastr already has global user roles and some role-gated routes, but the live tournament experience is still centered on a shared authenticated shell. In practice:
 
 1. volunteers are exposed to director-oriented navigation,
 2. check-in and scorekeeping are not tournament-scoped access modes,
@@ -111,7 +111,7 @@ This is the smallest architecture that gives volunteers a simple entry flow whil
 
 ## Access Model
 
-CourtMaster will operate with two parallel access paths:
+CourtMastr will operate with two parallel access paths:
 
 1. **Staff login**
    Existing admin and organizer users continue using the standard account login flow.

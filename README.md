@@ -1,4 +1,4 @@
-# CourtMaster v2 - Tournament Management System
+# CourtMastr v2 - Tournament Management System
 
 [![Vue 3](https://img.shields.io/badge/Vue-3.0-4FC08D?logo=vue.js)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript)](https://www.typescriptlang.org/)
@@ -8,7 +8,7 @@
 
 A modern, real-time tournament management system designed specifically for badminton tournaments. Built with Vue 3, TypeScript, and Firebase for lightning-fast setup and professional tournament experiences.
 
-## 🎯 Why CourtMaster?
+## 🎯 Why CourtMastr?
 
 **For Tournament Organizers:**
 - ⚡ **Generate brackets in 30 seconds** (not 2-4 hours)

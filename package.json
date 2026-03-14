@@ -34,7 +34,20 @@
     "deploy:log": "node scripts/run-and-log.mjs npm run build && firebase deploy",
     "deploy:hosting": "npm run build && firebase deploy --only hosting",
     "deploy:functions": "firebase deploy --only functions",
-    "deploy:rules": "firebase deploy --only firestore:rules"
+    "secrets:volunteer:check:prod": "firebase --project production functions:secrets:get VOLUNTEER_PIN_SECRET && firebase --project production functions:secrets:get VOLUNTEER_SESSION_SECRET",
+    "deploy:functions:prod": "npm run secrets:volunteer:check:prod && firebase deploy --only functions --project production",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "e2e:clean": "rm -rf e2e-report test-results",
+    "e2e": "npm run e2e:clean && playwright test",
+    "e2e:list": "playwright test --list",
+    "e2e:report": "playwright show-report e2e-report/html",
+    "e2e:feature:smoke": "npm run e2e:clean && playwright test --project=feature-smoke",
+    "e2e:feature:auth": "npm run e2e:clean && playwright test --project=feature-auth",
+    "e2e:feature:registration": "npm run e2e:clean && playwright test --project=feature-registration",
+    "e2e:feature:scoring": "npm run e2e:clean && playwright test --project=feature-scoring",
+    "e2e:feature:tournament-admin": "npm run e2e:clean && playwright test --project=feature-tournament-admin",
+    "e2e:feature:public": "npm run e2e:clean && playwright test --project=feature-public-leaderboard",
+    "e2e:feature:regression": "npm run e2e:clean && playwright test --project=feature-regression"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",

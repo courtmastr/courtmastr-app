@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `detect-patterns.sh` script scans the CourtMaster codebase for violations of three critical coding patterns:
+The `detect-patterns.sh` script scans the CourtMastr codebase for violations of three critical coding patterns:
 
 - **CP-016**: Inline `v-dialog` blocks (should use `BaseDialog` component)
 - **CP-017**: Inline empty state markup (should use `EmptyState` component)
@@ -27,7 +27,7 @@ The script generates a formatted report showing:
 ### Example Output
 
 ```
-=== CourtMaster Pattern Detection Report ===
+=== CourtMastr Pattern Detection Report ===
 Generated: Tue Feb 17 21:39:42 CST 2026
 Project: /Users/ramc/Documents/Code/courtmaster-v2
 

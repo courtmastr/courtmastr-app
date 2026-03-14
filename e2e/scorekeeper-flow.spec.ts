@@ -97,8 +97,7 @@ test.describe('Scorekeeper Flow', () => {
     await page.goto(`/tournaments/${tournamentId}/matches`);
     await page.waitForLoadState('domcontentloaded');
 
-    // Page should show "Matches" heading
-    await expect(page.getByRole('heading', { name: 'Matches', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Match Scoring Queue' })).toBeVisible();
   });
 
   test('should show tournament name in match list', async ({ page }) => {

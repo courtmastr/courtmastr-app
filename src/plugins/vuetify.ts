@@ -5,7 +5,7 @@ import { createVuetify } from 'vuetify';
 import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
 
-// Custom theme for CourtMaster — Stadium Energy palette
+// Custom theme for CourtMastr — Stadium Energy palette
 const courtmasterTheme = {
   dark: false,
   colors: {

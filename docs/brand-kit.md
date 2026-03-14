@@ -1,6 +1,6 @@
-# CourtMaster Brand & Design System
+# CourtMastr Brand & Design System
 
-This document outlines the core platform-level visual system for CourtMaster. All UI development must strictly adhere to these tokens to ensure a clean, operational, and stable aesthetic.
+This document outlines the core platform-level visual system for CourtMastr. All UI development must strictly adhere to these tokens to ensure a clean, operational, and stable aesthetic.
 
 ## 1. Typography
 

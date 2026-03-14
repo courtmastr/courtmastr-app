@@ -68,7 +68,10 @@ const getStatusColor = (status?: RegistrationStatus): string => {
       </div>
     </v-card>
 
-    <v-card variant="outlined">
+    <v-card
+      class="bulk-checkin-panel__list"
+      variant="outlined"
+    >
       <v-list
         density="comfortable"
         class="py-0"
@@ -79,6 +82,7 @@ const getStatusColor = (status?: RegistrationStatus): string => {
           :data-testid="`bulk-row-${row.id}`"
           :class="[
             'bulk-checkin-panel__row',
+            { 'bulk-checkin-panel__row--selected': isSelected(row.id) },
             `bulk-checkin-panel__row--${row.status ?? 'unknown'}`
           ]"
           :title="row.name"
@@ -122,7 +126,30 @@ const getStatusColor = (status?: RegistrationStatus): string => {
 .bulk-checkin-panel__toolbar {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
+  border-radius: 16px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  background: rgba(var(--v-theme-surface), 0.93);
+  backdrop-filter: blur(6px);
+}
+
+.bulk-checkin-panel__list {
+  border-radius: 16px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.09);
+  background: rgba(var(--v-theme-surface), 0.94);
+}
+
+.bulk-checkin-panel__row {
+  cursor: pointer;
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.bulk-checkin-panel__row:hover {
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+
+.bulk-checkin-panel__row--selected {
+  background: rgba(var(--v-theme-primary), 0.12);
 }
 
 .bulk-checkin-panel__row--checked_in {
@@ -133,5 +160,12 @@ const getStatusColor = (status?: RegistrationStatus): string => {
 .bulk-checkin-panel__row--no_show {
   background: rgba(var(--v-theme-error), 0.06);
   border-left: 4px solid rgb(var(--v-theme-error));
+}
+
+@media (max-width: 599px) {
+  .bulk-checkin-panel__toolbar,
+  .bulk-checkin-panel__list {
+    border-radius: 14px;
+  }
 }
 </style>

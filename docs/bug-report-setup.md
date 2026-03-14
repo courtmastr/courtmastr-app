@@ -17,7 +17,7 @@ When users click "Report a Bug" in the app and submit a description:
 
 1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
 2. Click "Generate new token (classic)"
-3. Give it a name like "CourtMaster Bug Reports"
+3. Give it a name like "CourtMastr Bug Reports"
 4. Select scopes:
    - ✅ `repo` (to create issues in your repository)
    - ✅ `read:user` (optional, for user info)

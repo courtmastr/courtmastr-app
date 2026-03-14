@@ -7,7 +7,7 @@
 
 ## Context
 
-The CourtMaster v2 scheduling system has a sound algorithm but poor organization:
+The CourtMastr v2 scheduling system has a sound algorithm but poor organization:
 - `AutoScheduleDialog.vue` is 1,040 lines mixing orchestration + UI
 - `matches.ts` store is 1,600 lines mixing scheduling + scoring + brackets
 - Scheduling defaults (duration, buffer, rest time) are scattered across 3+ files with no single source of truth

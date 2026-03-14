@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get CourtMaster running locally in 5 minutes.
+Get CourtMastr running locally in 5 minutes.
 
 ## ⚡ Prerequisites
 

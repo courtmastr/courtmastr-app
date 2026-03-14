@@ -8,7 +8,7 @@
 
 ## Problem Statement
 
-The current CourtMaster UI has three design inconsistencies that undermine its visual quality:
+The current CourtMastr UI has three design inconsistencies that undermine its visual quality:
 
 1. **Mixed icon libraries** — 594 MDI icon usages across 82 files, but Lucide icons coexist in 3 files (HomeView, AppLayout, TournamentDashboardView). Different visual weights and rendering mechanisms.
 2. **Teal secondary color** — feels more tech/SaaS than sports management. Lacks the energy a live tournament platform needs.

@@ -24,7 +24,7 @@ export const DEFAULT_RANKING_PROGRESSION: RankingProgressionMode = 'carry_forwar
 export const RANKING_PRESETS: Record<RankingPresetId, RankingPresetDefinition> = {
   courtmaster_default: {
     id: 'courtmaster_default',
-    label: 'CourtMaster Default',
+    label: 'CourtMastr Default',
     description: 'Current production ranking behavior with normalized GD/PD tie-breakers.',
     points: { win: 2, loss: 1, walkoverWin: 2, walkoverLoss: 1 },
     tieBreakOrder: ['head_to_head', 'game_difference', 'point_difference', 'equal'],

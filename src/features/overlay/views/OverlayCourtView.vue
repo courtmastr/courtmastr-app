@@ -5,6 +5,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import type { GameScore, Match } from '@/types';
 import '../overlay.css';
 
@@ -18,6 +19,17 @@ const { getParticipantName } = useParticipantResolver();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const courtId = computed(() => route.params.courtId as string);
+const tournament = computed(() => tournamentStore.currentTournament);
+const tournamentName = computed(() => tournament.value?.name?.trim() || 'Tournament');
+const tournamentInitials = computed(() => (
+  tournamentName.value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() || '')
+    .join('') || 'TM'
+));
+const { tournamentLogoUrl } = useTournamentBranding(tournament);
 
 const court = computed(() =>
   tournamentStore.courts.find((item) => item.id === courtId.value) ?? null
@@ -132,7 +144,26 @@ onUnmounted(() => {
     >
       <!-- Top Bar with Court and Category -->
       <div class="broadcast-header">
-        <span class="broadcast-court">{{ courtName }}</span>
+        <div class="broadcast-brand">
+          <div class="broadcast-brand__mark">
+            <img
+              v-if="tournamentLogoUrl"
+              :src="tournamentLogoUrl"
+              :alt="`${tournamentName} logo`"
+              class="broadcast-brand__logo"
+            >
+            <span
+              v-else
+              class="broadcast-brand__fallback"
+            >
+              {{ tournamentInitials }}
+            </span>
+          </div>
+          <div class="broadcast-brand__copy">
+            <span class="broadcast-event">{{ tournamentName }}</span>
+            <span class="broadcast-court">{{ courtName }}</span>
+          </div>
+        </div>
         <span class="broadcast-category">{{ categoryName }}</span>
         <span class="broadcast-live-badge">
           <span class="live-dot" />
@@ -193,7 +224,26 @@ onUnmounted(() => {
       class="broadcast-scoreboard up-next"
     >
       <div class="broadcast-header">
-        <span class="broadcast-court">{{ courtName }}</span>
+        <div class="broadcast-brand">
+          <div class="broadcast-brand__mark">
+            <img
+              v-if="tournamentLogoUrl"
+              :src="tournamentLogoUrl"
+              :alt="`${tournamentName} logo`"
+              class="broadcast-brand__logo"
+            >
+            <span
+              v-else
+              class="broadcast-brand__fallback"
+            >
+              {{ tournamentInitials }}
+            </span>
+          </div>
+          <div class="broadcast-brand__copy">
+            <span class="broadcast-event">{{ tournamentName }}</span>
+            <span class="broadcast-court">{{ courtName }}</span>
+          </div>
+        </div>
         <span class="broadcast-category">{{ categoryName }}</span>
       </div>
       <div class="broadcast-up-next-body">
@@ -214,7 +264,26 @@ onUnmounted(() => {
       class="broadcast-scoreboard idle"
     >
       <div class="broadcast-header">
-        <span class="broadcast-court">{{ courtName }}</span>
+        <div class="broadcast-brand">
+          <div class="broadcast-brand__mark">
+            <img
+              v-if="tournamentLogoUrl"
+              :src="tournamentLogoUrl"
+              :alt="`${tournamentName} logo`"
+              class="broadcast-brand__logo"
+            >
+            <span
+              v-else
+              class="broadcast-brand__fallback"
+            >
+              {{ tournamentInitials }}
+            </span>
+          </div>
+          <div class="broadcast-brand__copy">
+            <span class="broadcast-event">{{ tournamentName }}</span>
+            <span class="broadcast-court">{{ courtName }}</span>
+          </div>
+        </div>
       </div>
       <div class="broadcast-idle-body">
         <span class="broadcast-idle-text">IDLE</span>
@@ -273,9 +342,59 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 6px 16px;
   background: linear-gradient(90deg, #1a237e 0%, #283593 100%);
   color: white;
+}
+
+.broadcast-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.broadcast-brand__mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.broadcast-brand__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.broadcast-brand__fallback {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.broadcast-brand__copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.broadcast-event {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .broadcast-court {

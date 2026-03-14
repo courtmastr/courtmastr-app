@@ -5,20 +5,24 @@
       "origin": "http://localhost:3000",
       "localStorage": [
         {
-          "name": "firestore_clients_firestore/[DEFAULT]/demo-courtmaster/_PskXTfrkgC29E9eKtZFw",
-          "value": "{\"activeTargetIds\":[4,6],\"updateTimeMs\":1773328948761}"
+          "name": "firestore_clients_firestore/[DEFAULT]/demo-courtmaster/_p6idua7kngPJJqr3gKQG",
+          "value": "{\"activeTargetIds\":[4,6],\"updateTimeMs\":1773350790440}"
         },
         {
           "name": "firestore_sequence_number_firestore/[DEFAULT]/demo-courtmaster/",
           "value": "15"
         },
         {
+          "name": "firestore_targets_firestore/[DEFAULT]/demo-courtmaster/_6",
+          "value": "{\"state\":\"not-current\",\"updateTimeMs\":1773350790442}"
+        },
+        {
           "name": "firestore_online_state_firestore/[DEFAULT]/demo-courtmaster/",
-          "value": "{\"clientId\":\"PskXTfrkgC29E9eKtZFw\",\"onlineState\":\"Online\"}"
+          "value": "{\"clientId\":\"p6idua7kngPJJqr3gKQG\",\"onlineState\":\"Online\"}"
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/demo-courtmaster/_4",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1773328948734}"
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1773350790442}"
         }
       ]
     }

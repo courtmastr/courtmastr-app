@@ -1,6 +1,6 @@
-# Contributing to CourtMaster v2
+# Contributing to CourtMastr v2
 
-Thank you for your interest in contributing to CourtMaster! This document provides guidelines and best practices for contributing to the project.
+Thank you for your interest in contributing to CourtMastr! This document provides guidelines and best practices for contributing to the project.
 
 ## 📋 Table of Contents
 
@@ -472,4 +472,4 @@ export async function scheduleMatches(
 
 Contributors will be recognized in our README.md and release notes.
 
-Thank you for contributing to CourtMaster! 🏸
+Thank you for contributing to CourtMastr! 🏸

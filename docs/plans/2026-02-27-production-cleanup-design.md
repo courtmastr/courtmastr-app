@@ -1,7 +1,7 @@
 # Production-Grade Repository Cleanup Design
 
 **Date:** 2026-02-27  
-**Scope:** Transform CourtMaster v2 from development-mode repository to production-grade open-source project  
+**Scope:** Transform CourtMastr v2 from development-mode repository to production-grade open-source project  
 **Approach:** Option B - Standard Cleanup (4-6 hours)  
 **Status:** Design Complete → Ready for Implementation
 

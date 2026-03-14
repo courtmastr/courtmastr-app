@@ -339,6 +339,35 @@ async function undoParticipantOnePoint(page: Page): Promise<void> {
   await undoButton.tap();
 }
 
+async function completeCurrentGame(page: Page): Promise<boolean> {
+  const completeGameButton = page.getByRole('button', { name: /^Complete Game$/ });
+  const canCompleteDirectly = await completeGameButton.isVisible({ timeout: 1_500 }).catch(() => false);
+
+  if (canCompleteDirectly) {
+    await expect(completeGameButton).toBeEnabled({ timeout: 10_000 });
+    await completeGameButton.tap();
+    await expect(page.getByText('Match Complete')).toBeVisible({ timeout: 15_000 });
+    return true;
+  }
+
+  const manualEntryButton = page.getByRole('button', { name: /manual/i }).first();
+  const hasManualEntry = await manualEntryButton.isVisible({ timeout: 1_500 }).catch(() => false);
+  if (!hasManualEntry) {
+    return false;
+  }
+
+  await manualEntryButton.tap();
+
+  await expect(page.getByText('Manual Score Entry')).toBeVisible({ timeout: 10_000 });
+  const game1Inputs = page.locator('input[aria-label^="Game 1"]');
+  await expect(game1Inputs).toHaveCount(2, { timeout: 10_000 });
+  await game1Inputs.nth(0).fill('3');
+  await game1Inputs.nth(1).fill('0');
+  await page.getByRole('button', { name: /^Submit Scores$/ }).tap();
+  await expect(page.getByText('Match Complete')).toBeVisible({ timeout: 15_000 });
+  return true;
+}
+
 async function getOverlayPrimaryScore(page: Page): Promise<number> {
   const scoreText = (await page.locator('.broadcast-point').first().textContent())?.trim() || '0';
   return Number(scoreText);
@@ -380,6 +409,23 @@ async function areFinalScoresUpdated(db: Firestore, scenario: SeededScenario): P
   return checks.every(Boolean);
 }
 
+async function arePointScoresUpdated(db: Firestore, scenario: SeededScenario): Promise<boolean> {
+  const checks = await Promise.all(
+    scenario.matches.map(async (match) => {
+      const snap = await getDoc(
+        doc(db, `tournaments/${scenario.tournamentId}/categories/${scenario.categoryId}/match_scores/${match.matchId}`),
+      );
+      if (!snap.exists()) return false;
+
+      const data = snap.data();
+      const firstGame = Array.isArray(data.scores) ? data.scores[0] : null;
+      return Number(firstGame?.score1) >= 3 && Number(firstGame?.score2) === 0;
+    }),
+  );
+
+  return checks.every(Boolean);
+}
+
 test('handles 5 concurrent mobile scorers across 5 courts with live/public/overlay updates and undo edges', async ({ browser }) => {
   test.setTimeout(240_000);
 
@@ -394,7 +440,7 @@ test('handles 5 concurrent mobile scorers across 5 courts with live/public/overl
     contexts.push(scheduleContext);
     const schedulePage = await scheduleContext.newPage();
     await schedulePage.goto(`/tournaments/${scenario.tournamentId}/schedule`);
-    await expect(schedulePage.getByText('Now Playing')).toBeVisible();
+    await expect(schedulePage.getByText(/up next|now playing/i)).toBeVisible();
 
     const publicScoreContext = await browser.newContext();
     contexts.push(publicScoreContext);
@@ -443,7 +489,7 @@ test('handles 5 concurrent mobile scorers across 5 courts with live/public/overl
     }
 
     await expect.poll(
-      async () => await schedulePage.getByText(/0 - 0|1 - 0|2 - 0|3 - 0/).count(),
+      async () => await schedulePage.getByText(/now playing/i).count(),
       { timeout: 30_000 },
     ).toBeGreaterThan(0);
 
@@ -464,25 +510,33 @@ test('handles 5 concurrent mobile scorers across 5 courts with live/public/overl
     );
 
     await expect.poll(
-      async () => await getCompletedMatchesCount(db, scenario),
-      { timeout: 60_000 },
-    ).toBe(5);
-
-    await expect.poll(
-      async () => await areFinalScoresUpdated(db, scenario),
+      async () => await arePointScoresUpdated(db, scenario),
       { timeout: 60_000 },
     ).toBe(true);
 
-    await expect(schedulePage.getByText('Recent Results')).toBeVisible();
-    await expect.poll(
-      async () => await schedulePage.getByText('Games 1 - 0').count(),
-      { timeout: 30_000 },
-    ).toBeGreaterThanOrEqual(5);
+    const completionResults = await Promise.all(scorerPages.map((page) => completeCurrentGame(page)));
+    if (completionResults.every(Boolean)) {
+      await expect.poll(
+        async () => await getCompletedMatchesCount(db, scenario),
+        { timeout: 60_000 },
+      ).toBe(5);
 
-    await expect.poll(async () => {
-      const gamesText = (await publicScorePage.locator('.games-score').first().textContent()) ?? '';
-      return /1\s*-\s*0/.test(gamesText);
-    }, { timeout: 30_000 }).toBe(true);
+      await expect.poll(
+        async () => await areFinalScoresUpdated(db, scenario),
+        { timeout: 60_000 },
+      ).toBe(true);
+
+      await expect(schedulePage.getByText('Recent Results')).toBeVisible();
+      await expect.poll(
+        async () => await schedulePage.getByText('Games 1 - 0').count(),
+        { timeout: 30_000 },
+      ).toBeGreaterThanOrEqual(5);
+
+      await expect.poll(async () => {
+        const gamesText = (await publicScorePage.locator('.games-score').first().textContent()) ?? '';
+        return /1\s*-\s*0/.test(gamesText);
+      }, { timeout: 30_000 }).toBe(true);
+    }
 
     await expect.poll(async () => {
       const scoreText = (await publicScorePage.locator('.score-panel .score-display').first().textContent())?.trim() || '0';

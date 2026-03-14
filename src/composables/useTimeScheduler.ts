@@ -1,5 +1,5 @@
 /**
- * Time-First Scheduler for CourtMaster
+ * Time-First Scheduler for CourtMastr
  *
  * Assigns plannedStartAt / plannedEndAt to every match without requiring
  * court assignments.  Court assignment can happen later (manual or auto).

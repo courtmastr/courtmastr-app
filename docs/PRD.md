@@ -1,8 +1,8 @@
-# CourtMaster v2 - Product Requirements Document
+# CourtMastr v2 - Product Requirements Document
 
 ## Overview
 
-CourtMaster v2 is a modern web-based tournament management system designed specifically for badminton tournaments. It provides a complete platform for organizing, running, and scoring competitive tournaments with real-time bracket visualization and mobile-optimized scoring interfaces.
+CourtMastr v2 is a modern web-based tournament management system designed specifically for badminton tournaments. It provides a complete platform for organizing, running, and scoring competitive tournaments with real-time bracket visualization and mobile-optimized scoring interfaces.
 
 The system enables tournament organizers to manage the full lifecycle of a tournament - from creation and player registration through bracket generation, live scoring, and results tracking - all with real-time updates visible to participants and spectators.
 

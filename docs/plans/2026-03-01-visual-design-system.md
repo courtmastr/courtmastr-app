@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Upgrade CourtMaster's visual identity to a sports-energy brand by replacing the icon library split with MDI-only, shifting the palette to Royal Blue + Amber, and introducing Barlow Condensed as the display typeface.
+**Goal:** Upgrade CourtMastr's visual identity to a sports-energy brand by replacing the icon library split with MDI-only, shifting the palette to Royal Blue + Amber, and introducing Barlow Condensed as the display typeface.
 
 **Architecture:** Three independent, sequential areas: (1) icon library consolidation — removes lucide-vue-next and rewrites 3 files; (2) color token update — touches variables.scss and vuetify.ts; (3) font update — touches index.html, variables.scss, and style.scss. No new components; no feature changes.
 

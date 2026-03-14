@@ -1,5 +1,5 @@
 /**
- * Generate placeholder PWA icons for CourtMaster v2
+ * Generate placeholder PWA icons for CourtMastr v2
  * This creates simple placeholder icons with "CM" branding
  */
 
@@ -87,7 +87,7 @@ function generateMaskIcon() {
 }
 
 // Generate all icons
-console.log('Generating PWA icons for CourtMaster v2...\n');
+console.log('Generating PWA icons for CourtMastr v2...\n');
 
 try {
   generateFavicon();

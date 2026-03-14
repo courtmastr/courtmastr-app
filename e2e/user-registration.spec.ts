@@ -9,7 +9,7 @@ test.describe('User Registration (/register)', () => {
   test('should load the registration page', async ({ page }) => {
     // Use heading role to avoid strict-mode violation with the "Create Account" submit button
     await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible();
-    await expect(page.getByText('Join CourtMaster today')).toBeVisible();
+    await expect(page.getByText('Join CourtMastr today')).toBeVisible();
   });
 
   test('should display all registration form fields', async ({ page }) => {

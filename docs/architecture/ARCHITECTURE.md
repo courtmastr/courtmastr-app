@@ -1,6 +1,6 @@
-# CourtMaster v2 - Architecture Overview
+# CourtMastr v2 - Architecture Overview
 
-This document provides a comprehensive overview of CourtMaster's architecture, designed for developers, architects, and technical stakeholders.
+This document provides a comprehensive overview of CourtMastr's architecture, designed for developers, architects, and technical stakeholders.
 
 ## 📋 Table of Contents
 
@@ -20,7 +20,7 @@ This document provides a comprehensive overview of CourtMaster's architecture, d
 
 ## 🎯 System Overview
 
-CourtMaster is a **serverless, cloud-native Progressive Web App** for managing badminton tournaments. It provides real-time tournament management with offline support, designed to operate efficiently in venues with limited connectivity.
+CourtMastr is a **serverless, cloud-native Progressive Web App** for managing badminton tournaments. It provides real-time tournament management with offline support, designed to operate efficiently in venues with limited connectivity.
 
 ### Core Capabilities
 
@@ -165,7 +165,7 @@ CourtMaster is a **serverless, cloud-native Progressive Web App** for managing b
 
 ### Dual Collection Model
 
-CourtMaster uses a **dual collection approach** to balance library compatibility with operational flexibility:
+CourtMastr uses a **dual collection approach** to balance library compatibility with operational flexibility:
 
 ```
 tournaments/{tournamentId}/

@@ -1,4 +1,4 @@
-# CourtMaster v2 - Production Deployment Guide
+# CourtMastr v2 - Production Deployment Guide
 
 ## ✅ Pre-Deployment Tasks Completed
 
@@ -66,7 +66,7 @@ The following preparation tasks have been completed:
    - Rename `apple-touch-icon.png` → `apple-touch-icon.png` (keep name)
 
 **Option 2: Use Existing Logo**
-If you have a CourtMaster logo:
+If you have a CourtMastr logo:
 1. Go to https://realfavicongenerator.net/
 2. Upload your logo
 3. Generate all icons
@@ -88,7 +88,7 @@ npx vite build
 2. Select your production Firebase project
 3. If you don't have one, create it:
    - Click "Add project"
-   - Project name: `CourtMaster Production` (or your choice)
+   - Project name: `CourtMastr Production` (or your choice)
    - Analytics: Optional (recommended)
    - Choose billing account if you have one
 
@@ -137,7 +137,7 @@ Should be enabled by default. If not:
 2. Scroll down to "Your apps" section
 3. If no web app exists:
    - Click the web icon `</>` to add a web app
-   - App nickname: "CourtMaster Web"
+   - App nickname: "CourtMastr Web"
    - ☑ Also set up Firebase Hosting
    - Click "Register app"
 4. Copy the config values (you'll see them like this):
@@ -405,7 +405,7 @@ Look for:
 
 ## 🎉 Deployment Complete!
 
-If all tests passed, your CourtMaster v2 tournament management system is now live in production!
+If all tests passed, your CourtMastr v2 tournament management system is now live in production!
 
 ### Your Deployment URLs:
 - **Web App**: `https://your-project-id.web.app`

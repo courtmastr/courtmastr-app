@@ -1,5 +1,5 @@
 // ============================================
-// CourtMaster v2 - Leaderboard Types
+// CourtMastr v2 - Leaderboard Types
 // ============================================
 
 import type { GameScore, RankingPresetId, RankingProgressionMode } from '@/types';

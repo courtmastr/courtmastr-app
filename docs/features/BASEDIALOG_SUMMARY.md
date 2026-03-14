@@ -2,7 +2,7 @@
 
 ## ✅ Task Completed Successfully
 
-Created a production-ready, reusable dialog component for the CourtMaster v2 application.
+Created a production-ready, reusable dialog component for the CourtMastr v2 application.
 
 ## 📁 Files Created
 
@@ -216,4 +216,4 @@ The component is designed to be used throughout the application:
 
 ## 🎉 Summary
 
-BaseDialog.vue is a production-ready, fully-tested, well-documented reusable dialog component that follows all CourtMaster v2 coding standards and conventions. It's ready to be imported and used throughout the application immediately.
+BaseDialog.vue is a production-ready, fully-tested, well-documented reusable dialog component that follows all CourtMastr v2 coding standards and conventions. It's ready to be imported and used throughout the application immediately.

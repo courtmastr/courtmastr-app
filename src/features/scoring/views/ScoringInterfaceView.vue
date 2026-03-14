@@ -9,6 +9,8 @@ import { useActivityStore } from '@/stores/activities';
 import { useAuthStore } from '@/stores/auth';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import { BADMINTON_CONFIG } from '@/types';
 import { validateCompletedGameScore } from '../utils/validation';
 import ScoreCorrectionDialog from '../components/ScoreCorrectionDialog.vue';
@@ -27,6 +29,8 @@ const { getParticipantName } = useParticipantResolver();
 const tournamentId = computed(() => route.params.tournamentId as string);
 const matchId = computed(() => route.params.matchId as string);
 const match = computed(() => matchStore.currentMatch);
+const tournament = computed(() => tournamentStore.currentTournament);
+const { tournamentLogoUrl } = useTournamentBranding(tournament);
 const loading = ref(false);
 const pageError = ref<string | null>(null);
 const initialized = ref(false);
@@ -464,45 +468,81 @@ const goBack = (): void => {
         lg="8"
       >
         <!-- Header -->
-        <div class="d-flex align-center mb-4">
-          <v-btn
-            icon="mdi-arrow-left"
-            variant="text"
-            @click="goBack()"
-          />
-          <div class="ml-2">
-            <h1 class="text-h6 font-weight-bold">
-              Match #{{ match.matchNumber }}
-            </h1>
-            <p class="text-body-2 text-grey">
-              Round {{ match.round }}
-            </p>
-          </div>
-          <v-spacer />
-          <v-btn
-            v-if="match.status === 'in_progress' || match.status === 'ready'"
-            :variant="manualEntryVariant"
-            size="small"
-            class="mr-2 manual-entry-button"
-            @click="openManualScoreDialog"
-          >
-            <v-icon start>
-              mdi-clipboard-edit
-            </v-icon>
-            {{ manualEntryLabel }}
-          </v-btn>
-          <v-chip
-            :color="match.status === 'in_progress' ? 'success' : 'grey'"
-            size="small"
-          >
-            {{ match.status }}
-          </v-chip>
-        </div>
+        <v-card
+          class="scoring-shell__header mb-4"
+          elevation="0"
+        >
+          <v-card-text class="scoring-shell__header-body pa-4 pa-sm-5">
+            <div class="d-flex align-center flex-wrap ga-3">
+              <div class="scoring-shell__header-brand">
+                <v-btn
+                  icon="mdi-arrow-left"
+                  variant="text"
+                  class="scoring-shell__back-btn"
+                  @click="goBack()"
+                />
+                <TournamentBrandMark
+                  :tournament-name="tournament?.name || 'Tournament'"
+                  :logo-url="tournamentLogoUrl"
+                  fallback-icon="mdi-scoreboard"
+                  :width="72"
+                  :height="72"
+                  class="scoring-shell__brand-mark"
+                />
+                <div>
+                  <div class="text-overline scoring-shell__eyebrow mb-1">
+                    Scorer Station
+                  </div>
+                  <div class="scoring-shell__tournament mb-1">
+                    {{ tournament?.name }}
+                  </div>
+                  <h1 class="text-h5 scoring-shell__title">
+                    Match #{{ match.matchNumber }}
+                  </h1>
+                  <p class="text-body-2 scoring-shell__subtitle">
+                    Round {{ match.round }} • {{ courtName }}
+                  </p>
+                </div>
+              </div>
+              <v-spacer />
+              <div class="d-flex align-center ga-2 flex-wrap scoring-shell__status-row">
+                <v-chip
+                  v-if="categoryName"
+                  color="info"
+                  size="small"
+                  variant="tonal"
+                >
+                  {{ categoryName }}
+                </v-chip>
+                <v-btn
+                  v-if="match.status === 'in_progress' || match.status === 'ready'"
+                  :variant="manualEntryVariant"
+                  size="small"
+                  class="manual-entry-button"
+                  @click="openManualScoreDialog"
+                >
+                  <v-icon start>
+                    mdi-clipboard-edit
+                  </v-icon>
+                  {{ manualEntryLabel }}
+                </v-btn>
+                <v-chip
+                  :color="match.status === 'in_progress' ? 'success' : 'grey'"
+                  size="small"
+                  class="scoring-shell__status-chip"
+                >
+                  {{ match.status }}
+                </v-chip>
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
 
         <!-- Game Score Summary -->
         <v-card
           v-if="match.scores.length > 0"
-          class="mb-4"
+          class="mb-4 scoring-shell__games-summary"
+          elevation="0"
         >
           <v-card-text class="text-center">
             <div class="text-h2 font-weight-bold">
@@ -517,7 +557,8 @@ const goBack = (): void => {
         <!-- Previous Games -->
         <v-card
           v-if="match.scores.filter((s: any) => s.isComplete).length > 0"
-          class="mb-4"
+          class="mb-4 scoring-shell__history"
+          elevation="0"
         >
           <v-card-title class="text-subtitle-1">
             Previous Games
@@ -543,7 +584,8 @@ const goBack = (): void => {
         <!-- Start Match Button -->
         <v-card
           v-if="canStartMatch"
-          class="mb-4 text-center"
+          class="mb-4 text-center scoring-shell__start"
+          elevation="0"
         >
           <v-card-text>
             <p class="text-body-1 mb-4">
@@ -564,7 +606,11 @@ const goBack = (): void => {
         </v-card>
 
         <!-- Scoring Interface -->
-        <v-card v-else-if="match.status === 'in_progress' && currentGame">
+        <v-card
+          v-else-if="match.status === 'in_progress' && currentGame"
+          class="scoring-shell__live"
+          elevation="0"
+        >
           <v-card-text>
             <!-- Current Game Score -->
             <div class="text-center mb-4">
@@ -729,7 +775,8 @@ const goBack = (): void => {
         <!-- Match Complete -->
         <v-card
           v-else-if="isMatchComplete"
-          class="text-center"
+          class="text-center scoring-shell__complete"
+          elevation="0"
         >
           <v-card-text>
             <v-icon
@@ -1007,32 +1054,124 @@ const goBack = (): void => {
 </template>
 
 <style scoped>
+.scoring-shell {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(168deg, rgba(var(--v-theme-primary), 0.07) 0%, rgba(var(--v-theme-surface), 0.95) 43%, rgba(var(--v-theme-secondary), 0.06) 100%);
+}
+
+.scoring-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 10% 7%, rgba(var(--v-theme-primary), 0.2), transparent 36%),
+    radial-gradient(circle at 88% 14%, rgba(var(--v-theme-info), 0.15), transparent 36%),
+    radial-gradient(circle at 52% 96%, rgba(var(--v-theme-secondary), 0.11), transparent 42%);
+  z-index: 0;
+}
+
+.scoring-shell__row {
+  position: relative;
+  z-index: 1;
+  min-height: calc(100vh - 164px);
+}
+
+.scoring-shell__header,
+.scoring-shell__games-summary,
+.scoring-shell__history,
+.scoring-shell__start,
+.scoring-shell__live,
+.scoring-shell__complete {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 20px;
+  background: rgba(var(--v-theme-surface), 0.95);
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.06);
+}
+
+.scoring-shell__header {
+  border-color: rgba(var(--v-theme-primary), 0.16);
+}
+
+.scoring-shell__back-btn {
+  background: rgba(var(--v-theme-primary), 0.08);
+}
+
+.scoring-shell__header-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.scoring-shell__brand-mark {
+  flex-shrink: 0;
+}
+
+.scoring-shell__eyebrow {
+  letter-spacing: 0.14em;
+  color: rgba(var(--v-theme-primary), 0.85);
+}
+
+.scoring-shell__tournament {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(var(--v-theme-on-surface), 0.56);
+}
+
+.scoring-shell__title {
+  font-family: 'Barlow Condensed', 'Inter', sans-serif;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.scoring-shell__subtitle {
+  color: rgba(var(--v-theme-on-surface), 0.68);
+}
+
+.scoring-shell__status-row {
+  justify-content: flex-end;
+}
+
+.scoring-shell__status-chip {
+  text-transform: capitalize;
+  letter-spacing: 0.03em;
+}
+
 .score-card {
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.2s ease;
-  min-height: 200px;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 220px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  border-radius: 18px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  background: rgba(var(--v-theme-surface), 0.9);
 }
 
 .score-card:hover {
-  transform: scale(1.02);
-  border-color: rgb(var(--v-theme-primary));
+  transform: translateY(-2px) scale(1.01);
+  border-color: rgba(var(--v-theme-primary), 0.72);
+  box-shadow: 0 14px 24px rgba(15, 23, 42, 0.11);
 }
 
 .score-card:active {
-  transform: scale(0.98);
+  transform: scale(0.99);
 }
 
 .score-leading {
-  border-color: rgb(var(--v-theme-success));
-  background-color: rgba(var(--v-theme-success), 0.05);
+  border-color: rgba(var(--v-theme-success), 0.52);
+  background-color: rgba(var(--v-theme-success), 0.08);
 }
 
 .score-card--locked {
   border-color: rgba(var(--v-theme-warning), 0.45);
-  background-color: rgba(var(--v-theme-warning), 0.08);
+  background-color: rgba(var(--v-theme-warning), 0.1);
 }
 
 .text-success {
@@ -1049,20 +1188,20 @@ const goBack = (): void => {
   font-size: 1.2rem;
 }
 
-.scoring-shell__row {
-  min-height: calc(100vh - 176px);
-}
-
 .manual-entry-button {
-  opacity: 0.92;
+  opacity: 0.96;
+  min-height: 40px;
+  border-radius: 10px;
 }
 
 .score-card__score {
   line-height: 1;
+  letter-spacing: -0.03em;
 }
 
 .score-card__undo {
   min-height: 48px;
+  border-radius: 12px;
 }
 
 .score-divider {
@@ -1071,7 +1210,7 @@ const goBack = (): void => {
 
 @media (max-width: 599px) {
   .scoring-shell {
-    padding-top: 12px;
+    padding-top: 8px;
   }
 
   .scoring-shell__row {
@@ -1079,17 +1218,54 @@ const goBack = (): void => {
     align-items: flex-start !important;
   }
 
+  .scoring-shell__header,
+  .scoring-shell__games-summary,
+  .scoring-shell__history,
+  .scoring-shell__start,
+  .scoring-shell__live,
+  .scoring-shell__complete {
+    border-radius: 14px;
+  }
+
+  .scoring-shell__header-body {
+    padding: 14px !important;
+  }
+
+  .scoring-shell__header-brand {
+    align-items: flex-start;
+  }
+
+  .scoring-shell__brand-mark {
+    width: 60px;
+    height: 60px;
+  }
+
+  .scoring-shell__title {
+    font-size: 1.35rem !important;
+  }
+
+  .scoring-shell__status-row {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 6px;
+  }
+
   .score-card {
-    min-height: 168px;
-    padding: 20px 16px;
+    min-height: 156px;
+    padding: 16px 12px;
   }
 
   .score-card__score {
-    font-size: 4rem !important;
+    font-size: 3.6rem !important;
   }
 
   .manual-entry-button {
-    min-height: 40px;
+    min-height: 42px;
+    padding-inline: 12px;
+  }
+
+  .score-card__undo {
+    min-height: 44px;
   }
 }
 </style>
