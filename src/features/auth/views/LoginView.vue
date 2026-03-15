@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import BrandLogo from '@/components/common/BrandLogo.vue';
 import { BRAND_NAME } from '@/constants/branding';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 
@@ -82,13 +83,13 @@ async function handleGoogleLogin() {
         <v-card elevation="8">
           <v-card-title class="text-center py-6">
             <div>
-              <img
-                src="@/assets/brand/courtmaster-mark.svg"
+              <BrandLogo
+                variant="mark"
+                :width="48"
+                :height="48"
                 alt="CourtMastr Logo"
-                width="48"
-                height="48"
-                class="mb-2"
-              >
+                class-name="mb-2 mx-auto"
+              />
               <h1 class="text-h5 font-weight-bold">
                 {{ BRAND_NAME }}
               </h1>

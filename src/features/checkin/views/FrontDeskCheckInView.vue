@@ -8,6 +8,7 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import BrandLogo from '@/components/common/BrandLogo.vue';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import BulkCheckInPanel from '@/features/checkin/components/BulkCheckInPanel.vue';
 import RapidCheckInPanel from '@/features/checkin/components/RapidCheckInPanel.vue';
@@ -255,13 +256,13 @@ onUnmounted(() => {
         aria-label="Back to tournament dashboard"
         @click="router.push(`/tournaments/${tournamentId}`)"
       />
-      <img
-        src="/logo.svg"
+      <BrandLogo
+        variant="mark"
+        :width="28"
+        :height="28"
         alt="CourtMastr"
-        class="frontdesk-checkin__app-logo"
-        width="28"
-        height="28"
-      >
+        class-name="frontdesk-checkin__app-logo"
+      />
       <v-toolbar-title class="frontdesk-checkin__toolbar-title">
         <span class="frontdesk-checkin__toolbar-heading">
           Front Desk
@@ -494,10 +495,8 @@ onUnmounted(() => {
 .frontdesk-checkin__app-logo {
   margin-left: 8px;
   margin-right: 10px;
-  filter: brightness(0) invert(1);
-  background-color: rgba(var(--v-theme-primary), 0.9);
-  border-radius: 8px;
-  padding: 3px;
+  border-radius: 10px;
+  box-shadow: 0 8px 16px rgba(var(--v-theme-primary), 0.16);
 }
 
 .frontdesk-checkin__toolbar-title {

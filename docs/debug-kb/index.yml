@@ -1,3 +1,24 @@
+- id: 441cf8f2
+  title: AppLayout public footer test still fails until i18n is module-mocked
+  status: "✅ fixed"
+  date: "2026-03-15"
+  fingerprint: "441cf8f2"
+  command: "npm run test:log -- --run tests/unit/AppLayout.publicFooter.test.ts tests/unit/OverlayBoardView.test.ts tests/unit/SelfRegistrationView.test.ts tests/unit/SelfCheckInView.test.ts tests/unit/FrontDeskCheckInView.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-15-17-56-02.vitest-run-tests-unit-AppLayout-publicFooter-test-.log"
+- id: 98890b86
+  title: AppLayout public footer test fails when i18n reads localStorage during module import
+  status: "✅ fixed"
+  date: "2026-03-15"
+  fingerprint: "98890b86"
+  command: "npm run test:log -- --run tests/unit/AppLayout.publicFooter.test.ts tests/unit/OverlayBoardView.test.ts tests/unit/SelfRegistrationView.test.ts tests/unit/SelfCheckInView.test.ts tests/unit/FrontDeskCheckInView.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-15-17-55-23.vitest-run-tests-unit-AppLayout-publicFooter-test-.log"
+- id: 73e2457c
+  title: lint:log fails on existing repository-wide ESLint baseline violations during UI/UX audit gate
+  status: "🟡 workaround"
+  date: "2026-03-15"
+  fingerprint: "73e2457c"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-15-18-07-13.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 43636cee
   title: lint:log fails on existing repository-wide ESLint baseline violations during release gate
   status: "🟡 workaround"

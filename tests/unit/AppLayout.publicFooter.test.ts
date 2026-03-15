@@ -72,7 +72,22 @@ vi.mock('firebase/storage', () => ({
 
 vi.mock('vuetify', () => ({
   useDisplay: () => ({
-    smAndDown: false,
+    smAndDown: { value: false },
+    mdAndDown: { value: false },
+  }),
+}));
+
+vi.mock('@/i18n', () => ({
+  useI18n: () => ({
+    locale: { value: 'en' },
+    setLocale: vi.fn(),
+    t: (key: string) => {
+      if (key === 'common.englishShort') return 'EN';
+      if (key === 'common.spanishShort') return 'ES';
+      if (key === 'common.login') return 'Login';
+      if (key === 'common.register') return 'Register';
+      return key;
+    },
   }),
 }));
 
@@ -119,6 +134,15 @@ const mountView = () => shallowMount(AppLayout, {
 
 describe('AppLayout public footer', () => {
   beforeEach(() => {
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+      key: vi.fn(),
+      length: 0,
+    });
+
     runtime.route = {
       path: '/',
       name: 'home',

@@ -9,6 +9,7 @@ import LeaderboardSummary from '@/components/leaderboard/LeaderboardSummary.vue'
 import LeaderboardFilters from '@/components/leaderboard/LeaderboardFilters.vue';
 import LeaderboardTable from '@/components/leaderboard/LeaderboardTable.vue';
 import LeaderboardExplainer from '@/components/leaderboard/LeaderboardExplainer.vue';
+import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
 
 const route = useRoute();
 const router = useRouter();
@@ -173,7 +174,7 @@ onMounted(() => {
       <div class="hero-content">
         <div class="hero-icon-wrap">
           <v-icon
-            icon="mdi-podium"
+            :icon="NAVIGATION_ICONS.leaderboard"
             size="32"
             color="white"
           />

@@ -12,7 +12,9 @@ const route = useRoute();
 
 const usesVolunteerLayout = computed(() => route.meta.volunteerLayout === true);
 const isLoading = computed(() => !usesVolunteerLayout.value && authStore.loading);
-const isOverlayRoute = computed(() => route.meta.overlayPage === true);
+const isOverlayRoute = computed(() => (
+  route.meta.overlayPage === true || route.meta.obsOverlay === true
+));
 
 // Toggle 'overlay-page' class on <html> based on route meta for overlay transparency
 watch(

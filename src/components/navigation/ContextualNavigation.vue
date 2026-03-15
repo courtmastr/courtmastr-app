@@ -46,7 +46,7 @@
               @click="openSetupTab"
             >
               <v-icon start>
-                mdi-shape-plus
+                {{ NAVIGATION_ICONS.categories }}
               </v-icon>
               Setup Categories
             </v-btn>
@@ -120,7 +120,7 @@
               @click="navigateToMatchControl"
             >
               <v-icon start>
-                mdi-view-dashboard
+                {{ NAVIGATION_ICONS.matchControl }}
               </v-icon>
               Enter Match Control
             </v-btn>
@@ -138,7 +138,7 @@
               @click="navigateToScoring"
             >
               <v-icon start>
-                mdi-scoreboard
+                {{ NAVIGATION_ICONS.scoreEntry }}
               </v-icon>
               Score Matches
             </v-btn>
@@ -176,7 +176,7 @@
               @click="viewResults"
             >
               <v-icon start>
-                mdi-trophy
+                {{ NAVIGATION_ICONS.leaderboard }}
               </v-icon>
               View Leaderboard
             </v-btn>
@@ -196,6 +196,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
 
 const router = useRouter();
 const tournamentStore = useTournamentStore();

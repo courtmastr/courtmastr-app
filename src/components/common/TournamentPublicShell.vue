@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useReviewStore } from '@/stores/reviews';
+import BrandLogo from '@/components/common/BrandLogo.vue';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import TournamentSponsorStrip from '@/components/common/TournamentSponsorStrip.vue';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
@@ -269,13 +270,13 @@ onUnmounted(() => {
           class="tournament-public-shell__powered-by-link"
           :title="`Tournament software by ${BRAND_NAME}`"
         >
-          <img
-            src="/logo.svg"
+          <BrandLogo
+            variant="mark"
+            :width="20"
+            :height="20"
             :alt="BRAND_NAME"
-            class="tournament-public-shell__powered-by-logo"
-            width="20"
-            height="20"
-          >
+            class-name="tournament-public-shell__powered-by-logo"
+          />
           <span class="tournament-public-shell__powered-by-text">
             {{ BRAND_POWERED_BY }}
           </span>

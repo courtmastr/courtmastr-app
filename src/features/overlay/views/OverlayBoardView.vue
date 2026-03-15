@@ -303,8 +303,8 @@ onUnmounted(() => {
           </h2>
           <div class="up-next-list">
             <div
-              v-for="match in upNextMatches"
-              :key="`next-${match.id}`"
+              v-for="(match, index) in upNextMatches"
+              :key="`next-${match.categoryId}-${match.id}-${index}`"
               class="up-next-item"
             >
               <div class="up-next-court-category">

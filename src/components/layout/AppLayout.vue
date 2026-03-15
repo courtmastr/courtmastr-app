@@ -9,6 +9,7 @@ import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation.v
 import ContextualNavigation from '@/components/navigation/ContextualNavigation.vue';
 import GlobalSearch from '@/components/navigation/GlobalSearch.vue';
 import BaseDialog from '@/components/common/BaseDialog.vue';
+import BrandLogo from '@/components/common/BrandLogo.vue';
 import PublicWebsiteFooter from '@/components/common/PublicWebsiteFooter.vue';
 import { useI18n, type SupportedLocale } from '@/i18n';
 
@@ -22,17 +23,21 @@ const { locale, setLocale, t } = useI18n();
 const drawer = ref(!display.smAndDown.value);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
+const isAuthenticatedAppRoute = computed(() =>
+  isAuthenticated.value && route.meta.requiresAuth === true
+);
+const isSmallScreen = computed(() => display.smAndDown.value);
 const currentUser = computed(() => authStore.currentUser);
 const unreadCount = computed(() => notificationStore.unreadCount);
 
 // Determine when to show different navigation elements
 const showBreadcrumbs = computed(() => {
-  return isAuthenticated.value && !['/', '/tournaments'].includes(route.path);
+  return isAuthenticatedAppRoute.value && !['/', '/tournaments'].includes(route.path);
 });
 
 const showContextualNav = computed(() => {
   return Boolean(
-    isAuthenticated.value &&
+    isAuthenticatedAppRoute.value &&
     route.params.tournamentId &&
     route.name === 'tournament-dashboard'
   );
@@ -46,7 +51,7 @@ const isPublicMarketingRoute = computed(() =>
 );
 
 const showSearch = computed(() => {
-  if (!isAuthenticated.value) return false;
+  if (!isAuthenticatedAppRoute.value) return false;
 
   return (
     route.meta.overlayPage !== true &&
@@ -258,12 +263,11 @@ async function submitBugReport() {
     >Skip to main content</a>
 
     <!-- Main Navigation (Drawer) -->
-    <!-- Main Navigation (Drawer) -->
     <AppNavigation
-      v-if="isAuthenticated"
+      v-if="isAuthenticatedAppRoute"
       v-model:drawer="drawer"
-      :temporary="display.smAndDown"
-      :permanent="!display.smAndDown"
+      :temporary="isSmallScreen"
+      :permanent="!isSmallScreen"
       app
       width="280"
     />
@@ -285,13 +289,13 @@ async function submitBugReport() {
           to="/"
           class="text-decoration-none text-inherit d-flex align-center"
         >
-          <img
-            src="@/assets/brand/courtmaster-lockup.svg"
+          <BrandLogo
+            variant="lockup"
+            :width="180"
+            :height="36"
             alt="CourtMastr Logo"
-            width="180"
-            height="36"
-            class="app-logo"
-          >
+            class-name="app-logo"
+          />
         </router-link>
       </v-toolbar-title>
 

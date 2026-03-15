@@ -330,7 +330,7 @@ watch(currentMatch, (newMatch) => {
         >
           <v-card
             v-for="match in scorableMatches"
-            :key="match.id"
+            :key="`scorable-${match.categoryId}-${match.levelId ?? 'root'}-${match.id}`"
             class="mb-3 public-scoring__surface-card"
             :color="match.status === 'in_progress' ? 'success-lighten-5' : undefined"
             @click="selectMatch(match)"

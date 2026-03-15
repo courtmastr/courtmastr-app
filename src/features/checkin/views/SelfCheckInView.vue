@@ -6,6 +6,7 @@ import { rankItemsByQuery } from '@/features/checkin/composables/checkInSearchUt
 import { useActiveIndexNavigation } from '@/features/checkin/composables/useActiveIndexNavigation';
 import { useSelfCheckIn } from '@/features/checkin/composables/useSelfCheckIn';
 import { useTournamentStore } from '@/stores/tournaments';
+import BrandLogo from '@/components/common/BrandLogo.vue';
 import { BRAND_NAME } from '@/constants/branding';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 
@@ -211,13 +212,13 @@ onUnmounted(() => {
 <template>
   <div class="self-checkin-page">
     <header class="self-checkin-page__header">
-      <img
-        src="/logo.svg"
+      <BrandLogo
+        variant="mark"
+        :width="32"
+        :height="32"
         :alt="BRAND_NAME"
-        class="self-checkin-page__app-logo"
-        width="32"
-        height="32"
-      >
+        class-name="self-checkin-page__app-logo"
+      />
       <div class="self-checkin-page__header-text">
         <span class="self-checkin-page__app-name">{{ BRAND_NAME }}</span>
         <span
@@ -431,7 +432,6 @@ onUnmounted(() => {
 
 .self-checkin-page__app-logo {
   flex-shrink: 0;
-  filter: brightness(0) invert(1);
 }
 
 .self-checkin-page__header-text {

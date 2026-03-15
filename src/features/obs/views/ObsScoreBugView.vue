@@ -6,7 +6,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
-import courtmasterMarkWhite from '@/assets/brand/courtmaster-mark-white.svg';
+import BrandLogo from '@/components/common/BrandLogo.vue';
 import type { Match } from '@/types';
 
 const route = useRoute();
@@ -173,13 +173,13 @@ onUnmounted(() => {
       class="obs-courtmaster-watermark"
       aria-hidden="true"
     >
-      <img
-        :src="courtmasterMarkWhite"
-        alt=""
-        width="16"
-        height="16"
-        class="obs-courtmaster-watermark__logo"
-      >
+      <BrandLogo
+        variant="mark-white"
+        :width="16"
+        :height="16"
+        decorative
+        class-name="obs-courtmaster-watermark__logo"
+      />
       <span class="obs-courtmaster-watermark__text">CourtMastr</span>
     </div>
   </div>
