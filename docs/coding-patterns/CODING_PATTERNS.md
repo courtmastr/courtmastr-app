@@ -3459,6 +3459,55 @@ rg -n "getCompletedMatchesCount\\(db, scenario\\)|Recent Results|Games 1 - 0" e2
 
 ---
 
+### CP-070: Public Homepage Fallbacks Must Stay User-Facing and Relevant
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-15 |
+| **Source Bug** | Homepage credibility strip showed raw failure copy ("Unable to load featured tournament metrics.") and placeholder `--` values when live data fetch failed |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+if (!featuredMetrics.value) {
+  return [
+    { label: 'Registered', value: '--' },
+    { label: 'Completed Matches', value: '--' },
+    { label: 'Check-In Rate', value: '--' },
+  ];
+}
+
+return featuredMetricsError.value || 'Featured tournament metrics are temporarily unavailable.';
+```
+
+**Correct Pattern (✅):**
+```typescript
+if (!featuredMetrics.value) {
+  return [
+    { label: 'Player Registration', value: 'Live Roster' },
+    { label: 'Match Operations', value: 'Real-Time Scores' },
+    { label: 'Check-In Workflow', value: 'Self + Front Desk' },
+  ];
+}
+```
+```typescript
+if (!hasFeaturedTournament.value) {
+  return 'Featured event metrics will appear here once a tournament is selected.';
+}
+
+return 'Live featured tournament metrics are temporarily unavailable. Showing core workflow highlights instead.';
+```
+
+**Rule:** Public marketing surfaces must not show raw backend/internal errors or low-information placeholders. When live metrics fail, show user-facing, context-relevant fallback content.
+
+**Detection:**
+```bash
+rg -n "Unable to load featured tournament metrics\\.|Set VITE_MARKETING_FEATURED_TOURNAMENT_ID|value: '--'" src/features/public/views/HomeView.vue src/composables/useFeaturedTournamentMetrics.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

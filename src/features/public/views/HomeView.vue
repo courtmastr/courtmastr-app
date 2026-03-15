@@ -35,7 +35,6 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
 const {
   hasFeaturedTournament,
   loading: featuredMetricsLoading,
-  errorMessage: featuredMetricsError,
   metrics: featuredMetrics,
   loadMetrics,
 } = useFeaturedTournamentMetrics();
@@ -102,9 +101,9 @@ const fallbackReviews: ReviewRecord[] = [
 const credibilityStats = computed(() => {
   if (!featuredMetrics.value) {
     return [
-      { label: 'Registered', value: '--' },
-      { label: 'Completed Matches', value: '--' },
-      { label: 'Check-In Rate', value: '--' },
+      { label: 'Player Registration', value: 'Live Roster' },
+      { label: 'Match Operations', value: 'Real-Time Scores' },
+      { label: 'Check-In Workflow', value: 'Self + Front Desk' },
     ];
   }
 
@@ -117,7 +116,7 @@ const credibilityStats = computed(() => {
 
 const featuredMetricsFallbackMessage = computed(() => {
   if (featuredMetricsLoading.value) {
-    return 'Loading real tournament metrics...';
+    return 'Loading live featured tournament metrics...';
   }
 
   if (featuredMetrics.value) {
@@ -125,10 +124,10 @@ const featuredMetricsFallbackMessage = computed(() => {
   }
 
   if (!hasFeaturedTournament.value) {
-    return 'Set VITE_MARKETING_FEATURED_TOURNAMENT_ID to show live tournament metrics.';
+    return 'Featured event metrics will appear here once a tournament is selected.';
   }
 
-  return featuredMetricsError.value || 'Featured tournament metrics are temporarily unavailable.';
+  return 'Live featured tournament metrics are temporarily unavailable. Showing core workflow highlights instead.';
 });
 
 const reviewsForDisplay = computed(() => (

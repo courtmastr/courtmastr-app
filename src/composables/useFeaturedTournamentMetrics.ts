@@ -28,7 +28,7 @@ export const useFeaturedTournamentMetrics = () => {
 
   const loadMetrics = async (): Promise<void> => {
     if (!hasFeaturedTournament.value) {
-      errorMessage.value = 'Featured tournament is not configured.';
+      errorMessage.value = 'Featured event metrics are not configured yet.';
       metrics.value = null;
       return;
     }
@@ -64,8 +64,11 @@ export const useFeaturedTournamentMetrics = () => {
       };
     } catch (error) {
       metrics.value = null;
-      errorMessage.value = 'Unable to load featured tournament metrics.';
-      console.error('Error loading featured tournament metrics:', error);
+      errorMessage.value = 'Live featured tournament metrics are temporarily unavailable.';
+      console.error('Error loading featured tournament metrics:', {
+        featuredTournamentId: featuredTournamentId.value,
+        error,
+      });
     } finally {
       loading.value = false;
     }
