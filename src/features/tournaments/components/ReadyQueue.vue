@@ -194,7 +194,10 @@ function isSelected(match: Match): boolean {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: rgb(var(--v-theme-background));
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .ready-queue__header {
@@ -203,7 +206,9 @@ function isSelected(match: Match): boolean {
 
 .ready-queue__list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .ready-queue__item {
@@ -226,5 +231,11 @@ function isSelected(match: Match): boolean {
   align-items: center;
   justify-content: center;
   opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ready-queue__item {
+    transition: none;
+  }
 }
 </style>

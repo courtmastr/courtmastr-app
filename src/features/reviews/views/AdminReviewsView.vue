@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useReviewStore } from '@/stores/reviews';
 import type { ReviewRecord, ReviewStatus } from '@/types';
+import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
 
 type ModerationFilter = ReviewStatus;
 
@@ -88,7 +89,8 @@ onUnmounted(() => {
               <p class="text-overline admin-reviews__eyebrow mb-1">
                 Webapp Admin
               </p>
-              <h1 class="text-h4 mb-1">
+              <h1 class="text-h4 mb-1 d-flex align-center ga-2">
+                <v-icon :icon="NAVIGATION_ICONS.reviewModeration" size="26" color="secondary" />
                 Review Moderation
               </h1>
               <p class="text-body-2 text-medium-emphasis mb-0">

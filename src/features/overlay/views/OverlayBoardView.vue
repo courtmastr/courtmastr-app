@@ -6,6 +6,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useAnnouncements } from '@/composables/useAnnouncements';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import type { Court, GameScore, Match } from '@/types';
@@ -38,6 +39,13 @@ const { normalizedSponsors, tournamentLogoUrl } = useTournamentBranding(tourname
 const courts = computed(() => tournamentStore.courts);
 const carouselPage = ref(0);
 let carouselInterval: ReturnType<typeof setInterval> | null = null;
+
+usePublicPageMetadata({
+  title: 'Broadcast Overlay Board',
+  description: 'CourtMastr broadcast board overlay for multi-court production feeds.',
+  canonicalPath: route.path,
+  noIndex: true,
+});
 
 const shouldUseCarousel = computed(() => courts.value.length > COURTS_PER_PAGE);
 const totalCourtPages = computed(() =>
@@ -295,8 +303,8 @@ onUnmounted(() => {
           </h2>
           <div class="up-next-list">
             <div
-              v-for="match in upNextMatches"
-              :key="`next-${match.id}`"
+              v-for="(match, index) in upNextMatches"
+              :key="`next-${match.categoryId}-${match.id}-${index}`"
               class="up-next-item"
             >
               <div class="up-next-court-category">

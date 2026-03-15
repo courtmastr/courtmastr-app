@@ -1,0 +1,22 @@
+export const NAVIGATION_ICONS = {
+  tournaments: 'mdi-format-list-bulleted',
+  createTournament: 'mdi-plus-circle',
+  reviewModeration: 'mdi-message-badge',
+  dashboard: 'mdi-view-dashboard',
+  matchControl: 'mdi-controller',
+  checkIn: 'mdi-account-check',
+  liveView: 'mdi-monitor-eye',
+  brackets: 'mdi-tournament',
+  smartBracket: 'mdi-source-branch',
+  leaderboard: 'mdi-trophy',
+  categories: 'mdi-tag-multiple',
+  courts: 'mdi-stadium',
+  registrations: 'mdi-account-multiple',
+  publicBracket: 'mdi-tournament',
+  publicSchedule: 'mdi-calendar-clock',
+  scoreEntry: 'mdi-scoreboard',
+  overlayLinks: 'mdi-cast',
+  settings: 'mdi-cog',
+  logout: 'mdi-logout',
+} as const;
+

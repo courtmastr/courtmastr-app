@@ -25,6 +25,8 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --cm-focus-ring: 2px solid rgba(29, 78, 216, 0.84);
+  --cm-focus-offset: 2px;
 }
 
 body {
@@ -46,6 +48,16 @@ h1, h2, h3, h4 {
 /* Typography Utilities */
 .text-gradient {
   color: $primary-base;
+}
+
+.cm-themed-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent !important;
+  background: linear-gradient(135deg, $primary-base 0%, $info 58%, $secondary-base 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
 }
 
 /* Smooth Transitions */
@@ -109,6 +121,24 @@ button,
 
 .rounded-xl {
   border-radius: $border-radius-xl;
+}
+
+/* Reusable panel balancing utility for data-dense two-column sections */
+.cm-balanced-panels {
+  --cm-panel-height: clamp(420px, 58vh, 760px);
+}
+
+@media (min-width: 1280px) {
+  .cm-balanced-panels__col {
+    display: flex;
+    min-height: 0;
+  }
+
+  .cm-balanced-panels__pane {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: var(--cm-panel-height);
+  }
 }
 
 /* Animation Keyframes */
@@ -397,8 +427,8 @@ button,
 
 // Accessibility enhancements — keyboard focus ring for non-Vuetify elements
 :focus-visible {
-  outline: 2px solid $primary-base !important;
-  outline-offset: 2px;
+  outline: var(--cm-focus-ring) !important;
+  outline-offset: var(--cm-focus-offset);
 }
 // Vuetify form fields have their own focused-state indicators; suppress the browser ring
 .v-field :focus-visible,
@@ -428,5 +458,6 @@ button,
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

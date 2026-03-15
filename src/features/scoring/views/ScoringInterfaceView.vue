@@ -479,6 +479,7 @@ const goBack = (): void => {
                   icon="mdi-arrow-left"
                   variant="text"
                   class="scoring-shell__back-btn"
+                  aria-label="Back to match list"
                   @click="goBack()"
                 />
                 <TournamentBrandMark

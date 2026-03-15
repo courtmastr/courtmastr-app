@@ -42,6 +42,7 @@ import { TOURNAMENT_STATUS_LABELS } from '@/types';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useTournamentStore } from '@/stores/tournaments';
+import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
 
 const router = useRouter();
 const route = useRoute();
@@ -110,7 +111,7 @@ const searchResults = computed((): SearchResult[] => {
         title: tournament.name,
         subtitle: `Tournament • ${TOURNAMENT_STATUS_LABELS[tournament.status]}`,
         path: `/tournaments/${tournament.id}`,
-        icon: 'mdi-tournament',
+        icon: NAVIGATION_ICONS.dashboard,
       });
     });
   }
@@ -119,7 +120,7 @@ const searchResults = computed((): SearchResult[] => {
     title: 'All Tournaments',
     subtitle: 'View and manage tournaments',
     path: '/tournaments',
-    icon: 'mdi-view-dashboard',
+    icon: NAVIGATION_ICONS.tournaments,
   });
 
   if (authStore.isOrganizer) {
@@ -127,7 +128,7 @@ const searchResults = computed((): SearchResult[] => {
       title: 'Create Tournament',
       subtitle: 'Start a new tournament',
       path: '/tournaments/create',
-      icon: 'mdi-plus-circle',
+      icon: NAVIGATION_ICONS.createTournament,
     });
   }
 
@@ -138,7 +139,7 @@ const searchResults = computed((): SearchResult[] => {
       title: 'Tournament Leaderboard',
       subtitle: 'View standings and tiebreakers',
       path: `/tournaments/${tournamentId}/leaderboard`,
-      icon: 'mdi-podium-gold',
+      icon: NAVIGATION_ICONS.leaderboard,
     });
 
     if (authStore.isOrganizer) {
@@ -146,14 +147,14 @@ const searchResults = computed((): SearchResult[] => {
         title: 'Match Control',
         subtitle: 'Queue, courts, and live operations',
         path: `/tournaments/${tournamentId}/match-control`,
-        icon: 'mdi-controller',
+        icon: NAVIGATION_ICONS.matchControl,
       });
 
       addResult({
         title: 'Manage Registrations',
         subtitle: 'Approve and manage participants',
         path: `/tournaments/${tournamentId}/registrations`,
-        icon: 'mdi-account-multiple',
+        icon: NAVIGATION_ICONS.registrations,
       });
     }
 
@@ -162,7 +163,7 @@ const searchResults = computed((): SearchResult[] => {
         title: 'Score Matches',
         subtitle: 'Open active and ready matches',
         path: `/tournaments/${tournamentId}/matches`,
-        icon: 'mdi-scoreboard',
+        icon: NAVIGATION_ICONS.scoreEntry,
       });
     }
   }

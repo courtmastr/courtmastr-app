@@ -1,0 +1,118 @@
+<h2>Stats Structure: Sport → Category</h2>
+<p class="subtitle">Two-level stats on the global player document, dynamically keyed</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+
+  <!-- Firestore document structure -->
+  <div style="background:#1e1e2e;border:2px solid #7c3aed;border-radius:12px;padding:16px">
+    <div style="color:#a78bfa;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">/players/{playerId} — stats field</div>
+    <pre style="background:#0f172a;border-radius:8px;padding:14px;font-size:11px;color:#e2e8f0;line-height:1.7;overflow:auto">stats: {
+  <span style="color:#34d399">tennis</span>: {
+    <span style="color:#60a5fa">singles</span>:  { wins, losses, gamesPlayed, tournamentsPlayed }
+    <span style="color:#60a5fa">doubles</span>:  { wins, losses, gamesPlayed, tournamentsPlayed }
+    <span style="color:#60a5fa">mixed</span>:    { wins, losses, gamesPlayed, tournamentsPlayed }
+  }
+  <span style="color:#34d399">pickleball</span>: {
+    <span style="color:#60a5fa">singles</span>:  { wins, losses, gamesPlayed, tournamentsPlayed }
+    <span style="color:#60a5fa">doubles</span>:  { wins, losses, gamesPlayed, tournamentsPlayed }
+    <span style="color:#60a5fa">mixed</span>:    { wins, losses, gamesPlayed, tournamentsPlayed }
+  }
+  <span style="color:#34d399">badminton</span>: {
+    <span style="color:#60a5fa">singles</span>:  { wins, losses, gamesPlayed, tournamentsPlayed }
+    <span style="color:#60a5fa">doubles</span>:  { wins, losses, gamesPlayed, tournamentsPlayed }
+  }
+}</pre>
+    <div style="margin-top:10px;font-size:10px;color:#64748b;line-height:1.6">
+      Dynamic map — sports are added automatically as the player registers in new sports. No schema change needed when a new sport is introduced.
+    </div>
+  </div>
+
+  <!-- Where sport comes from -->
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div style="background:#1e1e2e;border:2px solid #0ea5e9;border-radius:12px;padding:14px">
+      <div style="color:#38bdf8;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Tournament doc — one new field</div>
+      <pre style="background:#0f172a;border-radius:6px;padding:10px;font-size:11px;color:#e2e8f0;line-height:1.6">{
+  name: "Summer Open",
+  <span style="color:#fbbf24">sport: "tennis"</span>  ← NEW
+  orgId: "...",
+  ...existing fields
+}</pre>
+      <div style="font-size:10px;color:#64748b;margin-top:6px">One sport per tournament. The Cloud Function reads <code style="color:#94a3b8">tournament.sport</code> to know which bucket to update.</div>
+    </div>
+
+    <div style="background:#1e1e2e;border:2px solid #34d399;border-radius:12px;padding:14px">
+      <div style="color:#34d399;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Category doc — already has type</div>
+      <pre style="background:#0f172a;border-radius:6px;padding:10px;font-size:11px;color:#e2e8f0;line-height:1.6">{
+  name: "Men's Singles",
+  <span style="color:#60a5fa">type: "singles"</span>  ← already exists
+  gender: "men",
+  ...
+}</pre>
+      <div style="font-size:10px;color:#64748b;margin-top:6px">Category type (singles/doubles/mixed) already exists. No change needed here.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Cloud Function logic -->
+<div style="margin-top:16px;background:#0f172a;border-radius:12px;padding:18px">
+  <div style="color:#e2e8f0;font-size:13px;font-weight:600;margin-bottom:12px">Cloud Function: how it updates stats</div>
+  <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;font-size:11px">
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+      <div style="color:#64748b;font-size:10px;margin-bottom:4px">1. Match result saved</div>
+      <div style="color:#f1f5f9">match_scores written<br><span style="color:#64748b">→ trigger fires</span></div>
+    </div>
+    <div style="color:#475569;padding-top:14px">→</div>
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+      <div style="color:#64748b;font-size:10px;margin-bottom:4px">2. Function reads</div>
+      <div style="color:#f1f5f9">tournament.<span style="color:#fbbf24">sport</span><br>category.<span style="color:#60a5fa">type</span><br>registration.playerId(s)</div>
+    </div>
+    <div style="color:#475569;padding-top:14px">→</div>
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+      <div style="color:#64748b;font-size:10px;margin-bottom:4px">3. Atomic update</div>
+      <div style="color:#f1f5f9">stats.<span style="color:#34d399">tennis</span>.<span style="color:#60a5fa">singles</span>.wins<br><span style="color:#a78bfa">increment(1)</span> on player doc</div>
+    </div>
+    <div style="color:#475569;padding-top:14px">→</div>
+    <div style="background:#1e293b;border:1px solid #34d399;border-radius:8px;padding:10px 14px">
+      <div style="color:#64748b;font-size:10px;margin-bottom:4px">4. Doubles/Mixed</div>
+      <div style="color:#f1f5f9">Both partners updated<br>in one <span style="color:#a78bfa">batch write</span></div>
+    </div>
+  </div>
+  <div style="margin-top:12px;font-size:11px;color:#64748b">
+    Firestore <code style="color:#94a3b8">FieldValue.increment()</code> is atomic — no race conditions even if two matches finish at the same time.
+  </div>
+</div>
+
+<!-- Player profile view -->
+<div style="margin-top:14px;background:#0f172a;border-radius:12px;padding:18px">
+  <div style="color:#e2e8f0;font-size:13px;font-weight:600;margin-bottom:12px">Rafael's Player Profile — what it looks like</div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    <div style="background:#1e293b;border:1px solid #34d399;border-radius:10px;padding:12px;min-width:160px">
+      <div style="color:#34d399;font-weight:700;font-size:12px;margin-bottom:8px">🎾 Tennis</div>
+      <div style="font-size:10px;color:#94a3b8;line-height:1.8">
+        <div style="color:#60a5fa;font-weight:600">Singles</div>
+        <div>W 12 · L 4 · 3 tournaments</div>
+        <div style="color:#60a5fa;font-weight:600;margin-top:4px">Doubles</div>
+        <div>W 8 · L 6 · 2 tournaments</div>
+      </div>
+    </div>
+    <div style="background:#1e293b;border:1px solid #60a5fa;border-radius:10px;padding:12px;min-width:160px">
+      <div style="color:#60a5fa;font-weight:700;font-size:12px;margin-bottom:8px">🏓 Pickleball</div>
+      <div style="font-size:10px;color:#94a3b8;line-height:1.8">
+        <div style="color:#60a5fa;font-weight:600">Singles</div>
+        <div>W 5 · L 2 · 1 tournament</div>
+        <div style="color:#60a5fa;font-weight:600;margin-top:4px">Mixed</div>
+        <div>W 3 · L 3 · 1 tournament</div>
+      </div>
+    </div>
+    <div style="background:#1e293b;border:1px solid #f472b6;border-radius:10px;padding:12px;min-width:160px">
+      <div style="color:#f472b6;font-weight:700;font-size:12px;margin-bottom:8px">🏸 Badminton</div>
+      <div style="font-size:10px;color:#94a3b8;line-height:1.8">
+        <div style="color:#60a5fa;font-weight:600">Doubles</div>
+        <div>W 6 · L 2 · 2 tournaments</div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:10px;font-size:10px;color:#64748b">Filter tabs on the profile page: All · Tennis · Pickleball · Badminton</div>
+</div>
+
+<p class="subtitle" style="margin-top:16px">New fields needed: <strong>Tournament.sport</strong> (e.g. "tennis") and <strong>Tournament.orgId</strong>. That's it. Does this match what you pictured?</p>

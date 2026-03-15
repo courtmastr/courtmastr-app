@@ -5,7 +5,9 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { usePwaInstallPrompt } from '@/composables/usePwaInstallPrompt';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { BRAND_INSTALL_PROMPT_TITLE } from '@/constants/branding';
 import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import LiveBadge from '@/components/common/LiveBadge.vue';
 import type { Match } from '@/types';
@@ -19,6 +21,7 @@ const { getParticipantName } = useParticipantResolver();
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const courts = computed(() => tournamentStore.courts);
+const canonicalPath = computed(() => `/tournaments/${tournamentId.value}/score`);
 
 // View state
 const selectedMatch = ref<Match | null>(null);
@@ -71,6 +74,19 @@ const gamesWon = computed(() => {
 const isMatchComplete = computed(() => {
   return selectedMatch.value?.status === 'completed' || selectedMatch.value?.status === 'walkover';
 });
+
+watch(
+  [tournament, canonicalPath],
+  ([activeTournament, canonical]) => {
+    const tournamentName = activeTournament?.name?.trim() || 'Tournament';
+    usePublicPageMetadata({
+      title: `${tournamentName} Scoring`,
+      description: `Live point-by-point match scoring for ${tournamentName}.`,
+      canonicalPath: canonical,
+    });
+  },
+  { immediate: true }
+);
 
 const handleInstallApp = async (): Promise<void> => {
   try {
@@ -248,6 +264,7 @@ watch(currentMatch, (newMatch) => {
             v-if="scoringMode"
             icon="mdi-arrow-left"
             variant="text"
+            aria-label="Back to match queue"
             @click="backToList"
           />
         </div>
@@ -261,7 +278,7 @@ watch(currentMatch, (newMatch) => {
         <v-card-text class="d-flex align-center justify-space-between flex-wrap ga-3">
           <div>
             <p class="public-scoring__install-eyebrow mb-1">
-              Install CourtMastr
+              {{ BRAND_INSTALL_PROMPT_TITLE }}
             </p>
             <p class="text-body-2 text-medium-emphasis mb-0">
               Keep the scoring station one tap away for volunteers and spectators following live results.
@@ -313,7 +330,7 @@ watch(currentMatch, (newMatch) => {
         >
           <v-card
             v-for="match in scorableMatches"
-            :key="match.id"
+            :key="`scorable-${match.categoryId}-${match.levelId ?? 'root'}-${match.id}`"
             class="mb-3 public-scoring__surface-card"
             :color="match.status === 'in_progress' ? 'success-lighten-5' : undefined"
             @click="selectMatch(match)"
@@ -458,7 +475,12 @@ watch(currentMatch, (newMatch) => {
                     'score-panel-updating': isUpdatingScore
                   }"
                   :style="{ opacity: (isUpdatingScore || isStartingMatch) ? 0.7 : 1 }"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="`Add point for ${getParticipantName(selectedMatch.participant1Id)}`"
                   @click="!isUpdatingScore && !isStartingMatch && addPoint('participant1')"
+                  @keydown.enter.prevent="!isUpdatingScore && !isStartingMatch && addPoint('participant1')"
+                  @keydown.space.prevent="!isUpdatingScore && !isStartingMatch && addPoint('participant1')"
                 >
                   <div class="score-panel-content">
                     <div class="player-name">
@@ -472,6 +494,7 @@ watch(currentMatch, (newMatch) => {
                       size="large"
                       variant="text"
                       class="score-decrement"
+                      :aria-label="`Remove point for ${getParticipantName(selectedMatch.participant1Id)}`"
                       :disabled="(currentGame?.score1 || 0) === 0 || isUpdatingScore"
                       @click.stop="removePoint('participant1')"
                     >
@@ -495,7 +518,12 @@ watch(currentMatch, (newMatch) => {
                     'score-panel-updating': isUpdatingScore
                   }"
                   :style="{ opacity: (isUpdatingScore || isStartingMatch) ? 0.7 : 1 }"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="`Add point for ${getParticipantName(selectedMatch.participant2Id)}`"
                   @click="!isUpdatingScore && !isStartingMatch && addPoint('participant2')"
+                  @keydown.enter.prevent="!isUpdatingScore && !isStartingMatch && addPoint('participant2')"
+                  @keydown.space.prevent="!isUpdatingScore && !isStartingMatch && addPoint('participant2')"
                 >
                   <div class="score-panel-content">
                     <div class="player-name">
@@ -509,6 +537,7 @@ watch(currentMatch, (newMatch) => {
                       size="large"
                       variant="text"
                       class="score-decrement"
+                      :aria-label="`Remove point for ${getParticipantName(selectedMatch.participant2Id)}`"
                       :disabled="(currentGame?.score2 || 0) === 0 || isUpdatingScore"
                       @click.stop="removePoint('participant2')"
                     >
@@ -684,7 +713,7 @@ watch(currentMatch, (newMatch) => {
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   color: #424242;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease, transform 0.3s ease;
 }
 
 .game-score-number.leading {
@@ -715,7 +744,7 @@ watch(currentMatch, (newMatch) => {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   background: linear-gradient(to bottom, #fafafa, #f5f5f5);
   border-right: 2px solid #e0e0e0;
   position: relative;
@@ -729,6 +758,11 @@ watch(currentMatch, (newMatch) => {
 .score-panel:active {
   transform: scale(0.98);
   background: linear-gradient(to bottom, #e3f2fd, #bbdefb);
+}
+
+.score-panel:focus-visible {
+  outline: 3px solid rgba(var(--v-theme-primary), 0.6);
+  outline-offset: -3px;
 }
 
 .score-panel-leading {
@@ -787,7 +821,7 @@ watch(currentMatch, (newMatch) => {
 
 .score-decrement {
   color: #757575;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
 }
 
 .score-decrement:hover:not(:disabled) {
@@ -840,6 +874,18 @@ watch(currentMatch, (newMatch) => {
 @media (min-width: 601px) and (max-width: 960px) {
   .score-display {
     font-size: 5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-score-number,
+  .score-panel,
+  .score-decrement {
+    transition: none;
+  }
+
+  .score-panel-updating {
+    animation: none;
   }
 }
 </style>

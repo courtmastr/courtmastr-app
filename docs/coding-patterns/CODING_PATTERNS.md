@@ -3508,6 +3508,147 @@ rg -n "Unable to load featured tournament metrics\\.|Set VITE_MARKETING_FEATURED
 
 ---
 
+### CP-071: Match Score Listeners Must Apply Incremental Overlays Before Full Scope Refetch
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-15 |
+| **Source Bug** | Live scoring screens triggered full scope `fetchMatches()` on every `match_scores` update, causing read amplification and UI lag in multi-category tournaments |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+onSnapshot(collection(db, scoresPath), () => fetchMatches(tournamentId, categoryId, levelId));
+```
+
+**Correct Pattern (✅):**
+```typescript
+onSnapshot(collection(db, scoresPath), (snapshot) => {
+  const changes = snapshot.docChanges().map(change => ({
+    type: change.type,
+    id: change.doc.id,
+    data: change.type === 'removed' ? undefined : change.doc.data(),
+  }));
+  const { requiresRefresh } = applyScoreChangesToLocalState(changes, categoryId, levelId);
+  if (requiresRefresh) fetchMatches(tournamentId, categoryId, levelId);
+});
+```
+
+**Rule:** Realtime `match_scores` listeners must patch in-memory matches from `docChanges()` and only run scoped full reloads for structural misses (`removed` docs or unknown matches). Avoid full scope refetches for ordinary score/status updates.
+
+**Detection:**
+```bash
+rg -n "onSnapshot\\(collection\\(db, .*match_scores.*\\), \\(\\) => .*fetchMatches\\(" src/stores/matches.ts
+rg -n "applyScoreChangesToLocalState\\(" src/stores/matches.ts
+```
+
+---
+
+### CP-072: `useDisplay()` Refs Must Be Unwrapped Before Binding to Vuetify Boolean Props
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-15 |
+| **Source Bug** | App shell emitted repeated runtime warnings: `Invalid prop: type check failed for prop "temporary". Expected Boolean, got Object` |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<AppNavigation
+  :temporary="display.smAndDown"
+  :permanent="!display.smAndDown"
+/>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const isSmallScreen = computed(() => display.smAndDown.value);
+```
+```vue
+<AppNavigation
+  :temporary="isSmallScreen"
+  :permanent="!isSmallScreen"
+/>
+```
+
+**Rule:** Values returned by `useDisplay()` are refs. When passing to strict boolean props, always bind unwrapped booleans (`.value` or computed wrappers), not the ref object.
+
+**Detection:**
+```bash
+rg -n ":temporary=\"display\\.[a-zA-Z]+\"|:permanent=\"!display\\.[a-zA-Z]+\"" src/components --glob "*.vue"
+```
+
+---
+
+### CP-073: OBS Overlay Routes Must Bypass App Shell Layout
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-15 |
+| **Source Bug** | `/obs/*` overlays rendered inside `AppLayout` (header/drawer visible), breaking broadcast framing on web and mobile |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const isOverlayRoute = computed(() => route.meta.overlayPage === true);
+```
+
+**Correct Pattern (✅):**
+```typescript
+const isOverlayRoute = computed(() => (
+  route.meta.overlayPage === true || route.meta.obsOverlay === true
+));
+```
+
+**Rule:** Root app shell checks must include both classic overlay routes and OBS overlay routes so broadcast views render standalone without nav chrome.
+
+**Detection:**
+```bash
+rg -n "route\\.meta\\.overlayPage === true\\)" src/App.vue
+rg -n "obsOverlay" src/router/index.ts src/App.vue
+```
+
+---
+
+### CP-074: Cross-Category Match Lists Must Use Composite Vue Keys
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-15 |
+| **Source Bug** | Public scoring emitted runtime warnings (`Duplicate keys found during update: "1"`, `"2"`, etc.) when matches from multiple categories shared the same `match.id` |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-card
+  v-for="match in scorableMatches"
+  :key="match.id"
+>
+```
+
+**Correct Pattern (✅):**
+```vue
+<v-card
+  v-for="match in scorableMatches"
+  :key="`scorable-${match.categoryId}-${match.levelId ?? 'root'}-${match.id}`"
+>
+```
+
+**Rule:** Any list that can combine matches across categories or levels must use a composite key (`categoryId`, optional `levelId`, and `match.id`). `match.id` alone is not globally unique.
+
+**Detection:**
+```bash
+if rg -n 'v-for="match in scorableMatches"' src/features/public/views/PublicScoringView.vue >/dev/null && rg -n ':key="match.id"' src/features/public/views/PublicScoringView.vue >/dev/null; then
+  echo "Violation: PublicScoringView uses non-unique match keys"
+fi
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

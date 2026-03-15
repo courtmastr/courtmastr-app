@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { useAuthStore } from '@/stores/auth';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
+import BrandIconBadge from '@/components/common/BrandIconBadge.vue';
+import PublicMarketingPageShell from '@/features/public/components/PublicMarketingPageShell.vue';
+import { BRAND_ATTRIBUTION, BRAND_POWERED_BY } from '@/constants/branding';
 
 usePublicPageMetadata({
   title: 'Pricing',
@@ -9,99 +12,126 @@ usePublicPageMetadata({
   canonicalPath: '/pricing',
 });
 
+interface BetaFeature {
+  title: string;
+  icon: string;
+  tone: 'primary' | 'secondary' | 'success';
+}
+
 const authStore = useAuthStore();
 const isAuthenticated = computed(() => authStore.isAuthenticated);
+
+const betaFeatures: BetaFeature[] = [
+  {
+    title: 'Live scoring and public spectator pages',
+    icon: 'mdi-scoreboard',
+    tone: 'primary',
+  },
+  {
+    title: 'Bracket and schedule management',
+    icon: 'mdi-tournament',
+    tone: 'secondary',
+  },
+  {
+    title: 'Self check-in and front-desk operations support',
+    icon: 'mdi-account-check',
+    tone: 'success',
+  },
+  {
+    title: 'OBS-ready overlays and branded tournament surfaces',
+    icon: 'mdi-cast-connected',
+    tone: 'primary',
+  },
+];
 </script>
 
 <template>
-  <v-container class="py-10">
-    <v-row justify="center">
-      <v-col
-        cols="12"
-        md="10"
-        lg="7"
+  <PublicMarketingPageShell
+    eyebrow="Pricing"
+    title="Free Beta Access"
+    subtitle="CourtMastr is currently free during beta while we harden tournament workflows with organizer feedback."
+    :max-width="980"
+  >
+    <template #actions>
+      <v-btn
+        v-if="!isAuthenticated"
+        color="primary"
+        to="/register"
       >
-        <v-card class="pa-6 pa-md-8 pricing-hero">
-          <p class="text-overline pricing-eyebrow mb-2">
-            Pricing
-          </p>
-          <h1 class="text-h3 mb-3 pricing-title">
-            Free Beta Access
-          </h1>
-          <p class="text-body-1 text-medium-emphasis mb-4">
-            CourtMastr is currently free during our beta period. Run tournaments now and keep full access while we refine the platform.
-          </p>
-          <p class="text-body-2 text-medium-emphasis mb-4">
-            by CourtMastr / powered by CourtMastr
-          </p>
+        Start Free Beta
+      </v-btn>
+      <v-btn
+        v-if="!isAuthenticated"
+        variant="outlined"
+        to="/login"
+      >
+        Sign In
+      </v-btn>
+      <v-btn
+        v-else
+        color="primary"
+        to="/tournaments/create"
+      >
+        Create Tournament
+      </v-btn>
+    </template>
 
-          <v-alert
-            type="info"
-            variant="tonal"
-            class="mb-5"
-          >
-            Paid plans are coming later with transparent pricing for clubs and federations.
-          </v-alert>
+    <v-card class="pa-6 pa-md-7 pricing-view__surface">
+      <p class="text-body-2 text-medium-emphasis mb-4">
+        {{ BRAND_ATTRIBUTION }} · {{ BRAND_POWERED_BY }}
+      </p>
 
-          <div class="d-flex flex-wrap ga-3 mb-5">
-            <v-btn
-              v-if="!isAuthenticated"
-              color="primary"
-              to="/register"
-            >
-              Start Free Beta
-            </v-btn>
-            <v-btn
-              v-if="!isAuthenticated"
-              variant="outlined"
-              to="/login"
-            >
-              Sign In
-            </v-btn>
-            <v-btn
-              v-else
-              color="primary"
-              to="/tournaments/create"
-            >
-              Create Tournament
-            </v-btn>
-          </div>
+      <v-alert
+        type="info"
+        variant="tonal"
+        class="mb-5"
+      >
+        Paid plans are coming later with transparent pricing for clubs and federations.
+      </v-alert>
 
-          <v-divider class="mb-4" />
-
-          <h2 class="text-h6 mb-2">
-            What You Get in Beta
-          </h2>
-          <ul class="pricing-list text-body-2 text-medium-emphasis">
-            <li>Live scoring and public spectator pages</li>
-            <li>Bracket and schedule management</li>
-            <li>Self check-in and front-desk operations support</li>
-            <li>OBS-ready overlays and branded tournament surfaces</li>
-          </ul>
-        </v-card>
-      </v-col>
-    </v-row>
-  </v-container>
+      <h2 class="text-h6 mb-3">
+        What You Get in Beta
+      </h2>
+      <ul class="pricing-view__feature-list">
+        <li
+          v-for="feature in betaFeatures"
+          :key="feature.title"
+          class="pricing-view__feature-item"
+        >
+          <BrandIconBadge
+            :icon="feature.icon"
+            :tone="feature.tone"
+            :size="34"
+            :icon-size="18"
+          />
+          <span class="text-body-2 text-medium-emphasis">
+            {{ feature.title }}
+          </span>
+        </li>
+      </ul>
+    </v-card>
+  </PublicMarketingPageShell>
 </template>
 
 <style scoped>
-.pricing-hero {
+.pricing-view__surface {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 18px;
+  background: rgba(var(--v-theme-surface), 0.98);
 }
 
-.pricing-eyebrow {
-  letter-spacing: 0.14em;
-  color: rgba(var(--v-theme-primary), 0.92);
-}
-
-.pricing-title {
-  font-family: 'Barlow Condensed', 'Inter', sans-serif;
-}
-
-.pricing-list {
+.pricing-view__feature-list {
   margin: 0;
-  padding-left: 20px;
+  padding: 0;
+  list-style: none;
   display: grid;
-  gap: 8px;
+  gap: 12px;
+}
+
+.pricing-view__feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
 }
 </style>

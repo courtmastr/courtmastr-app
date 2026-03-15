@@ -6,12 +6,14 @@ import { useActivityStore } from '@/stores/activities';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
-import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
-import LiveBadge from '@/components/common/LiveBadge.vue';
 import { useDurationFormatter } from '@/composables/useDurationFormatter';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { usePwaInstallPrompt } from '@/composables/usePwaInstallPrompt';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import { BRAND_INSTALL_PROMPT_TITLE } from '@/constants/branding';
+import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
+import LiveBadge from '@/components/common/LiveBadge.vue';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import type { Match } from '@/types';
 
@@ -63,6 +65,7 @@ const { getParticipantName } = useParticipantResolver();
 const { formatDuration, formatDurationAgo } = useDurationFormatter();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
+const canonicalPath = computed(() => `/tournaments/${tournamentId.value}/schedule`);
 const nowTimestamp = ref(Date.now());
 const lastUpdatedAt = ref<Date | null>(null);
 const notFound = ref(false);
@@ -92,6 +95,19 @@ const selectedCategoryId = computed(() => getQueryValue(route.query.category) ||
 const displayMode = computed(() => getQueryValue(route.query.view) === 'display');
 const { canInstall, installApp, dismiss } = usePwaInstallPrompt();
 const showInstallPrompt = computed(() => canInstall.value && displayMode.value === false);
+
+watch(
+  [tournament, canonicalPath],
+  ([activeTournament, canonical]) => {
+    const tournamentName = activeTournament?.name?.trim() || 'Tournament';
+    usePublicPageMetadata({
+      title: `${tournamentName} Schedule`,
+      description: `Live match schedule, court assignments, and queue updates for ${tournamentName}.`,
+      canonicalPath: canonical,
+    });
+  },
+  { immediate: true }
+);
 
 function replaceQuery(updates: Record<string, string | null>): void {
   const nextQuery: LocationQueryRaw = { ...route.query };
@@ -949,7 +965,7 @@ onUnmounted(() => {
         <v-card-text class="d-flex align-center justify-space-between flex-wrap ga-3">
           <div>
             <p class="schedule-install-card__eyebrow mb-1">
-              Install CourtMastr
+              {{ BRAND_INSTALL_PROMPT_TITLE }}
             </p>
             <p class="text-body-2 text-medium-emphasis mb-0">
               Pin the public schedule to the home screen for fast access to live updates, brackets, and player lookup.

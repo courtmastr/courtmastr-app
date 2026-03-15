@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { usePlayerSchedule } from '@/composables/usePlayerSchedule';
+import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import type { Match } from '@/types';
 
@@ -17,7 +18,21 @@ const { getParticipantName } = useParticipantResolver();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
+const canonicalPath = computed(() => `/tournaments/${tournamentId.value}/player`);
 const notFound = ref(false);
+
+watch(
+  [tournament, canonicalPath],
+  ([activeTournament, canonical]) => {
+    const tournamentName = activeTournament?.name?.trim() || 'Tournament';
+    usePublicPageMetadata({
+      title: `${tournamentName} Player Lookup`,
+      description: `Search player match schedules, next court assignments, and results for ${tournamentName}.`,
+      canonicalPath: canonical,
+    });
+  },
+  { immediate: true }
+);
 
 // ─── Search ────────────────────────────────────────────────────────────────
 
@@ -214,7 +229,6 @@ onUnmounted(() => {
           variant="outlined"
           density="comfortable"
           clearable
-          autofocus
           hide-details
         />
         <p
@@ -231,6 +245,7 @@ onUnmounted(() => {
         type="info"
         variant="tonal"
         class="mb-4"
+        aria-live="polite"
       >
         No players found matching "{{ searchQuery }}". Check spelling or try a partial name.
       </v-alert>

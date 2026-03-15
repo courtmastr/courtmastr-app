@@ -1,0 +1,122 @@
+<h2>Schema: Current vs After</h2>
+<p class="subtitle">Green = new collections · Yellow = new fields on existing docs · White = unchanged</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+
+  <!-- CURRENT -->
+  <div>
+    <div style="color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;padding:6px 12px;background:#1e293b;border-radius:6px;text-align:center">CURRENT SCHEMA</div>
+
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:11px">
+
+      <div style="background:#1e1e2e;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+        <div style="color:#38bdf8;font-weight:600">/users/{uid}</div>
+        <div style="color:#94a3b8;padding-left:10px;line-height:1.7">id · email · firstName · lastName<br>role · tournamentIds[]<br>createdAt · updatedAt</div>
+      </div>
+
+      <div style="background:#1e1e2e;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+        <div style="color:#38bdf8;font-weight:600">/tournaments/{id}</div>
+        <div style="color:#94a3b8;padding-left:10px;line-height:1.7">id · name · status · dates<br>organizerIds[] · createdBy<br>venue · courts · settings<br>allowSelfRegistration · requireApproval</div>
+        <div style="margin-top:8px;padding-left:10px">
+          <div style="color:#64748b;font-size:10px;margin-bottom:4px">SUBCOLLECTIONS</div>
+          <div style="color:#94a3b8;line-height:1.7">/categories/{id}<br>/courts/{id}<br>/players/{id} — firstName · lastName · email · skillLevel · userId?<br>/registrations/{id}<br>/activities/{id}<br>/match/{id} · /match_scores/{id}<br>/stage/{id} · /group/{id}</div>
+        </div>
+      </div>
+
+      <div style="background:#1e1e2e;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+        <div style="color:#38bdf8;font-weight:600">/notifications/{id}</div>
+        <div style="color:#94a3b8;padding-left:10px">...unchanged</div>
+      </div>
+
+      <div style="background:#1e1e2e;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+        <div style="color:#38bdf8;font-weight:600">/bugReports/{id}</div>
+        <div style="color:#94a3b8;padding-left:10px">...unchanged</div>
+      </div>
+
+      <div style="background:#1e1e2e;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+        <div style="color:#38bdf8;font-weight:600">/reviews/{id}</div>
+        <div style="color:#94a3b8;padding-left:10px">...unchanged</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- AFTER -->
+  <div>
+    <div style="color:#34d399;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;padding:6px 12px;background:#052e16;border-radius:6px;text-align:center">AFTER CHANGES</div>
+
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:11px">
+
+      <!-- users - modified -->
+      <div style="background:#1e1e2e;border:1px solid #fbbf24;border-radius:8px;padding:10px 14px">
+        <div style="color:#38bdf8;font-weight:600">/users/{uid}</div>
+        <div style="color:#94a3b8;padding-left:10px;line-height:1.7">id · email · firstName · lastName<br>role · tournamentIds[]<br>createdAt · updatedAt<br><span style="color:#fbbf24">activeOrgId? ← new</span></div>
+      </div>
+
+      <!-- tournaments - modified -->
+      <div style="background:#1e1e2e;border:1px solid #fbbf24;border-radius:8px;padding:10px 14px">
+        <div style="color:#38bdf8;font-weight:600">/tournaments/{id}</div>
+        <div style="color:#94a3b8;padding-left:10px;line-height:1.7">id · name · status · dates<br>organizerIds[] · createdBy<br>venue · courts · settings<br>allowSelfRegistration · requireApproval<br><span style="color:#fbbf24">orgId? ← new<br>sport? ← new ("tennis"|"pickleball"|...)<br>statsProcessed? ← new (bool)</span></div>
+        <div style="margin-top:8px;padding-left:10px">
+          <div style="color:#64748b;font-size:10px;margin-bottom:4px">SUBCOLLECTIONS</div>
+          <div style="color:#94a3b8;line-height:1.7">/categories/{id} — unchanged<br>/courts/{id} — unchanged<br>/players/{id} — firstName · lastName · email · skillLevel · userId?<br><span style="color:#fbbf24;padding-left:64px">globalPlayerId? ← new</span><br>/registrations/{id} — unchanged<br>/activities/{id} — unchanged<br>/match/{id} · /match_scores/{id} — unchanged<br>/stage/{id} · /group/{id} — unchanged</div>
+        </div>
+      </div>
+
+      <!-- organizations - new -->
+      <div style="background:#052e16;border:1px solid #34d399;border-radius:8px;padding:10px 14px">
+        <div style="color:#34d399;font-weight:600">/organizations/{orgId} ← NEW</div>
+        <div style="color:#86efac;padding-left:10px;line-height:1.7">id · name · slug<br>logoUrl? · bannerUrl?<br>contactEmail? · timezone?<br>createdAt · updatedAt</div>
+        <div style="margin-top:6px;padding-left:10px">
+          <div style="color:#16a34a;font-size:10px;margin-bottom:2px">SUBCOLLECTION</div>
+          <div style="color:#86efac">/members/{uid} — uid · role · joinedAt</div>
+        </div>
+      </div>
+
+      <!-- global players - new -->
+      <div style="background:#1a103d;border:1px solid #7c3aed;border-radius:8px;padding:10px 14px">
+        <div style="color:#a78bfa;font-weight:600">/players/{playerId} ← NEW</div>
+        <div style="color:#c4b5fd;padding-left:10px;line-height:1.7">id · firstName · lastName<br>email · emailNormalized<br>phone? · skillLevel? · userId?<br>isActive · isVerified<br>createdAt · updatedAt</div>
+        <div style="margin-top:6px;padding-left:10px">
+          <div style="color:#6d28d9;font-size:10px;margin-bottom:2px">STATS MAP</div>
+          <div style="color:#c4b5fd;font-size:10px;line-height:1.7">stats.{sport}.{type}.wins<br>stats.{sport}.{type}.losses<br>stats.{sport}.{type}.gamesPlayed<br>stats.{sport}.{type}.tournamentsPlayed</div>
+        </div>
+      </div>
+
+      <!-- email index - new -->
+      <div style="background:#052e16;border:1px solid #34d399;border-radius:8px;padding:10px 14px">
+        <div style="color:#34d399;font-weight:600">/playerEmailIndex/{emailNormalized} ← NEW</div>
+        <div style="color:#86efac;padding-left:10px;line-height:1.7">playerId · createdAt</div>
+      </div>
+
+      <!-- unchanged -->
+      <div style="background:#1e1e2e;border:1px solid #334155;border-radius:8px;padding:10px 14px;opacity:0.6">
+        <div style="color:#64748b;font-weight:600">/notifications · /bugReports · /reviews</div>
+        <div style="color:#475569;padding-left:10px">unchanged</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Summary counts -->
+<div style="margin-top:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:11px">
+  <div style="background:#052e16;border:1px solid #34d399;border-radius:8px;padding:10px;text-align:center">
+    <div style="color:#34d399;font-size:20px;font-weight:700">3</div>
+    <div style="color:#86efac">New collections</div>
+  </div>
+  <div style="background:#1a103d;border:1px solid #fbbf24;border-radius:8px;padding:10px;text-align:center">
+    <div style="color:#fbbf24;font-size:20px;font-weight:700">5</div>
+    <div style="color:#fde68a">New fields on existing docs</div>
+  </div>
+  <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px;text-align:center">
+    <div style="color:#94a3b8;font-size:20px;font-weight:700">0</div>
+    <div style="color:#64748b">Existing fields removed</div>
+  </div>
+  <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px;text-align:center">
+    <div style="color:#94a3b8;font-size:20px;font-weight:700">0</div>
+    <div style="color:#64748b">Existing views broken</div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px">All new fields are optional — existing documents work exactly as before. Ready to write the spec?</p>

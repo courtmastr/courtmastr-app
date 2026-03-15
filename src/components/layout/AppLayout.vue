@@ -9,6 +9,7 @@ import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation.v
 import ContextualNavigation from '@/components/navigation/ContextualNavigation.vue';
 import GlobalSearch from '@/components/navigation/GlobalSearch.vue';
 import BaseDialog from '@/components/common/BaseDialog.vue';
+import BrandLogo from '@/components/common/BrandLogo.vue';
 import PublicWebsiteFooter from '@/components/common/PublicWebsiteFooter.vue';
 import { useI18n, type SupportedLocale } from '@/i18n';
 
@@ -19,35 +20,60 @@ const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
 const { locale, setLocale, t } = useI18n();
 
-const drawer = ref(true); // Changed to true for default open state
+const drawer = ref(!display.smAndDown.value);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
+const isAuthenticatedAppRoute = computed(() =>
+  isAuthenticated.value && route.meta.requiresAuth === true
+);
+const isSmallScreen = computed(() => display.smAndDown.value);
 const currentUser = computed(() => authStore.currentUser);
 const unreadCount = computed(() => notificationStore.unreadCount);
 
 // Determine when to show different navigation elements
 const showBreadcrumbs = computed(() => {
-  return isAuthenticated.value && !['/', '/tournaments'].includes(route.path);
+  return isAuthenticatedAppRoute.value && !['/', '/tournaments'].includes(route.path);
 });
 
 const showContextualNav = computed(() => {
   return Boolean(
-    isAuthenticated.value &&
+    isAuthenticatedAppRoute.value &&
     route.params.tournamentId &&
     route.name === 'tournament-dashboard'
   );
 });
 
-const showSearch = computed(() => {
-  // Show search on most pages except very specific ones
-  return true; // Always show search for now
-});
-
-const showPublicWebsiteFooter = computed(() =>
+const isPublicMarketingRoute = computed(() =>
   route.meta.publicMarketingPage === true &&
   route.meta.overlayPage !== true &&
   route.meta.obsOverlay !== true &&
   route.meta.volunteerLayout !== true
+);
+
+const showSearch = computed(() => {
+  if (!isAuthenticatedAppRoute.value) return false;
+
+  return (
+    route.meta.overlayPage !== true &&
+    route.meta.obsOverlay !== true &&
+    route.meta.volunteerLayout !== true
+  );
+});
+
+const publicMarketingLinks = [
+  { title: 'Home', to: '/' },
+  { title: 'About', to: '/about' },
+  { title: 'Pricing', to: '/pricing' },
+];
+
+const showPublicMarketingNav = computed(() =>
+  !isAuthenticated.value &&
+  isPublicMarketingRoute.value &&
+  !display.mdAndDown.value
+);
+
+const showPublicWebsiteFooter = computed(() =>
+  isPublicMarketingRoute.value
 );
 
 const showLanguageToggle = computed(() =>
@@ -61,6 +87,8 @@ const selectedPublicLocale = computed<SupportedLocale>({
   get: () => locale.value,
   set: (nextLocale) => setLocale(nextLocale),
 });
+
+const isActivePublicMarketingLink = (path: string): boolean => route.path === path;
 
 // User menu items
 const userMenuItems = computed(() => {
@@ -96,6 +124,14 @@ watch(
     }
   },
   { immediate: true }
+);
+
+watch(
+  () => display.smAndDown.value,
+  (isSmallScreen, wasSmallScreen) => {
+    if (isSmallScreen === wasSmallScreen) return;
+    drawer.value = !isSmallScreen;
+  }
 );
 
 async function handleLogout() {
@@ -227,12 +263,11 @@ async function submitBugReport() {
     >Skip to main content</a>
 
     <!-- Main Navigation (Drawer) -->
-    <!-- Main Navigation (Drawer) -->
     <AppNavigation
-      v-if="isAuthenticated"
+      v-if="isAuthenticatedAppRoute"
       v-model:drawer="drawer"
-      :temporary="display.smAndDown"
-      :permanent="!display.smAndDown"
+      :temporary="isSmallScreen"
+      :permanent="!isSmallScreen"
       app
       width="280"
     />
@@ -254,15 +289,34 @@ async function submitBugReport() {
           to="/"
           class="text-decoration-none text-inherit d-flex align-center"
         >
-          <img
-            src="@/assets/brand/courtmaster-lockup.svg"
+          <BrandLogo
+            variant="lockup"
+            :width="180"
+            :height="36"
             alt="CourtMastr Logo"
-            width="180"
-            height="36"
-            class="app-logo"
-          >
+            class-name="app-logo"
+          />
         </router-link>
       </v-toolbar-title>
+
+      <nav
+        v-if="showPublicMarketingNav"
+        class="public-marketing-nav mr-4"
+        aria-label="Public marketing navigation"
+      >
+        <v-btn
+          v-for="item in publicMarketingLinks"
+          :key="item.to"
+          :to="item.to"
+          size="small"
+          class="public-marketing-nav__item text-none"
+          :variant="isActivePublicMarketingLink(item.to) ? 'flat' : 'text'"
+          :color="isActivePublicMarketingLink(item.to) ? 'primary' : undefined"
+          :aria-current="isActivePublicMarketingLink(item.to) ? 'page' : undefined"
+        >
+          {{ item.title }}
+        </v-btn>
+      </nav>
 
       <!-- Global Search -->
       <GlobalSearch
@@ -505,7 +559,9 @@ async function submitBugReport() {
         <ContextualNavigation v-if="showContextualNav" />
         
         <!-- Page content -->
-        <router-view />
+        <section class="app-route-frame">
+          <router-view />
+        </section>
       </v-container>
 
       <PublicWebsiteFooter v-if="showPublicWebsiteFooter" />
@@ -653,17 +709,29 @@ async function submitBugReport() {
 .app-bar {
   border-bottom: 1px solid $border-light;
   box-shadow: $shadow-sm;
-  background-color: $white !important;
+  background: linear-gradient(180deg, rgba($white, 0.98) 0%, rgba($white, 0.94) 100%) !important;
+  backdrop-filter: saturate(120%) blur(4px);
 }
 
 .app-main {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 64px);
+  background:
+    radial-gradient(circle at 2% 0%, rgba($primary-base, 0.05), transparent 22%),
+    radial-gradient(circle at 98% 0%, rgba($secondary-base, 0.05), transparent 20%),
+    $background;
 }
 
 .app-main__content {
   flex: 1 0 auto;
+  width: min(100%, 1540px);
+  margin: 0 auto;
+  padding-inline: clamp(12px, 2.2vw, 28px);
+}
+
+.app-route-frame {
+  min-height: calc(100dvh - 132px);
 }
 
 .app-logo {
@@ -707,6 +775,19 @@ async function submitBugReport() {
   text-transform: none;
   letter-spacing: 0.02em;
   font-weight: 600;
+}
+
+.public-marketing-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.public-marketing-nav__item {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-radius: 999px;
+  padding-inline: 14px;
 }
 
 // Notification Menu

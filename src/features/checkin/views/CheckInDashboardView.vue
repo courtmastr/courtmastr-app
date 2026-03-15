@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import CheckInList from '@/features/checkin/components/CheckInList.vue';
+import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
 
 const route = useRoute();
 const router = useRouter();
@@ -299,7 +300,8 @@ onUnmounted(() => {
         <div class="text-caption text-grey-darken-1">
           {{ tournament?.name }}
         </div>
-        <h1 class="text-h4 font-weight-bold">
+        <h1 class="text-h4 font-weight-bold d-flex align-center ga-2">
+          <v-icon :icon="NAVIGATION_ICONS.checkIn" size="26" color="success" />
           Player Check-in
         </h1>
       </div>
@@ -460,6 +462,7 @@ onUnmounted(() => {
             icon="mdi-close"
             variant="text"
             density="compact"
+            aria-label="Clear filters"
             @click="clearFilters"
           />
         </div>

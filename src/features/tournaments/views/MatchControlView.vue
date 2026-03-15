@@ -1170,6 +1170,7 @@ async function confirmCompleteTournament(): Promise<void> {
         icon="mdi-arrow-left"
         variant="text"
         size="small"
+        aria-label="Back to tournament dashboard"
         @click="router.push(`/tournaments/${tournamentId}`)"
       />
       <v-toolbar-title class="text-subtitle-1 font-weight-bold">
@@ -1309,6 +1310,7 @@ async function confirmCompleteTournament(): Promise<void> {
                 variant="text"
                 size="small"
                 color="warning"
+                aria-label="Run court data integrity check"
                 @click="handleConsistencyCheck"
               >
                 <v-icon>mdi-database-refresh</v-icon>
@@ -2237,7 +2239,7 @@ async function confirmCompleteTournament(): Promise<void> {
 .stat-card {
   height: 100%;
   border: 1px solid rgba($border, 0.5);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   
@@ -2485,7 +2487,7 @@ async function confirmCompleteTournament(): Promise<void> {
 }
 
 .court-card {
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
   height: 100px;
   
   &:hover {
@@ -2505,5 +2507,12 @@ async function confirmCompleteTournament(): Promise<void> {
 .player-names {
   line-height: 1.1;
   font-size: 0.85rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-card,
+  .court-card {
+    transition: none;
+  }
 }
 </style>

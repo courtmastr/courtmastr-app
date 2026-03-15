@@ -5,7 +5,8 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
-import courtmasterMarkWhite from '@/assets/brand/courtmaster-mark-white.svg';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
+import BrandLogo from '@/components/common/BrandLogo.vue';
 import type { Match } from '@/types';
 
 const route = useRoute();
@@ -28,6 +29,13 @@ const position = computed(() => {
   if (p === 'top-left') return 'position-top-left';
   if (p === 'top-right') return 'position-top-right';
   return ''; // Centered bottom (default)
+});
+
+usePublicPageMetadata({
+  title: 'OBS Match Score Bug',
+  description: 'CourtMastr compact score bug overlay for OBS production scenes.',
+  canonicalPath: route.path,
+  noIndex: true,
 });
 
 const loading = ref(true);
@@ -165,13 +173,13 @@ onUnmounted(() => {
       class="obs-courtmaster-watermark"
       aria-hidden="true"
     >
-      <img
-        :src="courtmasterMarkWhite"
-        alt=""
-        width="16"
-        height="16"
-        class="obs-courtmaster-watermark__logo"
-      >
+      <BrandLogo
+        variant="mark-white"
+        :width="16"
+        :height="16"
+        decorative
+        class-name="obs-courtmaster-watermark__logo"
+      />
       <span class="obs-courtmaster-watermark__text">CourtMastr</span>
     </div>
   </div>

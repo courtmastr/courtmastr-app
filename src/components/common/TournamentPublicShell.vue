@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { useReviewStore } from '@/stores/reviews';
+import BrandLogo from '@/components/common/BrandLogo.vue';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import TournamentSponsorStrip from '@/components/common/TournamentSponsorStrip.vue';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
+import {
+  BRAND_COMPANY_NAME,
+  BRAND_NAME,
+  BRAND_POWERED_BY,
+} from '@/constants/branding';
 import ReviewList from '@/features/reviews/components/ReviewList.vue';
 import ReviewFloatingCta from '@/features/reviews/components/ReviewFloatingCta.vue';
 import ReviewSubmissionDialog from '@/features/reviews/components/ReviewSubmissionDialog.vue';
-import { useReviewStore } from '@/stores/reviews';
 import type { Tournament } from '@/types';
 
 interface TournamentPublicShellProps {
@@ -57,8 +63,8 @@ const toIsoDate = (value: unknown): string | undefined => {
 const structuredDataJson = computed(() => {
   const organization = {
     '@type': 'Organization',
-    name: 'Marvy Technologies',
-    brand: 'CourtMastr',
+    name: BRAND_COMPANY_NAME,
+    brand: BRAND_NAME,
     url: `${window.location.origin}/`,
   };
 
@@ -67,7 +73,7 @@ const structuredDataJson = computed(() => {
     name: tournamentName.value,
     organizer: {
       '@type': 'Organization',
-      name: 'Marvy Technologies',
+      name: BRAND_COMPANY_NAME,
     },
     url: `${window.location.origin}${route.fullPath}`,
   };
@@ -262,17 +268,17 @@ onUnmounted(() => {
         <a
           href="/"
           class="tournament-public-shell__powered-by-link"
-          title="Tournament software by CourtMastr"
+          :title="`Tournament software by ${BRAND_NAME}`"
         >
-          <img
-            src="/logo.svg"
-            alt="CourtMastr"
-            class="tournament-public-shell__powered-by-logo"
-            width="20"
-            height="20"
-          >
+          <BrandLogo
+            variant="mark"
+            :width="20"
+            :height="20"
+            :alt="BRAND_NAME"
+            class-name="tournament-public-shell__powered-by-logo"
+          />
           <span class="tournament-public-shell__powered-by-text">
-            Powered by <strong>CourtMastr</strong>
+            {{ BRAND_POWERED_BY }}
           </span>
         </a>
       </footer>
@@ -476,10 +482,6 @@ onUnmounted(() => {
   letter-spacing: 0.01em;
 }
 
-.tournament-public-shell__powered-by-text strong {
-  font-weight: 600;
-}
-
 @media (max-width: 960px) {
   .tournament-public-shell__hero-main {
     flex-direction: column;
@@ -515,6 +517,12 @@ onUnmounted(() => {
 
   .tournament-public-shell__metrics {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tournament-public-shell__powered-by {
+    transition: none;
   }
 }
 </style>

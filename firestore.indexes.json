@@ -49,6 +49,32 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "number", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "match_scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "courtId", "order": "ASCENDING" },
+        { "fieldPath": "queuePosition", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "match_scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "courtId", "order": "ASCENDING" },
+        { "fieldPath": "queuedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "match_scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "queuePosition", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

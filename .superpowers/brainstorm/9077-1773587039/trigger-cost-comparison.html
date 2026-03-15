@@ -1,0 +1,94 @@
+<h2>When should the Cloud Function fire?</h2>
+<p class="subtitle">Per-match vs end-of-tournament — cost and accuracy trade-offs</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+
+  <!-- Per match -->
+  <div style="background:#1e1e2e;border:2px solid #f43f5e;border-radius:12px;padding:16px;opacity:0.85">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div style="background:#f43f5e22;border:1px solid #f43f5e;border-radius:6px;padding:3px 10px;color:#f87171;font-size:11px;font-weight:700">ORIGINAL APPROACH</div>
+    </div>
+    <div style="color:#f1f5f9;font-size:13px;font-weight:600;margin-bottom:10px">Trigger on every match result</div>
+    <div style="font-size:11px;color:#94a3b8;line-height:1.9">
+      <div>A 64-player single elimination bracket<br>= <strong style="color:#f87171">63 matches</strong> = <strong style="color:#f87171">63 function calls</strong></div>
+      <div style="margin-top:8px">A round robin with 8 players<br>= <strong style="color:#f87171">28 matches</strong> = <strong style="color:#f87171">28 function calls</strong></div>
+      <div style="margin-top:8px;color:#64748b">Per tournament with 3 categories:<br>~150–300 function invocations</div>
+    </div>
+    <div style="margin-top:12px;padding:10px;background:#0f172a;border-radius:8px">
+      <div style="color:#f87171;font-size:11px;font-weight:600;margin-bottom:4px">Cost estimate</div>
+      <div style="font-size:10px;color:#64748b;line-height:1.6">10 tournaments/month × 200 matches = 2,000 invocations<br>100 tournaments = 20,000 invocations<br>Free tier: 2M/month — fine at low scale<br>But reads per invocation add up fast</div>
+    </div>
+  </div>
+
+  <!-- End of tournament -->
+  <div style="background:#1e1e2e;border:2px solid #34d399;border-radius:12px;padding:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div style="background:#34d39922;border:1px solid #34d399;border-radius:6px;padding:3px 10px;color:#34d399;font-size:11px;font-weight:700">RECOMMENDED</div>
+    </div>
+    <div style="color:#f1f5f9;font-size:13px;font-weight:600;margin-bottom:10px">Trigger once when tournament completes</div>
+    <div style="font-size:11px;color:#94a3b8;line-height:1.9">
+      <div>Same 64-player bracket<br>= <strong style="color:#34d399">1 function call</strong> at the end</div>
+      <div style="margin-top:8px">Reads all match results in one go,<br>computes wins/losses per player,<br>batch-writes all global player stats</div>
+      <div style="margin-top:8px;color:#64748b">Per tournament: exactly 1 invocation<br>regardless of bracket size</div>
+    </div>
+    <div style="margin-top:12px;padding:10px;background:#0f172a;border-radius:8px">
+      <div style="color:#34d399;font-size:11px;font-weight:600;margin-bottom:4px">Cost estimate</div>
+      <div style="font-size:10px;color:#64748b;line-height:1.6">10 tournaments/month = 10 invocations<br>100 tournaments = 100 invocations<br>Practically free forever<br>One batch write per tournament</div>
+    </div>
+  </div>
+</div>
+
+<!-- How it works -->
+<div style="margin-top:16px;background:#0f172a;border-radius:12px;padding:18px">
+  <div style="color:#e2e8f0;font-size:13px;font-weight:600;margin-bottom:14px">How the end-of-tournament trigger works</div>
+
+  <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;font-size:11px;margin-bottom:16px">
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+      <div style="color:#64748b;font-size:10px;margin-bottom:4px">1. Organizer clicks</div>
+      <div style="color:#f1f5f9">"Complete Tournament"</div>
+      <div style="color:#64748b;font-size:10px">status → "completed"</div>
+    </div>
+    <div style="color:#475569;padding-top:14px">→</div>
+    <div style="background:#1e293b;border:1px solid #7c3aed;border-radius:8px;padding:10px 14px">
+      <div style="color:#64748b;font-size:10px;margin-bottom:4px">2. Firestore trigger fires</div>
+      <div style="color:#a78bfa">onUpdate: status == "completed"<br>+ statsProcessed == false</div>
+    </div>
+    <div style="color:#475569;padding-top:14px">→</div>
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+      <div style="color:#64748b;font-size:10px;margin-bottom:4px">3. Function reads all at once</div>
+      <div style="color:#f1f5f9">All match_scores<br>All registrations<br>tournament.sport</div>
+    </div>
+    <div style="color:#475569;padding-top:14px">→</div>
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px">
+      <div style="color:#64748b;font-size:10px;margin-bottom:4px">4. One batch write</div>
+      <div style="color:#f1f5f9">All players updated<br>at once atomically</div>
+    </div>
+    <div style="color:#475569;padding-top:14px">→</div>
+    <div style="background:#1e293b;border:1px solid #34d399;border-radius:8px;padding:10px 14px">
+      <div style="color:#64748b;font-size:10px;margin-bottom:4px">5. Safety flag set</div>
+      <div style="color:#34d399">tournament.statsProcessed<br>= true</div>
+      <div style="color:#64748b;font-size:10px">prevents double-counting</div>
+    </div>
+  </div>
+
+  <!-- statsProcessed explained -->
+  <div style="background:#1e293b;border:1px solid #fbbf24;border-radius:8px;padding:12px">
+    <div style="color:#fbbf24;font-size:11px;font-weight:600;margin-bottom:6px">⚠️ Why statsProcessed matters</div>
+    <div style="font-size:11px;color:#94a3b8;line-height:1.6">
+      Without this flag, if an organizer accidentally sets status to "completed" twice, the function would run twice and <strong style="color:#f1f5f9">double-count every win/loss</strong>. The <code style="color:#fbbf24">statsProcessed: boolean</code> field on the tournament prevents that. The function checks this first — if already true, it exits immediately. One tournament = one stats update. Safe to retry.
+    </div>
+  </div>
+</div>
+
+<!-- New field needed -->
+<div style="margin-top:14px;background:#0f172a;border-radius:12px;padding:16px">
+  <div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-bottom:8px">One more new field on Tournament</div>
+  <pre style="background:#1e293b;border-radius:6px;padding:10px;font-size:11px;color:#e2e8f0;line-height:1.7">{
+  orgId: "...",          ← links to org
+  sport: "tennis",       ← drives stat bucket
+  <span style="color:#fbbf24">statsProcessed: false</span>  ← NEW: prevents double-counting
+}</pre>
+  <div style="font-size:10px;color:#64748b;margin-top:6px">Set to <code>true</code> by the Cloud Function after stats are written. Organizer can never accidentally trigger it twice.</div>
+</div>
+
+<p class="subtitle" style="margin-top:16px">This saves ~99% of function invocations vs per-match. Does this work for you?</p>

@@ -6,6 +6,8 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
+import BrandIconBadge from '@/components/common/BrandIconBadge.vue';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -17,8 +19,25 @@ const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 
+usePublicPageMetadata({
+  title: 'Tournament Registration',
+  description: 'Register for this CourtMastr tournament and reserve your event categories.',
+  canonicalPath: `/tournaments/${tournamentId.value}/register`,
+  noIndex: true,
+});
+
 const { loading, execute } = useAsyncOperation<void>();
 const submitted = ref(false);
+
+interface RegistrationDraft {
+  tournamentId: string;
+  categoryId: string;
+  participantType: 'player';
+  playerId: string;
+  status: 'pending' | 'approved';
+  registeredBy: string;
+  partnerPlayerId?: string;
+}
 
 // Form
 const firstName = ref('');
@@ -77,7 +96,7 @@ async function submitRegistration() {
         const category = categories.value.find((c) => c.id === categoryId);
         const isDoubles = category?.type === 'doubles' || category?.type === 'mixed_doubles';
 
-        const registrationData: any = {
+        const registrationData: RegistrationDraft = {
           tournamentId: tournamentId.value,
           categoryId,
           participantType: 'player',
@@ -142,13 +161,52 @@ function formatDate(date: Date): string {
         </v-card>
 
         <!-- Registration Closed -->
-        <v-alert
+        <v-card
           v-if="tournament && !isRegistrationOpen"
-          type="warning"
-          class="mb-4"
+          class="registration-closed mb-4"
+          elevation="0"
         >
-          Registration is currently closed for this tournament.
-        </v-alert>
+          <v-card-text class="pa-5 pa-sm-6">
+            <div class="d-flex flex-column flex-sm-row ga-4 align-sm-center">
+              <BrandIconBadge
+                icon="mdi-calendar-remove-outline"
+                tone="secondary"
+                :size="52"
+                :icon-size="24"
+              />
+              <div class="flex-grow-1">
+                <h2 class="text-h6 font-weight-bold mb-1">
+                  Registration is currently closed
+                </h2>
+                <p class="text-body-2 text-medium-emphasis mb-0">
+                  Entries are no longer being accepted for this event. You can still follow live progress and check in if enabled.
+                </p>
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap ga-2 mt-5">
+              <v-btn
+                color="primary"
+                :to="`/tournaments/${tournamentId}/schedule`"
+              >
+                View Schedule
+              </v-btn>
+              <v-btn
+                variant="outlined"
+                :to="`/tournaments/${tournamentId}/bracket`"
+              >
+                View Bracket
+              </v-btn>
+              <v-btn
+                v-if="tournament.settings.allowSelfRegistration"
+                variant="text"
+                :to="`/tournaments/${tournamentId}/self-checkin`"
+              >
+                Self Check-In
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
 
         <!-- Success Message -->
         <v-card
@@ -284,3 +342,12 @@ function formatDate(date: Date): string {
     </v-row>
   </v-container>
 </template>
+
+<style scoped>
+.registration-closed {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 20px;
+  background:
+    linear-gradient(136deg, rgba(var(--v-theme-surface), 0.96) 0%, rgba(247, 251, 255, 0.95) 54%, rgba(246, 252, 246, 0.94) 100%);
+}
+</style>

@@ -113,6 +113,7 @@ const completionPercent = computed(() => {
         variant="text"
         color="white"
         :icon="showDetails ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+        :aria-label="showDetails ? 'Collapse state details' : 'Expand state details'"
         @click="showDetails = !showDetails"
       />
     </div>

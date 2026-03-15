@@ -117,6 +117,7 @@ function getMatchDuration(match: Match): string {
                     variant="text"
                     min-width="44"
                     min-height="44"
+                    :aria-label="`Open actions for ${court.name}`"
                   />
                 </template>
                 <v-list density="comfortable">

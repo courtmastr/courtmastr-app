@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import { TOURNAMENT_STATUS_LABELS, FORMAT_LABELS } from '@/types';
+import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
 
 const router = useRouter();
 const tournamentStore = useTournamentStore();
@@ -58,7 +59,8 @@ function formatDate(date: Date): string {
       <v-col>
         <div class="d-flex align-center justify-space-between">
           <div>
-            <h1 class="text-h4 font-weight-bold">
+            <h1 class="text-h4 font-weight-bold d-flex align-center ga-2">
+              <v-icon :icon="NAVIGATION_ICONS.tournaments" size="26" color="primary" />
               Tournaments
             </h1>
             <p class="text-body-2 text-grey">

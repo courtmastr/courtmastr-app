@@ -195,6 +195,7 @@ function onGameComplete(game: GameScore) {
         <v-btn
           icon
           variant="text"
+          aria-label="Close score correction dialog"
           @click="cancelCorrection"
         >
           <v-icon>mdi-close</v-icon>

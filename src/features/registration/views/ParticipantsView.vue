@@ -307,6 +307,7 @@ function clearFilters() {
               variant="text"
               color="primary"
               class="mr-2"
+              aria-label="Back to previous page"
               @click="router.back()"
             />
             <h1 class="text-h4 font-weight-bold text-gradient mb-0">
@@ -501,6 +502,7 @@ function clearFilters() {
               variant="text"
               color="primary"
               title="Edit Player"
+              :aria-label="`Edit player ${item.firstName} ${item.lastName}`"
               @click="openEditPlayerDialog(item)"
             />
             <v-btn
@@ -509,6 +511,7 @@ function clearFilters() {
               variant="text"
               color="error"
               title="Delete Player"
+              :aria-label="`Delete player ${item.firstName} ${item.lastName}`"
               @click="requestDeletePlayer(item.id)"
             />
           </div>

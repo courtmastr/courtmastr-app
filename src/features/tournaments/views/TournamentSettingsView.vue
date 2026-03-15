@@ -39,6 +39,7 @@ import {
   DEFAULT_RANKING_PROGRESSION,
   RANKING_PRESETS,
 } from '@/features/leaderboard/rankingPresets';
+import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
 
 const route = useRoute();
 const router = useRouter();
@@ -865,7 +866,8 @@ async function confirmDelete() {
             @click="router.back()"
           />
           <div class="ml-2">
-            <h1 class="text-h5 font-weight-bold">
+            <h1 class="text-h5 font-weight-bold d-flex align-center ga-2">
+              <v-icon :icon="NAVIGATION_ICONS.settings" size="22" />
               Tournament Settings
             </h1>
             <p class="text-body-2 text-grey">
@@ -1589,6 +1591,7 @@ async function confirmDelete() {
                     color="error"
                     :disabled="organizerLoading || (tournament?.organizerIds?.length ?? 0) <= 1"
                     :title="(tournament?.organizerIds?.length ?? 0) <= 1 ? 'Cannot remove the last organizer' : 'Remove organizer'"
+                    :aria-label="`Remove organizer ${user.displayName}`"
                     @click="removeOrganizerFromTournament(user.id)"
                   />
                 </template>

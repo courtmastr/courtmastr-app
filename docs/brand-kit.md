@@ -1,89 +1,84 @@
 # CourtMastr Brand & Design System
 
-This document outlines the core platform-level visual system for CourtMastr. All UI development must strictly adhere to these tokens to ensure a clean, operational, and stable aesthetic.
+This is the source of truth for public-facing and in-app UI branding decisions.
 
 ## 1. Typography
 
-**Inter** is the exclusive typeface for the platform, conveying a modern and functional feel.
+### Brand Stack
+- Display headlines: `Barlow Condensed`
+- Body/UI text: `Inter`
 
-### Type Scale
-*   **H1 (Hero):** 48px size / 56px line-height, Semibold (`600`) or Bold (`700`)
-*   **H2 (Section):** 32px size / 40px line-height, Semibold (`600`)
-*   **H3 (Card Title):** 24px size / 32px line-height, Semibold (`600`)
-*   **Body (Default):** 16px size / 24px line-height, Regular (`400`)
+### Scale Rules
+- Hero H1: `clamp(2rem, 4vw, 3.4rem)` with tight line-height (`~0.95`)
+- Section title: `1.5rem` to `2.25rem`
+- Body default: `16px` / `24px`
+- Supporting text: `14px` / `20px`
 
-*Rule: Avoid "extra bold" weights except for hero headlines.*
+## 2. Color System
 
----
+Use Vuetify theme tokens, not raw hex values in component templates.
 
-## 2. Core Colors
+### Light Theme Tokens (from `src/plugins/vuetify.ts`)
+- `primary`: `#1D4ED8`
+- `secondary`: `#D97706`
+- `info`: `#0EA5E9`
+- `success`: `#16A34A`
+- `warning`: `#F97316`
+- `background`: `#F8FAFC`
+- `surface`: `#FFFFFF`
+- `on-surface`: `#0F172A`
 
-### Brand Primitives
-*   **Primary (Indigo):** `#4F46E5` - Used for primary actions, buttons, and active states.
-*   **Accent (Sky):** `#0EA5E9` - Used for secondary highlights and the brand mark structure.
-*   **Dark Surface:** `#0F172A` - Used for dark mode backgrounds and strong high-contrast text.
-*   **Light Background:** `#F8FAFC` - The global app background.
-*   **Borders:** `#E5E7EB` - Standard layout and card borders.
+### Practical Usage
+- Primary actions: `primary`
+- Secondary accents and highlights: `secondary`
+- Positive status and completion: `success`
+- Informational UI hints: `info`
 
-### Text
-*   **Text Primary:** `#0F172A`
-*   **Text Secondary:** `#64748B`
+## 3. Iconography
 
-*Rule: No gradients are permitted across the internal app UI. Gradients are restricted exclusively to the marketing hero or public live views if strictly necessary.*
+### Icon Set Standard
+- Use **Material Design Icons** through Vuetify (`mdi-*`).
+- Do not mix unrelated icon families in the same view.
 
----
+### Colorful Themed Icons
+- Use [`BrandIconBadge`](/Users/ramc/Documents/Code/courtmaster-v2/src/components/common/BrandIconBadge.vue) for colorful icon treatments.
+- Approved tones: `primary`, `secondary`, `success`.
+- Keep icon meaning semantic: operations/actions should not rely on color alone.
 
-## 3. Structural Forms (Radii & Shadows)
+## 4. Public Page Reusability Standard
 
-### Border Radii
-*   **Buttons:** `8px`
-*   **Cards:** `12px`
-*   **Modals/Dialogs:** `16px`
+- Use [`PublicMarketingPageShell`](/Users/ramc/Documents/Code/courtmaster-v2/src/features/public/components/PublicMarketingPageShell.vue) for About/Pricing/Privacy/Terms style consistency.
+- Keep card borders subtle (`rgba(--v-theme-on-surface, 0.08-0.1)`).
+- Keep spacing on 8px rhythm.
+- Respect reduced motion (`prefers-reduced-motion`).
 
-### Shadows
-*   **Rule:** Use clean borders (`#E5E7EB`) rather than heavy shadow depth.
-*   **Shadows:** Minimal, subtle drops only to indicate elevation above the base plane (e.g. modals, active draggable states). No neon glows or heavy 3D depth.
+## 5. App Icon Update Workflow
 
----
+When updating favicon/PWA/home-screen icons:
 
-## 4. Spacing System (8px Grid)
+1. Update source brand assets first:
+   - [`courtmaster-mark.svg`](/Users/ramc/Documents/Code/courtmaster-v2/src/assets/brand/courtmaster-mark.svg)
+   - [`courtmaster-mark-white.svg`](/Users/ramc/Documents/Code/courtmaster-v2/src/assets/brand/courtmaster-mark-white.svg)
+   - [`courtmaster-lockup.svg`](/Users/ramc/Documents/Code/courtmaster-v2/src/assets/brand/courtmaster-lockup.svg)
+2. Open [`public/generate-icons.html`](/Users/ramc/Documents/Code/courtmaster-v2/public/generate-icons.html) in a browser and generate the icon pack.
+3. Replace these files in `public/`:
+   - `favicon-16x16.png`
+   - `favicon-32x32.png`
+   - `favicon-192x192.png`
+   - `favicon-512x512.png`
+   - `apple-touch-icon.png`
+   - `pwa-192x192.png`
+   - `pwa-512x512.png`
+4. Verify app references:
+   - [`index.html`](/Users/ramc/Documents/Code/courtmaster-v2/index.html)
+   - [`site.webmanifest`](/Users/ramc/Documents/Code/courtmaster-v2/public/site.webmanifest)
+5. Run verification:
+   - `npm run build`
+   - `npm run build:log`
 
-All margins, paddings, and gaps must align to the 8-point pixel grid.
+## 6. Quality Guardrails
 
-### Approved Values:
-`4px`, `8px`, `16px`, `24px`, `32px`, `48px`, `64px`, `96px`
-
-### Layout Rules:
-*   **Card Padding:** `24px` standard inner padding.
-*   **Page Padding:** `24px` to `32px` around the main viewport.
-*   **Section Spacing:** `48px` or `64px` between major UI zones.
-
----
-
-## 5. Iconography
-
-**Lucide Icons** are the standard for all operational UI actions.
-
-### Implementation Rules:
-1.  **Stroke-Based:** Use stroke outlines only. Never mix filled Material icons with stroke icons.
-2.  **Size:** Default size is `18px` or `20px` for standard UI interaction.
-3.  **Color:** Icons inherit the text color (`currentColor`) or the theme color (e.g., `text-primary`).
-4.  **Brand Icon:** Do NOT use the trophy icon as the brand. Instead, use the custom Bracket Structure Mark located at `src/assets/brand/courtmaster-mark.svg`.
-
----
-
-## 6. App Style Directives
-
-### Must-Follow Checklist:
-- [x] **Form Readability:** Form labels must always be visible.
-- [x] **Hierarchy:** Maintain strong contrast between titles, subtitles, and actions.
-- [x] **Clean Edges:** Emphasize clean borders over heavy shadows.
-
-### Strictly Prohibited Elements:
-- [ ] NO Glassmorphism.
-- [ ] NO Animated glowing blobs.
-- [ ] NO Tilt or 3D rotation effects.
-- [ ] NO Overdone hover scaling (simple `1.05` scale or translateY of `2px` max).
-- [ ] NO Fake or exaggerated "counting stats" - operational numbers only.
-
-**Design Philosophy:** The internal app must feel conservative, functional, and deeply stable for tournament organizers operating under pressure.
+- Keep one clear visual language across all public pages.
+- Ensure icon-only controls always include `aria-label`.
+- Keep body contrast at WCAG AA minimum (4.5:1).
+- Avoid decorative-only motion or random color usage.

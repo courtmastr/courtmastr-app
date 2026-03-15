@@ -47,6 +47,8 @@ function handleAction(action: string) {
         density="compact"
         class="ml-2"
         :class="{ 'expandable-row__chevron--rotated': isOpen }"
+        :aria-label="isOpen ? 'Collapse details' : 'Expand details'"
+        :aria-expanded="String(isOpen)"
         @click.stop="toggle"
       >
         <v-icon>mdi-chevron-down</v-icon>

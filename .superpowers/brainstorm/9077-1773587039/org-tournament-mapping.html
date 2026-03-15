@@ -1,0 +1,115 @@
+<h2>Org → Tournament → Player Mapping</h2>
+<p class="subtitle">How organizations, tournaments, and global players connect in Firestore</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:16px">
+
+  <!-- Org -->
+  <div style="background:#1e1e2e;border:2px solid #f59e0b;border-radius:12px;padding:14px">
+    <div style="color:#fbbf24;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">🏢 /organizations/{orgId}</div>
+    <div style="font-size:11px;color:#94a3b8;line-height:1.8">
+      <div style="color:#f1f5f9">id · name · slug</div>
+      <div style="color:#f1f5f9">logoUrl? · bannerUrl?</div>
+      <div style="color:#f1f5f9">contactEmail?</div>
+      <div style="color:#f1f5f9">timezone?</div>
+      <div style="color:#f1f5f9">createdAt · updatedAt</div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #334155">
+        <div style="color:#fbbf24;font-size:10px;font-weight:600;margin-bottom:4px">SUBCOLLECTION</div>
+        <div style="color:#f1f5f9">/members/{uid}</div>
+        <div style="color:#94a3b8;font-size:10px;padding-left:8px">role: admin | organizer<br>uid · joinedAt</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tournament -->
+  <div style="background:#1e1e2e;border:2px solid #0ea5e9;border-radius:12px;padding:14px">
+    <div style="color:#38bdf8;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">🏆 /tournaments/{tournamentId}</div>
+    <div style="font-size:11px;color:#94a3b8;line-height:1.8">
+      <div style="color:#fbbf24;font-weight:600">orgId: string ← NEW</div>
+      <div style="color:#f1f5f9">name · status · dates</div>
+      <div style="color:#f1f5f9">organizerIds[]</div>
+      <div style="color:#f1f5f9">venue · courts</div>
+      <div style="color:#64748b">...existing fields</div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #334155">
+        <div style="color:#38bdf8;font-size:10px;font-weight:600;margin-bottom:4px">SUBCOLLECTIONS</div>
+        <div style="color:#f1f5f9">/players/{playerId}</div>
+        <div style="color:#f1f5f9">/registrations/{id}</div>
+        <div style="color:#f1f5f9">/categories/{id}</div>
+        <div style="color:#f1f5f9">/match_scores/{id}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Player -->
+  <div style="background:#1e1e2e;border:2px solid #7c3aed;border-radius:12px;padding:14px">
+    <div style="color:#a78bfa;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">🌍 /players/{playerId}</div>
+    <div style="font-size:11px;color:#94a3b8;line-height:1.8">
+      <div style="color:#f1f5f9">firstName · lastName</div>
+      <div style="color:#f1f5f9">email · emailNormalized</div>
+      <div style="color:#f1f5f9">skillLevel · userId?</div>
+      <div style="margin-top:6px">
+        <div style="color:#34d399;font-size:10px;font-weight:600">stats.singles</div>
+        <div style="color:#60a5fa;font-size:10px;font-weight:600">stats.doubles</div>
+        <div style="color:#f472b6;font-size:10px;font-weight:600">stats.mixed</div>
+        <div style="color:#fbbf24;font-size:10px;font-weight:600">stats.overall</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Registration (the bridge) -->
+  <div style="background:#1e1e2e;border:2px solid #34d399;border-radius:12px;padding:14px">
+    <div style="color:#34d399;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">🔗 /tournaments/{id}/registrations/{id}</div>
+    <div style="font-size:11px;color:#94a3b8;line-height:1.8">
+      <div style="color:#f1f5f9">playerId → global player</div>
+      <div style="color:#f1f5f9">categoryId</div>
+      <div style="color:#f1f5f9">status · seed</div>
+      <div style="color:#f1f5f9">partnerPlayerId?</div>
+      <div style="margin-top:10px;padding:8px;background:#0f172a;border-radius:6px;font-size:10px;color:#64748b;line-height:1.6">
+        Registration is the bridge. It links a global player to a tournament category. The Cloud Function reads this to know which player(s) to update when a match finishes.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Relationship arrows -->
+<div style="margin-top:20px;background:#0f172a;border-radius:12px;padding:18px">
+  <div style="color:#e2e8f0;font-size:13px;font-weight:600;margin-bottom:14px">Relationship Map</div>
+
+  <div style="display:flex;flex-direction:column;gap:10px;font-size:12px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="background:#1e293b;border:1px solid #f59e0b;border-radius:6px;padding:4px 10px;color:#fbbf24;white-space:nowrap">Org</div>
+      <div style="color:#64748b">owns many</div>
+      <div style="background:#1e293b;border:1px solid #0ea5e9;border-radius:6px;padding:4px 10px;color:#38bdf8;white-space:nowrap">Tournaments</div>
+      <div style="color:#64748b;font-size:10px">(via tournament.orgId)</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="background:#1e293b;border:1px solid #0ea5e9;border-radius:6px;padding:4px 10px;color:#38bdf8;white-space:nowrap">Tournament</div>
+      <div style="color:#64748b">has many</div>
+      <div style="background:#1e293b;border:1px solid #34d399;border-radius:6px;padding:4px 10px;color:#34d399;white-space:nowrap">Registrations</div>
+      <div style="color:#64748b;font-size:10px">(subcollection)</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="background:#1e293b;border:1px solid #34d399;border-radius:6px;padding:4px 10px;color:#34d399;white-space:nowrap">Registration</div>
+      <div style="color:#64748b">references one</div>
+      <div style="background:#1e293b;border:1px solid #7c3aed;border-radius:6px;padding:4px 10px;color:#a78bfa;white-space:nowrap">Global Player</div>
+      <div style="color:#64748b;font-size:10px">(via playerId)</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="background:#1e293b;border:1px solid #7c3aed;border-radius:6px;padding:4px 10px;color:#a78bfa;white-space:nowrap">Global Player</div>
+      <div style="color:#64748b">played in many</div>
+      <div style="background:#1e293b;border:1px solid #0ea5e9;border-radius:6px;padding:4px 10px;color:#38bdf8;white-space:nowrap">Tournaments</div>
+      <div style="color:#64748b;font-size:10px">(via registrations — queried by playerId)</div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1e293b">
+    <div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-bottom:8px">What the Org Page shows</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px">
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px 12px;color:#f1f5f9">All tournaments (query tournaments where orgId == orgId)</div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px 12px;color:#f1f5f9">Member list (from /organizations/{id}/members)</div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px 12px;color:#f1f5f9">Total players (count registrations across org tournaments)</div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px 12px;color:#f1f5f9">Org profile (name, logo, contact)</div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px">The only new field on Tournament is <strong>orgId</strong>. Everything else stays where it is. Does this mapping make sense?</p>

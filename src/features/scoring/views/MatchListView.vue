@@ -256,6 +256,7 @@ function clearFilters() {
                 icon="mdi-arrow-left"
                 variant="text"
                 class="scorer-match-list__back-btn"
+                aria-label="Back to previous page"
                 @click="router.back()"
               />
               <TournamentBrandMark
