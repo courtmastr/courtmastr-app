@@ -10,21 +10,17 @@
 
 ---
 
-## Horizon 3 Audit Snapshot (as of 2026-03-14)
+## Horizon 3 Audit Snapshot (updated 2026-03-14)
 
 1. Already done in repo:
-   - Tournament sponsor branding feature (logo upload + public render) is already implemented.
-2. Code-first pending:
+   - Tournament sponsor branding feature (logo upload + public render) is implemented.
+2. Code-first completed:
    - Tournament landing page templates.
    - Hall of Champions public pages.
-   - Multilingual support foundation.
+   - Multilingual support foundation (EN/ES).
    - PWA install prompts on spectator pages.
-3. Ops/content pending:
-   - Professional logo refinement.
-   - Demo video.
-   - Blog launch.
-   - White-label packaging strategy.
-   - Federation partnership outreach.
+3. Ops/content tracking created:
+   - Checklist documented in `docs/ops/horizon-3-growth-checklist.md` with owner/date/status.
 
 ---
 

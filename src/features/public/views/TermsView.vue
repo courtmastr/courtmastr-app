@@ -12,17 +12,32 @@ const legalEntityName = 'Marvy Technologies';
 const legalContactEmail = 'legal@courtmastr.com';
 const governingLawRegion = 'State of Illinois, United States';
 const disputeVenue = 'state or federal courts located in Illinois, United States';
+const legalReviewBanner = 'Operational legal draft pending formal legal review before final publication.';
 </script>
 
 <template>
   <v-container class="py-10">
     <v-row justify="center">
-      <v-col cols="12" md="10" lg="8">
+      <v-col
+        cols="12"
+        md="10"
+        lg="8"
+      >
         <v-card class="pa-6 pa-md-8">
-          <h1 class="text-h4 mb-2">Terms of Service</h1>
+          <h1 class="text-h4 mb-2">
+            Terms of Service
+          </h1>
           <p class="text-body-2 text-medium-emphasis mb-4">
             Last updated: {{ lastUpdated }}
           </p>
+
+          <v-alert
+            type="warning"
+            variant="tonal"
+            class="mb-5"
+          >
+            {{ legalReviewBanner }}
+          </v-alert>
 
           <section class="mb-5">
             <h2 class="text-h6 mb-2">

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
-import LiveBadge from '@/components/common/LiveBadge.vue';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
+import { usePwaInstallPrompt } from '@/composables/usePwaInstallPrompt';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
+import LiveBadge from '@/components/common/LiveBadge.vue';
 import type { Match } from '@/types';
 
 const route = useRoute();
@@ -26,6 +27,8 @@ const isStartingMatch = ref(false);
 const isUpdatingScore = ref(false);
 const hasAutoStartedMatch = ref(false); // Track if we've already auto-started this match
 const notFound = ref(false);
+const { canInstall, installApp, dismiss } = usePwaInstallPrompt();
+const showInstallPrompt = computed(() => canInstall.value);
 
 // Get matches ready to score or in progress
 const scorableMatches = computed(() => {
@@ -68,6 +71,14 @@ const gamesWon = computed(() => {
 const isMatchComplete = computed(() => {
   return selectedMatch.value?.status === 'completed' || selectedMatch.value?.status === 'walkover';
 });
+
+const handleInstallApp = async (): Promise<void> => {
+  try {
+    await installApp();
+  } catch (error) {
+    console.error('Failed to trigger app install prompt:', error);
+  }
+};
 
 onMounted(async () => {
   try {
@@ -241,6 +252,40 @@ watch(currentMatch, (newMatch) => {
           />
         </div>
       </div>
+
+      <v-card
+        v-if="showInstallPrompt"
+        class="mb-4 public-scoring__surface-card"
+        elevation="0"
+      >
+        <v-card-text class="d-flex align-center justify-space-between flex-wrap ga-3">
+          <div>
+            <p class="public-scoring__install-eyebrow mb-1">
+              Install CourtMastr
+            </p>
+            <p class="text-body-2 text-medium-emphasis mb-0">
+              Keep the scoring station one tap away for volunteers and spectators following live results.
+            </p>
+          </div>
+          <div class="d-flex align-center ga-2">
+            <v-btn
+              size="small"
+              color="primary"
+              prepend-icon="mdi-cellphone-arrow-down"
+              @click="handleInstallApp"
+            >
+              Install
+            </v-btn>
+            <v-btn
+              size="small"
+              variant="text"
+              @click="dismiss"
+            >
+              Later
+            </v-btn>
+          </div>
+        </v-card-text>
+      </v-card>
 
       <!-- Match Selection List -->
       <template v-if="!scoringMode">
@@ -602,6 +647,14 @@ watch(currentMatch, (newMatch) => {
   border-radius: 24px;
   background: rgba(var(--v-theme-surface), 0.94);
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
+}
+
+.public-scoring__install-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(var(--v-theme-primary), 0.88);
 }
 
 /* Match Header */

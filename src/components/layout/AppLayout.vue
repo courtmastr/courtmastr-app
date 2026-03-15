@@ -10,12 +10,14 @@ import ContextualNavigation from '@/components/navigation/ContextualNavigation.v
 import GlobalSearch from '@/components/navigation/GlobalSearch.vue';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import PublicWebsiteFooter from '@/components/common/PublicWebsiteFooter.vue';
+import { useI18n, type SupportedLocale } from '@/i18n';
 
 const router = useRouter();
 const route = useRoute();
 const display = useDisplay();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
+const { locale, setLocale, t } = useI18n();
 
 const drawer = ref(true); // Changed to true for default open state
 
@@ -47,6 +49,18 @@ const showPublicWebsiteFooter = computed(() =>
   route.meta.obsOverlay !== true &&
   route.meta.volunteerLayout !== true
 );
+
+const showLanguageToggle = computed(() =>
+  route.meta.requiresAuth === false &&
+  route.meta.overlayPage !== true &&
+  route.meta.obsOverlay !== true &&
+  route.meta.volunteerLayout !== true
+);
+
+const selectedPublicLocale = computed<SupportedLocale>({
+  get: () => locale.value,
+  set: (nextLocale) => setLocale(nextLocale),
+});
 
 // User menu items
 const userMenuItems = computed(() => {
@@ -258,6 +272,29 @@ async function submitBugReport() {
 
       <v-spacer v-else />
 
+      <v-btn-toggle
+        v-if="showLanguageToggle"
+        v-model="selectedPublicLocale"
+        mandatory
+        density="compact"
+        variant="outlined"
+        class="app-language-toggle mr-2"
+        aria-label="Language selector"
+      >
+        <v-btn
+          value="en"
+          size="small"
+        >
+          {{ t('common.englishShort') }}
+        </v-btn>
+        <v-btn
+          value="es"
+          size="small"
+        >
+          {{ t('common.spanishShort') }}
+        </v-btn>
+      </v-btn-toggle>
+
       <!-- Bug Report Button -->
       <v-tooltip
         text="Report a Bug"
@@ -381,7 +418,7 @@ async function submitBugReport() {
               to="/login"
               class="text-none"
             >
-              Login
+              {{ t('common.login') }}
             </v-btn>
             <v-btn
               color="primary"
@@ -389,7 +426,7 @@ async function submitBugReport() {
               class="text-none"
               elevation="0"
             >
-              Register
+              {{ t('common.register') }}
             </v-btn>
           </div>
         </template>
@@ -659,6 +696,17 @@ async function submitBugReport() {
   display: flex;
   gap: $spacing-sm;
   align-items: center;
+}
+
+.app-language-toggle {
+  min-width: 112px;
+}
+
+.app-language-toggle :deep(.v-btn) {
+  min-width: 48px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 600;
 }
 
 // Notification Menu

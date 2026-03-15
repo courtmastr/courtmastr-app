@@ -6,12 +6,15 @@ const runtime = {
   categories: [
     { id: 'cat-1', name: "Men's Singles" },
   ],
+  canInstall: false,
 };
 
 const mockDeps = vi.hoisted(() => ({
   fetchTournament: vi.fn(),
   subscribeTournament: vi.fn(),
   fetchCategoryLevels: vi.fn(),
+  installApp: vi.fn(),
+  dismissInstallPrompt: vi.fn(),
 }));
 
 vi.mock('vue-router', () => ({
@@ -34,6 +37,18 @@ vi.mock('@/stores/tournaments', () => ({
   }),
 }));
 
+vi.mock('@/composables/usePwaInstallPrompt', () => ({
+  usePwaInstallPrompt: () => ({
+    canInstall: {
+      get value() {
+        return runtime.canInstall;
+      },
+    },
+    installApp: mockDeps.installApp,
+    dismiss: mockDeps.dismissInstallPrompt,
+  }),
+}));
+
 const mountView = () =>
   shallowMount(PublicBracketView, {
     global: {
@@ -44,6 +59,7 @@ const mountView = () =>
         'v-card',
         'v-card-text',
         'v-select',
+        'v-btn',
         'v-icon',
         'v-skeleton-loader',
         'BracketsManagerViewer',
@@ -62,9 +78,12 @@ const unwrapBoolean = (value: unknown): boolean => {
 describe('PublicBracketView', () => {
   beforeEach(() => {
     runtime.categories = [{ id: 'cat-1', name: "Men's Singles" }];
+    runtime.canInstall = false;
     mockDeps.fetchTournament.mockReset().mockResolvedValue(undefined);
     mockDeps.subscribeTournament.mockReset();
     mockDeps.fetchCategoryLevels.mockReset().mockResolvedValue([]);
+    mockDeps.installApp.mockReset().mockResolvedValue(true);
+    mockDeps.dismissInstallPrompt.mockReset();
   });
 
   it('marks tournament as not found when fetch fails', async () => {
@@ -94,5 +113,18 @@ describe('PublicBracketView', () => {
     expect(mockDeps.fetchTournament).toHaveBeenCalledWith('t1');
     expect(mockDeps.subscribeTournament).toHaveBeenCalledWith('t1');
     expect(mockDeps.fetchCategoryLevels).toHaveBeenCalledWith('t1', 'cat-1');
+  });
+
+  it('exposes install prompt state for bracket spectator banner rendering', async () => {
+    runtime.canInstall = true;
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      showInstallPrompt: boolean | { value: boolean };
+    };
+
+    expect(unwrapBoolean(vm.showInstallPrompt)).toBe(true);
   });
 });

@@ -11,6 +11,7 @@ import App from './App.vue';
 import router from './router';
 import vuetify from './plugins/vuetify';
 import { useAuthStore } from './stores/auth';
+import { installI18n } from './i18n';
 import './style.scss'; // Import global styles
 
 // Unregister service workers in development
@@ -31,6 +32,7 @@ const pinia = createPinia();
 app.use(pinia);
 app.use(router);
 app.use(vuetify);
+installI18n(app);
 
 // Initialize auth before mounting
 const authStore = useAuthStore();

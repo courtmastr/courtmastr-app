@@ -1,3 +1,10 @@
+- id: 43636cee
+  title: lint:log fails on existing repository-wide ESLint baseline violations during release gate
+  status: "🟡 workaround"
+  date: "2026-03-15"
+  fingerprint: "43636cee"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-15-13-11-07.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 8625c320
   title: build:log fails when compatibility computed is reintroduced but not consumed
   status: "✅ fixed"
@@ -726,3 +733,10 @@
   fingerprint: "444f8dfd"
   command: "npm run build:log --prefix functions"
   artifact_log: "docs/debug-kb/_artifacts/2026-03-12-21-30-23.tsc.log"
+- id: 1ba03fd8
+  title: combined public-route test:log run times out in router auth guards
+  status: "✅ fixed"
+  date: "2026-03-14"
+  fingerprint: "1ba03fd8"
+  command: "npm run test:log -- --run tests/unit/HallOfChampionsView.test.ts tests/unit/router-guards-auth.test.ts tests/unit/usePwaInstallPrompt.test.ts tests/unit/PublicScheduleView.test.ts tests/unit/PublicScoringView.test.ts tests/unit/PublicBracketView.test.ts tests/integration/public-views.integration.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-14-21-42-00.vitest-run-tests-unit-HallOfChampionsView-test-ts-.log"

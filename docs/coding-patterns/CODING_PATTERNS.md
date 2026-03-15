@@ -204,6 +204,47 @@ rg -n "\"check:firebase-env\"|scripts/check-firebase-env\\.mjs" package.json scr
 node -e "const p=require('./package.json'); console.log(p.scripts.build.includes('check:firebase-env')?'OK':'MISSING')"
 ```
 
+### CP-069: Slow Router Guard Tests Need Explicit Timeout Under Aggregate Logged Runs
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-14 |
+| **Source Bug** | Combined public-route `test:log` run timed out in `router-guards-auth.test.ts` even though the assertions were passing |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+it('bypasses auth for overlay and obs routes', async () => {
+  const overlayRoute = await runGuard('/overlay/t1/court/c1', { isAuthenticated: false });
+  expect(overlayRoute.type).toBe('allow');
+
+  const obsRoute = await runGuard('/obs/t1/scoreboard', { isAuthenticated: false });
+  expect(obsRoute.type).toBe('allow');
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+const ROUTER_GUARD_TEST_TIMEOUT_MS = 15_000;
+
+it('bypasses auth for overlay and obs routes', async () => {
+  const overlayRoute = await runGuard('/overlay/t1/court/c1', { isAuthenticated: false });
+  expect(overlayRoute.type).toBe('allow');
+
+  const obsRoute = await runGuard('/obs/t1/scoreboard', { isAuthenticated: false });
+  expect(obsRoute.type).toBe('allow');
+}, ROUTER_GUARD_TEST_TIMEOUT_MS);
+```
+
+**Rule:** Router guard tests that dynamically import the full router and traverse overlay/OBS public routes must set an explicit timeout when they are known to approach Vitest's default 5-second limit under aggregate `test:log` runs.
+
+**Detection:**
+```bash
+rg -n "runGuard\\('/overlay|runGuard\\('/obs" tests/unit/router-guards-auth.test.ts
+rg -n "ROUTER_GUARD_TEST_TIMEOUT_MS|, ROUTER_GUARD_TEST_TIMEOUT_MS\\)" tests/unit/router-guards-auth.test.ts
+```
+
 ### CP-002: Reverse Lookups for Cross-Collection References
 
 | Field | Value |

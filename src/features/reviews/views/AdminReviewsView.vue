@@ -75,7 +75,10 @@ onUnmounted(() => {
 <template>
   <v-container class="py-8 admin-reviews">
     <v-row justify="center">
-      <v-col cols="12" xl="10">
+      <v-col
+        cols="12"
+        xl="10"
+      >
         <v-card
           class="pa-5 pa-md-6"
           elevation="0"

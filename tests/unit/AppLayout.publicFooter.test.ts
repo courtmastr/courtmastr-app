@@ -94,6 +94,7 @@ const mountView = () => shallowMount(AppLayout, {
       'v-spacer',
       'v-tooltip',
       'v-btn',
+      'v-btn-toggle',
       'v-icon',
       'v-badge',
       'v-menu',
@@ -141,12 +142,14 @@ describe('AppLayout public footer', () => {
     const mainContent = wrapper.find('v-main-stub');
     expect(mainContent.exists()).toBe(true);
     expect(mainContent.find('public-website-footer-stub').exists()).toBe(true);
+    expect(wrapper.find('v-btn-toggle-stub').exists()).toBe(true);
   });
 
   it('hides public website footer for authenticated routes', () => {
     runtime.route.meta = { requiresAuth: true };
     const wrapper = mountView();
     expect(wrapper.find('public-website-footer-stub').exists()).toBe(false);
+    expect(wrapper.find('v-btn-toggle-stub').exists()).toBe(false);
   });
 
   it('hides public website footer for non-marketing public routes', () => {
@@ -159,5 +162,6 @@ describe('AppLayout public footer', () => {
     runtime.route.meta = { requiresAuth: false, obsOverlay: true };
     const wrapper = mountView();
     expect(wrapper.find('public-website-footer-stub').exists()).toBe(false);
+    expect(wrapper.find('v-btn-toggle-stub').exists()).toBe(false);
   });
 });
