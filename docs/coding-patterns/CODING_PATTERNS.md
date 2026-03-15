@@ -3508,6 +3508,43 @@ rg -n "Unable to load featured tournament metrics\\.|Set VITE_MARKETING_FEATURED
 
 ---
 
+### CP-071: Match Score Listeners Must Apply Incremental Overlays Before Full Scope Refetch
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-15 |
+| **Source Bug** | Live scoring screens triggered full scope `fetchMatches()` on every `match_scores` update, causing read amplification and UI lag in multi-category tournaments |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+onSnapshot(collection(db, scoresPath), () => fetchMatches(tournamentId, categoryId, levelId));
+```
+
+**Correct Pattern (✅):**
+```typescript
+onSnapshot(collection(db, scoresPath), (snapshot) => {
+  const changes = snapshot.docChanges().map(change => ({
+    type: change.type,
+    id: change.doc.id,
+    data: change.type === 'removed' ? undefined : change.doc.data(),
+  }));
+  const { requiresRefresh } = applyScoreChangesToLocalState(changes, categoryId, levelId);
+  if (requiresRefresh) fetchMatches(tournamentId, categoryId, levelId);
+});
+```
+
+**Rule:** Realtime `match_scores` listeners must patch in-memory matches from `docChanges()` and only run scoped full reloads for structural misses (`removed` docs or unknown matches). Avoid full scope refetches for ordinary score/status updates.
+
+**Detection:**
+```bash
+rg -n "onSnapshot\\(collection\\(db, .*match_scores.*\\), \\(\\) => .*fetchMatches\\(" src/stores/matches.ts
+rg -n "applyScoreChangesToLocalState\\(" src/stores/matches.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

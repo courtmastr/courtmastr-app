@@ -5,6 +5,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import courtmasterMarkWhite from '@/assets/brand/courtmaster-mark-white.svg';
 import type { Match, GameScore } from '@/types';
 
@@ -23,6 +24,13 @@ const theme = computed(() => {
 const viewMode = computed(() => {
   const mode = route.query.mode as string;
   return mode === 'ticker' ? 'ticker' : 'full';
+});
+
+usePublicPageMetadata({
+  title: 'OBS Scoreboard Overlay',
+  description: 'CourtMastr OBS scoreboard overlay for live badminton match broadcasts.',
+  canonicalPath: route.path,
+  noIndex: true,
 });
 
 const loading = ref(true);

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import type { VolunteerRole } from '@/types';
@@ -40,6 +41,13 @@ const roleEyebrow = computed(() => (
     ? 'Scorekeeper Access'
     : 'Front Desk Access'
 ));
+
+usePublicPageMetadata({
+  title: volunteerRole.value === 'scorekeeper' ? 'Scorekeeper Access' : 'Front Desk Access',
+  description: 'Enter a volunteer PIN to access the CourtMastr event operations workspace.',
+  canonicalPath: route.path,
+  noIndex: true,
+});
 
 const kioskRouteName = computed(() => (
   volunteerRole.value === 'scorekeeper'

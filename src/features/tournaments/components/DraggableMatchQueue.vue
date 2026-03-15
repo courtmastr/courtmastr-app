@@ -9,6 +9,7 @@
             icon="mdi-dots-vertical"
             size="small"
             variant="text"
+            aria-label="Queue options"
           />
         </template>
         <v-list density="compact">

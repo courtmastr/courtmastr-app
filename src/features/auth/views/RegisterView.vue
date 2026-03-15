@@ -2,6 +2,8 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { BRAND_NAME } from '@/constants/branding';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import type { UserRole } from '@/types';
 
 const router = useRouter();
@@ -46,6 +48,13 @@ const passwordStrength = computed(() => {
   if (score < 50) return { score, text: 'Weak', color: 'error' };
   if (score < 75) return { score, text: 'Fair', color: 'warning' };
   return { score, text: 'Strong', color: 'success' };
+});
+
+usePublicPageMetadata({
+  title: 'Create Account',
+  description: `Create your ${BRAND_NAME} account to run and support badminton tournament operations.`,
+  canonicalPath: '/register',
+  noIndex: true,
 });
 
 async function handleRegister() {
@@ -108,7 +117,7 @@ async function handleGoogleRegister() {
                 Create Account
               </h1>
               <p class="text-body-2 text-grey mt-1">
-                Join CourtMastr today
+                Join {{ BRAND_NAME }} today
               </p>
             </div>
           </v-card-title>

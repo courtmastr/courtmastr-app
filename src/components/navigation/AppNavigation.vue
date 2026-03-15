@@ -73,6 +73,9 @@
       <template v-if="currentTournamentId">
         <v-divider class="my-2" />
 
+        <v-list-subheader v-if="!rail">
+          Operate
+        </v-list-subheader>
         <v-list-item
           :to="`/tournaments/${currentTournamentId}`"
           prepend-icon="mdi-view-dashboard"
@@ -105,6 +108,33 @@
           :ripple="false"
         />
         <v-list-item
+          :to="`/tournaments/${currentTournamentId}/brackets`"
+          prepend-icon="mdi-tournament"
+          title="Brackets"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="smartBracketPath"
+          :to="smartBracketPath"
+          prepend-icon="mdi-source-branch"
+          title="Smart Bracket"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          :to="`/tournaments/${currentTournamentId}/leaderboard`"
+          prepend-icon="mdi-trophy"
+          title="Leaderboard"
+          rounded="lg"
+          :ripple="false"
+        />
+
+        <v-divider class="my-2" />
+        <v-list-subheader v-if="!rail">
+          Setup
+        </v-list-subheader>
+        <v-list-item
           v-if="isOrganizer"
           :to="`/tournaments/${currentTournamentId}/categories`"
           prepend-icon="mdi-tag-multiple"
@@ -121,21 +151,6 @@
           :ripple="false"
         />
         <v-list-item
-          :to="`/tournaments/${currentTournamentId}/brackets`"
-          prepend-icon="mdi-tournament"
-          title="Brackets"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          v-if="smartBracketPath"
-          :to="smartBracketPath"
-          prepend-icon="mdi-source-branch"
-          title="Smart Bracket"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
           v-if="isOrganizer"
           :to="`/tournaments/${currentTournamentId}/registrations`"
           prepend-icon="mdi-account-multiple"
@@ -143,18 +158,11 @@
           rounded="lg"
           :ripple="false"
         />
-        <v-list-item
-          :to="`/tournaments/${currentTournamentId}/leaderboard`"
-          prepend-icon="mdi-trophy"
-          title="Leaderboard"
-          rounded="lg"
-          :ripple="false"
-        />
 
         <!-- Public / Shareable links -->
         <v-divider class="my-2" />
         <v-list-subheader v-if="!rail">
-          Public
+          Public & Broadcast
         </v-list-subheader>
         <v-list-item
           :to="`/tournaments/${currentTournamentId}/bracket`"
@@ -272,6 +280,29 @@ async function handleLogout(): Promise<void> {
   margin-bottom: 4px;
 }
 
+:deep(.v-list-item .v-list-item__prepend) {
+  margin-inline-end: 10px;
+}
+
+:deep(.v-list-item .v-list-item__prepend .v-icon) {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, rgba($primary-base, 0.94), rgba($info, 0.88));
+  box-shadow: 0 8px 18px rgba($primary-base, 0.18);
+  transition: transform 160ms ease-out, box-shadow 160ms ease-out;
+}
+
+:deep(.v-list-item:hover .v-list-item__prepend .v-icon) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba($primary-base, 0.2);
+}
+
 // Branding Section
 .branding-section {
   min-height: 64px;
@@ -310,6 +341,11 @@ async function handleLogout(): Promise<void> {
   
   .v-list-item__prepend {
     color: $primary-base;
+  }
+
+  .v-list-item__prepend .v-icon {
+    background: linear-gradient(135deg, rgba($primary-base, 0.95), rgba($secondary-base, 0.9));
+    box-shadow: 0 10px 20px rgba($primary-base, 0.22);
   }
   
   .v-list-item-title {

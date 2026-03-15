@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import BrandIconBadge from '@/components/common/BrandIconBadge.vue';
+
 interface FeatureItem {
   icon: string;
   title: string;
@@ -31,11 +33,10 @@ defineProps<PublicFeatureGridProps>();
         elevation="0"
       >
         <v-card-text class="pa-5">
-          <v-icon
+          <BrandIconBadge
             :icon="feature.icon"
-            size="22"
-            class="mb-2"
-            color="primary"
+            class="mb-3"
+            tone="primary"
           />
           <h3 class="public-feature-grid__item-title mb-2">
             {{ feature.title }}

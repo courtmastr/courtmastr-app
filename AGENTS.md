@@ -81,6 +81,15 @@ npm run deploy:log
 - Verification workflow: `docs/process/TEST_STRATEGY.md`
 - Deployment record: `docs/deployment/LAST_DEPLOY.md`
 
+### 2.2 Build Verification Trigger (Required)
+
+Run build verification whenever a change can affect build output.
+
+- Trigger paths: `src/**`, `functions/**`, `public/**`, `index.html`, `vite.config.*`, `vitest.config.*`, `tsconfig*.json`, `package.json`, `package-lock.json`, `firebase.json`, `.firebaserc`
+- Required commands:
+  - `npm run build`
+  - `npm run build:log`
+
 ---
 
 ## 3. Code Style Guidelines
@@ -130,8 +139,8 @@ npm run deploy:log
 - Make smallest possible change (No "Fluff" Changes).
 - Reuse existing patterns, components, stores.
 - Search codebase before creating files.
-- Run `npm run build` after every change to ensure the code is not broken.
-- Run `:log` commands after changes.
+- Run build verification for any build-affecting change (see §2.2): `npm run build` then `npm run build:log`.
+- Run relevant `:log` commands after changes.
 - Run `npm run check:firebase-env` before production deploys (especially in new checkouts/worktrees).
 - Enable repo hooks once per clone/worktree set: `npm run hooks:enable`.
 - Update `docs/deployment/LAST_DEPLOY.md` after any production deploy.
@@ -407,30 +416,81 @@ Full details and detection commands: `docs/coding-patterns/CODING_PATTERNS.md`
 
 ## 13. Skill Usage Matrix (Required)
 
-Use the following skill map for consistent execution:
+Use a small default path plus trigger-based add-ons. Do not load a large skill set by default.
 
-| Situation | Required Skill(s) | Why |
-|---|---|---|
-| New feature or UX concept | `brainstorming` → `writing-plans` | Lock scope and approved design before coding |
-| Executing an approved plan | `executing-plans` | Structured batch implementation with checkpoints |
-| Vue / Router / `.vue` edits | `vue-best-practices` | Enforce Composition API + Vue 3 patterns |
-| Pinia store work | `pinia`, `vue-pinia-best-practices` | Maintain setup-store consistency and type safety |
-| External library/API usage | `context7` | Use current docs, avoid stale APIs |
-| Firebase environment/bootstrap | `firebase-local-env-setup`, `firebase-basics` | Verify CLI/auth/project setup before Firebase changes |
-| Firebase Hosting deploy flow | `firebase-hosting-basics` | Apply correct hosting deploy and preview-channel patterns |
-| Firestore data/rules work | `firebase-firestore-standard` | Keep Firestore provisioning, indexing, and rules aligned |
-| Firebase Auth changes | `firebase-auth-basics` | Use correct auth provider and token/security patterns |
-| UI redesign/polish | `frontend-design`, `web-design-guidelines` | Professional design quality and guideline compliance |
-| Accessibility pass | `fixing-accessibility` | WCAG-focused checks and remediations |
-| Motion/perf tuning | `fixing-motion-performance` | Prevent jank and expensive animations |
-| Metadata/SEO work | `fixing-metadata` | Canonical/OG/JSON-LD correctness |
-| Test-first implementation | `test-driven-development` | Red/green confidence for behavior changes |
-| Failures or regressions | `systematic-debugging` | Root-cause-first debugging protocol |
-| Pre-merge verification | `verification-before-completion` | No completion claims without fresh evidence |
-| Branch finish / merge choice | `finishing-a-development-branch` | Controlled merge/PR/cleanup workflow |
-| Need a missing capability | `find-skills` | Discover and install additional skills |
+### 13.1 Default Skill Flow
 
-Rule: if multiple rows apply, execute skills in the order shown above and keep scope minimal.
+| Situation | Skill(s) |
+|---|---|
+| New work / unclear task | `brainstorming` → `writing-plans` |
+| Approved work | `executing-plans` |
+| Something is broken | `systematic-debugging` |
+| Before claiming done | `verification-before-completion` |
+
+### 13.2 Add One Domain Skill Only When Needed
+
+| If the task touches… | Add |
+|---|---|
+| UI/UX quality, visual consistency, “not professional enough” feedback, usability feedback, pre-launch polish, cross-platform alignment, or design-system work | `ui-ux-pro-max` (first) |
+| Vue / `.vue` / router | `vue-best-practices` |
+| Pinia store | `pinia`, `vue-pinia-best-practices` |
+| Firebase setup / hosting | Relevant Firebase skill (`firebase-local-env-setup`, `firebase-basics`, `firebase-hosting-basics`) |
+| Firestore | `firebase-firestore-standard` |
+| Firebase Auth | `firebase-auth-basics` |
+| External SDK / library / migration / version-specific docs | `context7` |
+| Architecture fit / extending existing app | `architecture-blueprint-generator` |
+| New system design / ADR | `architecture-designer` |
+
+### 13.3 Optional Polish Skills (Not Default)
+
+Only load these when the task explicitly asks for them:
+
+| Need | Add |
+|---|---|
+| UI polish | `ui-ux-pro-max` → `frontend-design`, `web-design-guidelines` |
+| Accessibility pass | `fixing-accessibility` |
+| Perf / animation jank | `fixing-motion-performance` |
+| SEO / metadata | `fixing-metadata` |
+| Tests first | `test-driven-development` |
+
+### 13.4 Agent Skill Rules
+
+1. For any UI-related task, run `ui-ux-pro-max` first.
+2. Default to: `brainstorming` → `writing-plans` → `executing-plans` → `verification-before-completion`
+3. If task is a bug/regression: run `systematic-debugging` first, then continue flow.
+4. Add only one domain skill group based on the code area.
+5. Do not load polish skills unless explicitly requested.
+6. Do not use more than 3 skill groups in one run unless scope is truly broad.
+7. Use `context7` only for external dependencies, SDKs, framework docs, migrations, or version-sensitive APIs.
+8. Always end meaningful work with `verification-before-completion`.
+9. For any build-affecting change (see §2.2), verification MUST include `npm run build` and `npm run build:log`.
+
+### 13.5 Practical Defaults
+
+**Core defaults**
+- `brainstorming`
+- `writing-plans`
+- `executing-plans`
+- `systematic-debugging`
+- `verification-before-completion`
+
+**Domain add-ons (load by trigger)**
+- `ui-ux-pro-max` (first for UI/UX work)
+- `vue-best-practices`
+- `pinia`
+- `vue-pinia-best-practices`
+- `context7`
+- `architecture-blueprint-generator`
+- `architecture-designer`
+- Firebase skills
+
+**Rare add-ons (explicit ask only)**
+- `frontend-design`
+- `web-design-guidelines`
+- `fixing-accessibility`
+- `fixing-motion-performance`
+- `fixing-metadata`
+- `test-driven-development`
 
 ---
 

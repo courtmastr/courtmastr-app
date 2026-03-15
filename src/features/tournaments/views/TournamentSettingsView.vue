@@ -1589,6 +1589,7 @@ async function confirmDelete() {
                     color="error"
                     :disabled="organizerLoading || (tournament?.organizerIds?.length ?? 0) <= 1"
                     :title="(tournament?.organizerIds?.length ?? 0) <= 1 ? 'Cannot remove the last organizer' : 'Remove organizer'"
+                    :aria-label="`Remove organizer ${user.displayName}`"
                     @click="removeOrganizerFromTournament(user.id)"
                   />
                 </template>

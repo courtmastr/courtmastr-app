@@ -110,6 +110,7 @@ async function resolveAlert(alertId: string) {
             size="small"
             variant="text"
             color="success"
+            :aria-label="`Resolve alert: ${alert.title}`"
             @click="resolveAlert(alert.id)"
           />
           <v-btn
@@ -117,6 +118,7 @@ async function resolveAlert(alertId: string) {
             icon="mdi-eye"
             size="small"
             variant="text"
+            :aria-label="`Acknowledge alert: ${alert.title}`"
             @click="acknowledgeAlert(alert.id)"
           />
         </template>

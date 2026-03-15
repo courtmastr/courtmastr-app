@@ -335,6 +335,7 @@ const handleSponsorLogoChange = (
               variant="text"
               size="small"
               :disabled="index === 0"
+              :aria-label="`Move sponsor ${sponsor.name || index + 1} up`"
               @click="moveSponsor(index, -1)"
             />
             <v-btn
@@ -342,6 +343,7 @@ const handleSponsorLogoChange = (
               variant="text"
               size="small"
               :disabled="index === sponsorRows.length - 1"
+              :aria-label="`Move sponsor ${sponsor.name || index + 1} down`"
               @click="moveSponsor(index, 1)"
             />
             <v-btn
@@ -349,6 +351,7 @@ const handleSponsorLogoChange = (
               variant="text"
               size="small"
               color="error"
+              :aria-label="`Remove sponsor ${sponsor.name || index + 1}`"
               @click="removeSponsor(index)"
             />
           </div>

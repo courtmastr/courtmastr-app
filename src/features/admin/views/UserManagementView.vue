@@ -221,6 +221,7 @@ async function confirmStatusChange(): Promise<void> {
               variant="text"
               color="primary"
               title="Edit"
+              :aria-label="`Edit user ${item.displayName}`"
               @click="openEditDialog(item)"
             />
             <v-btn
@@ -229,6 +230,7 @@ async function confirmStatusChange(): Promise<void> {
               :color="item.isActive === false ? 'success' : 'error'"
               variant="text"
               :title="item.isActive === false ? 'Reactivate' : 'Deactivate'"
+              :aria-label="item.isActive === false ? `Reactivate user ${item.displayName}` : `Deactivate user ${item.displayName}`"
               @click="requestStatusChange(item)"
             />
           </div>

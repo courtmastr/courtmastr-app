@@ -227,6 +227,7 @@ const pendingMatchesCount = computed(() =>
             variant="text"
             icon
             class="action-btn-icon"
+            aria-label="Refresh match control data"
             @click="emit('refreshData')"
           >
             <v-icon>mdi-refresh</v-icon>

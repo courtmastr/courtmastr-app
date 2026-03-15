@@ -2,6 +2,8 @@
 import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { BRAND_NAME } from '@/constants/branding';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 
 const router = useRouter();
 const route = useRoute();
@@ -18,6 +20,13 @@ const error = computed(() => authStore.error);
 
 const isFormValid = computed(() => {
   return email.value.length > 0 && password.value.length >= 6;
+});
+
+usePublicPageMetadata({
+  title: 'Login',
+  description: `Sign in to ${BRAND_NAME} and manage tournaments, check-in, and live scoring operations.`,
+  canonicalPath: '/login',
+  noIndex: true,
 });
 
 async function handleLogin() {
@@ -81,7 +90,7 @@ async function handleGoogleLogin() {
                 class="mb-2"
               >
               <h1 class="text-h5 font-weight-bold">
-                CourtMastr
+                {{ BRAND_NAME }}
               </h1>
               <p class="text-body-2 text-grey mt-1">
                 Sign in to continue

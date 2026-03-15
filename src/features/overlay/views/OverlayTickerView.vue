@@ -5,6 +5,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import type { GameScore, Match } from '@/types';
 import '../overlay.css';
@@ -39,6 +40,13 @@ const tournamentInitials = computed(() => (
     .join('') || 'TM'
 ));
 const { tournamentLogoUrl } = useTournamentBranding(tournament);
+
+usePublicPageMetadata({
+  title: 'Broadcast Overlay Ticker',
+  description: 'CourtMastr ticker overlay for live court status and match score updates.',
+  canonicalPath: route.path,
+  noIndex: true,
+});
 
 const scrollDuration = computed(() => {
   if (speed.value === 'slow') return 90;

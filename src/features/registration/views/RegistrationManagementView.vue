@@ -1131,6 +1131,7 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
               variant="text"
               color="primary"
               class="mr-2"
+              aria-label="Back to previous page"
               @click="router.back()"
             />
             <h1 class="text-h4 font-weight-bold text-gradient mb-0">
@@ -1609,6 +1610,7 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                     color="success"
                     variant="text"
                     title="Approve"
+                    :aria-label="`Approve registration for ${getParticipantDisplay(item)}`"
                     @click="approveRegistration(item.id)"
                   />
                   <v-btn
@@ -1617,6 +1619,7 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                     color="error"
                     variant="text"
                     title="Reject"
+                    :aria-label="`Reject registration for ${getParticipantDisplay(item)}`"
                     @click="rejectRegistration(item.id)"
                   />
                 </template>
@@ -1629,6 +1632,7 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                     color="info"
                     variant="text"
                     title="Check In"
+                    :aria-label="`Check in ${getParticipantDisplay(item)}`"
                     @click="checkInRegistration(item.id)"
                   />
                   <v-btn
@@ -1637,6 +1641,7 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                     color="grey"
                     variant="text"
                     title="Withdraw"
+                    :aria-label="`Withdraw ${getParticipantDisplay(item)}`"
                     @click="withdrawRegistration(item.id)"
                   />
                 </template>
@@ -1663,6 +1668,7 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                     color="warning"
                     variant="text"
                     title="Undo Check-In"
+                    :aria-label="`Undo check-in for ${getParticipantDisplay(item)}`"
                     @click="undoCheckInRegistration(item.id)"
                   />
                   <v-btn
@@ -1671,6 +1677,7 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                     color="grey"
                     variant="text"
                     title="Withdraw"
+                    :aria-label="`Withdraw ${getParticipantDisplay(item)}`"
                     @click="withdrawRegistration(item.id)"
                   />
                 </template>
@@ -1683,6 +1690,7 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                     color="success"
                     variant="text"
                     title="Reinstate"
+                    :aria-label="`Reinstate ${getParticipantDisplay(item)}`"
                     @click="reinstateRegistration(item.id)"
                   />
                 </template>
@@ -2015,6 +2023,7 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                 variant="text"
                 size="small"
                 class="ml-1"
+                aria-label="Import format help"
               />
             </template>
           </v-tooltip>
@@ -2022,6 +2031,7 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
           <v-btn
             icon="mdi-close"
             variant="text"
+            aria-label="Close import dialog"
             @click="showImportDialog = false; resetImport();"
           />
         </v-card-title>

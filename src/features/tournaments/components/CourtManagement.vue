@@ -267,6 +267,7 @@ function getStatusColor(status: CourtStatus): string {
               size="small"
               variant="text"
               data-testid="edit-court-btn"
+              :aria-label="`Edit ${court.name}`"
               @click="openEditDialog(court)"
             />
             <v-btn
@@ -276,6 +277,7 @@ function getStatusColor(status: CourtStatus): string {
               color="error"
               data-testid="delete-court-btn"
               :disabled="court.status === 'in_use'"
+              :aria-label="`Delete ${court.name}`"
               @click="requestDeleteCourt(court)"
             />
           </v-card-actions>

@@ -153,6 +153,7 @@ function getItemColor(item: ReadinessItem): string {
               size="small"
               density="compact"
               :color="getItemColor(item)"
+              :aria-label="`Open ${item.label}`"
             />
           </template>
         </v-list-item>

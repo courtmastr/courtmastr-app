@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { usePwaInstallPrompt } from '@/composables/usePwaInstallPrompt';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
+import { BRAND_INSTALL_PROMPT_TITLE } from '@/constants/branding';
 import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import type { LevelDefinition } from '@/types';
@@ -21,6 +23,7 @@ const selectedLevelId = ref<string | null>(null);
 const notFound = ref(false);
 const { canInstall, installApp, dismiss } = usePwaInstallPrompt();
 const showInstallPrompt = computed(() => canInstall.value);
+const canonicalPath = computed(() => `/tournaments/${tournamentId.value}/bracket`);
 
 const selectedCategoryLevels = computed(() =>
   selectedCategory.value ? categoryLevels.value[selectedCategory.value] || [] : []
@@ -33,6 +36,19 @@ const handleInstallApp = async (): Promise<void> => {
     console.error('Failed to trigger app install prompt:', error);
   }
 };
+
+watch(
+  [tournament, canonicalPath],
+  ([activeTournament, canonical]) => {
+    const tournamentName = activeTournament?.name?.trim() || 'Tournament';
+    usePublicPageMetadata({
+      title: `${tournamentName} Bracket`,
+      description: `Live elimination and pool brackets for ${tournamentName}.`,
+      canonicalPath: canonical,
+    });
+  },
+  { immediate: true }
+);
 
 onMounted(async () => {
   try {
@@ -103,7 +119,7 @@ watch(selectedCategory, async (categoryId) => {
         <v-card-text class="d-flex align-center justify-space-between flex-wrap ga-3">
           <div>
             <p class="bracket-install-card__eyebrow mb-1">
-              Install CourtMastr
+              {{ BRAND_INSTALL_PROMPT_TITLE }}
             </p>
             <p class="text-body-2 text-medium-emphasis mb-0">
               Save the public bracket to the home screen for faster re-entry between rounds.

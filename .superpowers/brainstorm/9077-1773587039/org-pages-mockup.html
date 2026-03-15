@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Page Designs</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0f; color: #e2e8f0; font-family: 'DM Sans', sans-serif; padding: 24px; }
+  h1 { font-family: 'Syne', sans-serif; font-size: 20px; color: #f8fafc; margin-bottom: 6px; }
+  .sub { color: #64748b; font-size: 12px; margin-bottom: 28px; }
+  .page-section { margin-bottom: 40px; }
+  .page-label { font-family: 'Syne', sans-serif; font-size: 13px; color: #94a3b8; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+  .page-label span { flex: 1; height: 1px; background: #1e293b; }
+  .mockup-frame { border: 1px solid #1e293b; border-radius: 14px; overflow: hidden; background: #0f0f1a; }
+  .mockup-bar { background: #0d0d18; padding: 8px 14px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #1e293b; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ——— ORG ADMIN PAGE ——— */
+  .org-banner { height: 120px; background: linear-gradient(135deg, #1a1035 0%, #0d1f40 50%, #0a2a1a 100%); position: relative; overflow: hidden; }
+  .org-banner::after { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+  .banner-upload { position: absolute; top: 8px; right: 10px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 10px; font-size: 10px; color: #94a3b8; cursor: pointer; }
+  .org-header { padding: 0 20px 16px; background: #0f0f1a; }
+  .org-logo-row { display: flex; align-items: flex-end; gap: 16px; margin-top: -30px; margin-bottom: 12px; }
+  .org-logo { width: 64px; height: 64px; border-radius: 14px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border: 3px solid #0f0f1a; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: 22px; color: #fff; font-weight: 800; flex-shrink: 0; cursor: pointer; position: relative; }
+  .logo-edit { position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; background: #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; }
+  .org-name-area { flex: 1; padding-bottom: 4px; }
+  .org-name { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #f1f5f9; }
+  .org-slug { font-size: 11px; color: #4f46e5; margin-top: 2px; }
+  .org-tabs { display: flex; gap: 2px; border-bottom: 1px solid #1e293b; padding: 0 20px; }
+  .tab { padding: 8px 14px; font-size: 11px; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; }
+  .tab.active { color: #818cf8; border-bottom-color: #818cf8; }
+  .org-body { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px 20px; }
+  .field-group { display: flex; flex-direction: column; gap: 4px; }
+  .field-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #475569; }
+  .field-val { background: #0a0a14; border: 1px solid #1e293b; border-radius: 6px; padding: 7px 10px; font-size: 11px; color: #e2e8f0; }
+  .field-val.accent { border-color: #312e81; color: #818cf8; }
+  .full-width { grid-column: 1 / -1; }
+
+  /* ——— ORG PUBLIC LANDING ——— */
+  .pub-hero { height: 140px; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #0f172a 100%); position: relative; overflow: hidden; display: flex; align-items: flex-end; padding: 16px 20px; gap: 14px; }
+  .pub-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 70% 50%, rgba(99,102,241,0.2) 0%, transparent 60%); }
+  .pub-logo { width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #4f46e5, #7c3aed); display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: 20px; color: #fff; font-weight: 800; border: 2px solid rgba(255,255,255,0.15); flex-shrink: 0; position: relative; z-index: 1; }
+  .pub-org-info { position: relative; z-index: 1; }
+  .pub-org-name { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: #f1f5f9; }
+  .pub-org-meta { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+  .pub-stats-bar { display: flex; gap: 0; border-bottom: 1px solid #1e293b; padding: 0; background: #0a0a14; }
+  .pub-stat { flex: 1; padding: 10px; text-align: center; border-right: 1px solid #1e293b; }
+  .pub-stat:last-child { border-right: none; }
+  .pub-stat-num { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: #818cf8; }
+  .pub-stat-lbl { font-size: 9px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+  .pub-tournaments { padding: 14px 20px; }
+  .section-head { font-family: 'Syne', sans-serif; font-size: 11px; color: #64748b; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+  .t-card { background: #0a0a14; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .t-sport { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .t-info { flex: 1; }
+  .t-name { font-size: 12px; color: #f1f5f9; font-weight: 500; }
+  .t-date { font-size: 10px; color: #475569; }
+  .t-badge { font-size: 9px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  .badge-live { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+  .badge-open { background: #1e1b4b; color: #818cf8; border: 1px solid #312e81; }
+  .badge-done { background: #1e293b; color: #64748b; border: 1px solid #334155; }
+  .sponsors-row { padding: 10px 20px 14px; border-top: 1px solid #1e293b; }
+  .sponsors-logos { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .sponsor-chip { background: #0a0a14; border: 1px solid #1e293b; border-radius: 6px; padding: 4px 12px; font-size: 10px; color: #64748b; }
+
+  /* ——— PLAYER STATS PAGE ——— */
+  .player-header { padding: 16px 20px; background: #0f0f1a; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #1e293b; }
+  .player-avatar { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #0ea5e9, #6366f1); display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .player-name { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: #f1f5f9; }
+  .player-meta { font-size: 10px; color: #64748b; margin-top: 2px; display: flex; gap: 10px; align-items: center; }
+  .verified { background: #0c4a6e; color: #38bdf8; border-radius: 4px; padding: 1px 6px; font-size: 9px; font-weight: 600; }
+  .player-overall { display: grid; grid-template-columns: repeat(4,1fr); gap: 0; border-bottom: 1px solid #1e293b; background: #0a0a14; }
+  .ov-stat { padding: 12px; text-align: center; border-right: 1px solid #1e293b; }
+  .ov-stat:last-child { border-right: none; }
+  .ov-num { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #e2e8f0; }
+  .ov-lbl { font-size: 9px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .sport-tabs { display: flex; gap: 2px; padding: 10px 16px 0; border-bottom: 1px solid #1e293b; }
+  .sport-tab { padding: 6px 12px; font-size: 11px; border-radius: 6px 6px 0 0; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+  .sport-tab.active { background: #1e1b4b; color: #818cf8; border: 1px solid #312e81; border-bottom: 1px solid #1e1b4b; margin-bottom: -1px; }
+  .sport-tab:not(.active) { color: #475569; }
+  .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; padding: 14px 16px; }
+  .stat-card { background: #0a0a14; border: 1px solid #1e293b; border-radius: 10px; padding: 12px; }
+  .stat-card-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #475569; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+  .cat-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .win-loss { display: flex; align-items: baseline; gap: 4px; }
+  .w-num { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: #34d399; }
+  .l-num { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: #f87171; }
+  .wl-sep { font-size: 16px; color: #334155; }
+  .stat-footer { display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; color: #475569; }
+  .pct { font-size: 11px; color: #94a3b8; font-weight: 600; }
+  .win-bar { height: 3px; background: #1e293b; border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .win-fill { height: 100%; background: linear-gradient(90deg, #34d399, #059669); border-radius: 2px; }
+  .history-section { padding: 0 16px 16px; }
+  .hist-head { font-family: 'Syne', sans-serif; font-size: 10px; color: #475569; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .hist-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #0f172a; font-size: 11px; }
+  .hist-sport { font-size: 13px; }
+  .hist-name { flex: 1; color: #e2e8f0; }
+  .hist-org { color: #475569; font-size: 10px; }
+  .hist-result { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; }
+  .hist-result.w { color: #34d399; }
+  .hist-result.l { color: #f87171; }
+</style>
+</head>
+<body>
+
+<h1>Page Designs — CourtMaster v2</h1>
+<p class="sub">Org Admin · Org Public Landing · Player Stats — layouts for review</p>
+
+<!-- PAGE 1: ORG ADMIN -->
+<div class="page-section">
+  <div class="page-label">1 — Org Admin Profile <span></span></div>
+  <div class="mockup-frame">
+    <div class="mockup-bar">
+      <div class="dot" style="background:#ff5f57"></div>
+      <div class="dot" style="background:#febc2e"></div>
+      <div class="dot" style="background:#28c840"></div>
+      <div style="flex:1;background:#0d0d18;border-radius:4px;height:14px;margin-left:8px;display:flex;align-items:center;padding:0 8px"><span style="font-size:9px;color:#334155">courtmaster.app/org/miami-tennis/profile</span></div>
+    </div>
+    <div class="org-banner">
+      <div class="banner-upload">✎ Edit Banner</div>
+    </div>
+    <div class="org-header">
+      <div class="org-logo-row">
+        <div class="org-logo">MT<div class="logo-edit">✎</div></div>
+        <div class="org-name-area">
+          <div class="org-name">Miami Tennis Club</div>
+          <div class="org-slug">courtmaster.app/miami-tennis</div>
+        </div>
+        <div style="padding-bottom:4px;display:flex;gap:6px">
+          <div style="background:#1e1b4b;border:1px solid #312e81;border-radius:6px;padding:5px 12px;font-size:10px;color:#818cf8;cursor:pointer">Save</div>
+        </div>
+      </div>
+    </div>
+    <div class="org-tabs">
+      <div class="tab active">Profile</div>
+      <div class="tab">Tournaments</div>
+      <div class="tab">Members</div>
+      <div class="tab">Settings</div>
+    </div>
+    <div class="org-body">
+      <div class="field-group">
+        <div class="field-label">Organization Name</div>
+        <div class="field-val">Miami Tennis Club</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Slug / URL</div>
+        <div class="field-val accent">miami-tennis</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Contact Email</div>
+        <div class="field-val">admin@miamitennisclub.com</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Timezone</div>
+        <div class="field-val">America/New_York (EST)</div>
+      </div>
+      <div class="field-group full-width">
+        <div class="field-label">About / Description</div>
+        <div class="field-val" style="min-height:48px;line-height:1.6">South Florida's premier tennis organization. Hosting competitive tournaments since 2018 across all skill levels.</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Website</div>
+        <div class="field-val">www.miamitennisclub.com</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Primary Sport</div>
+        <div class="field-val">Tennis</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2: PUBLIC LANDING -->
+<div class="page-section">
+  <div class="page-label">2 — Org Public Landing Page <span></span></div>
+  <div class="mockup-frame">
+    <div class="mockup-bar">
+      <div class="dot" style="background:#ff5f57"></div>
+      <div class="dot" style="background:#febc2e"></div>
+      <div class="dot" style="background:#28c840"></div>
+      <div style="flex:1;background:#0d0d18;border-radius:4px;height:14px;margin-left:8px;display:flex;align-items:center;padding:0 8px"><span style="font-size:9px;color:#334155">courtmaster.app/miami-tennis</span></div>
+    </div>
+    <div class="pub-hero">
+      <div class="pub-logo">MT</div>
+      <div class="pub-org-info">
+        <div class="pub-org-name">Miami Tennis Club</div>
+        <div class="pub-org-meta">Miami, FL · Est. 2018 · courtmaster.app/miami-tennis</div>
+      </div>
+    </div>
+    <div class="pub-stats-bar">
+      <div class="pub-stat"><div class="pub-stat-num">14</div><div class="pub-stat-lbl">Tournaments</div></div>
+      <div class="pub-stat"><div class="pub-stat-num">342</div><div class="pub-stat-lbl">Players</div></div>
+      <div class="pub-stat"><div class="pub-stat-num">1.2k</div><div class="pub-stat-lbl">Matches</div></div>
+      <div class="pub-stat"><div class="pub-stat-num">3</div><div class="pub-stat-lbl">Sports</div></div>
+    </div>
+    <div class="pub-tournaments">
+      <div class="section-head">Tournaments</div>
+      <div class="t-card">
+        <div class="t-sport" style="background:#052e16">🎾</div>
+        <div class="t-info">
+          <div class="t-name">Summer Open 2026</div>
+          <div class="t-date">Jun 14–16, 2026 · Singles + Doubles</div>
+        </div>
+        <div class="t-badge badge-live">LIVE</div>
+      </div>
+      <div class="t-card">
+        <div class="t-sport" style="background:#1e1b4b">🏓</div>
+        <div class="t-info">
+          <div class="t-name">Pickleball City Cup</div>
+          <div class="t-date">Jul 4–5, 2026 · Open Registration</div>
+        </div>
+        <div class="t-badge badge-open">OPEN</div>
+      </div>
+      <div class="t-card" style="opacity:0.6">
+        <div class="t-sport" style="background:#1e293b">🎾</div>
+        <div class="t-info">
+          <div class="t-name">Spring Classic 2026</div>
+          <div class="t-date">Mar 8–9, 2026</div>
+        </div>
+        <div class="t-badge badge-done">COMPLETED</div>
+      </div>
+    </div>
+    <div class="sponsors-row">
+      <div class="section-head">Sponsors</div>
+      <div class="sponsors-logos">
+        <div class="sponsor-chip">Wilson</div>
+        <div class="sponsor-chip">Babolat</div>
+        <div class="sponsor-chip">Miami Sports Medicine</div>
+        <div class="sponsor-chip">+ Add Sponsor</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 3: PLAYER STATS -->
+<div class="page-section">
+  <div class="page-label">3 — Player Stats Page <span></span></div>
+  <div class="mockup-frame">
+    <div class="mockup-bar">
+      <div class="dot" style="background:#ff5f57"></div>
+      <div class="dot" style="background:#febc2e"></div>
+      <div class="dot" style="background:#28c840"></div>
+      <div style="flex:1;background:#0d0d18;border-radius:4px;height:14px;margin-left:8px;display:flex;align-items:center;padding:0 8px"><span style="font-size:9px;color:#334155">courtmaster.app/players/rafael-garcia</span></div>
+    </div>
+    <div class="player-header">
+      <div class="player-avatar">RG</div>
+      <div>
+        <div class="player-name">Rafael Garcia</div>
+        <div class="player-meta">
+          <span>Skill 7.5</span>
+          <span>·</span>
+          <span class="verified">✓ Verified</span>
+          <span>·</span>
+          <span>Member since 2024</span>
+        </div>
+      </div>
+    </div>
+    <div class="player-overall">
+      <div class="ov-stat"><div class="ov-num">28</div><div class="ov-lbl">Total Wins</div></div>
+      <div class="ov-stat"><div class="ov-num">14</div><div class="ov-lbl">Losses</div></div>
+      <div class="ov-stat"><div class="ov-num">6</div><div class="ov-lbl">Tournaments</div></div>
+      <div class="ov-stat"><div class="ov-num">67%</div><div class="ov-lbl">Win Rate</div></div>
+    </div>
+    <div class="sport-tabs">
+      <div class="sport-tab active">🎾 Tennis</div>
+      <div class="sport-tab">🏓 Pickleball</div>
+      <div class="sport-tab">🏸 Badminton</div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-card-label"><div class="cat-dot" style="background:#34d399"></div>Singles</div>
+        <div class="win-loss">
+          <div class="w-num">12</div><div class="wl-sep">/</div><div class="l-num">4</div>
+        </div>
+        <div class="win-bar"><div class="win-fill" style="width:75%"></div></div>
+        <div class="stat-footer"><span>3 tournaments</span><span class="pct">75%</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label"><div class="cat-dot" style="background:#60a5fa"></div>Doubles</div>
+        <div class="win-loss">
+          <div class="w-num">8</div><div class="wl-sep">/</div><div class="l-num">6</div>
+        </div>
+        <div class="win-bar"><div class="win-fill" style="width:57%;background:linear-gradient(90deg,#60a5fa,#3b82f6)"></div></div>
+        <div class="stat-footer"><span>2 tournaments</span><span class="pct">57%</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label"><div class="cat-dot" style="background:#f472b6"></div>Mixed</div>
+        <div class="win-loss">
+          <div class="w-num">4</div><div class="wl-sep">/</div><div class="l-num">2</div>
+        </div>
+        <div class="win-bar"><div class="win-fill" style="width:66%;background:linear-gradient(90deg,#f472b6,#ec4899)"></div></div>
+        <div class="stat-footer"><span>1 tournament</span><span class="pct">66%</span></div>
+      </div>
+    </div>
+    <div class="history-section">
+      <div class="hist-head">Tournament History</div>
+      <div class="hist-row">
+        <div class="hist-sport">🎾</div>
+        <div>
+          <div class="hist-name">Summer Open 2026 — Singles</div>
+          <div class="hist-org">Miami Tennis Club · Jun 2026</div>
+        </div>
+        <div class="hist-result w">4W – 1L</div>
+      </div>
+      <div class="hist-row">
+        <div class="hist-sport">🏓</div>
+        <div>
+          <div class="hist-name">Pickleball City Cup — Doubles</div>
+          <div class="hist-org">Orlando PB Org · May 2026</div>
+        </div>
+        <div class="hist-result w">3W – 2L</div>
+      </div>
+      <div class="hist-row">
+        <div class="hist-sport">🎾</div>
+        <div>
+          <div class="hist-name">Spring Classic — Mixed Doubles</div>
+          <div class="hist-org">Miami Tennis Club · Mar 2026</div>
+        </div>
+        <div class="hist-result l">1W – 2L</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="font-size:11px;color:#334155;text-align:center;margin-top:8px">All three page designs — let me know any changes in the chat.</p>
+</body>
+</html>

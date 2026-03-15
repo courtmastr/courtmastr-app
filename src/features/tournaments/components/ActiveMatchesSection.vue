@@ -47,7 +47,7 @@ function getCurrentScore(match: Match): string {
     class="active-matches-section"
     variant="flat"
   >
-    <div class="d-flex align-center px-4 py-2 border-b">
+    <div class="active-matches-section__header d-flex align-center px-4 py-2 border-b">
       <v-icon
         color="primary"
         size="20"
@@ -161,6 +161,7 @@ function getCurrentScore(match: Match): string {
                 color="primary"
                 density="comfortable"
                 title="Enter Score"
+                :aria-label="`Enter score for ${getMatchupString(match)}`"
                 @click="emit('enterScore', match.id)"
               />
               <v-btn
@@ -170,6 +171,7 @@ function getCurrentScore(match: Match): string {
                 color="warning"
                 density="comfortable"
                 title="Unschedule / Release"
+                :aria-label="`Unschedule ${getMatchupString(match)}`"
                 @click="emit('unschedule', { matchId: match.id, categoryId: match.categoryId, levelId: match.levelId })"
               />
               <v-btn
@@ -179,6 +181,7 @@ function getCurrentScore(match: Match): string {
                 color="success"
                 density="comfortable"
                 title="Complete Match"
+                :aria-label="`Complete ${getMatchupString(match)}`"
                 @click="emit('completeMatch', match.id)"
               />
             </div>
@@ -203,10 +206,24 @@ function getCurrentScore(match: Match): string {
   border-radius: 8px;
   overflow: hidden;
   background: rgb(var(--v-theme-surface));
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.active-matches-section__header {
+  flex-shrink: 0;
 }
 
 .active-matches-table {
   background: transparent;
+  flex: 1;
+  min-height: 0;
+}
+
+:deep(.active-matches-table .v-table__wrapper) {
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 .match-row:hover {
@@ -227,5 +244,11 @@ function getCurrentScore(match: Match): string {
 
 .gap-1 {
   gap: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-badge {
+    animation: none;
+  }
 }
 </style>

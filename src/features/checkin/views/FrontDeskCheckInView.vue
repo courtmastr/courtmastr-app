@@ -252,6 +252,7 @@ onUnmounted(() => {
         icon="mdi-arrow-left"
         variant="text"
         class="frontdesk-checkin__back-btn"
+        aria-label="Back to tournament dashboard"
         @click="router.push(`/tournaments/${tournamentId}`)"
       />
       <img

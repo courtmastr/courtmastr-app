@@ -460,6 +460,7 @@ onUnmounted(() => {
             icon="mdi-close"
             variant="text"
             density="compact"
+            aria-label="Clear filters"
             @click="clearFilters"
           />
         </div>

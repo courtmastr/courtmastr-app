@@ -171,6 +171,7 @@ function saveBib() {
                 variant="text"
                 size="small"
                 density="compact"
+                :aria-label="`Open actions for ${participantName}`"
                 v-bind="menuProps"
               />
             </template>

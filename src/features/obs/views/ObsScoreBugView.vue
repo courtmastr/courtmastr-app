@@ -5,6 +5,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import courtmasterMarkWhite from '@/assets/brand/courtmaster-mark-white.svg';
 import type { Match } from '@/types';
 
@@ -28,6 +29,13 @@ const position = computed(() => {
   if (p === 'top-left') return 'position-top-left';
   if (p === 'top-right') return 'position-top-right';
   return ''; // Centered bottom (default)
+});
+
+usePublicPageMetadata({
+  title: 'OBS Match Score Bug',
+  description: 'CourtMastr compact score bug overlay for OBS production scenes.',
+  canonicalPath: route.path,
+  noIndex: true,
 });
 
 const loading = ref(true);

@@ -168,6 +168,7 @@ function canAddGame(): boolean {
             variant="text"
             color="error"
             density="compact"
+            :aria-label="`Remove game ${index + 1}`"
             @click="removeGame(index)"
           />
         </v-col>

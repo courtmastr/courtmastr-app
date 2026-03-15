@@ -535,6 +535,95 @@ export const useMatchStore = defineStore('matches', () => {
     if (scoreData.publishedBy) adapted.publishedBy = scoreData.publishedBy as string;
   }
 
+  function sortMatchesByRoundAndNumber(list: Match[]): Match[] {
+    return [...list].sort((a, b) => {
+      if (a.round !== b.round) return a.round - b.round;
+      return a.matchNumber - b.matchNumber;
+    });
+  }
+
+  function isSameScope(match: Match, categoryId?: string, levelId?: string): boolean {
+    if (categoryId && match.categoryId !== categoryId) return false;
+    if (categoryId && !levelId) return (match.levelId ?? null) === null;
+    if (levelId) return (match.levelId ?? null) === levelId;
+    return true;
+  }
+
+  function applyRealtimeScoreOverlay(match: Match, scoreData: Record<string, unknown>): Match {
+    const updated = { ...match };
+
+    if (scoreData.status) updated.status = scoreData.status as Match['status'];
+    if (scoreData.scores) updated.scores = scoreData.scores as GameScore[];
+
+    if (scoreData.winnerId) {
+      updated.winnerId = scoreData.winnerId as string;
+    } else if (scoreData.status === 'completed' && Array.isArray(scoreData.scores) && scoreData.scores.length > 0) {
+      const lastGame = scoreData.scores[scoreData.scores.length - 1];
+      if (lastGame.isComplete && lastGame.winnerId) {
+        updated.winnerId = lastGame.winnerId;
+      }
+    }
+
+    if (scoreData.courtId) updated.courtId = scoreData.courtId as string;
+    updated.scheduledTime = toDate(scoreData.scheduledTime) ?? updated.scheduledTime;
+    updated.startedAt = toDate(scoreData.startedAt) ?? updated.startedAt;
+    updated.completedAt = toDate(scoreData.completedAt) ?? updated.completedAt;
+
+    if (scoreData.plannedStartAt) {
+      updated.plannedStartAt = toDate(scoreData.plannedStartAt);
+    } else if (scoreData.scheduledTime && !updated.plannedStartAt) {
+      updated.plannedStartAt = toDate(scoreData.scheduledTime);
+    }
+    updated.plannedEndAt = toDate(scoreData.plannedEndAt) ?? updated.plannedEndAt;
+    updated.publishedAt = toDate(scoreData.publishedAt) ?? updated.publishedAt;
+
+    if (scoreData.scheduleVersion !== undefined) updated.scheduleVersion = scoreData.scheduleVersion as number;
+    if (scoreData.scheduleStatus) updated.scheduleStatus = scoreData.scheduleStatus as Match['scheduleStatus'];
+    if (scoreData.lockedTime !== undefined) updated.lockedTime = scoreData.lockedTime as boolean;
+    if (scoreData.publishedBy) updated.publishedBy = scoreData.publishedBy as string;
+
+    return updated;
+  }
+
+  function applyScoreChangesToLocalState(
+    changes: Array<{ type: 'added' | 'modified' | 'removed'; id: string; data?: Record<string, unknown> }>,
+    categoryId?: string,
+    levelId?: string
+  ): { applied: number; requiresRefresh: boolean } {
+    if (!categoryId || changes.length === 0) {
+      return { applied: 0, requiresRefresh: changes.length > 0 };
+    }
+
+    const nextMatches = [...matches.value];
+    let applied = 0;
+    let requiresRefresh = false;
+
+    for (const change of changes) {
+      if (change.type === 'removed') {
+        requiresRefresh = true;
+        continue;
+      }
+
+      const index = nextMatches.findIndex((candidate) => (
+        candidate.id === change.id && isSameScope(candidate, categoryId, levelId)
+      ));
+
+      if (index < 0 || !change.data) {
+        requiresRefresh = true;
+        continue;
+      }
+
+      nextMatches[index] = applyRealtimeScoreOverlay(nextMatches[index], change.data);
+      applied += 1;
+    }
+
+    if (applied > 0) {
+      matches.value = sortMatchesByRoundAndNumber(nextMatches);
+    }
+
+    return { applied, requiresRefresh };
+  }
+
   // --- Fetch matches ---
 
   async function resolveTargetScopes(
@@ -636,11 +725,7 @@ export const useMatchStore = defineStore('matches', () => {
         }
       }));
 
-      // Sort and update state
-      allAdaptedMatches.sort((a, b) => {
-        if (a.round !== b.round) return a.round - b.round;
-        return a.matchNumber - b.matchNumber;
-      });
+      const sortedMatches = sortMatchesByRoundAndNumber(allAdaptedMatches);
 
       if (categoryId) {
         const otherMatches = matches.value.filter((match) => {
@@ -653,7 +738,7 @@ export const useMatchStore = defineStore('matches', () => {
 
         const createKey = (m: Match) => `${m.categoryId}-${m.levelId || 'base'}-${m.id}`;
         const seenKeys = new Set<string>();
-        const uniqueAdapted = allAdaptedMatches.filter(m => {
+        const uniqueAdapted = sortedMatches.filter(m => {
           const key = createKey(m);
           if (seenKeys.has(key)) return false;
           seenKeys.add(key);
@@ -661,7 +746,7 @@ export const useMatchStore = defineStore('matches', () => {
         });
         matches.value = [...otherMatches, ...uniqueAdapted];
       } else {
-        matches.value = allAdaptedMatches;
+        matches.value = sortedMatches;
       }
     } catch (err) {
       console.error('Error fetching matches:', err);
@@ -683,8 +768,23 @@ export const useMatchStore = defineStore('matches', () => {
     const matchPath = getMatchPath(tournamentId, categoryId, levelId);
     const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
-    const unsubMatch = onSnapshot(collection(db, matchPath), () => refresh());
-    const unsubScores = onSnapshot(collection(db, matchScoresPath), () => refresh());
+    const unsubMatch = onSnapshot(collection(db, matchPath), (snapshot) => {
+      if (snapshot.docChanges().length > 0) {
+        refresh();
+      }
+    });
+    const unsubScores = onSnapshot(collection(db, matchScoresPath), (snapshot) => {
+      const changes = snapshot.docChanges().map((change) => ({
+        type: change.type,
+        id: change.doc.id,
+        data: change.type === 'removed' ? undefined : change.doc.data() as Record<string, unknown>,
+      }));
+
+      const { requiresRefresh } = applyScoreChangesToLocalState(changes, categoryId, levelId);
+      if (requiresRefresh) {
+        refresh();
+      }
+    });
 
     matchesUnsubscribe = () => {
       unsubMatch();
@@ -738,8 +838,22 @@ export const useMatchStore = defineStore('matches', () => {
       const matchPath = getMatchPath(tournamentId, catId, lvlId);
       const scoresPath = getMatchScoresPath(tournamentId, catId, lvlId);
 
-      const unsubMatch = onSnapshot(collection(db, matchPath), () => debouncedFetch(catId, lvlId));
-      const unsubScores = onSnapshot(collection(db, scoresPath), () => debouncedFetch(catId, lvlId));
+      const unsubMatch = onSnapshot(collection(db, matchPath), (snapshot) => {
+        if (snapshot.docChanges().length > 0) {
+          debouncedFetch(catId, lvlId);
+        }
+      });
+      const unsubScores = onSnapshot(collection(db, scoresPath), (snapshot) => {
+        const changes = snapshot.docChanges().map((change) => ({
+          type: change.type,
+          id: change.doc.id,
+          data: change.type === 'removed' ? undefined : change.doc.data() as Record<string, unknown>,
+        }));
+        const { requiresRefresh } = applyScoreChangesToLocalState(changes, catId, lvlId);
+        if (requiresRefresh) {
+          debouncedFetch(catId, lvlId);
+        }
+      });
 
       subscriptionMap.set(key, { match: unsubMatch, scores: unsubScores });
     };

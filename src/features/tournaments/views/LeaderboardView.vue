@@ -165,6 +165,7 @@ onMounted(() => {
         variant="text"
         icon="mdi-arrow-left"
         size="small"
+        aria-label="Back to previous page"
         @click="router.back()"
       />
 
@@ -210,6 +211,7 @@ onMounted(() => {
           icon="mdi-information-outline"
           size="small"
           class="action-icon-btn"
+          aria-label="Open leaderboard explanation"
           @click="showBwfDialog = true"
         />
 
@@ -432,6 +434,7 @@ onMounted(() => {
             icon="mdi-close"
             variant="text"
             size="small"
+            aria-label="Close BWF tiebreaker rules dialog"
             @click="showBwfDialog = false"
           />
         </v-card-title>

@@ -6,6 +6,7 @@ import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -16,6 +17,13 @@ const notificationStore = useNotificationStore();
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
+
+usePublicPageMetadata({
+  title: 'Tournament Registration',
+  description: 'Register for this CourtMastr tournament and reserve your event categories.',
+  canonicalPath: `/tournaments/${tournamentId.value}/register`,
+  noIndex: true,
+});
 
 const { loading, execute } = useAsyncOperation<void>();
 const submitted = ref(false);

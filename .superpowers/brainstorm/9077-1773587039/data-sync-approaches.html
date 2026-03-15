@@ -1,0 +1,42 @@
+<h2>How should player stats flow from Tournament → Global Player?</h2>
+<p class="subtitle">This is the most important data model decision. Everything else follows from it.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Dual-Write (App writes both)</h3>
+      <p>When a match result is saved, the app writes to <strong>both</strong> the tournament record AND the global player stats simultaneously.</p>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros"><h4>Pros</h4><ul><li>Fast reads — global player always up to date</li><li>No Cloud Functions needed</li><li>Simple to understand</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Two writes every score update</li><li>If one write fails, data is out of sync</li><li>App code is responsible for keeping both in sync forever</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Cloud Function Fanout (Recommended)</h3>
+      <p>App writes match result to tournament only. A Firestore trigger automatically updates the global player stats in the background.</p>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros"><h4>Pros</h4><ul><li>App only writes one place — no sync bugs</li><li>Global player is always derived from source of truth</li><li>Can recompute stats anytime by replaying matches</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Slight delay (~1-2s) before global stats update</li><li>Requires a Cloud Function</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Compute on Read (No sync)</h3>
+      <p>Store nothing in the global player doc. When the player profile page loads, query all tournaments that player was in and aggregate stats on the fly.</p>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros"><h4>Pros</h4><ul><li>Zero duplication — single source of truth</li><li>No sync logic at all</li><li>Stats always perfectly accurate</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Profile page is slow to load (many Firestore reads)</li><li>Gets slower as player plays more tournaments</li><li>Expensive at scale</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:24px">Click your preferred approach, then let me know in the chat.</p>

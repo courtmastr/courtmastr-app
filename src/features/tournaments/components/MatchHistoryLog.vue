@@ -6,6 +6,7 @@
         icon="mdi-refresh"
         size="small"
         variant="text"
+        aria-label="Refresh match history"
         @click="$emit('refresh')"
       />
     </v-card-title>

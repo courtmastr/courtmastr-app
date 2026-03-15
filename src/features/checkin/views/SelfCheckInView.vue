@@ -6,11 +6,20 @@ import { rankItemsByQuery } from '@/features/checkin/composables/checkInSearchUt
 import { useActiveIndexNavigation } from '@/features/checkin/composables/useActiveIndexNavigation';
 import { useSelfCheckIn } from '@/features/checkin/composables/useSelfCheckIn';
 import { useTournamentStore } from '@/stores/tournaments';
+import { BRAND_NAME } from '@/constants/branding';
+import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
 const tournamentId = computed(() => String(route.params.tournamentId || ''));
 const tournament = computed(() => tournamentStore.currentTournament);
+
+usePublicPageMetadata({
+  title: 'Self Check-In',
+  description: 'Search your name and check in to your tournament match day experience.',
+  canonicalPath: `/tournaments/${tournamentId.value}/self-checkin`,
+  noIndex: true,
+});
 
 const query = ref('');
 const selected = ref<SelfCheckInCandidate | null>(null);
@@ -204,13 +213,13 @@ onUnmounted(() => {
     <header class="self-checkin-page__header">
       <img
         src="/logo.svg"
-        alt="CourtMastr"
+        :alt="BRAND_NAME"
         class="self-checkin-page__app-logo"
         width="32"
         height="32"
       >
       <div class="self-checkin-page__header-text">
-        <span class="self-checkin-page__app-name">CourtMastr</span>
+        <span class="self-checkin-page__app-name">{{ BRAND_NAME }}</span>
         <span
           v-if="tournament?.name"
           class="self-checkin-page__tournament-name"

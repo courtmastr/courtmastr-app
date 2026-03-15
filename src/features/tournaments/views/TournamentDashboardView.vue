@@ -850,12 +850,14 @@ function handleExport() {
         </h2>
       </div>
 
-      <v-row>
+      <v-row class="cm-balanced-panels">
         <v-col
           cols="12"
           lg="7"
+          class="cm-balanced-panels__col"
         >
           <ActiveMatchesSection
+            class="cm-balanced-panels__pane"
             :matches="enrichedActiveMatches"
             :show-actions="false"
           />
@@ -863,8 +865,10 @@ function handleExport() {
         <v-col
           cols="12"
           lg="5"
+          class="cm-balanced-panels__col"
         >
           <ReadyQueue
+            class="cm-balanced-panels__pane"
             :matches="queueMatches"
             :categories="categories"
             :get-participant-name="getParticipantName"

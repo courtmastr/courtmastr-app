@@ -378,6 +378,7 @@ async function handleSubmit() {
           <v-btn
             icon="mdi-arrow-left"
             variant="text"
+            aria-label="Back to tournament list"
             @click="router.back()"
           />
           <div class="ml-2">
@@ -556,6 +557,7 @@ async function handleSubmit() {
                           color="error"
                           size="small"
                           type="button"
+                          :aria-label="`Remove custom category ${index + 1}`"
                           @click="removeCustomCategory(index)"
                         />
                       </v-col>
@@ -612,6 +614,7 @@ async function handleSubmit() {
                           size="small"
                           type="button"
                           :disabled="courts.length === 1"
+                          :aria-label="`Remove court ${index + 1}`"
                           @click="removeCourt(index)"
                         />
                       </v-col>
