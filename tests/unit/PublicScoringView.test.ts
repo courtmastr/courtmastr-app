@@ -6,6 +6,7 @@ import PublicScoringView from '@/features/public/views/PublicScoringView.vue';
 const runtime = {
   matches: [] as Match[],
   currentMatch: null as Match | null,
+  canInstall: false,
 };
 
 const mockDeps = vi.hoisted(() => ({
@@ -22,6 +23,8 @@ const mockDeps = vi.hoisted(() => ({
   subscribeRegistrations: vi.fn(),
   subscribePlayers: vi.fn(),
   unsubscribeRegistrations: vi.fn(),
+  installApp: vi.fn(),
+  dismissInstallPrompt: vi.fn(),
 }));
 
 vi.mock('vue-router', () => ({
@@ -68,6 +71,18 @@ vi.mock('@/stores/registrations', () => ({
 vi.mock('@/composables/useParticipantResolver', () => ({
   useParticipantResolver: () => ({
     getParticipantName: (registrationId?: string) => registrationId ?? 'TBD',
+  }),
+}));
+
+vi.mock('@/composables/usePwaInstallPrompt', () => ({
+  usePwaInstallPrompt: () => ({
+    canInstall: {
+      get value() {
+        return runtime.canInstall;
+      },
+    },
+    installApp: mockDeps.installApp,
+    dismiss: mockDeps.dismissInstallPrompt,
   }),
 }));
 
@@ -124,6 +139,7 @@ describe('PublicScoringView', () => {
   beforeEach(() => {
     runtime.matches = [makeReadyMatch()];
     runtime.currentMatch = null;
+    runtime.canInstall = false;
 
     mockDeps.fetchTournament.mockReset().mockResolvedValue(undefined);
     mockDeps.subscribeTournament.mockReset();
@@ -138,6 +154,8 @@ describe('PublicScoringView', () => {
     mockDeps.subscribeRegistrations.mockReset();
     mockDeps.subscribePlayers.mockReset();
     mockDeps.unsubscribeRegistrations.mockReset();
+    mockDeps.installApp.mockReset().mockResolvedValue(true);
+    mockDeps.dismissInstallPrompt.mockReset();
   });
 
   afterEach(() => {
@@ -194,5 +212,18 @@ describe('PublicScoringView', () => {
     };
 
     expect(unwrapBoolean(vm.hasLiveMatches)).toBe(true);
+  });
+
+  it('exposes install prompt state for public scoring banner rendering', async () => {
+    runtime.canInstall = true;
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      showInstallPrompt: boolean | { value: boolean };
+    };
+
+    expect(unwrapBoolean(vm.showInstallPrompt)).toBe(true);
   });
 });

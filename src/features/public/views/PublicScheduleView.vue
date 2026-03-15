@@ -10,6 +10,7 @@ import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue
 import LiveBadge from '@/components/common/LiveBadge.vue';
 import { useDurationFormatter } from '@/composables/useDurationFormatter';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { usePwaInstallPrompt } from '@/composables/usePwaInstallPrompt';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import type { Match } from '@/types';
@@ -89,6 +90,8 @@ function getQueryValue(value: unknown): string | null {
 
 const selectedCategoryId = computed(() => getQueryValue(route.query.category) || 'all');
 const displayMode = computed(() => getQueryValue(route.query.view) === 'display');
+const { canInstall, installApp, dismiss } = usePwaInstallPrompt();
+const showInstallPrompt = computed(() => canInstall.value && displayMode.value === false);
 
 function replaceQuery(updates: Record<string, string | null>): void {
   const nextQuery: LocationQueryRaw = { ...route.query };
@@ -598,6 +601,14 @@ function openPublicBracket(): void {
   void router.push(`/tournaments/${tournamentId.value}/bracket`);
 }
 
+const handleInstallApp = async (): Promise<void> => {
+  try {
+    await installApp();
+  } catch (error) {
+    console.error('Failed to trigger app install prompt:', error);
+  }
+};
+
 watch(
   () => matchStore.matches,
   () => {
@@ -929,6 +940,40 @@ onUnmounted(() => {
       >
         Schedule is in draft — times may still change before the event starts.
       </v-alert>
+
+      <v-card
+        v-if="showInstallPrompt"
+        class="mb-4 schedule-install-card"
+        elevation="0"
+      >
+        <v-card-text class="d-flex align-center justify-space-between flex-wrap ga-3">
+          <div>
+            <p class="schedule-install-card__eyebrow mb-1">
+              Install CourtMastr
+            </p>
+            <p class="text-body-2 text-medium-emphasis mb-0">
+              Pin the public schedule to the home screen for fast access to live updates, brackets, and player lookup.
+            </p>
+          </div>
+          <div class="d-flex align-center ga-2">
+            <v-btn
+              size="small"
+              color="primary"
+              prepend-icon="mdi-cellphone-arrow-down"
+              @click="handleInstallApp"
+            >
+              Install
+            </v-btn>
+            <v-btn
+              size="small"
+              variant="text"
+              @click="dismiss"
+            >
+              Later
+            </v-btn>
+          </div>
+        </v-card-text>
+      </v-card>
 
       <!-- ─── Hero search bar ─────────────────────────────────────── -->
       <v-text-field
@@ -1448,6 +1493,21 @@ onUnmounted(() => {
 .schedule-shell__metric strong {
   font-family: 'Barlow Condensed', 'Avenir Next Condensed', sans-serif;
   line-height: 1;
+}
+
+.schedule-install-card {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 24px;
+  background: rgba(var(--v-theme-surface), 0.94);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
+}
+
+.schedule-install-card__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(var(--v-theme-primary), 0.88);
 }
 
 /* ─── Search & Filters ────────────────────────────────────────────── */

@@ -16,7 +16,11 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
 <template>
   <v-container class="py-10">
     <v-row justify="center">
-      <v-col cols="12" md="10" lg="7">
+      <v-col
+        cols="12"
+        md="10"
+        lg="7"
+      >
         <v-card class="pa-6 pa-md-8 pricing-hero">
           <p class="text-overline pricing-eyebrow mb-2">
             Pricing

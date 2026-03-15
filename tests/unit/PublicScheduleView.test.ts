@@ -7,6 +7,7 @@ const runtime = {
   matches: [] as Match[],
   registrations: [] as Registration[],
   players: [] as Array<{ id: string; firstName: string; lastName: string }>,
+  canInstall: false,
 };
 
 const mockDeps = vi.hoisted(() => ({
@@ -21,6 +22,8 @@ const mockDeps = vi.hoisted(() => ({
   unsubscribeActivities: vi.fn(),
   routerPush: vi.fn(),
   routerReplace: vi.fn(),
+  installApp: vi.fn(),
+  dismissInstallPrompt: vi.fn(),
 }));
 
 vi.mock('vue-router', () => ({
@@ -80,6 +83,18 @@ vi.mock('@/composables/useDurationFormatter', () => ({
   useDurationFormatter: () => ({
     formatDuration: (minutes: number) => `${minutes} min`,
     formatDurationAgo: (minutes: number) => `${minutes} min ago`,
+  }),
+}));
+
+vi.mock('@/composables/usePwaInstallPrompt', () => ({
+  usePwaInstallPrompt: () => ({
+    canInstall: {
+      get value() {
+        return runtime.canInstall;
+      },
+    },
+    installApp: mockDeps.installApp,
+    dismiss: mockDeps.dismissInstallPrompt,
   }),
 }));
 
@@ -184,6 +199,7 @@ describe('PublicScheduleView', () => {
       { id: 'p-reg-2', firstName: 'Bob', lastName: 'B' },
     ];
     runtime.matches = [];
+    runtime.canInstall = false;
 
     mockDeps.fetchTournament.mockReset().mockResolvedValue(undefined);
     mockDeps.subscribeTournament.mockReset();
@@ -196,6 +212,8 @@ describe('PublicScheduleView', () => {
     mockDeps.unsubscribeActivities.mockReset();
     mockDeps.routerPush.mockReset();
     mockDeps.routerReplace.mockReset();
+    mockDeps.installApp.mockReset().mockResolvedValue(true);
+    mockDeps.dismissInstallPrompt.mockReset();
   });
 
   it('shows not-found state when tournament fetch fails', async () => {
@@ -269,5 +287,18 @@ describe('PublicScheduleView', () => {
     };
 
     expect(readBoolean(vm.hasLiveMatches)).toBe(true);
+  });
+
+  it('exposes install-prompt state for spectator install banner rendering', async () => {
+    runtime.canInstall = true;
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      showInstallPrompt: boolean | { value: boolean };
+    };
+
+    expect(readBoolean(vm.showInstallPrompt)).toBe(true);
   });
 });

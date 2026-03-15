@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import PublicFeatureGrid from '@/features/public/components/PublicFeatureGrid.vue';
 import PublicHeroSection from '@/features/public/components/PublicHeroSection.vue';
 import PublicMetricsStrip from '@/features/public/components/PublicMetricsStrip.vue';
@@ -7,15 +7,24 @@ import PublicTrustReviewsSection from '@/features/public/components/PublicTrustR
 import ReviewSubmissionDialog from '@/features/reviews/components/ReviewSubmissionDialog.vue';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { useFeaturedTournamentMetrics } from '@/composables/useFeaturedTournamentMetrics';
+import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 import { useReviewStore } from '@/stores/reviews';
 import type { ReviewRecord } from '@/types';
 
-usePublicPageMetadata({
-  title: 'CourtMastr',
-  description: 'CourtMastr helps badminton organizers run check-in, scheduling, and live scoring with confidence.',
-  canonicalPath: '/',
-});
+const { t, locale } = useI18n();
+
+const syncHomeMetadata = (): void => {
+  usePublicPageMetadata({
+    title: t('home.metaTitle'),
+    description: t('home.metaDescription'),
+    canonicalPath: '/',
+  });
+};
+
+watch(locale, () => {
+  syncHomeMetadata();
+}, { immediate: true });
 
 const authStore = useAuthStore();
 const reviewStore = useReviewStore();
@@ -173,10 +182,10 @@ onUnmounted(() => {
         elevation="0"
       >
         <h2 class="home-view__cta-title mb-3">
-          Ready for your next tournament day?
+          {{ t('home.ctaTitle') }}
         </h2>
         <p class="text-body-1 text-medium-emphasis mb-5">
-          Start with Free Beta and run your event on a platform designed specifically for badminton operations.
+          {{ t('home.ctaSubtitle') }}
         </p>
         <div class="d-flex flex-wrap ga-3">
           <v-btn
@@ -184,21 +193,21 @@ onUnmounted(() => {
             color="primary"
             to="/register"
           >
-            Create Free Account
+            {{ t('home.ctaCreateFreeAccount') }}
           </v-btn>
           <v-btn
             v-if="!isAuthenticated"
             variant="outlined"
             to="/pricing"
           >
-            View Pricing
+            {{ t('home.ctaViewPricing') }}
           </v-btn>
           <v-btn
             v-else
             color="primary"
             to="/tournaments/create"
           >
-            Create Tournament
+            {{ t('home.ctaCreateTournament') }}
           </v-btn>
         </div>
       </v-card>

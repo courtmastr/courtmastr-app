@@ -405,4 +405,29 @@ Full details and detection commands: `docs/coding-patterns/CODING_PATTERNS.md`
 
 ---
 
+## 13. Skill Usage Matrix (Required)
+
+Use the following skill map for consistent execution:
+
+| Situation | Required Skill(s) | Why |
+|---|---|---|
+| New feature or UX concept | `brainstorming` → `writing-plans` | Lock scope and approved design before coding |
+| Executing an approved plan | `executing-plans` | Structured batch implementation with checkpoints |
+| Vue / Router / `.vue` edits | `vue-best-practices` | Enforce Composition API + Vue 3 patterns |
+| Pinia store work | `pinia`, `vue-pinia-best-practices` | Maintain setup-store consistency and type safety |
+| External library/API usage | `context7` | Use current docs, avoid stale APIs |
+| UI redesign/polish | `frontend-design`, `web-design-guidelines` | Professional design quality and guideline compliance |
+| Accessibility pass | `fixing-accessibility` | WCAG-focused checks and remediations |
+| Motion/perf tuning | `fixing-motion-performance` | Prevent jank and expensive animations |
+| Metadata/SEO work | `fixing-metadata` | Canonical/OG/JSON-LD correctness |
+| Test-first implementation | `test-driven-development` | Red/green confidence for behavior changes |
+| Failures or regressions | `systematic-debugging` | Root-cause-first debugging protocol |
+| Pre-merge verification | `verification-before-completion` | No completion claims without fresh evidence |
+| Branch finish / merge choice | `finishing-a-development-branch` | Controlled merge/PR/cleanup workflow |
+| Need a missing capability | `find-skills` | Discover and install additional skills |
+
+Rule: if multiple rows apply, execute skills in the order shown above and keep scope minimal.
+
+---
+
 **Enforcement**: Any violation constitutes task failure.

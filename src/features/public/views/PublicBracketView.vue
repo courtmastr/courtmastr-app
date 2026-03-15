@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import { useTournamentStore } from '@/stores/tournaments';
+import { usePwaInstallPrompt } from '@/composables/usePwaInstallPrompt';
+import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import type { LevelDefinition } from '@/types';
 
@@ -18,10 +19,20 @@ const selectedCategory = ref<string | null>(null);
 const categoryLevels = ref<Record<string, LevelDefinition[]>>({});
 const selectedLevelId = ref<string | null>(null);
 const notFound = ref(false);
+const { canInstall, installApp, dismiss } = usePwaInstallPrompt();
+const showInstallPrompt = computed(() => canInstall.value);
 
 const selectedCategoryLevels = computed(() =>
   selectedCategory.value ? categoryLevels.value[selectedCategory.value] || [] : []
 );
+
+const handleInstallApp = async (): Promise<void> => {
+  try {
+    await installApp();
+  } catch (error) {
+    console.error('Failed to trigger app install prompt:', error);
+  }
+};
 
 onMounted(async () => {
   try {
@@ -84,6 +95,40 @@ watch(selectedCategory, async (categoryId) => {
     </v-row>
 
     <template v-else>
+      <v-card
+        v-if="showInstallPrompt"
+        class="bracket-surface-card bracket-install-card mb-4"
+        elevation="0"
+      >
+        <v-card-text class="d-flex align-center justify-space-between flex-wrap ga-3">
+          <div>
+            <p class="bracket-install-card__eyebrow mb-1">
+              Install CourtMastr
+            </p>
+            <p class="text-body-2 text-medium-emphasis mb-0">
+              Save the public bracket to the home screen for faster re-entry between rounds.
+            </p>
+          </div>
+          <div class="d-flex align-center ga-2">
+            <v-btn
+              size="small"
+              color="primary"
+              prepend-icon="mdi-cellphone-arrow-down"
+              @click="handleInstallApp"
+            >
+              Install
+            </v-btn>
+            <v-btn
+              size="small"
+              variant="text"
+              @click="dismiss"
+            >
+              Later
+            </v-btn>
+          </div>
+        </v-card-text>
+      </v-card>
+
       <v-card
         class="bracket-surface-card mb-4"
         elevation="0"
@@ -160,6 +205,14 @@ watch(selectedCategory, async (categoryId) => {
   border-radius: 24px;
   background: rgba(var(--v-theme-surface), 0.92);
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
+}
+
+.bracket-install-card__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(var(--v-theme-primary), 0.88);
 }
 
 /* Category filter bar */

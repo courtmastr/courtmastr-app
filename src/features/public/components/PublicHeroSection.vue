@@ -1,22 +1,24 @@
 <script setup lang="ts">
+import { useI18n } from '@/i18n';
+
 interface PublicHeroSectionProps {
   isAuthenticated: boolean;
 }
 
 defineProps<PublicHeroSectionProps>();
+const { t } = useI18n();
 </script>
 
 <template>
   <section class="public-hero">
     <p class="public-hero__eyebrow text-overline mb-2">
-      by CourtMastr · Marvy Technologies
+      {{ t('home.heroEyebrow') }}
     </p>
     <h1 class="public-hero__title mb-4">
-      Run tournament operations with confidence.
+      {{ t('home.heroTitle') }}
     </h1>
     <p class="public-hero__subtitle text-body-1 mb-6">
-      CourtMastr gives badminton organizers one reliable platform for scheduling, live scoring,
-      check-in, and spectator visibility from first match to finals.
+      {{ t('home.heroSubtitle') }}
     </p>
 
     <div class="d-flex flex-wrap ga-3">
@@ -26,7 +28,7 @@ defineProps<PublicHeroSectionProps>();
         size="large"
         to="/register"
       >
-        Start Free Beta
+        {{ t('home.heroStartFreeBeta') }}
       </v-btn>
       <v-btn
         v-if="!isAuthenticated"
@@ -34,7 +36,7 @@ defineProps<PublicHeroSectionProps>();
         size="large"
         to="/login"
       >
-        Sign In
+        {{ t('home.heroSignIn') }}
       </v-btn>
       <v-btn
         v-else
@@ -42,7 +44,7 @@ defineProps<PublicHeroSectionProps>();
         size="large"
         to="/tournaments"
       >
-        Go to Dashboard
+        {{ t('home.heroGoToDashboard') }}
       </v-btn>
     </div>
   </section>

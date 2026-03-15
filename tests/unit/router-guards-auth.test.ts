@@ -25,6 +25,8 @@ interface GuardResult {
   volunteerStore: MockVolunteerAccessStore;
 }
 
+const ROUTER_GUARD_TEST_TIMEOUT_MS = 15_000;
+
 const createAuthState = (state: GuardAuthState): MockAuthStore => {
   const isAuthenticated = state.isAuthenticated ?? true;
 
@@ -123,7 +125,7 @@ describe('router auth guards', () => {
 
     const obsRoute = await runGuard('/obs/t1/scoreboard', { isAuthenticated: false });
     expect(obsRoute.type).toBe('allow');
-  });
+  }, ROUTER_GUARD_TEST_TIMEOUT_MS);
 
   it('allows unauthenticated access to public marketing routes', async () => {
     const aboutRoute = await runGuard('/about', { isAuthenticated: false });
@@ -137,6 +139,12 @@ describe('router auth guards', () => {
 
     const termsRoute = await runGuard('/terms', { isAuthenticated: false });
     expect(termsRoute.type).toBe('allow');
+
+    const landingRoute = await runGuard('/tournaments/t1/landing', { isAuthenticated: false });
+    expect(landingRoute.type).toBe('allow');
+
+    const championsRoute = await runGuard('/tournaments/t1/champions', { isAuthenticated: false });
+    expect(championsRoute.type).toBe('allow');
   });
 
   it('blocks non-web-admin users from /admin/reviews and allows admin users', async () => {

@@ -18,7 +18,11 @@ const founderBlurb = 'RamC Venkatasamy is a technology leader focused on buildin
 <template>
   <v-container class="py-10 about-view">
     <v-row justify="center">
-      <v-col cols="12" md="10" lg="8">
+      <v-col
+        cols="12"
+        md="10"
+        lg="8"
+      >
         <v-card class="pa-6 pa-md-8 mb-6">
           <p class="text-overline about-view__eyebrow mb-2">
             Marvy Technologies
@@ -37,7 +41,10 @@ const founderBlurb = 'RamC Venkatasamy is a technology leader focused on buildin
         </v-card>
 
         <v-row>
-          <v-col cols="12" md="6">
+          <v-col
+            cols="12"
+            md="6"
+          >
             <v-card class="pa-5 h-100">
               <h2 class="text-h6 mb-2">
                 Product Mission
@@ -47,7 +54,10 @@ const founderBlurb = 'RamC Venkatasamy is a technology leader focused on buildin
               </p>
             </v-card>
           </v-col>
-          <v-col cols="12" md="6">
+          <v-col
+            cols="12"
+            md="6"
+          >
             <v-card class="pa-5 h-100">
               <h2 class="text-h6 mb-2">
                 Who We Serve
