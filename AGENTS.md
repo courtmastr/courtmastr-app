@@ -416,6 +416,10 @@ Use the following skill map for consistent execution:
 | Vue / Router / `.vue` edits | `vue-best-practices` | Enforce Composition API + Vue 3 patterns |
 | Pinia store work | `pinia`, `vue-pinia-best-practices` | Maintain setup-store consistency and type safety |
 | External library/API usage | `context7` | Use current docs, avoid stale APIs |
+| Firebase environment/bootstrap | `firebase-local-env-setup`, `firebase-basics` | Verify CLI/auth/project setup before Firebase changes |
+| Firebase Hosting deploy flow | `firebase-hosting-basics` | Apply correct hosting deploy and preview-channel patterns |
+| Firestore data/rules work | `firebase-firestore-standard` | Keep Firestore provisioning, indexing, and rules aligned |
+| Firebase Auth changes | `firebase-auth-basics` | Use correct auth provider and token/security patterns |
 | UI redesign/polish | `frontend-design`, `web-design-guidelines` | Professional design quality and guideline compliance |
 | Accessibility pass | `fixing-accessibility` | WCAG-focused checks and remediations |
 | Motion/perf tuning | `fixing-motion-performance` | Prevent jank and expensive animations |

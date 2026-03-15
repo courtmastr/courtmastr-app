@@ -130,8 +130,28 @@ describe('HomeView', () => {
       ? vm.reviewsForDisplay
       : vm.reviewsForDisplay.value;
 
-    expect(helperText).toContain('Set VITE_MARKETING_FEATURED_TOURNAMENT_ID');
-    expect(stats.map((item) => item.value)).toEqual(['--', '--', '--']);
+    expect(helperText).toContain('Featured event metrics will appear here once a tournament is selected.');
+    expect(stats.map((item) => item.value)).toEqual(['Live Roster', 'Real-Time Scores', 'Self + Front Desk']);
     expect(reviews.length).toBeGreaterThan(0);
+  });
+
+  it('keeps fallback helper text user-facing when live metrics fail', async () => {
+    runtime.metrics = null;
+    runtime.hasFeaturedTournament = true;
+    runtime.errorMessage = 'Unable to load featured tournament metrics.';
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      featuredMetricsFallbackMessage: string | { value: string };
+    };
+
+    const helperText = typeof vm.featuredMetricsFallbackMessage === 'string'
+      ? vm.featuredMetricsFallbackMessage
+      : vm.featuredMetricsFallbackMessage.value;
+
+    expect(helperText).toContain('Live featured tournament metrics are temporarily unavailable.');
+    expect(helperText).not.toContain('Unable to load featured tournament metrics.');
   });
 });
