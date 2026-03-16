@@ -330,15 +330,551 @@ function handleExport() {
 </script>
 
 <template>
+  <!-- ── Main content ── -->
   <v-container
     v-if="tournament"
     fluid
-    class="dashboard-container bg-pattern"
+    class="event-center-container pa-0"
   >
-    <!-- Compact Header with Breadcrumbs Integrated -->
-    <v-card
-      flat
-      class="mb-6 bg-transparent"
+    <!-- Header band -->
+    <div class="ec-header">
+      <div class="ec-header__left">
+        <div class="ec-tournament-name">{{ tournament.name }}</div>
+        <div class="ec-tournament-meta">
+          <span v-if="tournament.startDate">{{ formatDate(tournament.startDate) }}</span>
+          <template v-if="tournament.location">
+            <span class="ec-meta-sep">·</span>
+            <span>{{ tournament.location }}</span>
+          </template>
+          <template v-if="tournament.sport">
+            <span class="ec-meta-sep">·</span>
+            <span>{{ tournament.sport }}</span>
+          </template>
+        </div>
+      </div>
+      <div class="ec-header__right">
+        <div
+          v-if="tournament.status === 'active'"
+          class="ec-live-badge"
+        >
+          <span class="ec-live-dot" />
+          <span class="ec-live-text">LIVE</span>
+        </div>
+        <v-menu v-if="showManageControls">
+          <template #activator="{ props }">
+            <v-btn
+              v-bind="props"
+              variant="outlined"
+              size="small"
+              density="comfortable"
+            >
+              Manage
+              <v-icon
+                icon="mdi-chevron-down"
+                size="16"
+                end
+              />
+            </v-btn>
+          </template>
+          <v-list
+            density="compact"
+            nav
+          >
+            <v-list-item
+              v-if="tournament.status === 'draft'"
+              title="Open Registration"
+              @click="updateStatus('registration')"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-account-plus"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+            <v-list-item
+              v-if="tournament.status === 'registration'"
+              title="Start Tournament"
+              @click="updateStatus('active')"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-play"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+            <v-list-item
+              title="Generate Schedule"
+              @click="generateSchedule"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-calendar-clock"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+            <v-list-item
+              v-if="tournament.status === 'active'"
+              title="Share Scoring Link"
+              @click="showScoringQrDialog = true"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-qrcode"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+            <v-list-item
+              title="Download Announcement Card"
+              @click="showAnnouncementCardDialog = true"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-image-outline"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+            <v-list-item
+              v-if="tournament.status === 'active'"
+              title="Complete Tournament"
+              @click="showCompleteDialog = true"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-check"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+            <v-divider class="my-1" />
+            <v-list-item
+              title="Print Dashboard"
+              @click="handlePrint"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-printer"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+            <v-list-item
+              title="Export (CSV)"
+              @click="handleExport"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-download"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+            <v-list-item
+              :to="`/tournaments/${tournamentId}/settings`"
+              title="Settings"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-cog"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+            <v-divider class="my-1" />
+            <v-list-item
+              title="Delete Tournament"
+              base-color="error"
+              @click="showDeleteDialog = true"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-trash-can"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+          </v-list>
+        </v-menu>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="ec-stats">
+      <template v-if="!statsLoaded">
+        <div
+          v-for="n in 4"
+          :key="`sk-${n}`"
+          class="ec-stat"
+        >
+          <v-skeleton-loader
+            type="heading"
+            width="60"
+          />
+        </div>
+      </template>
+      <template v-else>
+        <div class="ec-stat">
+          <div class="ec-stat__number">{{ stats.approvedRegistrations }}</div>
+          <div class="ec-stat__label">Players</div>
+        </div>
+        <div class="ec-stat ec-stat--orange">
+          <div class="ec-stat__number">{{ stats.inProgressMatches }}</div>
+          <div class="ec-stat__label">Live Now</div>
+        </div>
+        <div class="ec-stat ec-stat--green">
+          <div class="ec-stat__number">
+            {{ stats.progress }}<span class="ec-stat__unit">%</span>
+          </div>
+          <div class="ec-stat__label">Complete</div>
+        </div>
+        <div class="ec-stat ec-stat--purple">
+          <div class="ec-stat__number">{{ queueMatches.length }}</div>
+          <div class="ec-stat__label">In Queue</div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Status + CTA bar -->
+    <div class="ec-status-bar">
+      <div>
+        <div class="ec-status-bar__eyebrow">Tournament Status</div>
+        <div class="ec-status-bar__text">
+          <span
+            class="ec-status-dot"
+            :class="`ec-status-dot--${tournament.status}`"
+          />
+          {{ statusLabel }}
+        </div>
+      </div>
+      <v-btn
+        color="primary"
+        :to="ctaRoute"
+        class="ec-cta-btn"
+        elevation="4"
+      >
+        {{ ctaLabel }}
+      </v-btn>
+    </div>
+
+    <!-- Quick links (active only) -->
+    <div
+      v-if="tournament.status === 'active'"
+      class="ec-quick-links"
+    >
+      <v-btn
+        variant="outlined"
+        size="small"
+        class="ec-quick-link"
+        :to="`/tournaments/${tournamentId}/checkin`"
+      >
+        Check-in
+      </v-btn>
+      <v-btn
+        variant="outlined"
+        size="small"
+        class="ec-quick-link"
+        :to="`/tournaments/${tournamentId}/brackets`"
+      >
+        Brackets
+      </v-btn>
+      <v-btn
+        variant="outlined"
+        size="small"
+        class="ec-quick-link"
+        :to="`/tournaments/${tournamentId}/live-view`"
+      >
+        Live View
+      </v-btn>
+      <v-btn
+        variant="outlined"
+        size="small"
+        class="ec-quick-link"
+        :to="`/tournaments/${tournamentId}/leaderboard`"
+      >
+        Leaderboard
+      </v-btn>
+      <v-btn
+        variant="outlined"
+        size="small"
+        class="ec-quick-link"
+        :to="`/tournaments/${tournamentId}/score`"
+      >
+        Share Links
+      </v-btn>
+    </div>
+
+    <!-- Operations — 2-col (active only) -->
+    <div
+      v-if="tournament.status === 'active'"
+      class="ec-operations"
+    >
+      <!-- Left 3fr: Active Matches -->
+      <div class="ec-operations__left">
+        <ActiveMatchesSection
+          :matches="enrichedActiveMatches"
+          :show-actions="true"
+          @enter-score="handleEnterScore"
+          @complete-match="handleCompleteMatch"
+        />
+      </div>
+
+      <!-- Right 2fr: Queue + Category Progress -->
+      <div class="ec-operations__right">
+        <ReadyQueue
+          :matches="queueMatchesTop3"
+          :categories="categories"
+          :get-participant-name="getParticipantName"
+          :get-category-name="getCategoryName"
+          :enable-assign="false"
+          @select="handleQueueSelect"
+        />
+        <div
+          v-if="queueMatches.length > 3"
+          class="ec-queue-more"
+        >
+          <span class="text-body-2 text-medium-emphasis">
+            {{ queueMatches.length - 3 }} more waiting
+          </span>
+          <v-btn
+            variant="text"
+            size="small"
+            color="primary"
+            :to="`/tournaments/${tournamentId}/match-control`"
+          >
+            View all →
+          </v-btn>
+        </div>
+        <CategoryProgressPanel
+          :statuses="categoryStageStatuses"
+          class="mt-3"
+        />
+      </div>
+    </div>
+
+    <!-- Pre-event: Organizer checklist (draft / registration) -->
+    <div
+      v-if="['draft', 'registration'].includes(tournament.status)"
+      class="pa-5"
+    >
+      <organizer-checklist :tournament-id="tournamentId" />
+    </div>
+
+    <!-- Schedule Result Alert -->
+    <v-alert
+      v-if="scheduleResult && scheduleResult.unscheduled > 0"
+      type="warning"
+      variant="tonal"
+      closable
+      class="ma-4"
+      @click:close="scheduleResult = null"
+    >
+      <div class="d-flex align-center">
+        <v-icon
+          icon="mdi-alert"
+          class="mr-2"
+        />
+        <div class="font-weight-bold">
+          {{ scheduleResult.unscheduled }} match(es) could not be scheduled
+        </div>
+      </div>
+      <v-divider class="my-2" />
+      <v-list
+        density="compact"
+        class="bg-transparent"
+      >
+        <v-list-item
+          v-for="item in scheduleResult.unscheduledDetails"
+          :key="item.matchId"
+          class="px-0"
+        >
+          <template #prepend>
+            <v-icon
+              icon="mdi-information"
+              size="small"
+              color="warning"
+            />
+          </template>
+          <v-list-item-title>Match ID: {{ item.matchId }}</v-list-item-title>
+          <v-list-item-subtitle class="text-warning">
+            {{ item.reason || 'Unknown reason' }}
+          </v-list-item-subtitle>
+        </v-list-item>
+      </v-list>
+    </v-alert>
+  </v-container>
+
+  <!-- Loading State -->
+  <v-container
+    v-else-if="loading"
+    class="fill-height"
+  >
+    <v-row
+      align="center"
+      justify="center"
+    >
+      <v-progress-circular
+        indeterminate
+        size="64"
+        color="primary"
+      />
+    </v-row>
+  </v-container>
+
+  <!-- Complete Tournament Confirmation Dialog -->
+  <v-dialog
+    v-model="showCompleteDialog"
+    max-width="480"
+    persistent
+  >
+    <v-card>
+      <v-card-title class="d-flex align-center pa-4 pb-2">
+        <v-icon
+          start
+          icon="mdi-trophy"
+          color="success"
+        />
+        Complete Tournament?
+      </v-card-title>
+      <v-card-text>
+        <p class="mb-3">
+          You're about to mark <strong>{{ tournament?.name }}</strong> as completed.
+        </p>
+        <v-alert
+          type="warning"
+          variant="tonal"
+          density="compact"
+        >
+          This will close all active scoring. This action cannot be undone.
+        </v-alert>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="showCompleteDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="success"
+          variant="elevated"
+          @click="updateStatus('completed'); showCompleteDialog = false"
+        >
+          Complete Tournament
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Delete Confirmation Dialog -->
+  <v-dialog
+    v-model="showDeleteDialog"
+    max-width="500"
+  >
+    <v-card>
+      <v-card-title class="text-h5 text-error">
+        <v-icon
+          start
+          icon="mdi-alert"
+          color="error"
+        />
+        Delete Tournament?
+      </v-card-title>
+      <v-card-text>
+        Are you sure you want to delete <strong>{{ tournament?.name }}</strong>? This action cannot be undone and will remove all matches, scores, and participant data.
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :disabled="deleteLoading"
+          @click="showDeleteDialog = false"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="error"
+          variant="elevated"
+          :loading="deleteLoading"
+          @click="handleDeleteTournament"
+        >
+          Delete Forever
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Complete Match Winner Dialog -->
+  <v-dialog
+    v-model="showCompleteMatchDialog"
+    max-width="400"
+    persistent
+  >
+    <v-card v-if="matchToComplete">
+      <v-card-title>Select Winner</v-card-title>
+      <v-card-text>
+        <p class="mb-4">
+          Who won this match?
+        </p>
+        <v-btn
+          block
+          color="primary"
+          class="mb-2"
+          @click="confirmCompleteMatch(matchToComplete.participant1Id)"
+        >
+          {{ getParticipantName(matchToComplete.participant1Id) }}
+        </v-btn>
+        <v-btn
+          block
+          color="primary"
+          variant="outlined"
+          @click="confirmCompleteMatch(matchToComplete.participant2Id)"
+        >
+          {{ getParticipantName(matchToComplete.participant2Id) }}
+        </v-btn>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="showCompleteMatchDialog = false"
+        >
+          Cancel
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Scoring QR Code Dialog -->
+  <ScoringQrDialog
+    v-model="showScoringQrDialog"
+    :tournament-id="tournamentId"
+    @copied="notificationStore.showToast('success', 'Scoring link copied!')"
+  />
+
+  <TournamentAnnouncementCardDialog
+    v-model="showAnnouncementCardDialog"
+    :tournament-name="tournament?.name || 'Tournament'"
+    :tournament-date="tournament?.startDate || null"
+    :tournament-location="tournament?.location || null"
+    :logo-url="tournamentLogoUrl"
+    @downloaded="notificationStore.showToast('success', 'Announcement card downloaded')"
+  />
+</template>
     >
       <div class="d-flex flex-column flex-md-row align-md-center justify-space-between gap-4">
         <div class="flex-grow-1">
@@ -1233,115 +1769,246 @@ function handleExport() {
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
 
-.text-gradient {
-  color: $primary-base;
-  background: linear-gradient(135deg, $primary-base, $secondary-base);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-family: $font-family-display;
+// ── Outer container ──────────────────────────────────────────────
+.event-center-container {
+  background: #f1f5f9;
+  min-height: 100%;
+}
+
+// ── Header band ──────────────────────────────────────────────────
+.ec-header {
+  background: #fff;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.ec-header__left {
+  min-width: 0;
+}
+
+.ec-tournament-name {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ec-tournament-meta {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.ec-meta-sep {
+  margin: 0 6px;
+}
+
+.ec-header__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+// LIVE badge
+.ec-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+.ec-live-dot {
+  width: 7px;
+  height: 7px;
+  background: #16a34a;
+  border-radius: 50%;
+  display: inline-block;
+  animation: ec-pulse 1.5s ease-in-out infinite;
+}
+
+.ec-live-text {
+  font-size: 11px;
   font-weight: 700;
+  color: #15803d;
+  letter-spacing: 0.5px;
 }
 
-.unified-status-card {
-  border-left: 4px solid rgba($primary-base, 0.4) !important;
-  border-top: 1px solid rgba($primary-base, 0.08) !important;
-  border-right: 1px solid rgba($primary-base, 0.08) !important;
-  border-bottom: 1px solid rgba($primary-base, 0.08) !important;
+@keyframes ec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
 
-  &.status-active {
-    border-left-color: rgba($success, 0.6) !important;
+// ── Stats row ─────────────────────────────────────────────────────
+.ec-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ec-stat {
+  padding: 14px 18px;
+  border-right: 1px solid #e2e8f0;
+
+  &:last-child {
+    border-right: none;
   }
 
-  &.status-registration {
-    border-left-color: rgba($primary-base, 0.5) !important;
+  &--orange {
+    background: #fff7ed;
   }
 
-  &.status-completed {
-    border-left-color: rgba($secondary-base, 0.5) !important;
+  &--green {
+    background: #f0fdf4;
+  }
+
+  &--purple {
+    background: #f5f3ff;
   }
 }
 
-.info-strip {
-  .info-strip-item {
-    min-width: 80px;
+.ec-stat__number {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+
+  .ec-stat--orange & {
+    color: #ea580c;
+  }
+
+  .ec-stat--green & {
+    color: #16a34a;
+  }
+
+  .ec-stat--purple & {
+    color: #7c3aed;
   }
 }
 
-.stat-card {
+.ec-stat__unit {
+  font-size: 18px;
+}
+
+.ec-stat__label {
+  font-size: 10px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-top: 4px;
+}
+
+// ── Status + CTA bar ──────────────────────────────────────────────
+.ec-status-bar {
+  background: #fff;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
-  padding: $spacing-md;
-  border: 1px solid $border-light;
-  border-radius: $border-radius-lg;
-  transition: $transition-base;
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: $shadow-md;
-    border-color: $primary-light;
-  }
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.stat-icon-wrapper {
-  width: 48px;
-  height: 48px;
-  border-radius: $border-radius-md;
+.ec-status-bar__eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 5px;
+}
+
+.ec-status-bar__text {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-right: $spacing-md;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
 }
 
-.stat-content {
-  flex-grow: 1;
-  color: $text-primary;
+.ec-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #64748b;
 
-  .text-h4 {
-    font-variant-numeric: tabular-nums;
+  &--active {
+    background: #f97316;
+  }
+
+  &--registration {
+    background: #1d4ed8;
+  }
+
+  &--completed {
+    background: #16a34a;
   }
 }
 
-.glow-effect {
-  box-shadow: 0 0 15px rgba($success, 0.4);
-  animation: pulse 2s infinite;
+.ec-cta-btn {
+  box-shadow: 0 4px 14px rgba(29, 78, 216, 0.3) !important;
+  flex-shrink: 0;
 }
 
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba($success, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba($success, 0); }
-  100% { box-shadow: 0 0 0 0 rgba($success, 0); }
+// ── Quick links ───────────────────────────────────────────────────
+.ec-quick-links {
+  background: #fff;
+  padding: 10px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-
-// Enhanced animations for dashboard elements
-.dashboard-container {
-  .v-col {
-    animation: slideUp 0.5s ease-out forwards;
-    opacity: 0;
-    animation-delay: calc(var(--item-index) * 0.1s);
-  }
-}
-
-// Staggered card animations
-.stat-card {
-  animation: slideUp 0.6s ease-out forwards;
-  opacity: 0;
-  animation-fill-mode: both;
-}
-
-// Hover animation for interactive elements
-.v-btn, .v-card, .stat-card {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+.ec-quick-link {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
 
   &:hover {
-    transform: translateY(-3px);
-    box-shadow: $shadow-lg !important;
+    border-color: #cbd5e1 !important;
+    color: #1d4ed8 !important;
+    background: #f1f5f9 !important;
   }
 }
-// Background utility classes
-.bg-primary-subtle { background-color: rgba($primary-base, 0.1) !important; }
-.bg-info-subtle { background-color: rgba($info, 0.1) !important; }
-.bg-success-subtle { background-color: rgba($success, 0.1) !important; }
-.bg-warning-subtle { background-color: rgba($warning, 0.1) !important; }
+
+// ── Operations 2-col ──────────────────────────────────────────────
+.ec-operations {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #f8fafc;
+  align-items: start;
+}
+
+.ec-operations__right {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ec-queue-more {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 4px 0;
+}
+
 </style>
