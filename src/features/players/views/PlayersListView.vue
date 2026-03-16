@@ -1,14 +1,31 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { usePlayersStore } from '@/stores/players';
+import { useOrganizationsStore } from '@/stores/organizations';
+import { useAuthStore } from '@/stores/auth';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
 import type { GlobalPlayer } from '@/types';
 
 const playersStore = usePlayersStore();
+const orgStore = useOrganizationsStore();
+const authStore = useAuthStore();
 
 const search = ref('');
 
-const { execute: load, loading } = useAsyncOperation(() => playersStore.fetchPlayers());
+const { execute, loading } = useAsyncOperation();
+
+function load() {
+  return execute(async () => {
+    const activeOrgId = authStore.currentUser?.activeOrgId;
+    if (activeOrgId) {
+      await orgStore.fetchOrgTournaments(activeOrgId);
+      const tournamentIds = orgStore.orgTournaments.map((t) => t.id);
+      await playersStore.fetchOrgPlayers(tournamentIds);
+    } else {
+      await playersStore.fetchPlayers();
+    }
+  });
+}
 
 const filteredPlayers = computed((): GlobalPlayer[] => {
   const q = search.value.toLowerCase();
