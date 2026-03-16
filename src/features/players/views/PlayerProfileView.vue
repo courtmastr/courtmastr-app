@@ -11,15 +11,19 @@ const playersStore = usePlayersStore();
 const player = ref<GlobalPlayer | null>(null);
 const activeSportTab = ref<string>('overall');
 
-const { execute: load, loading } = useAsyncOperation(async () => {
-  const id = route.params.playerId as string;
-  player.value = await playersStore.fetchPlayerById(id);
-  // Set first sport tab by default if stats exist
-  if (player.value?.stats) {
-    const sports = Object.keys(player.value.stats).filter((k) => k !== 'overall');
-    if (sports.length > 0) activeSportTab.value = sports[0];
-  }
-});
+const { execute, loading } = useAsyncOperation();
+
+function load() {
+  return execute(async () => {
+    const id = route.params.playerId as string;
+    player.value = await playersStore.fetchPlayerById(id);
+    // Set first sport tab by default if stats exist
+    if (player.value?.stats) {
+      const sports = Object.keys(player.value.stats).filter((k) => k !== 'overall');
+      if (sports.length > 0) activeSportTab.value = sports[0];
+    }
+  });
+}
 
 const initials = computed((): string => {
   if (!player.value) return '??';

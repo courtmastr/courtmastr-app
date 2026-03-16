@@ -455,7 +455,7 @@ const routes: RouteRecordRaw[] = [
     path: '/players/:playerId',
     name: 'player-profile',
     component: PlayerProfileView,
-    meta: { requiresAuth: true, requiresAdmin: true },
+    meta: { requiresAuth: true },
   },
 
   {
