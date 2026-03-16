@@ -201,11 +201,24 @@ match /playerEmailIndex/{emailNormalized} {
   allow read: if isAuthenticated();
   allow write: if isAuthenticated();
 }
+
+match /orgSlugIndex/{slug} {
+  allow read: if true;
+  allow write: if isAuthenticated();
+}
 ```
 
-Helper functions to add:
-- `isOrgMember(orgId)` — checks `/organizations/{orgId}/members/{request.auth.uid}` exists
-- `isOrgAdmin(orgId)` — checks member.role == "admin"
+Helper functions to add (full bodies):
+```
+function isOrgMember(orgId) {
+  return isAuthenticated() &&
+    exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+}
+function isOrgAdmin(orgId) {
+  return isAuthenticated() &&
+    get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+}
+```
 
 ---
 
@@ -244,6 +257,8 @@ Plus one new field: `globalPlayerId`.
 
 When importing players via CSV, each row calls `findOrCreateByEmail`. If a global player already exists for that email, the import links to the existing record (no duplicate created) and only writes/updates the tournament mirror. The import result surface shows "3 players linked to existing records, 2 new players created."
 
+**Note:** `bulkImportPlayers` in `registrations.ts` calls `addPlayer` in a loop. Once `addPlayer` is updated with the `findOrCreateByEmail` bridge (Step 4 in Section 11), bulk import inherits deduplication automatically — no separate implementation required.
+
 ### 4.4 `deletePlayer` in Tournament Context
 
 Deletes **only the tournament mirror** — never the global player. Other tournaments may reference the same global player. The global player doc and email index entry are permanent until explicitly deleted by an Admin.
@@ -265,14 +280,19 @@ onDocumentUpdated("tournaments/{tournamentId}")
 
 ```
 1. Read tournament.sport, tournament.orgId
-2. Read all /match_scores for this tournament
+2. Read all match scores via collection group query:
+   `collectionGroup("match_scores").where("tournamentId", "==", tournamentId)`
+   NOTE: `tournamentId` must be denormalized onto each match_score document at write time.
+   Existing match_score write paths in `match-scores.ts` must include `tournamentId` field.
+   (This is a one-time additive field — existing docs without it are silently skipped by the function.)
 3. Read all /registrations for this tournament
 4. For each completed match:
    a. Identify winner(s) and loser(s) via registrations → playerId
    b. Identify category.type (singles/doubles/mixed)
    c. For doubles/mixed: both partners are updated
 5. Compute per-player deltas:
-   { [playerId]: { wins: N, losses: N, gamesPlayed: N } }
+   { [playerId]: { wins: N, losses: N, gamesPlayed: N, tournamentsPlayed: 1 } }
+   (`tournamentsPlayed: 1` is always 1 per tournament since the function runs once per tournament guaranteed by `statsProcessed` flag)
 6. One batch write to /players:
    stats.{sport}.{categoryType}.wins   += delta.wins      (FieldValue.increment)
    stats.{sport}.{categoryType}.losses += delta.losses    (FieldValue.increment)
@@ -330,14 +350,13 @@ At 100 tournaments/month: 100 Cloud Function invocations. Practically free. Fire
 1. **Hero** — org banner image, org logo overlapping bottom edge, org name, location/tagline
 2. **Stats bar** — Total Tournaments · Total Players · Total Matches · Sports
 3. **Tournaments list** — cards with sport icon, tournament name, date range, category summary, status badge (LIVE / OPEN / COMPLETED). Click → existing tournament landing page
-4. **Sponsors section** — org-level sponsor logos (separate from tournament-level sponsors which remain per-tournament)
-
-**Important:** Tournament-level sponsor logos remain on the tournament's own landing page. The org public page shows org-level sponsors only. Both coexist independently.
+4. **Sponsors section** — deferred to roadmap (see Section 13). No org-level sponsor schema defined in this release. The section is omitted from the initial implementation of `OrgPublicHomeView`.
 
 ---
 
 ### 6.3 Player Stats Page
 **Route:** `/players/:playerId` (auth-required, admin/organizer role)
+**Access note:** Intentionally restricted to organizers and admins in this release. Players do not have a self-service stats view yet (deferred to roadmap). Any authenticated user can read `/players` docs via Firestore rules, but the router guard restricts the page to organizer/admin roles.
 **URL example:** `courtmaster.app/players/rafael-garcia`
 
 **Sections:**
@@ -509,7 +528,8 @@ Each step is independently deployable. Steps 1–4 are the foundation. Steps 5�
 - **`useAsyncOperation`** for all async state in views — per project coding patterns
 - **`notificationStore.showToast`** for all user feedback — per CP-005
 - **`v-dialog`** not native `confirm()`/`alert()` — per CP-001
-- **`writeBatch`** for all multi-document writes (org create, member add) — per CP-003
+- **`writeBatch`** for multi-document writes that do NOT require a pre-write read (e.g., member add, org profile update) — per CP-003
+- **`runTransaction`** for `createOrg` (requires slug index read before write — batch cannot read)
 
 ---
 
@@ -522,3 +542,34 @@ Each step is independently deployable. Steps 1–4 are the foundation. Steps 5�
 - Feature/settings search (command palette)
 - Player self-service profile editing (public-facing)
 - Win/loss stat breakdown per opponent
+- Org-level sponsor logos (schema + storage + org public page section)
+- Player self-service stats page (router guard currently restricts to organizer/admin)
+
+---
+
+## 14. Visual Design Decisions (Brainstorm Session 2026-03-15)
+
+**Branch strategy:** Single branch `feat/global-players-org-platform`, one PR, commits per implementation step.
+
+**UI Direction: "Sports Scoreboard" (Option C)**
+- Page headers: dark `#0F172A` background with gradient logo tile (Blue→Amber diagonal)
+- Embedded stats panel: `#1E293B` block flush at bottom of header, 4-column grid, Amber `#F59E0B` stat values
+- Content area: `#F8FAFC` background
+- Tournament cards: left `3px` accent border (Green=LIVE, Blue=OPEN), `border-radius: 0 8px 8px 0`, subtle shadow
+- LIVE indicator: animated pulse dot (green, 1.5s CSS animation)
+- All pages use existing Vuetify theme colors — no new color tokens required
+
+**Player Stats Page: "Stat Cards Grid" (Option X)**
+- 3-column card grid: Singles / Doubles / Mixed — each card has W/L count, win-rate `v-progress-linear`, tournaments-played count
+- Sport tabs: pill-shaped tabs above the grid, one per sport the player has data for (auto-generated from `Object.keys(player.stats)`)
+- Overall stats: dark embedded panel (same as org landing) at bottom of dark header
+- Tournament history: flat list below stat cards, ordered most-recent-first
+
+**Org Public Landing Page**
+- Hero: dark header with org logo tile + org name + tagline
+- Stats bar: `#1E293B` embedded panel (Tournaments / Players / Matches / Sports)
+- Tournament cards: left-border accent cards in light content area
+
+**Org Admin Profile Page**
+- Standard Vuetify `v-tabs` + `v-tab-item` layout with Profile / Tournaments / Members / Settings
+- Page header: same dark Sports Scoreboard style (org logo tile + name)
