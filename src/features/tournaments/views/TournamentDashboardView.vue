@@ -10,15 +10,13 @@ import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
-import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
-import TournamentSponsorStrip from '@/components/common/TournamentSponsorStrip.vue';
 import { exportTournamentMatchesToCSV } from '../utils/export';
 import OrganizerChecklist from '../components/OrganizerChecklist.vue';
 import ActiveMatchesSection from '../components/ActiveMatchesSection.vue';
 import ReadyQueue from '../components/ReadyQueue.vue';
 import ScoringQrDialog from '../components/ScoringQrDialog.vue';
 import TournamentAnnouncementCardDialog from '../components/TournamentAnnouncementCardDialog.vue';
-import MatchStatsDashboard from '../components/MatchStatsDashboard.vue';
+import CategoryProgressPanel from '../components/CategoryProgressPanel.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -37,7 +35,10 @@ const matches = computed(() => matchStore.matches);
 const registrations = computed(() => registrationStore.registrations);
 const loading = computed(() => tournamentStore.loading);
 const isAdmin = computed(() => authStore.isAdmin);
-const { normalizedSponsors, tournamentLogoUrl } = useTournamentBranding(tournament);
+const isOrganizer = computed(() => authStore.isOrganizer);
+// Both admins and organizers need Manage controls for their own tournaments.
+const showManageControls = computed(() => isAdmin.value || isOrganizer.value);
+const { tournamentLogoUrl } = useTournamentBranding(tournament);
 
 const selectedCategory = ref<string | null>(null);
 const statsLoaded = ref(false);
@@ -80,6 +81,36 @@ const { queueMatches, totalRemainingMatches, categoryStageStatuses } = useCatego
   getParticipantName
 );
 
+const queueMatchesTop3 = computed(() => queueMatches.value.slice(0, 3));
+
+const statusLabel = computed(() => {
+  switch (tournament.value?.status) {
+    case 'active': return 'In Progress';
+    case 'registration': return 'Registration Open';
+    case 'completed': return 'Tournament Completed';
+    default: return 'Draft Mode — Configure categories and courts';
+  }
+});
+
+const ctaRoute = computed(() => {
+  const tid = tournamentId.value;
+  switch (tournament.value?.status) {
+    case 'active': return `/tournaments/${tid}/match-control`;
+    case 'registration': return `/tournaments/${tid}/registrations`;
+    case 'completed': return `/tournaments/${tid}/brackets`;
+    default: return `/tournaments/${tid}/categories`;
+  }
+});
+
+const ctaLabel = computed(() => {
+  switch (tournament.value?.status) {
+    case 'active': return 'Enter Match Control';
+    case 'registration': return 'Review Registrations';
+    case 'completed': return 'View Results';
+    default: return 'Setup Categories';
+  }
+});
+
 // Enrich active matches with category and court names for ActiveMatchesSection
 const enrichedActiveMatches = computed(() => {
   return matches.value
@@ -111,6 +142,19 @@ async function confirmCompleteMatch(winnerId: string) {
   matchToComplete.value = null;
 }
 
+function handleEnterScore(matchId: string): void {
+  const match = matches.value.find((m) => m.id === matchId);
+  router.push({
+    path: `/tournaments/${tournamentId.value}/matches/${matchId}/score`,
+    query: match ? { category: match.categoryId } : undefined,
+  });
+}
+
+function handleCompleteMatch(matchId: string): void {
+  matchToComplete.value = matches.value.find((m) => m.id === matchId) ?? null;
+  showCompleteMatchDialog.value = true;
+}
+
 function handleQueueSelect(ref: { matchId: string; categoryId: string }): void {
   router.push({
     path: `/tournaments/${tournamentId.value}/matches/${ref.matchId}/score`,
@@ -121,12 +165,17 @@ function handleQueueSelect(ref: { matchId: string; categoryId: string }): void {
 onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
 
-  // Organizers may only access tournaments they are assigned to
+  // Organizers may only access tournaments they are assigned to.
+  // Admins always have full access — only enforce for pure 'organizer' role (never 'admin').
   if (authStore.currentUser?.role === 'organizer') {
     const t = tournamentStore.currentTournament;
     const uid = authStore.currentUser.id;
+    const activeOrgId = authStore.currentUser.activeOrgId;
     const ids = t?.organizerIds ?? [];
-    if (t && !ids.includes(uid) && t.createdBy !== uid) {
+    
+    // Organizers can access tournaments they created, are explicitly assigned to,
+    // or that belong to their currently active organization.
+    if (t && !ids.includes(uid) && t.createdBy !== uid && t.orgId !== activeOrgId) {
       router.replace('/tournaments');
       return;
     }
