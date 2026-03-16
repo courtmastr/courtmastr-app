@@ -127,6 +127,46 @@ export const usePlayersStore = defineStore('players', () => {
     }
   };
 
+  const fetchOrgPlayers = async (orgTournamentIds: string[]): Promise<void> => {
+    if (orgTournamentIds.length === 0) {
+      players.value = [];
+      return;
+    }
+    loading.value = true;
+    error.value = null;
+    try {
+      // Collect unique globalPlayerIds from all tournament player mirrors
+      const seenIds = new Set<string>();
+      await Promise.all(
+        orgTournamentIds.map(async (tournamentId) => {
+          const snap = await getDocs(collection(db, 'tournaments', tournamentId, 'players'));
+          snap.docs.forEach((d) => {
+            const gid = (d.data().globalPlayerId as string) || d.id;
+            seenIds.add(gid);
+          });
+        })
+      );
+
+      if (seenIds.size === 0) {
+        players.value = [];
+        return;
+      }
+
+      // Fetch global player records
+      const playerDocs = await Promise.all(
+        Array.from(seenIds).map((id) => getDoc(doc(db, 'players', id)))
+      );
+      players.value = playerDocs
+        .filter((d) => d.exists())
+        .map((d) => convertTimestamps({ id: d.id, ...d.data() }) as GlobalPlayer);
+    } catch (err) {
+      error.value = 'Failed to fetch org players';
+      console.error('Error fetching org players:', err);
+    } finally {
+      loading.value = false;
+    }
+  };
+
   const unsubscribe = (): void => {
     unsubscribeFn?.();
     unsubscribeFn = null;
@@ -138,6 +178,7 @@ export const usePlayersStore = defineStore('players', () => {
     error,
     findOrCreateByEmail,
     fetchPlayers,
+    fetchOrgPlayers,
     subscribePlayers,
     getPlayerById,
     updatePlayer,
