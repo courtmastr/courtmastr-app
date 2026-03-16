@@ -23,34 +23,42 @@ const form = ref({
   website: '',
 });
 
-const { execute: loadOrg, loading } = useAsyncOperation(async () => {
-  const activeOrgId = authStore.currentUser?.activeOrgId;
-  if (!activeOrgId) return;
-  org.value = await orgStore.fetchOrgById(activeOrgId);
-  if (org.value) {
-    form.value = {
-      name: org.value.name,
-      contactEmail: org.value.contactEmail ?? '',
-      timezone: org.value.timezone ?? '',
-      about: org.value.about ?? '',
-      website: org.value.website ?? '',
-    };
-    await orgStore.fetchOrgTournaments(activeOrgId);
-    members.value = await orgStore.fetchOrgMembers(activeOrgId);
-  }
-});
+const { execute, loading } = useAsyncOperation();
 
-const { execute: saveProfile, loading: saving } = useAsyncOperation(async () => {
-  if (!org.value) return;
-  await orgStore.updateOrg(org.value.id, {
-    name: form.value.name,
-    contactEmail: form.value.contactEmail || null,
-    timezone: form.value.timezone || null,
-    about: form.value.about || null,
-    website: form.value.website || null,
+function loadOrg() {
+  return execute(async () => {
+    const activeOrgId = authStore.currentUser?.activeOrgId;
+    if (!activeOrgId) return;
+    org.value = await orgStore.fetchOrgById(activeOrgId);
+    if (org.value) {
+      form.value = {
+        name: org.value.name,
+        contactEmail: org.value.contactEmail ?? '',
+        timezone: org.value.timezone ?? '',
+        about: org.value.about ?? '',
+        website: org.value.website ?? '',
+      };
+      await orgStore.fetchOrgTournaments(activeOrgId);
+      members.value = await orgStore.fetchOrgMembers(activeOrgId);
+    }
   });
-  notificationStore.showToast('success', 'Organization profile saved');
-});
+}
+
+const { execute: executeSave, loading: saving } = useAsyncOperation();
+
+function saveProfile() {
+  return executeSave(async () => {
+    if (!org.value) return;
+    await orgStore.updateOrg(org.value.id, {
+      name: form.value.name,
+      contactEmail: form.value.contactEmail || null,
+      timezone: form.value.timezone || null,
+      about: form.value.about || null,
+      website: form.value.website || null,
+    });
+    notificationStore.showToast('success', 'Organization profile saved');
+  });
+}
 
 const statusColor = (status: string): string => {
   const map: Record<string, string> = {
@@ -72,7 +80,9 @@ onMounted(loadOrg);
 
   <v-container v-else-if="!org" class="pa-8 text-center">
     <v-icon size="48" color="grey-lighten-1" class="mb-4">mdi-office-building-off-outline</v-icon>
-    <p class="text-body-1 text-medium-emphasis">No organization linked to your account.</p>
+    <p class="text-body-1 text-medium-emphasis">
+      {{ authStore.currentUser?.activeOrgId ? 'Organization not found.' : 'No organization linked to your account. Ask an admin to add you to an org.' }}
+    </p>
   </v-container>
 
   <template v-else>
