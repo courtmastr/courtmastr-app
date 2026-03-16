@@ -299,7 +299,7 @@ service cloud.firestore {
     }
 
     match /players/{playerId} {
-      allow read: if isAuthenticated();
+      allow read: if true;  // public player search at /find
       allow create: if isAuthenticated();
       allow update: if isAdmin()
         || (isOwner(resource.data.userId)
@@ -326,6 +326,10 @@ service cloud.firestore {
     }
 
     match /{path=**}/activities/{activityId} {
+      allow read: if isAuthenticated();
+    }
+
+    match /{path=**}/members/{uid} {
       allow read: if isAuthenticated();
     }
   }
