@@ -29,6 +29,9 @@ const AuditLogView = () => import('@/features/admin/views/AuditLogView.vue');
 const AdminReviewsView = () => import('@/features/reviews/views/AdminReviewsView.vue');
 const OrgProfile = () => import('@/features/org/views/OrgProfileView.vue');
 
+// Dashboard
+const OrgDashboard = () => import('@/features/dashboard/views/OrgDashboardView.vue');
+
 // Player views
 const PlayersListView = () => import('@/features/players/views/PlayersListView.vue');
 const PlayerProfileView = () => import('@/features/players/views/PlayerProfileView.vue');
@@ -227,6 +230,12 @@ const routes: RouteRecordRaw[] = [
   },
 
   // Authenticated routes
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: OrgDashboard,
+    meta: { requiresAuth: true },
+  },
   {
     path: '/tournaments',
     name: 'tournament-list',
@@ -523,7 +532,7 @@ router.beforeEach(async (to, _from, next) => {
 
   // Redirect authenticated users away from guest-only pages
   if (guestOnly && authStore.isAuthenticated) {
-    next({ name: 'tournament-list' });
+    next({ name: 'dashboard' });
     return;
   }
 
@@ -535,18 +544,18 @@ router.beforeEach(async (to, _from, next) => {
 
   // Check admin role
   if (requiresAdmin && !authStore.isAdmin) {
-    next({ name: 'tournament-list' });
+    next({ name: 'dashboard' });
     return;
   }
 
   if (requiresWebAdmin && authStore.currentUser?.role !== 'admin') {
-    next({ name: 'tournament-list' });
+    next({ name: 'dashboard' });
     return;
   }
 
   // Check scorekeeper role
   if (requiresScorekeeper && !authStore.isScorekeeper) {
-    next({ name: 'tournament-list' });
+    next({ name: 'dashboard' });
     return;
   }
 

@@ -50,6 +50,14 @@
     >
       <!-- Always visible -->
       <v-list-item
+        to="/dashboard"
+        :prepend-icon="NAVIGATION_ICONS.orgDashboard"
+        title="Dashboard"
+        class="nav-item nav-item--org-dashboard"
+        rounded="lg"
+        :ripple="false"
+      />
+      <v-list-item
         to="/tournaments"
         :prepend-icon="NAVIGATION_ICONS.tournaments"
         title="Tournaments"
