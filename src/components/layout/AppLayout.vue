@@ -33,6 +33,7 @@ function toggleNav(): void {
 }
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
+// Used for breadcrumbs, contextual nav, and search visibility (not sidebar — see AppNavigation v-if)
 const isAuthenticatedAppRoute = computed(() =>
   isAuthenticated.value && route.meta.requiresAuth === true
 );
