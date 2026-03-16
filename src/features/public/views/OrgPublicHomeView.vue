@@ -274,6 +274,19 @@ onMounted(async () => {
 
     </div><!-- /org-content -->
 
+    <!-- ── Find Players CTA ──────────────────────────────────────────── -->
+    <div style="text-align:center;padding:24px 0 8px;">
+      <v-btn
+        to="/find"
+        variant="outlined"
+        color="primary"
+        prepend-icon="mdi-account-search"
+        size="small"
+      >
+        Search All Players
+      </v-btn>
+    </div>
+
     <!-- ── Footer Attribution ─────────────────────────────────────────── -->
     <div class="org-footer">
       Powered by <strong>CourtMastr</strong>
