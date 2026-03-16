@@ -7,6 +7,7 @@ import {
   doc,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -23,6 +24,7 @@ import type { Registration, RegistrationStatus, Player } from '@/types';
 import { useAuditStore } from '@/stores/audit';
 import { useAuthStore } from '@/stores/auth';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
+import { usePlayersStore } from '@/stores/players';
 
 type VolunteerCheckInAction = 'check_in' | 'undo_check_in' | 'assign_bib';
 
@@ -200,44 +202,38 @@ export const useRegistrationStore = defineStore('registrations', () => {
     });
   }
 
-  // Add a player
+  // Add a player — creates global player record then writes tournament mirror
   async function addPlayer(
     tournamentId: string,
     playerData: Omit<Player, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<string> {
     try {
-      const normalizedEmail = playerData.email?.toLowerCase().trim() || '';
-      if (normalizedEmail) {
-        const existingPlayer = players.value.find(
-          (p) => p.email?.toLowerCase().trim() === normalizedEmail
-        );
+      const playersStore = usePlayersStore();
+      const email = playerData.email?.trim() || '';
+      if (!email) throw new Error('Player email is required');
 
-        if (existingPlayer) {
-          throw new Error(`A player with email "${playerData.email}" already exists`);
-        }
+      // Step 1: Find or create global player (atomic via runTransaction)
+      const globalPlayerId = await playersStore.findOrCreateByEmail(email, {
+        firstName: playerData.firstName,
+        lastName: playerData.lastName,
+        phone: playerData.phone ?? undefined,
+        skillLevel: playerData.skillLevel ?? undefined,
+      });
 
-        // Re-check against Firestore to avoid race conditions when local state is stale.
-        const playersSnapshot = await getDocs(collection(db, `tournaments/${tournamentId}/players`));
-        const duplicateInStore = playersSnapshot.docs.some((playerDoc) => {
-          const playerEmail = playerDoc.data().email;
-          return typeof playerEmail === 'string' && playerEmail.toLowerCase().trim() === normalizedEmail;
-        });
-
-        if (duplicateInStore) {
-          throw new Error(`A player with email "${playerData.email}" already exists`);
-        }
-      }
-
-      const docRef = await addDoc(
-        collection(db, `tournaments/${tournamentId}/players`),
+      // Step 2: Write tournament mirror using setDoc — ID must match global player ID
+      await setDoc(
+        doc(db, `tournaments/${tournamentId}/players`, globalPlayerId),
         {
           ...playerData,
-          ...(normalizedEmail ? { emailNormalized: normalizedEmail } : {}),
+          id: globalPlayerId,
+          globalPlayerId,
+          emailNormalized: email.toLowerCase().trim(),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }
       );
-      return docRef.id;
+
+      return globalPlayerId;
     } catch (err) {
       console.error('Error adding player:', err);
       throw err;
