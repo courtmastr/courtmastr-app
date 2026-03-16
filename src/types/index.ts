@@ -46,6 +46,7 @@ export interface User {
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  activeOrgId?: string | null; // ADD THIS
 }
 
 // Tournament Types
@@ -82,7 +83,7 @@ export interface Tournament {
   id: string;
   name: string;
   description?: string;
-  sport: 'badminton'; // Starting with badminton only
+  sport?: string | null; // Multi-sport support
   format: TournamentFormat;
   status: TournamentStatus;
   state?: TournamentLifecycleState;
@@ -624,3 +625,63 @@ export type {
   ShuffledSerpentineOptions,
   RngState,
 } from './poolAssignment';
+
+// ============================================
+// Global Player Identity
+// ============================================
+
+export interface PlayerStats {
+  wins: number;
+  losses: number;
+  gamesPlayed: number;
+  tournamentsPlayed: number;
+}
+
+export interface PlayerSportStats {
+  [categoryType: string]: PlayerStats; // 'singles' | 'doubles' | 'mixed'
+}
+
+export interface GlobalPlayer {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  emailNormalized: string;
+  phone?: string | null;
+  skillLevel?: number | null;
+  userId?: string | null;
+  isActive: boolean;
+  isVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  stats: {
+    [sport: string]: PlayerSportStats | PlayerStats;
+    overall: PlayerStats;
+  };
+}
+
+// ============================================
+// Organizations
+// ============================================
+
+export type OrgMemberRole = 'admin' | 'organizer';
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  contactEmail?: string | null;
+  timezone?: string | null;
+  about?: string | null;
+  website?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OrganizationMember {
+  uid: string;
+  role: OrgMemberRole;
+  joinedAt: Date;
+}
