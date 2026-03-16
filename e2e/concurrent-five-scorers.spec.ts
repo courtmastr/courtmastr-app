@@ -284,7 +284,7 @@ async function loginAs(page: Page, email: string, password: string): Promise<voi
   await page.locator('[data-testid="login-email"] input').fill(email);
   await page.locator('[data-testid="login-password"] input').fill(password);
   await page.getByTestId('login-submit').click();
-  await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 30_000 });
+  await page.waitForURL('/dashboard', { timeout: 30_000 });
 }
 
 async function openScoringPage(page: Page, tournamentId: string, match: SeededMatch): Promise<void> {

@@ -46,7 +46,7 @@ test.describe('Scorekeeper Flow', () => {
     await adminPage.getByLabel('Email').fill('admin@courtmastr.com');
     await adminPage.locator('input[type="password"]').fill('admin123');
     await adminPage.getByRole('button', { name: 'Sign In' }).click();
-    await adminPage.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 15000 });
+    await adminPage.waitForURL('/dashboard', { timeout: 15000 });
 
     try {
       // Navigate to tournament overview (contains CategoryRegistrationStats with Generate Bracket button)
@@ -90,7 +90,7 @@ test.describe('Scorekeeper Flow', () => {
     await page.getByLabel('Email').fill('scorekeeper@courtmastr.com');
     await page.locator('input[type="password"]').fill('score123');
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 15000 });
+    await page.waitForURL('/dashboard', { timeout: 15000 });
   });
 
   test('should load match list page for scorekeeper', async ({ page }) => {

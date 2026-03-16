@@ -7,7 +7,7 @@ export const test = base.extend({
     await page.getByLabel('Email').fill('admin@courtmastr.com');
     await page.locator('input[type="password"]').fill('admin123');
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 10000 });
+    await page.waitForURL('/dashboard', { timeout: 10000 });
     await use(page);
   },
 });

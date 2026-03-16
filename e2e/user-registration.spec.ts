@@ -86,9 +86,9 @@ test.describe('User Registration (/register)', () => {
     // Submit
     await page.getByRole('button', { name: /create account/i }).click();
 
-    // Should redirect to /tournaments
-    await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 15000 });
-    await expect(page).toHaveURL('/tournaments');
+    // Should redirect to /dashboard
+    await page.waitForURL('/dashboard', { timeout: 15000 });
+    await expect(page).toHaveURL('/dashboard');
   });
 
   test('should have a link back to the login page', async ({ page }) => {

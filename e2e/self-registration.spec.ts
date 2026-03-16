@@ -28,7 +28,7 @@ test.describe('Self-Registration', () => {
       await adminPage.getByLabel('Email').fill('admin@courtmastr.com');
       await adminPage.locator('input[type="password"]').fill('admin123');
       await adminPage.getByRole('button', { name: 'Sign In' }).click();
-      await adminPage.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 15000 });
+      await adminPage.waitForURL('/dashboard', { timeout: 15000 });
 
       await adminPage.goto('/tournaments/create');
       await adminPage.getByLabel('Tournament Name').fill(`SelfReg Tournament ${Date.now()}`);
@@ -62,7 +62,7 @@ test.describe('Self-Registration', () => {
     await page.getByLabel('Email').fill('admin@courtmastr.com');
     await page.locator('input[type="password"]').fill('admin123');
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 15000 });
+    await page.waitForURL('/dashboard', { timeout: 15000 });
   });
 
   test('should load the self-registration route', async ({ page }) => {

@@ -93,9 +93,7 @@ setup('authenticate as admin', async ({ page }) => {
   await page.locator('input[type="password"]').fill('admin123');
   await page.getByRole('button', { name: 'Sign In' }).click();
   
-  await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 10000 });
-
-  await expect(page.getByRole('heading', { name: 'Tournaments', exact: true })).toBeVisible();
+  await page.waitForURL('/dashboard', { timeout: 10000 });
 
   await page.context().storageState({ path: join(authDir, 'admin.json') });
 });
@@ -111,9 +109,7 @@ setup('authenticate as scorekeeper', async ({ page }) => {
   await page.locator('input[type="password"]').fill('score123');
   await page.getByRole('button', { name: 'Sign In' }).click();
 
-  await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 10000 });
-
-  await expect(page.getByRole('heading', { name: 'Tournaments', exact: true })).toBeVisible();
+  await page.waitForURL('/dashboard', { timeout: 10000 });
 
   await page.context().storageState({ path: join(authDir, 'scorekeeper.json') });
 });

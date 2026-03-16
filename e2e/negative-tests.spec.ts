@@ -9,7 +9,7 @@ async function loginAsAdmin(page: import('@playwright/test').Page) {
   await page.getByLabel('Email').fill('admin@courtmastr.com');
   await page.locator('input[type="password"]').fill('admin123');
   await page.getByRole('button', { name: 'Sign In' }).click();
-  await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 10000 });
+  await page.waitForURL('/dashboard', { timeout: 10000 });
 }
 
 test.describe('Negative Test Cases', () => {
@@ -235,7 +235,7 @@ test.describe('Negative Test Cases', () => {
       await page.getByLabel('Email').fill('scorekeeper@courtmastr.com');
       await page.locator('input[type="password"]').fill('score123');
       await page.getByRole('button', { name: 'Sign In' }).click();
-      await page.waitForURL(/\/tournaments(?:\/|$|\?)/);
+      await page.waitForURL('/dashboard');
 
       await page.goto('/tournaments/non-existent-id/matches/invalid-match/score');
       await page.waitForLoadState('domcontentloaded');
@@ -249,7 +249,7 @@ test.describe('Negative Test Cases', () => {
       await page.getByLabel('Email').fill('scorekeeper@courtmastr.com');
       await page.locator('input[type="password"]').fill('score123');
       await page.getByRole('button', { name: 'Sign In' }).click();
-      await page.waitForURL(/\/tournaments(?:\/|$|\?)/);
+      await page.waitForURL('/dashboard');
       
       await page.goto('/tournaments/create');
       await page.waitForTimeout(2000);
@@ -265,15 +265,15 @@ test.describe('Negative Test Cases', () => {
       await page.getByLabel('Email').fill('scorekeeper@courtmastr.com');
       await page.locator('input[type="password"]').fill('score123');
       await page.getByRole('button', { name: 'Sign In' }).click();
-      await page.waitForURL(/\/tournaments(?:\/|$|\?)/);
+      await page.waitForURL('/dashboard');
 
       const skTournamentId = await getTournamentId();
       await page.goto(`/tournaments/${skTournamentId}/match-control`);
       await page.waitForTimeout(2000);
 
-      // Router guard (requiresAdmin) redirects scorekeeper to /tournaments
+      // Router guard (requiresAdmin) redirects scorekeeper to /dashboard
       await expect(page).not.toHaveURL(/\/match-control/);
-      await expect(page).toHaveURL(/\/tournaments/);
+      await expect(page).toHaveURL('/dashboard');
     });
   });
 });

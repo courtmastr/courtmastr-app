@@ -13,7 +13,7 @@ async function loginAsAdmin(page: import('@playwright/test').Page) {
   await page.getByLabel('Email').fill('admin@courtmastr.com');
   await page.locator('input[type="password"]').fill('admin123');
   await page.getByRole('button', { name: 'Sign In' }).click();
-  await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 15000 });
+  await page.waitForURL('/dashboard', { timeout: 15000 });
 }
 
 test.describe('Edge Cases - Authentication', () => {
