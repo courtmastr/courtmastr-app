@@ -1,10 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// Mock Vuetify's useDisplay and vue-router before importing composable
-vi.mock('vuetify', () => ({
-  useDisplay: () => ({ smAndDown: { value: false } }),
-}));
-
 // Mock localStorage
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
@@ -85,5 +80,13 @@ describe('useNavigationState', () => {
     const b = useNavigationState();
     a.collapseToRail();
     expect(b.rail.value).toBe(true);
+  });
+
+  it('sections fall back to defaults when localStorage contains invalid JSON', async () => {
+    localStorageMock.setItem('courtmaster_nav_sections', 'not-valid-json{{{');
+    const { useNavigationState } = await import('@/composables/useNavigationState');
+    const { sections } = useNavigationState();
+    expect(sections.value.dayOf).toBe(true);
+    expect(sections.value.shareStream).toBe(false);
   });
 });

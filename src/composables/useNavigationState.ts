@@ -15,9 +15,13 @@ const DEFAULT_SECTIONS: Record<string, boolean> = {
 };
 
 const storedSections = localStorage.getItem(SECTIONS_KEY);
-const sections = ref<Record<string, boolean>>(
-  storedSections ? JSON.parse(storedSections) : { ...DEFAULT_SECTIONS }
-);
+let parsedSections: Record<string, boolean>;
+try {
+  parsedSections = storedSections ? JSON.parse(storedSections) : { ...DEFAULT_SECTIONS };
+} catch {
+  parsedSections = { ...DEFAULT_SECTIONS };
+}
+const sections = ref<Record<string, boolean>>(parsedSections);
 
 // Persist changes
 watch(rail, (val) => localStorage.setItem(RAIL_KEY, String(val)));
