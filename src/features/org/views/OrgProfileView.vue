@@ -1,0 +1,200 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { useOrganizationsStore } from '@/stores/organizations';
+import { useAuthStore } from '@/stores/auth';
+import { useAsyncOperation } from '@/composables/useAsyncOperation';
+import { useNotificationStore } from '@/stores/notifications';
+import type { Organization, OrganizationMember } from '@/types';
+
+const orgStore = useOrganizationsStore();
+const authStore = useAuthStore();
+const notificationStore = useNotificationStore();
+
+const tab = ref('profile');
+const org = ref<Organization | null>(null);
+const members = ref<OrganizationMember[]>([]);
+
+// Form fields (profile tab) — slug is display-only, not editable; changing slug requires admin action
+const form = ref({
+  name: '',
+  contactEmail: '',
+  timezone: '',
+  about: '',
+  website: '',
+});
+
+const { execute: loadOrg, loading } = useAsyncOperation(async () => {
+  const activeOrgId = authStore.currentUser?.activeOrgId;
+  if (!activeOrgId) return;
+  org.value = await orgStore.fetchOrgById(activeOrgId);
+  if (org.value) {
+    form.value = {
+      name: org.value.name,
+      contactEmail: org.value.contactEmail ?? '',
+      timezone: org.value.timezone ?? '',
+      about: org.value.about ?? '',
+      website: org.value.website ?? '',
+    };
+    await orgStore.fetchOrgTournaments(activeOrgId);
+    members.value = await orgStore.fetchOrgMembers(activeOrgId);
+  }
+});
+
+const { execute: saveProfile, loading: saving } = useAsyncOperation(async () => {
+  if (!org.value) return;
+  await orgStore.updateOrg(org.value.id, {
+    name: form.value.name,
+    contactEmail: form.value.contactEmail || null,
+    timezone: form.value.timezone || null,
+    about: form.value.about || null,
+    website: form.value.website || null,
+  });
+  notificationStore.showToast('success', 'Organization profile saved');
+});
+
+const statusColor = (status: string): string => {
+  const map: Record<string, string> = {
+    active: 'success',
+    registration: 'primary',
+    completed: 'default',
+    draft: 'default',
+  };
+  return map[status] ?? 'default';
+};
+
+onMounted(loadOrg);
+</script>
+
+<template>
+  <v-container v-if="loading" class="d-flex justify-center pa-8">
+    <v-progress-circular indeterminate color="primary" />
+  </v-container>
+
+  <v-container v-else-if="!org" class="pa-8 text-center">
+    <v-icon size="48" color="grey-lighten-1" class="mb-4">mdi-office-building-off-outline</v-icon>
+    <p class="text-body-1 text-medium-emphasis">No organization linked to your account.</p>
+  </v-container>
+
+  <template v-else>
+    <!-- Dark sports-scoreboard header -->
+    <div style="background: #0F172A; padding: 24px 24px 0;">
+      <div class="d-flex align-center ga-4 mb-4">
+        <div
+          style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#1D4ED8,#D97706);
+                 display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:white;flex-shrink:0;"
+        >
+          {{ org.name.slice(0, 2).toUpperCase() }}
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:800;color:white;">{{ org.name }}</div>
+          <div style="font-size:12px;color:#64748b;">{{ org.slug ? `courtmaster.app/${org.slug}` : 'No slug set' }}</div>
+        </div>
+      </div>
+
+      <v-tabs v-model="tab" color="white" bg-color="transparent">
+        <v-tab value="profile">Profile</v-tab>
+        <v-tab value="tournaments">Tournaments</v-tab>
+        <v-tab value="members">Members</v-tab>
+      </v-tabs>
+    </div>
+
+    <v-window v-model="tab" class="pa-4">
+      <!-- Profile tab -->
+      <v-window-item value="profile">
+        <v-card class="mb-4">
+          <v-card-title class="text-body-1 font-weight-bold pa-4 pb-2">Organization Profile</v-card-title>
+          <v-card-text>
+            <v-row>
+              <v-col cols="12" md="6">
+                <v-text-field v-model="form.name" label="Organization Name" />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  :model-value="org?.slug"
+                  label="URL Slug"
+                  :prefix="`courtmaster.app/`"
+                  disabled
+                  hint="Slug cannot be changed after creation"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field v-model="form.contactEmail" label="Contact Email" type="email" />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field v-model="form.website" label="Website URL" />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  v-model="form.timezone"
+                  label="Timezone"
+                  :items="['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Anchorage','Pacific/Honolulu']"
+                  clearable
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-textarea v-model="form.about" label="About / Description" rows="3" />
+              </v-col>
+            </v-row>
+          </v-card-text>
+          <v-card-actions class="pa-4 pt-0">
+            <v-spacer />
+            <v-btn color="primary" :loading="saving" @click="saveProfile">Save Profile</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-window-item>
+
+      <!-- Tournaments tab -->
+      <v-window-item value="tournaments">
+        <v-card v-if="orgStore.orgTournaments.length === 0" class="text-center pa-8">
+          <p class="text-medium-emphasis">No tournaments linked to this organization yet.</p>
+        </v-card>
+        <div v-else>
+          <div
+            v-for="t in orgStore.orgTournaments"
+            :key="t.id"
+            style="background:white;border-left:3px solid #1D4ED8;border-radius:0 8px 8px 0;
+                   padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;
+                   justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.05);"
+          >
+            <div>
+              <div style="font-size:14px;font-weight:600;color:#0F172A;">{{ t.name }}</div>
+              <div style="font-size:12px;color:#64748b;">{{ t.sport ?? '—' }} · {{ t.status }}</div>
+            </div>
+            <div class="d-flex align-center ga-2">
+              <v-chip :color="statusColor(t.status)" size="small" label>{{ t.status.toUpperCase() }}</v-chip>
+              <v-btn
+                variant="text"
+                size="small"
+                icon="mdi-arrow-right"
+                :to="`/tournaments/${t.id}`"
+              />
+            </div>
+          </div>
+        </div>
+      </v-window-item>
+
+      <!-- Members tab -->
+      <v-window-item value="members">
+        <v-card v-if="members.length === 0" class="text-center pa-8">
+          <p class="text-medium-emphasis">No members found.</p>
+        </v-card>
+        <div v-else>
+          <div
+            v-for="m in members"
+            :key="m.uid"
+            style="background:white;border:1px solid #e2e8f0;border-radius:8px;
+                   padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;
+                   justify-content:space-between;"
+          >
+            <div>
+              <div style="font-size:14px;font-weight:600;color:#0F172A;">{{ m.uid }}</div>
+              <div style="font-size:12px;color:#64748b;">Joined {{ m.joinedAt?.toLocaleDateString?.() ?? '—' }}</div>
+            </div>
+            <v-chip size="small" :color="m.role === 'admin' ? 'primary' : 'default'" label>{{ m.role }}</v-chip>
+          </div>
+        </div>
+      </v-window-item>
+    </v-window>
+  </template>
+</template>
