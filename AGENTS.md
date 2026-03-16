@@ -494,4 +494,30 @@ Only load these when the task explicitly asks for them:
 
 ---
 
+## MCP Tool Usage
+- Always use `mcp2cli` instead of native MCP JSON schema injection for all external 
+  API and MCP server calls.
+- Start with `mcp2cli --list` to discover available tools before executing any command.
+- Use `mcp2cli --help <tool-name>` to fetch only the specific tool's schema when needed.
+- Never inject full MCP tool schemas upfront in multi-turn sessions.
+
+## Available MCP Servers
+- Firebase MCP: replace with actual MCP server URL when known
+- courtmaster API: replace with actual OpenAPI spec URL when known
+- Add additional servers here as the project grows
+
+## Agent Behavior — Token Efficiency
+- Prefer CLI-based tool invocation (mcp2cli) over native MCP in all multi-turn sessions.
+- Only load a tool's full schema when you are about to use that specific tool.
+- In agentic subagent workflows (bracket generation, scoring, overlays), use mcp2cli 
+  to keep each subagent context lean.
+
+## Secrets Management
+- Never expose API keys or tokens as raw CLI arguments.
+- Use `env:VARIABLE_NAME` prefix to reference environment variables.
+- Use `file:.secrets` prefix to reference secrets from a local file.
+- This prevents API keys from appearing in shell history or process lists.
+
+---
+
 **Enforcement**: Any violation constitutes task failure.
