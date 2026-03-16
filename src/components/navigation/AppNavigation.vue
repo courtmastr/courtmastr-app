@@ -76,6 +76,15 @@
         :ripple="false"
       />
       <v-list-item
+        v-if="isOrganizer"
+        to="/players"
+        :prepend-icon="NAVIGATION_ICONS.players"
+        title="Players"
+        class="nav-item nav-item--players"
+        rounded="lg"
+        :ripple="false"
+      />
+      <v-list-item
         v-if="isWebAdmin"
         to="/admin/reviews"
         :prepend-icon="NAVIGATION_ICONS.reviewModeration"
@@ -495,6 +504,16 @@ async function handleLogout(): Promise<void> {
   --cm-active-bg-soft: rgba(29, 126, 216, 0.07);
   --cm-shadow: rgba(29, 126, 216, 0.26);
   --cm-shadow-strong: rgba(29, 126, 216, 0.35);
+}
+
+.nav-item--players {
+  --cm-icon-start: #4ade80;
+  --cm-icon-end: #16a34a;
+  --cm-accent: #15803d;
+  --cm-active-bg: rgba(22, 163, 74, 0.18);
+  --cm-active-bg-soft: rgba(22, 163, 74, 0.07);
+  --cm-shadow: rgba(22, 163, 74, 0.26);
+  --cm-shadow-strong: rgba(22, 163, 74, 0.35);
 }
 
 .nav-item--settings {

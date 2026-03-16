@@ -29,6 +29,10 @@ const AuditLogView = () => import('@/features/admin/views/AuditLogView.vue');
 const AdminReviewsView = () => import('@/features/reviews/views/AdminReviewsView.vue');
 const OrgProfile = () => import('@/features/org/views/OrgProfileView.vue');
 
+// Player views
+const PlayersListView = () => import('@/features/players/views/PlayersListView.vue');
+const PlayerProfileView = () => import('@/features/players/views/PlayerProfileView.vue');
+
 // Scoring views
 const ScoringInterface = () => import('@/features/scoring/views/ScoringInterfaceView.vue');
 const MatchList = () => import('@/features/scoring/views/MatchListView.vue');
@@ -428,6 +432,18 @@ const routes: RouteRecordRaw[] = [
     path: '/org/profile',
     name: 'org-profile',
     component: OrgProfile,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/players',
+    name: 'players-list',
+    component: PlayersListView,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/players/:playerId',
+    name: 'player-profile',
+    component: PlayerProfileView,
     meta: { requiresAuth: true, requiresAdmin: true },
   },
 
