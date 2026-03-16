@@ -273,5 +273,49 @@ service cloud.firestore {
       allow create: if false;
       allow update, delete: if isAdmin();
     }
+
+    // ---- Global Player Identity ----
+
+    function isOrgMember(orgId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    function isOrgAdmin(orgId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /organizations/{orgId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isOrgMember(orgId);
+      allow delete: if isAdmin();
+
+      match /members/{uid} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin() || isOrgAdmin(orgId);
+      }
+    }
+
+    match /players/{playerId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin()
+        || (isOwner(resource.data.userId)
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                 .hasAny(['isVerified', 'stats']));
+      allow delete: if isAdmin();
+    }
+
+    match /playerEmailIndex/{emailNormalized} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /orgSlugIndex/{slug} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
   }
 }
