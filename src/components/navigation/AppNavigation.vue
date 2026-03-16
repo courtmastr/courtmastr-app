@@ -131,13 +131,19 @@
         <div
           v-if="!rail"
           class="nav-section-header"
+          role="button"
+          tabindex="0"
+          :aria-expanded="sections.dayOf"
           @click="toggleSection('dayOf')"
+          @keydown.enter.prevent="toggleSection('dayOf')"
+          @keydown.space.prevent="toggleSection('dayOf')"
         >
           <span class="nav-section-label">Day Of</span>
           <v-icon
-            :icon="sections.dayOf ? 'mdi-chevron-down' : 'mdi-chevron-right'"
+            icon="mdi-chevron-down"
             size="14"
             class="nav-section-arrow"
+            :class="{ 'nav-section-arrow--collapsed': !sections.dayOf }"
           />
         </div>
         <template v-if="rail || sections.dayOf">
@@ -175,13 +181,19 @@
         <div
           v-if="!rail"
           class="nav-section-header"
+          role="button"
+          tabindex="0"
+          :aria-expanded="sections.results"
           @click="toggleSection('results')"
+          @keydown.enter.prevent="toggleSection('results')"
+          @keydown.space.prevent="toggleSection('results')"
         >
           <span class="nav-section-label">Results</span>
           <v-icon
-            :icon="sections.results ? 'mdi-chevron-down' : 'mdi-chevron-right'"
+            icon="mdi-chevron-down"
             size="14"
             class="nav-section-arrow"
+            :class="{ 'nav-section-arrow--collapsed': !sections.results }"
           />
         </div>
         <template v-if="rail || sections.results">
@@ -217,13 +229,19 @@
         <div
           v-if="!rail"
           class="nav-section-header"
+          role="button"
+          tabindex="0"
+          :aria-expanded="sections.prepare"
           @click="toggleSection('prepare')"
+          @keydown.enter.prevent="toggleSection('prepare')"
+          @keydown.space.prevent="toggleSection('prepare')"
         >
           <span class="nav-section-label">Prepare</span>
           <v-icon
-            :icon="sections.prepare ? 'mdi-chevron-down' : 'mdi-chevron-right'"
+            icon="mdi-chevron-down"
             size="14"
             class="nav-section-arrow"
+            :class="{ 'nav-section-arrow--collapsed': !sections.prepare }"
           />
         </div>
         <template v-if="rail || sections.prepare">
@@ -261,13 +279,19 @@
         <div
           v-if="!rail"
           class="nav-section-header"
+          role="button"
+          tabindex="0"
+          :aria-expanded="sections.shareStream"
           @click="toggleSection('shareStream')"
+          @keydown.enter.prevent="toggleSection('shareStream')"
+          @keydown.space.prevent="toggleSection('shareStream')"
         >
           <span class="nav-section-label">Share & Stream</span>
           <v-icon
-            :icon="sections.shareStream ? 'mdi-chevron-down' : 'mdi-chevron-right'"
+            icon="mdi-chevron-down"
             size="14"
             class="nav-section-arrow"
+            :class="{ 'nav-section-arrow--collapsed': !sections.shareStream }"
           />
         </div>
         <template v-if="rail || sections.shareStream">
@@ -629,5 +653,9 @@ async function handleLogout(): Promise<void> {
 .nav-section-arrow {
   opacity: 0.4;
   transition: transform 160ms ease-out;
+
+  &--collapsed {
+    transform: rotate(-90deg);
+  }
 }
 </style>
