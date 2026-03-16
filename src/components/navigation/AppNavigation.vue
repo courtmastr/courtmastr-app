@@ -67,6 +67,15 @@
         :ripple="false"
       />
       <v-list-item
+        v-if="isOrganizer"
+        to="/org/profile"
+        :prepend-icon="NAVIGATION_ICONS.organization"
+        title="Organization"
+        class="nav-item nav-item--organization"
+        rounded="lg"
+        :ripple="false"
+      />
+      <v-list-item
         v-if="isWebAdmin"
         to="/admin/reviews"
         :prepend-icon="NAVIGATION_ICONS.reviewModeration"
@@ -476,6 +485,16 @@ async function handleLogout(): Promise<void> {
   --cm-active-bg-soft: rgba(226, 108, 162, 0.08);
   --cm-shadow: rgba(226, 108, 162, 0.29);
   --cm-shadow-strong: rgba(226, 108, 162, 0.38);
+}
+
+.nav-item--organization {
+  --cm-icon-start: #60b4ff;
+  --cm-icon-end: #1d7ed8;
+  --cm-accent: #1566b8;
+  --cm-active-bg: rgba(29, 126, 216, 0.18);
+  --cm-active-bg-soft: rgba(29, 126, 216, 0.07);
+  --cm-shadow: rgba(29, 126, 216, 0.26);
+  --cm-shadow-strong: rgba(29, 126, 216, 0.35);
 }
 
 .nav-item--settings {

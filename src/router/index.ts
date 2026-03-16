@@ -27,6 +27,7 @@ const Leaderboard = () => import('@/features/tournaments/views/LeaderboardView.v
 // Admin views
 const AuditLogView = () => import('@/features/admin/views/AuditLogView.vue');
 const AdminReviewsView = () => import('@/features/reviews/views/AdminReviewsView.vue');
+const OrgProfile = () => import('@/features/org/views/OrgProfileView.vue');
 
 // Scoring views
 const ScoringInterface = () => import('@/features/scoring/views/ScoringInterfaceView.vue');
@@ -420,6 +421,13 @@ const routes: RouteRecordRaw[] = [
     path: '/tournaments/:tournamentId/overlays',
     name: 'overlay-links',
     component: OverlayLinksView,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+
+  {
+    path: '/org/profile',
+    name: 'org-profile',
+    component: OrgProfile,
     meta: { requiresAuth: true, requiresAdmin: true },
   },
 
