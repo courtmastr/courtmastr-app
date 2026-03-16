@@ -784,6 +784,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
     batch.set(
       doc(db, matchScoresPath, matchId),
       {
+        tournamentId,
         courtId,
         status: 'in_progress',
         startedAt: serverTimestamp(),

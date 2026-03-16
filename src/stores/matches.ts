@@ -1081,6 +1081,7 @@ export const useMatchStore = defineStore('matches', () => {
     await setDoc(
       doc(db, matchScoresPath, matchId),
       {
+        tournamentId,
         scores: initialScores,
         startedAt: serverTimestamp(),
         status: 'in_progress',
@@ -1291,6 +1292,7 @@ export const useMatchStore = defineStore('matches', () => {
     await setDoc(
       doc(db, matchScoresPath, matchId),
       {
+        tournamentId,
         scores,
         winnerId,
         status: 'completed',
