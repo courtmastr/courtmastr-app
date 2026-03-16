@@ -16,6 +16,7 @@ import {
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
+import { seedGlobalPlayer } from './helpers';
 import { BracketsManager } from 'brackets-manager';
 import { ClientFirestoreStorage } from '../../src/services/brackets-storage';
 
@@ -194,7 +195,7 @@ function calculatePoolGroupCount(count: number): number {
 
 // ─── Firestore writers ────────────────────────────────────────────────────────
 
-export async function createTournament(db: Firestore, adminId: string): Promise<string> {
+export async function createTournament(db: Firestore, adminId: string, orgId?: string): Promise<string> {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() + 1);
   startDate.setHours(9, 0, 0, 0);
@@ -211,6 +212,7 @@ export async function createTournament(db: Firestore, adminId: string): Promise<
     endDate: Timestamp.fromDate(new Date(startDate.getTime() + 8 * 60 * 60 * 1000)),
     registrationDeadline: Timestamp.fromDate(new Date()),
     maxParticipants: 128,
+    ...(orgId ? { orgId } : {}),
     settings: {
       minRestTimeMinutes: 15,
       matchDurationMinutes: 20,
@@ -277,6 +279,7 @@ export async function createPlayersAndRegistrations(
 ): Promise<Map<string, RegistrationSeed[]>> {
   const registrationByCategoryId = new Map<string, RegistrationSeed[]>();
   const playerIdByName = new Map<string, string>();
+  const emailIdCache = new Map<string, string>();
   let playerCounter = 0;
 
   const getOrCreatePlayer = async (
@@ -289,18 +292,16 @@ export async function createPlayersAndRegistrations(
     if (existing) return existing;
 
     playerCounter += 1;
-    const ref = await addDoc(collection(db, 'tournaments', tournamentId, 'players'), {
+    const globalPlayerId = await seedGlobalPlayer(db, tournamentId, {
       firstName: name.first,
       lastName: name.last,
       email: toEmail(name.first, name.last),
       phone: toPhone(playerCounter),
       gender,
       skillLevel,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-    playerIdByName.set(key, ref.id);
-    return ref.id;
+    }, emailIdCache);
+    playerIdByName.set(key, globalPlayerId);
+    return globalPlayerId;
   };
 
   const push = (categoryId: string, r: RegistrationSeed): void => {
@@ -540,6 +541,7 @@ export async function completePoolMatches(
     await setDoc(
       doc(db, 'tournaments', tournamentId, 'categories', categoryId, 'match_scores', matchId),
       {
+        tournamentId,
         status: 'completed', winnerId,
         scores: [{
           gameNumber: 1,
@@ -577,9 +579,9 @@ export async function completePoolMatches(
 
 // ─── Main orchestration (env-agnostic) ────────────────────────────────────────
 
-export async function runSeed(db: Firestore, adminId: string): Promise<void> {
+export async function runSeed(db: Firestore, adminId: string, orgId?: string): Promise<void> {
   console.log('\n[2] Creating tournament...');
-  const tournamentId = await createTournament(db, adminId);
+  const tournamentId = await createTournament(db, adminId, orgId);
 
   console.log('\n[3] Creating courts...');
   await createCourts(db, tournamentId);
