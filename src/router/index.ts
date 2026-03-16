@@ -52,6 +52,7 @@ const About = () => import('@/features/public/views/AboutView.vue');
 const Pricing = () => import('@/features/public/views/PricingView.vue');
 const Privacy = () => import('@/features/public/views/PrivacyView.vue');
 const Terms = () => import('@/features/public/views/TermsView.vue');
+const OrgPublicHome = () => import('@/features/public/views/OrgPublicHomeView.vue');
 
 // Overlay views
 const OverlayCourtView = () => import('@/features/overlay/views/OverlayCourtView.vue');
@@ -454,6 +455,14 @@ const routes: RouteRecordRaw[] = [
     name: 'player-profile',
     component: PlayerProfileView,
     meta: { requiresAuth: true, requiresAdmin: true },
+  },
+
+  // Org public landing — must be LAST before catch-all to avoid shadowing static paths
+  {
+    path: '/:orgSlug([a-z0-9-]+)',
+    name: 'org-public-home',
+    component: OrgPublicHome,
+    meta: { requiresAuth: false },
   },
 
   // Catch-all 404
