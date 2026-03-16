@@ -1,4 +1,4 @@
-// Dashboard Store — aggregated counts using getCountFromServer (no document reads)
+// Dashboard Store — aggregated counts
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import {
@@ -7,7 +7,6 @@ import {
   collectionGroup,
   query,
   where,
-  getCountFromServer,
   getDocs,
   orderBy,
   limit,
@@ -32,14 +31,12 @@ export const useDashboardStore = defineStore('dashboard', () => {
     loading.value = true;
     try {
       const [pendingSnap, playersSnap] = await Promise.all([
-        getCountFromServer(
-          query(collectionGroup(db, 'registrations'), where('status', '==', 'pending'))
-        ),
-        getCountFromServer(collection(db, 'players')),
+        getDocs(query(collectionGroup(db, 'registrations'), where('status', '==', 'pending'))),
+        getDocs(collection(db, 'players')),
       ]);
 
-      pendingRegistrationCount.value = pendingSnap.data().count;
-      totalPlayerCount.value = playersSnap.data().count;
+      pendingRegistrationCount.value = pendingSnap.size;
+      totalPlayerCount.value = playersSnap.size;
     } catch (err) {
       console.error('Error fetching dashboard counts:', err);
     } finally {

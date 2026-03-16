@@ -76,16 +76,25 @@ export const useTournamentStore = defineStore('tournaments', () => {
     courts.value.filter((c) => c.status === 'available')
   );
 
-  // Build a tournament list query scoped by the current user's role
+  // Build a tournament list query scoped by the current user's role/org
   function buildTournamentsQuery() {
     const authStore = useAuthStore();
     const role = authStore.currentUser?.role;
     const uid = authStore.currentUser?.id;
+    const activeOrgId = authStore.currentUser?.activeOrgId;
 
     if (role === 'admin') {
       return query(collection(db, 'tournaments'), orderBy('createdAt', 'desc'));
     }
-    // Organizers (and everyone else) see only tournaments they are listed on
+    // Org members see all tournaments belonging to their active org
+    if (activeOrgId) {
+      return query(
+        collection(db, 'tournaments'),
+        where('orgId', '==', activeOrgId),
+        orderBy('createdAt', 'desc')
+      );
+    }
+    // Fallback: see only tournaments where explicitly listed as organizer
     return query(
       collection(db, 'tournaments'),
       where('organizerIds', 'array-contains', uid),

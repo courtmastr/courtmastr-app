@@ -56,6 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
       email: user.email || '',
       displayName: user.displayName || String(userData.displayName || user.email?.split('@')[0] || ''),
       role: (userData.role as UserRole) || 'viewer',
+      activeOrgId: (userData.activeOrgId as string | null) ?? null,
       createdAt: createdAtValue?.toDate?.() || (user.metadata.creationTime ? new Date(user.metadata.creationTime) : new Date()),
       updatedAt: updatedAtValue?.toDate?.() || new Date(),
     };

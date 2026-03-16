@@ -66,37 +66,64 @@ async function main(): Promise<void> {
     // user (scorekeeper), but subsequent writes must be as admin.
     await signInWithEmailAndPassword(auth, 'admin@courtmastr.com', 'admin123');
 
-    console.log('\n[2] Setting up seed organization...');
-    const orgId = await createSeedOrg(db, adminId, {
+    console.log('\n[2] Setting up organizations...');
+
+    // Demo Club — for organizer@courtmastr.com and generic seed tournaments
+    const demoOrgId = await createSeedOrg(db, adminId, {
       name: 'CourtMastr Demo Club',
       slug: 'demo-club',
     });
-    // Add organizer as org member
-    await setDoc(doc(db, 'organizations', orgId, 'members', organizerId), {
+    await setDoc(doc(db, 'organizations', demoOrgId, 'members', organizerId), {
       uid: organizerId,
       role: 'organizer',
       joinedAt: serverTimestamp(),
     }, { merge: true });
-    // Set activeOrgId on both admin and organizer
-    await setDoc(doc(db, 'users', adminId), { activeOrgId: orgId, updatedAt: serverTimestamp() }, { merge: true });
-    await setDoc(doc(db, 'users', organizerId), { activeOrgId: orgId, updatedAt: serverTimestamp() }, { merge: true });
-    console.log(`  Linked admin + organizer to org ${orgId}`);
+    await setDoc(doc(db, 'users', organizerId), { activeOrgId: demoOrgId, updatedAt: serverTimestamp() }, { merge: true });
+    console.log(`  demo-club org: ${demoOrgId}`);
 
-    console.log('\n[3] Seeding default tournament dataset...');
-    await runSeed(db, adminId, orgId);
+    // MCIA org — for mcia-organizer@courtmastr.com
+    const mciaOrganizerId = await createOrSignIn(auth, db, {
+      email: 'mcia-organizer@courtmastr.com',
+      password: 'mcia123',
+      displayName: 'MCIA Organizer',
+      role: 'organizer',
+    });
+    await signInWithEmailAndPassword(auth, 'admin@courtmastr.com', 'admin123');
+    const mciaOrgId = await createSeedOrg(db, adminId, {
+      name: 'MCIA - McLean County Indian Association',
+      slug: 'mcia',
+    });
+    await setDoc(doc(db, 'organizations', mciaOrgId, 'members', mciaOrganizerId), {
+      uid: mciaOrganizerId,
+      role: 'organizer',
+      joinedAt: serverTimestamp(),
+    }, { merge: true });
+    await setDoc(doc(db, 'users', mciaOrganizerId), { activeOrgId: mciaOrgId, updatedAt: serverTimestamp() }, { merge: true });
+    console.log(`  mcia org: ${mciaOrgId}`);
+
+    // Admin has no activeOrgId — sees all tournaments
+    await setDoc(doc(db, 'users', adminId), { activeOrgId: null, updatedAt: serverTimestamp() }, { merge: true });
+
+    console.log('\n[3] Seeding default tournament dataset (demo-club)...');
+    await runSeed(db, adminId, demoOrgId);
 
     console.log('\n[4] Seeding MCIA Badminton 2026 dataset...');
     const mciaTournamentId = await runMCIA2026Seed({
       db,
       adminId,
-      orgId,
+      orgId: mciaOrgId,
       tournamentName: 'MCIA Badminton 2026',
       startDateOffset: 7,
     });
 
-    console.log(`\n  Org ID:             ${orgId}`);
-    console.log(`  Public org page:    /demo-club`);
+    console.log(`\n  Demo Club org:      ${demoOrgId}  (/demo-club)`);
+    console.log(`  MCIA org:           ${mciaOrgId}  (/mcia)`);
     console.log(`  MCIA tournament ID: ${mciaTournamentId}`);
+    console.log('\n  Credentials:');
+    console.log('    admin@courtmastr.com / admin123          → sees ALL tournaments');
+    console.log('    organizer@courtmastr.com / org123        → demo-club only');
+    console.log('    mcia-organizer@courtmastr.com / mcia123  → MCIA only');
+    console.log('    scorekeeper@courtmastr.com / score123    → scorekeeper');
     process.exit(0);
   } catch (error) {
     console.error('\nSeed failed:', error);

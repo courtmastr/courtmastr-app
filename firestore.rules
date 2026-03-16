@@ -317,5 +317,16 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAuthenticated();
     }
+
+    // ---- Collection Group Query Rules ----
+    // Required for collectionGroup() queries to work across subcollections.
+
+    match /{path=**}/registrations/{registrationId} {
+      allow read: if isAuthenticated();
+    }
+
+    match /{path=**}/activities/{activityId} {
+      allow read: if isAuthenticated();
+    }
   }
 }

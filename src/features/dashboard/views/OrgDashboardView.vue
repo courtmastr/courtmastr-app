@@ -9,12 +9,16 @@ const dashboardStore = useDashboardStore();
 const tournamentStore = useTournamentStore();
 const authStore = useAuthStore();
 
-const { execute: load, loading } = useAsyncOperation(async () => {
-  await Promise.all([
-    dashboardStore.refresh(),
-    tournamentStore.fetchTournaments(),
-  ]);
-});
+const { execute, loading } = useAsyncOperation();
+
+function load() {
+  return execute(async () => {
+    await Promise.all([
+      dashboardStore.refresh(),
+      tournamentStore.fetchTournaments(),
+    ]);
+  });
+}
 
 const activeTournaments = computed(() =>
   tournamentStore.tournaments.filter((t) => t.status === 'active')
