@@ -75,6 +75,7 @@ export {
 export {
   // Firestore
   collection,
+  collectionGroup,
   doc,
   getDoc,
   getDocs,
@@ -84,6 +85,7 @@ export {
   deleteDoc,
   writeBatch,
   runTransaction,
+  getCountFromServer,
   query,
   where,
   orderBy,
