@@ -29,6 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Getters
   const isAuthenticated = computed(() => !!currentUser.value);
   const isAdmin = computed(() => currentUser.value?.role === 'admin' || currentUser.value?.role === 'organizer');
+  const isSuperAdmin = computed(() => currentUser.value?.role === 'admin');
   const isOrganizer = computed(() => currentUser.value?.role === 'organizer' || currentUser.value?.role === 'admin');
   const isScorekeeper = computed(() => currentUser.value?.role === 'scorekeeper' || currentUser.value?.role === 'admin' || currentUser.value?.role === 'organizer');
   const isPlayer = computed(() => currentUser.value?.role === 'player');
@@ -293,6 +294,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Getters
     isAuthenticated,
     isAdmin,
+    isSuperAdmin,
     isOrganizer,
     isScorekeeper,
     isPlayer,

@@ -93,6 +93,7 @@ export interface Tournament {
   location?: string;
   maxParticipants?: number;
   settings: TournamentSettings;
+  orgId?: string; // Links tournament to an organization
   createdBy: string;
   organizerIds?: string[];
   tournamentLogo?: TournamentLogo | null;
@@ -676,6 +677,9 @@ export interface Organization {
   timezone?: string | null;
   about?: string | null;
   website?: string | null;
+  suspended?: boolean;
+  suspendedAt?: Date;
+  suspendedBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
