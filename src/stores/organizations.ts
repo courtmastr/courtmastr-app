@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  setDoc,
   updateDoc,
   runTransaction,
   query,
@@ -23,6 +24,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
   const myOrgs = ref<Organization[]>([]);
   const currentOrg = ref<Organization | null>(null);
   const orgTournaments = ref<Tournament[]>([]);
+  const currentOrgMembers = ref<OrganizationMember[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -181,10 +183,25 @@ export const useOrganizationsStore = defineStore('organizations', () => {
     }
   };
 
+  const addOrgMember = async (orgId: string, memberUid: string, role: string): Promise<void> => {
+    try {
+      const memberRef = doc(db, `organizations/${orgId}/members`, memberUid);
+      await setDoc(memberRef, {
+        uid: memberUid,
+        role,
+        joinedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('Error adding org member:', err);
+      throw err;
+    }
+  };
+
   return {
     myOrgs,
     currentOrg,
     orgTournaments,
+    currentOrgMembers,
     loading,
     error,
     fetchMyOrgs,
@@ -195,5 +212,6 @@ export const useOrganizationsStore = defineStore('organizations', () => {
     setActiveOrg,
     fetchOrgTournaments,
     fetchOrgMembers,
+    addOrgMember,
   };
 });
