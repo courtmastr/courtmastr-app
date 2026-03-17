@@ -111,6 +111,17 @@
         rounded="lg"
         :ripple="false"
       />
+      <template v-if="isWebAdmin">
+        <v-divider class="my-2" />
+        <v-list-item
+          to="/super/dashboard"
+          prepend-icon="mdi-shield-crown"
+          title="Platform Admin"
+          class="nav-item nav-item--super-admin"
+          rounded="lg"
+          :ripple="false"
+        />
+      </template>
 
       <!-- Tournament-specific sections -->
       <template v-if="currentTournamentId">
@@ -382,7 +393,7 @@ const route = useRoute();
 const router = useRouter();
 
 const isOrganizer = computed(() => authStore.isOrganizer);
-const isWebAdmin = computed(() => authStore.currentUser?.role === 'admin');
+const isWebAdmin = computed(() => authStore.isSuperAdmin);
 const categories = computed(() => tournamentStore.categories);
 const currentTournamentId = computed(() => {
   const routeParams = route.params;
