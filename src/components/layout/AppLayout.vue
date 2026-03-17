@@ -10,7 +10,8 @@ import ContextualNavigation from '@/components/navigation/ContextualNavigation.v
 import GlobalSearch from '@/components/navigation/GlobalSearch.vue';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import BrandLogo from '@/components/common/BrandLogo.vue';
-import PublicWebsiteFooter from '@/components/common/PublicWebsiteFooter.vue';
+import PublicWebsiteFooter from '@/components/common/PublicWebsiteFooter.vue'
+import SuperAdminBanner from '@/components/layout/SuperAdminBanner.vue';
 import { useI18n, type SupportedLocale } from '@/i18n';
 import { useNavigationState } from '@/composables/useNavigationState';
 
@@ -559,6 +560,7 @@ async function submitBugReport() {
       id="main-content"
       class="app-main"
     >
+      <SuperAdminBanner />
       <v-container
         fluid
         class="app-main__content"
