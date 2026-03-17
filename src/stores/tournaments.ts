@@ -31,6 +31,7 @@ import { useMatchScheduler } from '@/composables/useMatchScheduler';
 import { useBracketGenerator } from '@/composables/useBracketGenerator';
 import { useAuditStore } from '@/stores/audit';
 import { useAuthStore } from '@/stores/auth';
+import { useOrganizationsStore } from '@/stores/organizations';
 
 const USE_CLOUD_FUNCTION_FOR_BRACKETS = false;
 const USE_CLOUD_FUNCTION_FOR_SCHEDULE = false;
@@ -79,11 +80,21 @@ export const useTournamentStore = defineStore('tournaments', () => {
   // Build a tournament list query scoped by the current user's role/org
   function buildTournamentsQuery() {
     const authStore = useAuthStore();
+    const orgsStore = useOrganizationsStore();
     const role = authStore.currentUser?.role;
     const uid = authStore.currentUser?.id;
     const activeOrgId = authStore.currentUser?.activeOrgId;
 
     if (role === 'admin') {
+      // When impersonating an org, scope to that org's tournaments
+      const scopedOrgId = orgsStore.currentOrg?.id;
+      if (scopedOrgId) {
+        return query(
+          collection(db, 'tournaments'),
+          where('orgId', '==', scopedOrgId),
+          orderBy('createdAt', 'desc')
+        );
+      }
       return query(collection(db, 'tournaments'), orderBy('createdAt', 'desc'));
     }
     // Org members see all tournaments belonging to their active org
@@ -1477,6 +1488,14 @@ export const useTournamentStore = defineStore('tournaments', () => {
     }
   }
 
+  // Unsubscribe from the tournaments list (used by superAdmin store on org enter/exit)
+  function unsubscribeTournaments(): void {
+    if (tournamentsUnsubscribe) {
+      tournamentsUnsubscribe();
+      tournamentsUnsubscribe = null;
+    }
+  }
+
   // Cleanup subscriptions
   function unsubscribeAll(): void {
     if (tournamentsUnsubscribe) {
@@ -1516,6 +1535,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
     availableCourts,
     // Actions
     fetchTournaments,
+    unsubscribeTournaments,
     subscribeTournaments,
     fetchTournament,
     subscribeTournament,

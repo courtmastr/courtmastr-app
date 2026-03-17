@@ -17,6 +17,7 @@ import { convertTimestamps } from '@/utils/firestore'
 import type { Organization } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useOrganizationsStore } from '@/stores/organizations'
+import { useTournamentStore } from '@/stores/tournaments'
 import { useRouter } from 'vue-router'
 
 interface PlatformStats {
@@ -71,18 +72,21 @@ export const useSuperAdminStore = defineStore('superAdmin', () => {
 
   async function enterOrg(orgId: string): Promise<void> {
     const orgsStore = useOrganizationsStore()
+    const tournamentsStore = useTournamentStore()
     const snap = await getDoc(doc(db, 'organizations', orgId))
     if (!snap.exists()) return
     viewingOrgId.value = orgId
     viewingOrg.value = convertTimestamps({ id: snap.id, ...snap.data() }) as Organization
     orgsStore.currentOrg = viewingOrg.value
     orgsStore.currentOrgMembers = await orgsStore.fetchOrgMembers(orgId)
+    tournamentsStore.unsubscribeTournaments()
     router.push('/tournaments')
   }
 
   function exitOrg(): void {
     const orgsStore = useOrganizationsStore()
     const authStore = useAuthStore()
+    const tournamentsStore = useTournamentStore()
     viewingOrgId.value = null
     viewingOrg.value = null
     const activeId = authStore.currentUser?.activeOrgId
@@ -90,6 +94,7 @@ export const useSuperAdminStore = defineStore('superAdmin', () => {
       ? orgsStore.myOrgs.find((o) => o.id === activeId) ?? null
       : null
     orgsStore.currentOrgMembers = []
+    tournamentsStore.unsubscribeTournaments()
     router.push('/super/orgs')
   }
 
