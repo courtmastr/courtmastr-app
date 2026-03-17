@@ -67,41 +67,43 @@
         rounded="lg"
         :ripple="false"
       />
-      <v-list-item
-        to="/tournaments"
-        :prepend-icon="NAVIGATION_ICONS.tournaments"
-        title="Tournaments"
-        class="nav-item nav-item--tournaments"
-        rounded="lg"
-        :ripple="false"
-      />
-      <v-list-item
-        v-if="isOrganizer"
-        to="/tournaments/create"
-        :prepend-icon="NAVIGATION_ICONS.createTournament"
-        title="Create Tournament"
-        class="nav-item nav-item--create"
-        rounded="lg"
-        :ripple="false"
-      />
-      <v-list-item
-        v-if="isOrganizer"
-        to="/org/profile"
-        :prepend-icon="NAVIGATION_ICONS.organization"
-        title="Organization"
-        class="nav-item nav-item--organization"
-        rounded="lg"
-        :ripple="false"
-      />
-      <v-list-item
-        v-if="isOrganizer"
-        to="/players"
-        :prepend-icon="NAVIGATION_ICONS.players"
-        title="Players"
-        class="nav-item nav-item--players"
-        rounded="lg"
-        :ripple="false"
-      />
+      <template v-if="showOrgNav">
+        <v-list-item
+          to="/tournaments"
+          :prepend-icon="NAVIGATION_ICONS.tournaments"
+          title="Tournaments"
+          class="nav-item nav-item--tournaments"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
+          to="/tournaments/create"
+          :prepend-icon="NAVIGATION_ICONS.createTournament"
+          title="Create Tournament"
+          class="nav-item nav-item--create"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
+          to="/org/profile"
+          :prepend-icon="NAVIGATION_ICONS.organization"
+          title="Organization"
+          class="nav-item nav-item--organization"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
+          to="/players"
+          :prepend-icon="NAVIGATION_ICONS.players"
+          title="Players"
+          class="nav-item nav-item--players"
+          rounded="lg"
+          :ripple="false"
+        />
+      </template>
       <v-list-item
         v-if="isWebAdmin"
         to="/admin/reviews"
@@ -394,6 +396,7 @@ const router = useRouter();
 
 const isOrganizer = computed(() => authStore.isOrganizer);
 const isWebAdmin = computed(() => authStore.isSuperAdmin);
+const showOrgNav = computed(() => !route.path.startsWith('/super'));
 const categories = computed(() => tournamentStore.categories);
 const currentTournamentId = computed(() => {
   const routeParams = route.params;
