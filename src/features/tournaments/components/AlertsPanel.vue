@@ -223,20 +223,20 @@ function handleAlertClick(alert: Alert) {
 <template>
   <div class="alerts-panel">
     <!-- Header -->
-    <div class="alerts-panel__header d-flex align-center px-3 py-2 bg-surface border-b">
+    <div class="alerts-panel__header d-flex align-center px-3 py-2 border-b">
       <v-icon
-        size="20"
+        size="16"
         class="mr-2"
-        :color="errorCount > 0 ? 'error' : warningCount > 0 ? 'warning' : 'info'"
+        :color="errorCount > 0 ? 'error' : warningCount > 0 ? 'warning' : 'success'"
       >
         mdi-bell
       </v-icon>
-      <span class="font-weight-medium">Alerts</span>
+      <span class="font-weight-bold" style="font-size:13px;color:#0f172a;">Alerts</span>
       <v-spacer />
-      <v-chip 
-        v-if="alertCount > 0" 
-        size="x-small" 
-        :color="errorCount > 0 ? 'error' : warningCount > 0 ? 'warning' : 'info'"
+      <v-chip
+        v-if="alertCount > 0"
+        size="x-small"
+        :color="errorCount > 0 ? 'error' : 'warning'"
         variant="tonal"
       >
         {{ alertCount }}
@@ -323,7 +323,7 @@ function handleAlertClick(alert: Alert) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: rgb(var(--v-theme-background));
+  background: #fff;
 }
 
 .alerts-panel__header {

@@ -70,15 +70,15 @@ function isSelected(match: Match): boolean {
 <template>
   <div class="ready-queue">
     <!-- Header -->
-    <div class="ready-queue__header d-flex align-center px-3 py-2 bg-surface border-b">
+    <div class="ready-queue__header d-flex align-center px-3 py-2 border-b">
       <v-icon
-        size="20"
+        size="16"
         class="mr-2"
-        color="warning"
+        color="primary"
       >
         mdi-playlist-play
       </v-icon>
-      <span class="font-weight-medium">Ready Queue</span>
+      <span class="font-weight-bold" style="font-size:13px;color:#0f172a;">Ready Queue</span>
       <v-spacer />
       <v-chip
         size="x-small"
@@ -92,7 +92,7 @@ function isSelected(match: Match): boolean {
         v-if="scheduledCount > 0"
         size="x-small"
         variant="tonal"
-        color="info"
+        color="primary"
       >
         {{ scheduledCount }} scheduled
       </v-chip>
@@ -194,9 +194,7 @@ function isSelected(match: Match): boolean {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: rgb(var(--v-theme-surface));
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
+  background: #fff;
   overflow: hidden;
 }
 

@@ -19,7 +19,6 @@ import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.
 import AutoScheduleDialog from '@/features/tournaments/dialogs/AutoScheduleDialog.vue';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import FilterBar from '@/components/common/FilterBar.vue';
-import MatchQueueList from '@/features/tournaments/components/MatchQueueList.vue';
 import CourtGrid from '@/features/tournaments/components/CourtGrid.vue';
 import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
 import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
@@ -101,7 +100,7 @@ const registrationsById = computed(() => {
 });
 
 const selectedCategory = ref<string>('all');
-const viewMode = ref<'queue' | 'courts' | 'schedule' | 'command'>('command');
+const viewMode = ref<'schedule' | 'command'>('command');
 
 interface QueueMatchRef {
   matchId: string;
@@ -218,11 +217,11 @@ watch(showSchedulePublishNowDialog, (open) => {
   }
 });
 
-const VALID_VIEW_MODES = new Set(['queue', 'schedule', 'command']);
+const VALID_VIEW_MODES = new Set(['schedule', 'command']);
 
-function resolveViewModeFromQuery(value: unknown): 'queue' | 'schedule' | 'command' | null {
+function resolveViewModeFromQuery(value: unknown): 'schedule' | 'command' | null {
   return typeof value === 'string' && VALID_VIEW_MODES.has(value)
-    ? (value as 'queue' | 'schedule' | 'command')
+    ? (value as 'schedule' | 'command')
     : null;
 }
 
@@ -298,14 +297,6 @@ const assignablePendingMatches = computed(() =>
   pendingMatches.value.filter((match) => canAssignCourtToMatch(match))
 );
 
-const enrichedPendingMatches = computed(() => {
-  return pendingMatches.value.map(match => ({
-    ...match,
-    participant1Name: getParticipantName(match.participant1Id),
-    participant2Name: getParticipantName(match.participant2Id),
-    categoryName: getCategoryName(match.categoryId)
-  })) as any;
-});
 
 const filteredMatches = computed(() => {
   let result = [...matches.value];
@@ -1023,9 +1014,6 @@ const showConsistencyDialog = ref(false);
 const showUnscheduleDialog = ref(false);
 const matchToUnschedule = ref<QueueMatchRef | null>(null);
 
-function handleConsistencyCheck() {
-  showConsistencyDialog.value = true;
-}
 
 async function confirmConsistencyCheck() {
   showConsistencyDialog.value = false;
@@ -1160,12 +1148,7 @@ async function confirmCompleteTournament(): Promise<void> {
       </div>
     </v-alert>
 
-    <v-toolbar
-      color="surface"
-      elevation="1"
-      density="compact"
-      class="px-2 border-b"
-    >
+    <div class="mc-toolbar">
       <v-btn
         icon="mdi-arrow-left"
         variant="text"
@@ -1173,13 +1156,9 @@ async function confirmCompleteTournament(): Promise<void> {
         aria-label="Back to tournament dashboard"
         @click="router.push(`/tournaments/${tournamentId}`)"
       />
-      <v-toolbar-title class="text-subtitle-1 font-weight-bold">
-        Match Control
-        <span class="text-caption text-medium-emphasis ml-2 hidden-sm-and-down">
-          {{ tournament?.name }}
-        </span>
-      </v-toolbar-title>
-      
+      <span class="mc-toolbar__title">Match Control</span>
+      <span class="mc-toolbar__sub hidden-sm-and-down">{{ tournament?.name }}</span>
+
       <v-spacer />
 
       <v-tooltip
@@ -1193,21 +1172,21 @@ async function confirmCompleteTournament(): Promise<void> {
             :color="tournamentHealth.color"
             size="small"
             variant="tonal"
-            class="mr-3 hidden-sm-and-down"
+            class="mc-health-chip hidden-sm-and-down"
             :prepend-icon="tournamentHealth.icon"
           >
             {{ tournamentHealth.label }}
             <span
               class="ml-1 text-caption"
               style="opacity: 0.7"
-            >{{ stats.courtsInUse }}/{{ stats.totalCourts }} courts</span>
+            >{{ stats.courtsInUse }}/{{ stats.totalCourts }}</span>
           </v-chip>
         </template>
       </v-tooltip>
 
       <div
         v-if="viewMode !== 'schedule'"
-        style="width: 200px"
+        style="width: 180px"
         class="mr-2"
       >
         <v-select
@@ -1241,132 +1220,56 @@ async function confirmCompleteTournament(): Promise<void> {
           <span class="hidden-sm-and-down">Command Center</span>
         </v-btn>
         <v-btn
-          value="queue"
-          prepend-icon="mdi-view-dashboard"
-        >
-          <span class="hidden-sm-and-down">Live View</span>
-        </v-btn>
-        <v-btn
           value="schedule"
           prepend-icon="mdi-format-list-bulleted"
         >
           <span class="hidden-sm-and-down">All Matches</span>
         </v-btn>
       </v-btn-toggle>
-    </v-toolbar>
+    </div>
 
-    <div class="d-flex align-center px-3 border-b bg-surface progress-strip">
-      <span
-        class="text-caption text-medium-emphasis"
-        style="white-space: nowrap"
-      >
-        {{ stats.completed }}/{{ stats.total }} complete
-      </span>
-      <div class="progress-track-wrapper">
+    <!-- Progress strip -->
+    <div class="mc-progress-strip">
+      <span class="mc-progress-strip__label">{{ stats.completed }}/{{ stats.total }} complete</span>
+      <div class="mc-progress-strip__track-wrap">
         <v-progress-linear
           :model-value="completionPercent"
           color="success"
-          bg-color="surface-variant"
+          bg-color="#e2e8f0"
           rounded
-          height="6"
-          class="progress-track"
+          height="5"
         />
       </div>
-      <span
-        class="text-caption font-weight-bold"
-        style="min-width: 32px; text-align: right"
-      >
-        {{ completionPercent }}%
-      </span>
+      <span class="mc-progress-strip__pct">{{ completionPercent }}%</span>
+    </div>
+
+    <!-- Stat bar -->
+    <div class="mc-stat-bar">
+      <div class="mc-stat-bar__cell">
+        <div class="mc-stat-bar__num">{{ stats.totalCourts }}</div>
+        <div class="mc-stat-bar__label">Courts</div>
+      </div>
+      <div class="mc-stat-bar__cell mc-stat-bar__cell--orange">
+        <div class="mc-stat-bar__num">{{ stats.inProgress }}</div>
+        <div class="mc-stat-bar__label">Live Now</div>
+      </div>
+      <div class="mc-stat-bar__cell mc-stat-bar__cell--green">
+        <div class="mc-stat-bar__num">{{ availableCourts.length }}</div>
+        <div class="mc-stat-bar__label">Free Courts</div>
+      </div>
+      <div class="mc-stat-bar__cell mc-stat-bar__cell--blue">
+        <div class="mc-stat-bar__num">{{ pendingMatches.length }}</div>
+        <div class="mc-stat-bar__label">In Queue</div>
+      </div>
+      <div class="mc-stat-bar__cell mc-stat-bar__cell--slate">
+        <div class="mc-stat-bar__num">{{ completionPercent }}<span class="mc-stat-bar__unit">%</span></div>
+        <div class="mc-stat-bar__label">Complete</div>
+      </div>
     </div>
 
     <div class="flex-grow-1 overflow-hidden">
-      <v-row
-        v-if="viewMode === 'queue'"
-        class="fill-height ma-0"
-        no-gutters
-      >
-        <!-- Courts Panel -->
-        <v-col
-          cols="12"
-          md="8"
-          class="d-flex flex-column border-e fill-height"
-        >
-          <div class="flex-grow-1 overflow-y-auto pa-4 bg-background">
-            <div class="d-flex align-center mb-2 mt-6">
-              <v-icon
-                start
-                size="20"
-                color="secondary"
-              >
-                mdi-stadium
-              </v-icon>
-              <h3 class="text-subtitle-1 font-weight-bold">
-                Court Status
-              </h3>
-              <v-spacer />
-              <v-btn
-                icon="mdi-database-refresh"
-                variant="text"
-                size="small"
-                color="warning"
-                aria-label="Run court data integrity check"
-                @click="handleConsistencyCheck"
-              >
-                <v-icon>mdi-database-refresh</v-icon>
-                <v-tooltip
-                  activator="parent"
-                  location="top"
-                >
-                  Fix Court Data Integrity
-                </v-tooltip>
-              </v-btn>
-            </div>
-
-            <court-grid
-              :courts="courts"
-              :matches="matches"
-              :get-category-name="getCategoryName"
-              :read-only="true"
-              @assign="openAssignCourtDialogForCourt"
-              @score="openScoreDialog"
-              @release="releaseCourt"
-            />
-          </div>
-        </v-col>
-
-        <!-- Queue Panel -->
-        <v-col
-          cols="12"
-          md="4"
-          class="d-flex flex-column bg-surface fill-height border-s"
-        >
-          <div class="pa-3 border-b bg-surface-light">
-            <div class="d-flex align-center justify-space-between mb-2">
-              <span class="text-subtitle-2 font-weight-bold text-uppercase text-medium-emphasis">Next Up</span>
-              <v-chip
-                size="x-small"
-                color="primary"
-              >
-                {{ enrichedPendingMatches.length }}
-              </v-chip>
-            </div>
-          </div>
-
-          <div class="flex-grow-1 overflow-y-auto pa-0">
-            <match-queue-list
-              :matches="enrichedPendingMatches"
-              :available-courts="availableCourts"
-              :auto-assign-enabled="autoAssignEnabled"
-              :auto-start-enabled="false"
-              :read-only="true"
-            />
-          </div>
-        </v-col>
-      </v-row>
-
       <div
-        v-else-if="viewMode === 'schedule'"
+        v-if="viewMode === 'schedule'"
         class="fill-height d-flex flex-column bg-background"
       >
         <div class="schedule-controls-sticky">
@@ -1761,159 +1664,101 @@ async function confirmCompleteTournament(): Promise<void> {
       </div>
 
       <div
-        v-else-if="viewMode === 'command'"
-        class="fill-height d-flex flex-column bg-background"
+        v-else
+        class="fill-height d-flex flex-column"
       >
-        <div class="command-center-grid flex-grow-1 overflow-y-auto pa-3">
-          <v-row
-            class="ma-0 h-100"
-            dense
+        <!-- Command strip: auto-assign toggle + re-schedule -->
+        <div class="mc-command-strip">
+          <v-switch
+            :model-value="autoAssignEnabled"
+            density="compact"
+            hide-details
+            inset
+            color="primary"
+            label="Auto-assign"
+            @update:model-value="toggleAutoAssign(!!$event)"
+          />
+          <v-spacer />
+          <v-btn
+            variant="flat"
+            size="small"
+            color="primary"
+            prepend-icon="mdi-calendar-clock"
+            class="mc-reschedule-btn"
+            @click="openAutoScheduleDialog"
           >
-            <v-col
-              cols="12"
-              class="pa-1"
-            >
-              <v-card
-                variant="flat"
-                border
-                class="command-center-controls"
+            Re-Schedule
+          </v-btn>
+        </div>
+
+        <!-- Body: courts left + sidebar right -->
+        <div class="mc-body flex-grow-1 overflow-y-auto">
+          <!-- Courts panel -->
+          <div class="mc-panel mc-panel--courts">
+            <div class="mc-panel__header">
+              <v-icon
+                size="18"
+                color="primary"
+                class="mr-2"
               >
-                <div class="d-flex align-center px-4 py-3 gap-3">
-                  <div class="d-flex flex-column">
-                    <span class="text-subtitle-2 font-weight-bold">Command Center</span>
-                    <span class="text-caption text-medium-emphasis">
-                      Re-schedule, assign, and monitor match flow from one place.
-                    </span>
-                  </div>
-                  <v-spacer />
-                  <v-btn
-                    variant="flat"
-                    size="small"
-                    color="primary"
-                    prepend-icon="mdi-calendar-clock"
-                    @click="openAutoScheduleDialog"
-                  >
-                    Re-Schedule
-                  </v-btn>
-                </div>
-                <div class="d-flex align-center px-4 py-2 gap-4 border-t">
-                  <v-switch
-                    :model-value="autoAssignEnabled"
-                    density="compact"
-                    hide-details
-                    inset
-                    color="primary"
-                    label="Auto-assign"
-                    @update:model-value="toggleAutoAssign(!!$event)"
-                  />
-                  <v-spacer />
-                  <v-chip
-                    size="small"
-                    :color="courtsInUse.length === courts.length ? 'error' : 'success'"
-                    variant="tonal"
-                  >
-                    Courts {{ availableCourts.length }} free / {{ courts.length }}
-                  </v-chip>
-                  <v-chip
-                    size="small"
-                    :color="pendingMatches.length > 0 ? 'warning' : 'success'"
-                    variant="tonal"
-                  >
-                    Queue: {{ pendingMatches.length }}
-                  </v-chip>
-                </div>
-              </v-card>
-            </v-col>
-
-            <v-col
-              cols="12"
-              lg="8"
-              class="pa-1 d-flex"
-            >
-              <v-card
-                variant="flat"
-                border
-                class="command-section-card flex-grow-1"
+                mdi-badminton
+              </v-icon>
+              <span class="mc-panel__title">Courts</span>
+              <v-spacer />
+              <v-chip
+                size="x-small"
+                variant="tonal"
+                color="success"
+                class="mr-1"
               >
-                <div class="command-section-header d-flex align-center px-3 py-2 border-b">
-                  <v-icon
-                    size="20"
-                    class="mr-2"
-                    color="primary"
-                  >
-                    mdi-stadium
-                  </v-icon>
-                  <span class="font-weight-medium">Courts</span>
-                  <v-spacer />
-                  <v-chip
-                    size="x-small"
-                    variant="tonal"
-                    color="success"
-                  >
-                    {{ availableCourts.length }} Available
-                  </v-chip>
-                  <v-chip
-                    size="x-small"
-                    variant="tonal"
-                    color="info"
-                    class="ml-1"
-                  >
-                    {{ courtsInUse.length }} In Use
-                  </v-chip>
-                </div>
-                <div class="command-section-body">
-                  <court-grid
-                    :courts="courts"
-                    :matches="matches"
-                    :get-category-name="getCategoryName"
-                    @assign="openAssignCourtDialogForCourt"
-                    @score="openScoreDialog"
-                    @release="releaseCourt"
-                  />
-                </div>
-              </v-card>
-            </v-col>
+                {{ availableCourts.length }} Free
+              </v-chip>
+              <v-chip
+                size="x-small"
+                variant="tonal"
+                color="primary"
+              >
+                {{ courtsInUse.length }} In Use
+              </v-chip>
+            </div>
+            <div class="mc-panel__body">
+              <court-grid
+                :courts="courts"
+                :matches="matches"
+                :get-category-name="getCategoryName"
+                @assign="openAssignCourtDialogForCourt"
+                @score="openScoreDialog"
+                @release="releaseCourt"
+              />
+            </div>
+          </div>
 
-            <v-col
-              cols="12"
-              lg="4"
-              class="pa-1 d-flex"
-            >
-              <div class="command-side-stack">
-                <v-card
-                  variant="flat"
-                  border
-                  class="command-feed-card command-feed-queue"
-                >
-                  <ready-queue
-                    :matches="pendingMatches"
-                    :categories="categories"
-                    :get-participant-name="getParticipantName"
-                    :get-category-name="getCategoryName"
-                    :enable-assign="false"
-                    @select="selectMatchFromQueue"
-                    @assign="openAssignCourtDialogFromQueue"
-                  />
-                </v-card>
+          <!-- Sidebar: queue + alerts -->
+          <div class="mc-sidebar">
+            <div class="mc-panel mc-panel--queue">
+              <ready-queue
+                :matches="pendingMatches"
+                :categories="categories"
+                :get-participant-name="getParticipantName"
+                :get-category-name="getCategoryName"
+                :enable-assign="true"
+                @select="selectMatchFromQueue"
+                @assign="openAssignCourtDialogFromQueue"
+              />
+            </div>
 
-                <v-card
-                  variant="flat"
-                  border
-                  class="command-feed-card command-feed-alerts"
-                >
-                  <alerts-panel
-                    :courts="courts"
-                    :matches="matches"
-                    :get-participant-name="getParticipantName"
-                    :get-category-name="getCategoryName"
-                    @assign-to-court="openAssignCourtDialogForCourt"
-                    @view-match="openScoreDialog"
-                    @release-court="releaseCourt"
-                  />
-                </v-card>
-              </div>
-            </v-col>
-          </v-row>
+            <div class="mc-panel mc-panel--alerts">
+              <alerts-panel
+                :courts="courts"
+                :matches="matches"
+                :get-participant-name="getParticipantName"
+                :get-category-name="getCategoryName"
+                @assign-to-court="openAssignCourtDialogForCourt"
+                @view-match="openScoreDialog"
+                @release-court="releaseCourt"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -2383,27 +2228,188 @@ async function confirmCompleteTournament(): Promise<void> {
   padding-bottom: 6px !important;
 }
 
-.command-center-controls {
-  background: rgba($primary-base, 0.02);
+// ── Toolbar (Crisp Command) ───────────────────────────────────────────
+.mc-toolbar {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 50px;
+  gap: 8px;
+  flex-shrink: 0;
+
+  &__title {
+    font-weight: 700;
+    font-size: 15px;
+    color: #0f172a;
+    white-space: nowrap;
+  }
+
+  &__sub {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-left: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.mc-health-chip {
+  border-radius: 20px !important;
+}
+
+// ── Progress strip ────────────────────────────────────────────────────
+.mc-progress-strip {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 16px;
+  height: 28px;
+  flex-shrink: 0;
+
+  &__label {
+    font-size: 11px;
+    color: #94a3b8;
+    white-space: nowrap;
+  }
+
+  &__track-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__pct {
+    font-size: 11px;
+    font-weight: 700;
+    color: $success;
+    min-width: 32px;
+    text-align: right;
+  }
+}
+
+// ── Stat bar ──────────────────────────────────────────────────────────
+.mc-stat-bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+
+  &__cell {
+    padding: 10px 16px;
+    border-right: 1px solid #e2e8f0;
+
+    &:last-child { border-right: none; }
+
+    &--orange { background: #fff7ed; }
+    &--green  { background: #f0fdf4; }
+    &--blue   { background: #eff6ff; }
+    &--slate  { background: #f8fafc; }
+  }
+
+  &__num {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+
+    .mc-stat-bar__cell--orange & { color: #ea580c; }
+    .mc-stat-bar__cell--green  & { color: #16a34a; }
+    .mc-stat-bar__cell--blue   & { color: #1d4ed8; }
+  }
+
+  &__unit {
+    font-size: 15px;
+  }
+
+  &__label {
+    font-size: 10px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-top: 3px;
+  }
+}
+
+// ── Command strip ─────────────────────────────────────────────────────
+.mc-command-strip {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  flex-shrink: 0;
+}
+
+.mc-reschedule-btn {
+  box-shadow: 0 4px 14px rgba(29, 78, 216, 0.32) !important;
+}
+
+// ── Body layout ───────────────────────────────────────────────────────
+.mc-body {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 12px;
+  padding: 12px;
+  background: #f1f5f9;
+  align-items: start;
+}
+
+// ── Panels ────────────────────────────────────────────────────────────
+.mc-panel {
+  background: #fff;
   border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fff;
+  }
+
+  &__title {
+    font-weight: 700;
+    font-size: 13px;
+    color: #0f172a;
+    flex: 1;
+  }
+
+  &__body {
+    overflow: auto;
+  }
+
+  &--courts {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &--queue {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  &--alerts {
+    flex: 0 0 auto;
+  }
 }
 
-.command-center-grid {
-  min-height: 0;
-}
-
-.command-section-card {
+// ── Sidebar ───────────────────────────────────────────────────────────
+.mc-sidebar {
   display: flex;
   flex-direction: column;
-  background: rgb(var(--v-theme-surface));
-  border-radius: 10px;
-  min-height: 560px;
+  gap: 10px;
 }
 
-.command-section-header {
-  background: rgba($primary-base, 0.02);
-}
-
+// ── Progress strip legacy (keep for schedule tab if used) ─────────────
 .progress-strip {
   min-height: 28px;
   gap: 8px;
@@ -2421,40 +2427,6 @@ async function confirmCompleteTournament(): Promise<void> {
   min-width: 0;
 }
 
-.command-section-body {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.command-side-stack {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.command-feed-card {
-  display: flex;
-  min-width: 0;
-  overflow: hidden;
-  background: rgb(var(--v-theme-surface));
-  border-radius: 10px;
-}
-
-.command-feed-queue {
-  flex: 1 1 0;
-  min-height: 220px;
-}
-
-.command-feed-alerts {
-  flex: 0 1 auto;
-  min-height: 120px;
-  max-height: 280px;
-}
-
 @media (max-width: 960px) {
   .schedule-toolbar-actions {
     width: 100%;
@@ -2466,52 +2438,32 @@ async function confirmCompleteTournament(): Promise<void> {
     width: 100%;
   }
 
-  .command-section-card {
-    min-height: 420px;
+  .mc-body {
+    grid-template-columns: 1fr;
   }
 
-  .command-feed-queue {
-    min-height: 300px;
-  }
+  .mc-stat-bar {
+    grid-template-columns: repeat(3, 1fr);
 
-  .command-feed-alerts {
-    min-height: 120px;
-    max-height: 260px;
+    &__cell:nth-child(4),
+    &__cell:nth-child(5) {
+      border-top: 1px solid #e2e8f0;
+    }
   }
 }
 
 @media (max-width: 600px) {
-  .command-center-controls .v-switch {
+  .mc-command-strip .v-switch {
     width: 100%;
   }
-}
 
-.court-card {
-  transition: border-color 0.2s ease, background 0.2s ease;
-  height: 100px;
-  
-  &:hover {
-    border-color: rgba($primary-base, 0.5);
+  .mc-stat-bar {
+    grid-template-columns: repeat(2, 1fr);
   }
-  
-  &.court-active {
-    border-color: rgba($success, 0.5);
-    background: linear-gradient(to bottom right, rgb(var(--v-theme-surface)), rgba($success, 0.05));
-  }
-}
-
-.active-match-info {
-  line-height: 1.2;
-}
-
-.player-names {
-  line-height: 1.1;
-  font-size: 0.85rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stat-card,
-  .court-card {
+  .stat-card {
     transition: none;
   }
 }
