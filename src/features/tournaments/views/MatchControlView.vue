@@ -2358,7 +2358,7 @@ async function confirmCompleteTournament(): Promise<void> {
   gap: 12px;
   padding: 12px;
   background: #f1f5f9;
-  align-items: start;
+  align-items: stretch;
 }
 
 // ── Panels ────────────────────────────────────────────────────────────

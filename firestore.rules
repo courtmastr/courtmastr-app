@@ -8,12 +8,14 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', null) == 'admin';
     }
 
     function isScorekeeper() {
       return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'scorekeeper'];
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', null) in ['admin', 'scorekeeper'];
     }
 
     function isOwner(userId) {
@@ -22,11 +24,13 @@ service cloud.firestore {
 
     function isOrganizer() {
       return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'organizer';
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', null) == 'organizer';
     }
 
     function isOrganizerOf(tournamentId) {
       return isAuthenticated() &&
+        exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
         request.auth.uid in get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.get('organizerIds', []);
     }
 
@@ -50,7 +54,7 @@ service cloud.firestore {
       // Admins or organizers can create tournaments
       allow create: if isAdmin() || isOrganizer();
       // Only admins or organizers assigned to this tournament can update it
-      allow update: if isAdmin() || isOrganizerOf(tournamentId);
+      allow update: if isAdmin() || isOrganizer() || isOrganizerOf(tournamentId);
       allow delete: if isAdmin();
 
       // Categories subcollection

@@ -17,6 +17,7 @@ const loading = computed(() => tournamentStore.loading);
 const isAdmin = computed(() => authStore.isAdmin);
 
 onMounted(() => {
+  tournamentStore.clearCurrentTournament();
   tournamentStore.subscribeTournaments();
 });
 
@@ -167,6 +168,7 @@ function formatDate(date: Date): string {
 
           <v-card-actions>
             <v-chip
+              v-if="tournament.sport"
               size="small"
               variant="outlined"
             >

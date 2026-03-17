@@ -10,7 +10,6 @@ const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 
-const isDev = import.meta.env.DEV;
 
 const email = ref('');
 const password = ref('');
@@ -187,24 +186,6 @@ async function handleGoogleLogin() {
               Create Account
             </v-btn>
           </v-card-actions>
-        </v-card>
-
-        <!-- Demo credentials hint -->
-        <v-card
-          v-if="isDev"
-          class="mt-4"
-          variant="tonal"
-          color="info"
-        >
-          <v-card-text class="text-center">
-            <p class="text-body-2 mb-2">
-              <strong>Demo Credentials:</strong>
-            </p>
-            <p class="text-caption">
-              Admin: admin@courtmastr.com / admin123<br>
-              Scorekeeper: scorekeeper@courtmastr.com / score123
-            </p>
-          </v-card-text>
         </v-card>
       </v-col>
     </v-row>

@@ -3,7 +3,7 @@ export const NAVIGATION_ICONS = {
   createTournament: 'mdi-plus-circle',
   reviewModeration: 'mdi-message-badge',
   dashboard: 'mdi-view-dashboard',
-  orgDashboard: 'mdi-view-dashboard-variant',
+  orgDashboard: 'mdi-view-dashboard-outline',
   players: 'mdi-account-group',
   organization: 'mdi-office-building',
   matchControl: 'mdi-controller',

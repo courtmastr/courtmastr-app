@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { usePlayersStore } from '@/stores/players';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
 import type { GlobalPlayer } from '@/types';
@@ -8,8 +9,13 @@ const playersStore = usePlayersStore();
 const search = ref('');
 
 const { execute, loading } = useAsyncOperation();
+const router = useRouter();
 
 onMounted(() => execute(() => playersStore.fetchPlayers()));
+
+const goToProfile = (playerId: string): void => {
+  router.push({ name: 'player-profile', params: { playerId } });
+};
 
 const filteredPlayers = computed((): GlobalPlayer[] => {
   const q = search.value.trim().toLowerCase();
@@ -84,7 +90,11 @@ const initials = (p: GlobalPlayer) =>
         :key="player.id"
         style="background:white;border-left:3px solid #1D4ED8;border-radius:0 8px 8px 0;
                padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;
-               justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.05);"
+               justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.05);
+               cursor:pointer;transition:box-shadow .15s;"
+        @click="goToProfile(player.id)"
+        @mouseenter="($event.currentTarget as HTMLElement).style.boxShadow='0 4px 12px rgba(29,78,216,.15)'"
+        @mouseleave="($event.currentTarget as HTMLElement).style.boxShadow='0 1px 3px rgba(0,0,0,.05)'"
       >
         <div class="d-flex align-center ga-3">
           <div

@@ -1,18 +1,49 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useOrganizationsStore } from '@/stores/organizations';
 import { useAuthStore } from '@/stores/auth';
+import { useUserStore } from '@/stores/users';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
 import { useNotificationStore } from '@/stores/notifications';
 import type { Organization, OrganizationMember } from '@/types';
 
 const orgStore = useOrganizationsStore();
 const authStore = useAuthStore();
+const userStore = useUserStore();
 const notificationStore = useNotificationStore();
 
 const tab = ref('profile');
 const org = ref<Organization | null>(null);
 const members = ref<OrganizationMember[]>([]);
+
+const showAddMemberDialog = ref(false);
+const newMemberUserId = ref<string | null>(null);
+const newMemberRole = ref('organizer');
+const addingMember = ref(false);
+
+const enrichedMembers = computed(() => {
+  return members.value.map(m => {
+    const u = userStore.users.find(user => user.id === m.uid);
+    return {
+      ...m,
+      displayName: u?.displayName || 'Unknown User',
+      email: u?.email || 'No email',
+    }
+  });
+});
+
+const currentUserIsAdmin = computed(() => {
+  const currentUserId = authStore.currentUser?.id;
+  const member = members.value.find(m => m.uid === currentUserId);
+  return member?.role === 'admin';
+});
+
+const availableUsers = computed(() => {
+  const memberIds = new Set(members.value.map(m => m.uid));
+  return userStore.users
+    .filter(u => !memberIds.has(u.id))
+    .map(u => ({ title: `${u.displayName} (${u.email})`, value: u.id }));
+});
 
 // Form fields (profile tab) — slug is display-only, not editable; changing slug requires admin action
 const form = ref({
@@ -38,7 +69,10 @@ function loadOrg() {
         about: org.value.about ?? '',
         website: org.value.website ?? '',
       };
-      await orgStore.fetchOrgTournaments(activeOrgId);
+      await Promise.all([
+        orgStore.fetchOrgTournaments(activeOrgId),
+        userStore.fetchUsers(),
+      ]);
       members.value = await orgStore.fetchOrgMembers(activeOrgId);
     }
   });
@@ -58,6 +92,23 @@ function saveProfile() {
     });
     notificationStore.showToast('success', 'Organization profile saved');
   });
+}
+
+async function handleAddMember() {
+  if (!newMemberUserId.value || !org.value) return;
+  addingMember.value = true;
+  try {
+    await orgStore.addOrgMember(org.value.id, newMemberUserId.value, newMemberRole.value);
+    notificationStore.showToast('success', 'Member added successfully');
+    showAddMemberDialog.value = false;
+    newMemberUserId.value = null;
+    newMemberRole.value = 'organizer';
+    members.value = await orgStore.fetchOrgMembers(org.value.id);
+  } catch(e: any) {
+    notificationStore.showToast('error', e.message || 'Failed to add member');
+  } finally {
+    addingMember.value = false;
+  }
 }
 
 const statusColor = (status: string): string => {
@@ -97,11 +148,11 @@ onMounted(loadOrg);
         </div>
         <div>
           <div style="font-size:20px;font-weight:800;color:white;">{{ org.name }}</div>
-          <div style="font-size:12px;color:#64748b;">{{ org.slug ? `courtmaster.app/${org.slug}` : 'No slug set' }}</div>
+          <div style="font-size:12px;color:#64748b;">{{ org.slug ? `courtmastr.com/${org.slug}` : 'No slug set' }}</div>
         </div>
       </div>
 
-      <v-tabs v-model="tab" color="white" bg-color="transparent">
+      <v-tabs v-model="tab" color="white" bg-color="transparent" class="text-white">
         <v-tab value="profile">Profile</v-tab>
         <v-tab value="tournaments">Tournaments</v-tab>
         <v-tab value="members">Members</v-tab>
@@ -122,7 +173,7 @@ onMounted(loadOrg);
                 <v-text-field
                   :model-value="org?.slug"
                   label="URL Slug"
-                  :prefix="`courtmaster.app/`"
+                  :prefix="`courtmastr.com/`"
                   disabled
                   hint="Slug cannot be changed after creation"
                   persistent-hint
@@ -184,26 +235,70 @@ onMounted(loadOrg);
         </div>
       </v-window-item>
 
-      <!-- Members tab -->
       <v-window-item value="members">
-        <v-card v-if="members.length === 0" class="text-center pa-8">
+        <div class="d-flex align-center justify-space-between mb-4 mt-2 px-1">
+          <h3 class="text-h6 mb-0">Organization Members</h3>
+          <v-btn
+            v-if="currentUserIsAdmin"
+            color="primary"
+            prepend-icon="mdi-account-plus"
+            @click="showAddMemberDialog = true"
+          >
+            Add Member
+          </v-btn>
+        </div>
+
+        <v-card v-if="enrichedMembers.length === 0" class="text-center pa-8">
           <p class="text-medium-emphasis">No members found.</p>
         </v-card>
         <div v-else>
           <div
-            v-for="m in members"
+            v-for="m in enrichedMembers"
             :key="m.uid"
             style="background:white;border:1px solid #e2e8f0;border-radius:8px;
                    padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;
                    justify-content:space-between;"
           >
             <div>
-              <div style="font-size:14px;font-weight:600;color:#0F172A;">{{ m.uid }}</div>
-              <div style="font-size:12px;color:#64748b;">Joined {{ m.joinedAt?.toLocaleDateString?.() ?? '—' }}</div>
+              <div style="font-size:14px;font-weight:600;color:#0F172A;">{{ m.displayName }}</div>
+              <div style="font-size:12px;color:#64748b;">
+                {{ m.email }} &bull; Joined {{ m.joinedAt?.toLocaleDateString?.() ?? '—' }}
+              </div>
             </div>
             <v-chip size="small" :color="m.role === 'admin' ? 'primary' : 'default'" label>{{ m.role }}</v-chip>
           </div>
         </div>
+
+        <v-dialog v-model="showAddMemberDialog" max-width="500">
+          <v-card>
+            <v-card-title>Add Organization Member</v-card-title>
+            <v-card-text>
+              <v-autocomplete
+                v-model="newMemberUserId"
+                :items="availableUsers"
+                label="Search User"
+                placeholder="Type name or email"
+                item-title="title"
+                item-value="value"
+                variant="outlined"
+                class="mb-4 mt-2"
+              />
+              <v-select
+                v-model="newMemberRole"
+                :items="['organizer', 'admin']"
+                label="Role"
+                variant="outlined"
+              />
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn variant="text" @click="showAddMemberDialog = false">Cancel</v-btn>
+              <v-btn color="primary" :loading="addingMember" :disabled="!newMemberUserId" @click="handleAddMember">
+                Add Member
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
       </v-window-item>
     </v-window>
   </template>
