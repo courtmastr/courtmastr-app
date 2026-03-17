@@ -27,6 +27,7 @@ interface PlatformStats {
 }
 
 export const useSuperAdminStore = defineStore('superAdmin', () => {
+  const router = useRouter()
   const allOrgs = ref<Organization[]>([])
   const viewingOrgId = ref<string | null>(null)
   const viewingOrg = ref<Organization | null>(null)
@@ -69,7 +70,6 @@ export const useSuperAdminStore = defineStore('superAdmin', () => {
   }
 
   async function enterOrg(orgId: string): Promise<void> {
-    const router = useRouter()
     const orgsStore = useOrganizationsStore()
     const snap = await getDoc(doc(db, 'organizations', orgId))
     if (!snap.exists()) return
@@ -81,7 +81,6 @@ export const useSuperAdminStore = defineStore('superAdmin', () => {
   }
 
   function exitOrg(): void {
-    const router = useRouter()
     const orgsStore = useOrganizationsStore()
     const authStore = useAuthStore()
     viewingOrgId.value = null

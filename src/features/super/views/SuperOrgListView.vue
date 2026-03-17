@@ -30,7 +30,11 @@ function getStatusLabel(org: Organization): string {
 
 async function handleEnter(org: Organization): Promise<void> {
   enteringOrgId.value = org.id
-  await superAdminStore.enterOrg(org.id)
+  try {
+    await superAdminStore.enterOrg(org.id)
+  } finally {
+    enteringOrgId.value = null
+  }
 }
 
 onMounted(() => {
