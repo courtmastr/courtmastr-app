@@ -29,6 +29,10 @@ const AuditLogView = () => import('@/features/admin/views/AuditLogView.vue');
 const AdminReviewsView = () => import('@/features/reviews/views/AdminReviewsView.vue');
 const OrgProfile = () => import('@/features/org/views/OrgProfileView.vue');
 
+// Super admin views
+const SuperDashboard = () => import('@/features/super/views/SuperDashboardView.vue');
+const SuperOrgList = () => import('@/features/super/views/SuperOrgListView.vue');
+
 // Dashboard
 const OrgDashboard = () => import('@/features/dashboard/views/OrgDashboardView.vue');
 
@@ -369,6 +373,20 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/reviews',
     name: 'admin-reviews',
     component: AdminReviewsView,
+    meta: { requiresAuth: true, requiresWebAdmin: true },
+  },
+
+  // Super admin routes
+  {
+    path: '/super/dashboard',
+    name: 'super-dashboard',
+    component: SuperDashboard,
+    meta: { requiresAuth: true, requiresWebAdmin: true },
+  },
+  {
+    path: '/super/orgs',
+    name: 'super-orgs',
+    component: SuperOrgList,
     meta: { requiresAuth: true, requiresWebAdmin: true },
   },
 
