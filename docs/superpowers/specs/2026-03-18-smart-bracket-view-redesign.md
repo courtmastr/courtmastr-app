@@ -78,28 +78,33 @@ Existing components retained as-is (no deletion):
 ## Props Contracts
 
 ```typescript
-// SmartBracketView.vue — receives tournamentId + categoryId from route
-// reads: matchStore, tournamentStore
-// computes: isPoolPhase, poolMatches, category, groups
+// SmartBracketView.vue — receives tournamentId + categoryId from route params
+// reads: matchStore, tournamentStore, useLeaderboard (pool-scoped)
+// computes: isPoolPhase, poolMatches, bracketParticipantIds, snapshotEntries, snapshotTiebreakerResolutions
 
 // PoolDrawTab.vue
-props: { categoryId: string; groups: Group[] }
+// Wraps PoolDrawView.vue directly — loads its own group data from Firestore.
+props: { tournamentId: string; categoryId: string }
 
 // StandingsTab.vue
-props: { categoryId: string; category: Category }
+props: { category: Category; poolMatches: Match[]; snapshotEntries: LeaderboardEntry[]; snapshotTiebreakerResolutions: TiebreakerResolution[] }
 // derives inner sub-tab visibility from category.poolPhase
 
 // PoolResultsSubTab.vue
-props: { categoryId: string; groups: Group[]; matches: Match[] }
-// matches = pool-only (groupId != null filter applied in SmartBracketView)
+// Wraps RoundRobinStandings (with pool-only matches prop).
+props: { tournamentId: string; categoryId: string; matches: Match[] }
 
 // PreElimSnapshotSubTab.vue
-props: { entries: LeaderboardEntry[]; tiebreakerResolutions: TiebreakerResolution[] }
-// entries computed via useLeaderboard({ phaseScope: 'pool' }) in SmartBracketView
+// Wraps LeaderboardTable. bracketParticipantIds used to override status label.
+props: {
+  entries: LeaderboardEntry[];
+  tiebreakerResolutions: TiebreakerResolution[];
+  bracketParticipantIds: Set<string>;  // registration IDs found in elimination matches
+}
 
 // MatchesByRoundTab.vue
-props: { categoryId: string; matches: Match[] }
-// matches = pool-only (groupId != null)
+// Renders the by-round match list (extracted from RoundRobinStandings inner "Matches" tab).
+props: { matches: Match[] }  // pool-only matches
 
 // BracketTab.vue
 props: { categoryId: string; category: Category }
@@ -122,32 +127,85 @@ const poolMatches = computed(() =>
 
 ### Pre-Elim Snapshot data
 
-Use existing `useLeaderboard` composable with `phaseScope: 'pool'`. This uses `category.poolStageId` to filter matches — already supported.
+`useLeaderboard()` takes no constructor args. Call `generate()` imperatively in `SmartBracketView`. The `Leaderboard` type (`src/types/leaderboard.ts`) has both `entries` and `tiebreakerResolutions`.
 
 ```typescript
-const { entries, tiebreakerResolutions } = useLeaderboard({
-  categoryId: props.categoryId,
-  phaseScope: 'pool',
+// SmartBracketView.vue
+const { leaderboard, generate: generateSnapshot } = useLeaderboard();
+
+// Guard: only generate once matches are loaded (generate() is one-shot, not reactive).
+// Trigger on phase transition to elimination, when matches are guaranteed populated.
+watch(isPoolPhase, async (nowPool) => {
+  if (!nowPool) {
+    await generateSnapshot(props.tournamentId, props.categoryId, { phaseScope: 'pool' });
+  }
+}, { immediate: false });
+// Also generate on mount if already in elimination phase.
+onMounted(async () => {
+  if (!isPoolPhase.value) {
+    await generateSnapshot(props.tournamentId, props.categoryId, { phaseScope: 'pool' });
+  }
+});
+
+const snapshotEntries = computed(() => leaderboard.value?.entries ?? []);
+const snapshotTiebreakerResolutions = computed(() => leaderboard.value?.tiebreakerResolutions ?? []);
+```
+
+### Pre-Elim Snapshot — bracket qualification status
+
+`PreElimSnapshotSubTab` receives `bracketParticipantIds: Set<string>` — the set of registration IDs that appear in at least one elimination bracket match. Computed in `SmartBracketView`:
+
+```typescript
+const bracketParticipantIds = computed(() => {
+  const ids = new Set<string>();
+  matchStore.matches
+    .filter(m => m.categoryId === props.categoryId && m.groupId == null)
+    .forEach(m => {
+      if (m.player1Id) ids.add(m.player1Id);
+      if (m.player2Id) ids.add(m.player2Id);
+    });
+  return ids;
 });
 ```
 
+`PreElimSnapshotSubTab` renders a status chip per row using `bracketParticipantIds`:
+- `registrationId in bracketParticipantIds` → green chip "Qualified"
+- otherwise → red chip "Eliminated"
+
+The standard `LeaderboardTable.vue` status slot is overridden via a scoped slot in `PreElimSnapshotSubTab`.
+
 ### Pre-Elim Snapshot columns
 
-Reuse `LeaderboardTable.vue` with `showCategory=false`. Columns: `# | Participant | Status | MP | W-L | Played | Set W-L | Pts For/Ag | Pts +/-`. Status chip shows "Qualified" (green) if participant appears in the bracket seedings, "Eliminated" (red) otherwise.
+Reuse `LeaderboardTable.vue` with `showCategory=false`. Columns: `# | Participant | Status | MP | W-L | Played | Set W-L | Pts For/Ag | Pts +/-`.
 
 ### RoundRobinStandings fix
 
-`RoundRobinStandings` currently queries `matchStore.matches.filter(m => m.categoryId)` — no phase filter. Fix: pass `poolMatches` (already filtered) as a prop instead of letting it query the store directly. This prevents elimination bracket results from mixing into pool standings stats.
+`RoundRobinStandings` currently queries the store directly AND fetches in `onMounted`. Changes required:
+
+1. **Add `matches` prop**: `matches: Match[]` — pool-filtered matches passed from parent.
+2. **Remove `onMounted` fetch**: delete the `matchStore.fetchMatches(...)` call (parent already fetched).
+3. **Remove `watch(categoryId, ...)` re-fetch**: delete the watcher that re-fetches on categoryId change.
+4. **Update `allMatches` computed**: change from `matchStore.matches.filter(...)` to `() => props.matches`.
+5. **Remove inner "Matches by Round" tab**: the `v-tab value="matches"` and its `v-tabs-window-item` are removed from `RoundRobinStandings`. This view moves to the top-level `MatchesByRoundTab`. Keep only the "Standings" inner tab content (the `v-data-table`).
 
 ---
 
 ## UI / Theme Requirements
 
-- Outer tabs: `v-tabs` with `color="primary"`, matching `RegistrationManagementView` tab style.
+- Outer tabs: `v-tabs` with `color="primary"`, matching `src/features/registration/views/RegistrationManagementView.vue` tab style (lines 1429–1451).
 - Inner sub-tabs (inside Standings): `v-tabs` with `color="primary"` and `density="compact"` to visually distinguish them as secondary navigation.
 - Tab content transitions: `v-tabs-window` / `v-tabs-window-item` (Vuetify default slide transition) — no custom override needed.
-- Phase transition (pool → elimination): auto-switch active outer tab to "Bracket" using a `watch` on `isPoolPhase`.
-- Disabled/hidden tabs: use `v-if` (not `v-show`) for tabs that should not render in a given phase (Bracket during pool phase, Pre-Elim Snapshot sub-tab during pool phase).
+- Phase transition (pool → elimination): auto-switch active outer tab to "Bracket" using a `watch` on `isPoolPhase`:
+  ```typescript
+  const activeTab = ref<'draw' | 'standings' | 'matches' | 'bracket'>(
+    isPoolPhase.value ? 'draw' : 'bracket'
+  );
+  watch(isPoolPhase, (nowPool) => {
+    if (!nowPool) activeTab.value = 'bracket';   // pools closed → jump to bracket
+    else activeTab.value = 'draw';               // pools regenerated → jump to draw
+  });
+  ```
+- Disabled/hidden tabs: use `v-if` (not `v-show`) for tabs that should not render in a given phase (Bracket during pool phase, Pre-Elim Snapshot sub-tab during pool phase). `BracketTab` unmounting/remounting on phase transition is intentional — it re-fetches bracket data on mount, which is correct behaviour.
 - Loading states: each tab component manages its own loading skeleton, matching the `v-skeleton-loader` pattern used in existing tournament views.
 - Empty states: if no data for a section (e.g., no groups yet), show a `v-alert` with `variant="tonal"` and an appropriate icon — consistent with app conventions.
 
