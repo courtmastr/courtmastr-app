@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
-import BracketView from './BracketView.vue';
-import DoubleEliminationBracket from './DoubleEliminationBracket.vue';
+import { useMatchStore } from '@/stores/matches';
+import { useRegistrationStore } from '@/stores/registrations';
+import { useLeaderboard } from '@/composables/useLeaderboard';
 import RoundRobinStandings from './RoundRobinStandings.vue';
-import PoolDrawView from './PoolDrawView.vue';
+import PoolDrawTab from './PoolDrawTab.vue';
+import StandingsTab from './StandingsTab.vue';
+import MatchesByRoundTab from './MatchesByRoundTab.vue';
+import BracketTab from './BracketTab.vue';
 import { FORMAT_LABELS } from '@/types';
 
 const props = defineProps<{
@@ -16,43 +20,97 @@ const props = defineProps<{
 const route = useRoute();
 const router = useRouter();
 const tournamentStore = useTournamentStore();
-const categories = computed(() => tournamentStore.categories);
+const matchStore = useMatchStore();
+const registrationStore = useRegistrationStore();
+const { leaderboard, generate: generateSnapshot, stage: snapshotStage } = useLeaderboard();
 
+const categories = computed(() => tournamentStore.categories);
 const category = computed(() =>
   tournamentStore.categories.find((c) => c.id === props.categoryId)
 );
-
 const format = computed(() => category.value?.format || 'single_elimination');
 const isPoolPhase = computed(
   () => format.value === 'pool_to_elimination' && category.value?.poolPhase !== 'elimination'
 );
+const isPoolToElimFormat = computed(() => format.value === 'pool_to_elimination');
 
-const poolTab = ref('draw');
+// Pool-only matches — groupId != null means pool match (permanent, never deleted)
+const poolMatches = computed(() =>
+  matchStore.matches.filter(
+    (m) => m.categoryId === props.categoryId && m.groupId != null
+  )
+);
 
+// Registration IDs of participants in any elimination bracket match
+// Uses participant1Id/participant2Id — the actual Match type field names
+const bracketParticipantIds = computed(() => {
+  const ids = new Set<string>();
+  matchStore.matches
+    .filter((m) => m.categoryId === props.categoryId && m.groupId == null)
+    .forEach((m) => {
+      if (m.participant1Id) ids.add(m.participant1Id);
+      if (m.participant2Id) ids.add(m.participant2Id);
+    });
+  return ids;
+});
+
+const snapshotEntries = computed(() => leaderboard.value?.entries ?? []);
+const snapshotTiebreakerResolutions = computed(() => leaderboard.value?.tiebreakerResolutions ?? []);
+const snapshotLoading = computed(
+  () => snapshotStage.value === 'fetching' || snapshotStage.value === 'calculating'
+);
+
+// Active outer tab — default to draw (pool phase) or bracket (elimination phase)
+const activeTab = ref<'draw' | 'standings' | 'matches' | 'bracket'>(
+  isPoolPhase.value ? 'draw' : 'bracket'
+);
+
+// Auto-switch tab on phase transition and trigger snapshot generation
+watch(isPoolPhase, async (nowPool) => {
+  activeTab.value = nowPool ? 'draw' : 'bracket';
+  if (!nowPool && isPoolToElimFormat.value) {
+    await generateSnapshot(props.tournamentId, props.categoryId, { phaseScope: 'pool' });
+  }
+});
+
+// Navigate to new category without losing tournament context
 const selectedCategoryId = computed<string>({
   get: () => props.categoryId,
   set: (nextCategoryId: string) => {
     if (!nextCategoryId || nextCategoryId === props.categoryId) return;
-
     router.push({
       name: 'smart-bracket-view',
-      params: {
-        tournamentId: props.tournamentId,
-        categoryId: nextCategoryId,
-      },
+      params: { tournamentId: props.tournamentId, categoryId: nextCategoryId },
       query: route.query,
     });
   },
 });
 
 onMounted(async () => {
-  if (categories.value.length > 0) return;
-  await tournamentStore.fetchTournament(props.tournamentId);
+  // Ensure tournament/categories are loaded
+  if (categories.value.length === 0 || !tournamentStore.currentTournament) {
+    await tournamentStore.fetchTournament(props.tournamentId);
+  }
+
+  if (!isPoolPhase.value && isPoolToElimFormat.value) {
+    // Elimination phase: generateSnapshot fetches matches + registrations + players internally.
+    // This populates matchStore.matches for poolMatches/bracketParticipantIds computeds.
+    // phaseScope:'pool' uses poolStageId/groupId filter — snapshot data is pool-only.
+    await generateSnapshot(props.tournamentId, props.categoryId, { phaseScope: 'pool' });
+  } else {
+    // Pool phase or non-pool format: fetch manually (generateSnapshot won't run).
+    await Promise.all([
+      matchStore.fetchMatches(props.tournamentId, props.categoryId),
+      registrationStore.fetchRegistrations(props.tournamentId),
+      registrationStore.fetchPlayers(props.tournamentId),
+    ]);
+  }
 });
 </script>
 
 <template>
   <div class="smart-bracket-view">
+    <!-- Category selector -->
     <v-row class="mb-3">
       <v-col
         cols="12"
@@ -71,7 +129,7 @@ onMounted(async () => {
       </v-col>
     </v-row>
 
-    <!-- Category Info Header -->
+    <!-- Category info header -->
     <v-card
       v-if="category"
       class="mb-4"
@@ -103,17 +161,17 @@ onMounted(async () => {
       </v-card-text>
     </v-card>
 
-    <!-- Round Robin View (pure round_robin format) -->
+    <!-- Pure round_robin — no outer tabs; RoundRobinStandings handles its own data -->
     <RoundRobinStandings
       v-if="format === 'round_robin'"
       :tournament-id="tournamentId"
       :category-id="categoryId"
     />
 
-    <!-- Pool Phase: Pool Draw + Standings tabs -->
-    <template v-else-if="isPoolPhase">
+    <!-- Pool-to-Elimination format — 4-tab view (Bracket hidden during pool phase) -->
+    <template v-else-if="isPoolToElimFormat">
       <v-tabs
-        v-model="poolTab"
+        v-model="activeTab"
         color="primary"
         class="mb-4"
       >
@@ -129,35 +187,70 @@ onMounted(async () => {
           </v-icon>
           Standings
         </v-tab>
+        <v-tab value="matches">
+          <v-icon start>
+            mdi-view-list
+          </v-icon>
+          Matches by Round
+        </v-tab>
+        <!-- Bracket tab: only rendered in elimination phase -->
+        <v-tab
+          v-if="!isPoolPhase"
+          value="bracket"
+        >
+          <v-icon start>
+            mdi-tournament
+          </v-icon>
+          Bracket
+        </v-tab>
       </v-tabs>
-      <v-tabs-window v-model="poolTab">
+
+      <v-tabs-window v-model="activeTab">
         <v-tabs-window-item value="draw">
-          <PoolDrawView
+          <PoolDrawTab
             :tournament-id="tournamentId"
             :category-id="categoryId"
           />
         </v-tabs-window-item>
+
         <v-tabs-window-item value="standings">
-          <RoundRobinStandings
+          <StandingsTab
+            v-if="category"
+            :tournament-id="tournamentId"
+            :category="category"
+            :pool-matches="poolMatches"
+            :snapshot-entries="snapshotEntries"
+            :snapshot-tiebreaker-resolutions="snapshotTiebreakerResolutions"
+            :snapshot-loading="snapshotLoading"
+            :bracket-participant-ids="bracketParticipantIds"
+          />
+        </v-tabs-window-item>
+
+        <v-tabs-window-item value="matches">
+          <MatchesByRoundTab :matches="poolMatches" />
+        </v-tabs-window-item>
+
+        <!-- Bracket window item: v-if mirrors the tab above -->
+        <v-tabs-window-item
+          v-if="!isPoolPhase"
+          value="bracket"
+        >
+          <BracketTab
+            v-if="category"
             :tournament-id="tournamentId"
             :category-id="categoryId"
+            :category="category"
           />
         </v-tabs-window-item>
       </v-tabs-window>
     </template>
 
-    <!-- Double Elimination View -->
-    <DoubleEliminationBracket
-      v-else-if="format === 'double_elimination'"
+    <!-- Single or double elimination (non-pool formats) -->
+    <BracketTab
+      v-else-if="category"
       :tournament-id="tournamentId"
       :category-id="categoryId"
-    />
-
-    <!-- Single Elimination View (default) -->
-    <BracketView
-      v-else
-      :tournament-id="tournamentId"
-      :category-id="categoryId"
+      :category="category"
     />
   </div>
 </template>
