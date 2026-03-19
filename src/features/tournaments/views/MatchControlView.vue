@@ -2394,7 +2394,7 @@ async function confirmCompleteTournament(): Promise<void> {
 
   &--queue {
     flex: 1 1 0;
-    min-height: 0;
+    min-height: 320px;
   }
 
   &--alerts {
