@@ -2354,7 +2354,7 @@ async function confirmCompleteTournament(): Promise<void> {
 // ── Body layout ───────────────────────────────────────────────────────
 .mc-body {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 420px;
   gap: 12px;
   padding: 12px;
   background: #f1f5f9;
