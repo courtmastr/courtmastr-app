@@ -309,7 +309,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/tournaments/:tournamentId/live-view',
     name: 'match-live-view',
-    redirect: to => `/tournaments/${to.params.tournamentId}/match-control?view=queue`,
+    component: () => import('@/features/tournaments/views/LiveScoringView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
