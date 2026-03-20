@@ -127,7 +127,6 @@
 
       <!-- Tournament-specific sections -->
       <template v-if="currentTournamentId">
-
         <!-- Event Center (standalone anchor — always visible) -->
         <v-divider class="my-2" />
         <v-list-item
@@ -179,7 +178,7 @@
             :ripple="false"
           />
           <v-list-item
-            v-if="isOrganizer"
+            v-if="isOrganizer && isTournamentLive"
             :to="`/tournaments/${currentTournamentId}/live-view`"
             :prepend-icon="NAVIGATION_ICONS.liveView"
             title="Live View"
@@ -222,7 +221,7 @@
             v-if="smartBracketPath"
             :to="smartBracketPath"
             :prepend-icon="NAVIGATION_ICONS.smartBracket"
-            title="Smart Bracket"
+            :title="smartBracketNavTitle"
             class="nav-item nav-item--smart-bracket"
             rounded="lg"
             :ripple="false"
@@ -342,7 +341,6 @@
             :ripple="false"
           />
         </template>
-
       </template>
     </v-list>
 
@@ -403,6 +401,10 @@ const currentTournamentId = computed(() => {
   return routeParams.tournamentId as string || tournamentStore.currentTournament?.id || '';
 });
 
+const isTournamentLive = computed(() =>
+  tournamentStore.currentTournament?.state === 'LIVE'
+);
+
 const smartBracketPath = computed(() => {
   const tournamentId = currentTournamentId.value;
   if (!tournamentId) return '';
@@ -412,6 +414,18 @@ const smartBracketPath = computed(() => {
   if (!categoryId) return '';
 
   return `/tournaments/${tournamentId}/categories/${categoryId}/smart-bracket`;
+});
+
+const smartBracketNavTitle = computed(() => {
+  const routeCategoryId = route.params.categoryId as string | undefined;
+  const categoryId = routeCategoryId || categories.value[0]?.id;
+  if (!categoryId) return 'Bracket';
+
+  const category = categories.value.find((c) => c.id === categoryId);
+  if (!category) return 'Bracket';
+
+  const isPoolPhase = category.format === 'pool_to_elimination' && category.poolPhase !== 'elimination';
+  return isPoolPhase ? 'Pool Play' : 'Bracket';
 });
 
 async function handleLogout(): Promise<void> {
