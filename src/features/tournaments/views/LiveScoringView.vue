@@ -5,7 +5,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
-import type { Match, GameScore } from '@/types';
+import type { Court, Match, GameScore } from '@/types';
 
 const route = useRoute();
 const matchStore = useMatchStore();
@@ -17,13 +17,24 @@ const tournamentId = computed(() => route.params.tournamentId as string);
 const loading = ref(true);
 
 const tournament = computed(() => tournamentStore.currentTournament);
+const courts = computed(() => tournamentStore.courts);
 
-const inProgressMatches = computed(() =>
-  matchStore.matches.filter((m) => m.status === 'in_progress')
+// Mirror CourtGrid's source-of-truth: iterate physical courts, find their in-progress match.
+// This prevents showing stale/orphaned in_progress matches that have no assigned court.
+const activeCourts = computed(() =>
+  [...courts.value]
+    .sort((a, b) => (a.number || 0) - (b.number || 0))
+    .map((court) => ({
+      court,
+      match: matchStore.matches.find(
+        (m) => m.courtId === court.id && m.status === 'in_progress',
+      ),
+    }))
+    .filter((entry) => entry.match !== undefined) as { court: Court; match: Match }[]
 );
 
 const readyMatches = computed(() =>
-  matchStore.matches.filter((m) => m.status === 'ready').slice(0, 5)
+  matchStore.matches.filter((m) => m.status === 'ready' && !m.courtId).slice(0, 5)
 );
 
 function getParticipant1Name(match: Match): string {
@@ -55,9 +66,6 @@ function getCategoryName(categoryId: string): string {
   return category?.name ?? 'Match';
 }
 
-function getCourtName(match: Match): string {
-  return match.courtName ?? '';
-}
 
 onMounted(async () => {
   try {
@@ -99,8 +107,8 @@ onUnmounted(() => {
             color="success"
             class="mr-1"
           />
-          {{ inProgressMatches.length }}
-          {{ inProgressMatches.length === 1 ? 'Live Match' : 'Live Matches' }}
+          {{ activeCourts.length }}
+          {{ activeCourts.length === 1 ? 'Live Match' : 'Live Matches' }}
           <span v-if="readyMatches.length">
             &nbsp;&middot;&nbsp;{{ readyMatches.length }} Up Next
           </span>
@@ -122,7 +130,7 @@ onUnmounted(() => {
 
     <template v-else>
       <!-- In Progress section -->
-      <template v-if="inProgressMatches.length > 0">
+      <template v-if="activeCourts.length > 0">
         <div class="d-flex align-center mb-3">
           <v-chip
             color="success"
@@ -137,8 +145,8 @@ onUnmounted(() => {
 
         <v-row>
           <v-col
-            v-for="match in inProgressMatches"
-            :key="`live-${match.categoryId}-${match.id}`"
+            v-for="{ court, match } in activeCourts"
+            :key="`live-${court.id}`"
             cols="12"
             md="6"
             lg="4"
@@ -152,13 +160,15 @@ onUnmounted(() => {
                 <!-- Court & category header -->
                 <div class="d-flex justify-space-between align-center mb-3">
                   <div>
-                    <span
-                      v-if="getCourtName(match)"
-                      class="text-caption text-medium-emphasis"
-                    >
-                      {{ getCourtName(match) }}
-                    </span>
-                    <div class="text-caption font-weight-medium">
+                    <div class="d-flex align-center text-subtitle-2 font-weight-bold mb-1">
+                      <v-icon
+                        icon="mdi-badminton"
+                        size="14"
+                        class="mr-1 text-medium-emphasis"
+                      />
+                      Court {{ court.number }}
+                    </div>
+                    <div class="text-caption text-medium-emphasis">
                       {{ getCategoryName(match.categoryId) }}
                     </div>
                   </div>
