@@ -31,3 +31,4 @@ CourtMastr v2 is an established codebase being transitioned into a structured GS
 |---|-------------|------|--------|-----------|
 | 260319-hnd | Widen Ready Queue panel in Command Center layout | 2026-03-19 | c4d4a6d | [260319-hnd-widen-ready-queue-panel-in-command-cente](./quick/260319-hnd-widen-ready-queue-panel-in-command-cente/) |
 | 260319-iec | Expand Ready Queue min-height to show at least 4 matches | 2026-03-19 | 8d69920 | [260319-iec-expand-ready-queue-min-height-to-show-at](./quick/260319-iec-expand-ready-queue-min-height-to-show-at/) |
+| 260319-pk4 | Create LiveScoringView and gate Live View nav on LIVE state | 2026-03-19 | f32e547 | [260319-pk4-evaluate-live-sidebar-item-determine-if-](./quick/260319-pk4-evaluate-live-sidebar-item-determine-if-/) |
