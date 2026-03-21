@@ -35,6 +35,7 @@ vi.mock('@/stores/audit', () => ({
   useAuditStore: () => ({
     logMatchCompleted: vi.fn(),
     logScoreCorrection: vi.fn(),
+    logScoreCorrected: vi.fn(),
     logMatchAssigned: vi.fn(),
   }),
 }));
@@ -192,6 +193,7 @@ describe('scoring + correction integration flow', () => {
         originalWinnerId: 'reg-1',
         newWinnerId: 'reg-2',
         reason: 'line judge correction',
+        correctionType: 'correction',
       },
       'cat-1'
     );
@@ -209,6 +211,7 @@ describe('scoring + correction integration flow', () => {
         originalWinnerId: 'reg-1',
         newWinnerId: 'reg-2',
         reason: 'line judge correction',
+        correctionType: 'correction',
       })
     );
     expect(mockDeps.handleWinnerChange).toHaveBeenCalledWith(

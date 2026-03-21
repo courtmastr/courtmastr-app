@@ -301,7 +301,11 @@ onUnmounted(() => {
           {{ tournament?.name }}
         </div>
         <h1 class="text-h4 font-weight-bold d-flex align-center ga-2">
-          <v-icon :icon="NAVIGATION_ICONS.checkIn" size="26" color="success" />
+          <v-icon
+            :icon="NAVIGATION_ICONS.checkIn"
+            size="26"
+            color="success"
+          />
           Player Check-in
         </h1>
       </div>

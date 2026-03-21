@@ -44,9 +44,16 @@ async function handleUnsuspend(): Promise<void> {
 </script>
 
 <template>
-  <div v-if="showBanner" class="super-admin-banner">
+  <div
+    v-if="showBanner"
+    class="super-admin-banner"
+  >
     <div class="super-admin-banner__content">
-      <v-icon icon="mdi-shield-account" class="mr-2" size="small" />
+      <v-icon
+        icon="mdi-shield-account"
+        class="mr-2"
+        size="small"
+      />
       <span class="super-admin-banner__label">Super Admin Mode</span>
       <span class="super-admin-banner__separator mx-2">—</span>
       <span class="super-admin-banner__org">Viewing: <strong>{{ org?.name }}</strong></span>
@@ -94,7 +101,10 @@ async function handleUnsuspend(): Promise<void> {
     </div>
 
     <!-- Suspend confirmation dialog -->
-    <v-dialog v-model="suspendDialog" max-width="400">
+    <v-dialog
+      v-model="suspendDialog"
+      max-width="400"
+    >
       <v-card>
         <v-card-title>Suspend Organization?</v-card-title>
         <v-card-text>
@@ -103,7 +113,12 @@ async function handleUnsuspend(): Promise<void> {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="suspendDialog = false">Cancel</v-btn>
+          <v-btn
+            variant="text"
+            @click="suspendDialog = false"
+          >
+            Cancel
+          </v-btn>
           <v-btn
             color="error"
             variant="flat"

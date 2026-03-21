@@ -71,7 +71,10 @@ const currentScore = computed(() => {
   >
     <!-- Header: Court Name & Status badge -->
     <v-card-item class="pa-2 pb-1">
-      <v-card-title class="text-subtitle-2 font-weight-bold px-0" style="font-size:13px!important;font-weight:800!important;">
+      <v-card-title
+        class="text-subtitle-2 font-weight-bold px-0"
+        style="font-size:13px!important;font-weight:800!important;"
+      >
         {{ court.name }}
       </v-card-title>
       <template #append>

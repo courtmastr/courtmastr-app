@@ -118,6 +118,63 @@ if rg -q "statusLabel" src/features/tournaments/components/CourtCard.vue && rg -
 fi
 ```
 
+### CP-071: Queue, Alerts, and Auto-Assign Must Share the Same Assignment Gate
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-19 |
+| **Source Bug** | Match Control showed draft level matches as ready/assignable while auto-assign correctly refused to place them |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<ready-queue
+  :matches="pendingMatches"
+  :enable-assign="true"
+/>
+```
+```ts
+const autoAssignableDueMatches = computed(() =>
+  pendingMatches.value.filter((match) => canAssignCourtToMatch(match))
+);
+```
+
+**Correct Pattern (✅):**
+```ts
+const pendingMatchAssignmentStates = computed(() =>
+  pendingMatches.value.map((match) => ({
+    match,
+    blockers: getMatchAssignBlockers(match),
+    isAssignable: getMatchAssignBlockers(match).length === 0,
+  }))
+);
+
+const assignablePendingMatches = computed(() =>
+  pendingMatchAssignmentStates.value
+    .filter((state) => state.isAssignable)
+    .map((state) => state.match)
+);
+```
+```vue
+<ready-queue
+  :matches="pendingMatches"
+  :can-assign-match="canAssignCourtToMatch"
+  :get-assign-blocked-reason="getQueueBlockedReason"
+/>
+<alerts-panel
+  :assignment-gate-summary="assignmentGateSummary"
+  :recent-auto-assign-decision="recentAutoAssignDecision"
+/>
+```
+
+**Rule:** Any queue affordance, blocker alert, manual assign button, and auto-assign watcher must derive from the same match-level gate (`planned time`, `published`, `checked-in`). Never show a green assign action for rows that `canAssignCourtToMatch()` would reject. If a row has multiple blockers, organizer-facing UI must surface all of them instead of hiding check-in behind publish state. If auto-assign skips a blocked due match, preserve that decision in organizer-visible alerts, not only in a toast.
+
+**Detection:**
+```bash
+rg -n "<ready-queue|:matches=\"pendingMatches\"|:can-assign-match|assignment-gate-summary|recent-auto-assign-decision|getQueueBlockedReason" src/features/tournaments/views/MatchControlView.vue src/features/tournaments/components/AlertsPanel.vue
+```
+
 ---
 
 ## Category: Data Integrity
@@ -161,6 +218,74 @@ rg -n "vi\\.mock\\('vuetify'|createVuetify\\(" tests/unit/AppLayout*.test.ts
 ```
 
 ### CP-068: Validate Firebase Web Env Before Production Build/Deploy
+
+### CP-072: Playwright Login Assertions Must Follow Real Post-Login Routing
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-19 |
+| **Source Bug** | E2E setup and auth fixtures waited for `/dashboard` even though login redirects to `/tournaments` |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await page.getByRole('button', { name: 'Sign In' }).click();
+await page.waitForURL('/dashboard', { timeout: 15000 });
+```
+
+**Correct Pattern (✅):**
+```typescript
+await page.getByRole('button', { name: 'Sign In' }).click();
+await waitForPostLoginLanding(page, 15000);
+```
+
+```typescript
+export const POST_LOGIN_URL_RE = /\/(dashboard|tournaments)(?:\/?|[?#].*)?$/;
+
+export const waitForPostLoginLanding = async (page: Page, timeout = 15000): Promise<void> => {
+  await expect.poll(() => page.url(), { timeout }).toMatch(POST_LOGIN_URL_RE);
+};
+```
+
+**Rule:** Playwright auth helpers must follow the app's real post-login landing behavior. Do not hard-code `/dashboard` unless the router contract explicitly guarantees it for that role and flow.
+
+**Detection:**
+```bash
+rg -n "waitForURL\\('/dashboard'|waitForURL\\(\"/dashboard\"" e2e
+```
+
+### CP-073: Workflow E2E Must Seed Exact Match State Instead of Skipping on Generic Data
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-19 |
+| **Source Bug** | Workflow regressions in publish/check-in/auto-assign passed because E2E reused a generic seed and skipped when the right match state was absent |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const matchCount = await page.locator('.match-item').count();
+test.skip(matchCount === 0, 'Seeded data has no scorable matches');
+```
+
+**Correct Pattern (✅):**
+```typescript
+const scenario = await seedAutoAssignWorkflowScenario();
+
+await page.goto(`/tournaments/${scenario.tournamentId}/match-control`);
+await expect(page.getByText('Waiting for check-in')).toBeVisible();
+await expect(page.getByText('Auto-assign skipped blocked match')).toBeVisible();
+```
+
+**Rule:** E2E coverage for CourtMastr workflows must seed the exact Firestore state required for the scenario under test, especially when behavior depends on `match_scores.scheduleStatus`, `plannedStartAt`, level scope, and per-registration `participantPresence`. Avoid runtime skips for core workflow tests when deterministic seeding is feasible.
+
+**Detection:**
+```bash
+rg -n "test\\.skip\\(.*Seeded data|No scoreable matches|No matches available|No matches ready" e2e
+rg -n "participantPresence|scheduleStatus: 'published'|scheduleStatus: 'draft'|plannedStartAt" e2e
+```
 
 | Field | Value |
 |-------|-------|
@@ -218,7 +343,6 @@ node -e "const p=require('./package.json'); console.log(p.scripts.build.includes
 it('bypasses auth for overlay and obs routes', async () => {
   const overlayRoute = await runGuard('/overlay/t1/court/c1', { isAuthenticated: false });
   expect(overlayRoute.type).toBe('allow');
-
   const obsRoute = await runGuard('/obs/t1/scoreboard', { isAuthenticated: false });
   expect(obsRoute.type).toBe('allow');
 });
@@ -243,6 +367,66 @@ it('bypasses auth for overlay and obs routes', async () => {
 ```bash
 rg -n "runGuard\\('/overlay|runGuard\\('/obs" tests/unit/router-guards-auth.test.ts
 rg -n "ROUTER_GUARD_TEST_TIMEOUT_MS|, ROUTER_GUARD_TEST_TIMEOUT_MS\\)" tests/unit/router-guards-auth.test.ts
+```
+
+### CP-070: Schedule Workflow Must React To Publish Eligibility, Not Just Draft State
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-19 |
+| **Source Bug** | Level scheduling workflow reopened scheduling instead of publishing, and Match Control auto-assign ignored later publish/check-in changes |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+case 'publish':
+  return {
+    label: 'Publish Schedule',
+    event: 'schedule-times',
+  };
+
+watch(
+  [() => autoAssignEnabled.value, () => availableCourts.value, () => pendingMatches.value],
+  async ([isEnabled, freeCourts, pending]) => {
+    const match = pending.find((m) => canAssignCourtToMatch(m));
+    // publish/check-in changes never retrigger this watcher
+  }
+);
+```
+
+**Correct Pattern (✅):**
+```typescript
+case 'publish':
+  return {
+    label: 'Publish Schedule',
+    event: 'publish-schedule',
+  };
+
+const autoAssignableDueMatches = computed(() =>
+  pendingMatches.value.filter((match) => {
+    if (!canAssignCourtToMatch(match)) return false;
+    const plannedTime = getMatchScheduleTime(match);
+    return Boolean(plannedTime && plannedTime.getTime() <= now + autoAssignDueWindowMs.value);
+  })
+);
+
+watch(
+  [() => autoAssignEnabled.value, () => availableCourts.value, () => autoAssignableDueMatches.value],
+  async ([isEnabled, freeCourts, dueMatches]) => {
+    const match = dueMatches[0];
+    // re-runs when publish/check-in state changes make a match eligible
+  }
+);
+```
+
+**Rule:** Publish-phase CTAs must emit publish actions, and auto-assignment must watch a computed eligibility list that depends on publication and participant check-in state.
+
+**Detection:**
+```bash
+rg -n "case 'publish'|case 'pool_publish'" src/features/tournaments/components/CategoryRegistrationStats.vue
+rg -n "event: 'schedule-times'" src/features/tournaments/components/CategoryRegistrationStats.vue
+rg -n "pendingMatches.value|autoAssignableDueMatches" src/features/tournaments/views/MatchControlView.vue
 ```
 
 ### CP-002: Reverse Lookups for Cross-Collection References
@@ -3645,6 +3829,168 @@ rg -n "obsOverlay" src/router/index.ts src/App.vue
 if rg -n 'v-for="match in scorableMatches"' src/features/public/views/PublicScoringView.vue >/dev/null && rg -n ':key="match.id"' src/features/public/views/PublicScoringView.vue >/dev/null; then
   echo "Violation: PublicScoringView uses non-unique match keys"
 fi
+```
+
+---
+
+### CP-075: Match Store Subscriptions Must Prime Initial Fetches
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-20 |
+| **Source Bug** | Scoring E2E seeded valid category-scoped matches, but Match Scoring Queue stayed at `0 Ready / 0 Scheduled` until a later Firestore change arrived |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+function subscribeMatches(tournamentId: string, categoryId?: string, levelId?: string): void {
+  const refresh = () => fetchMatches(tournamentId, categoryId, levelId);
+
+  onSnapshot(collection(db, matchPath), (snapshot) => {
+    if (snapshot.docChanges().length > 0) {
+      refresh();
+    }
+  });
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+function subscribeMatches(tournamentId: string, categoryId?: string, levelId?: string): void {
+  const refresh = () => fetchMatches(tournamentId, categoryId, levelId);
+
+  onSnapshot(collection(db, matchPath), (snapshot) => {
+    if (snapshot.docChanges().length > 0) {
+      refresh();
+    }
+  });
+
+  refresh();
+}
+```
+
+**Rule:** Any store subscription that powers a page-load view must perform an initial fetch immediately after wiring listeners. Do not wait for a later snapshot delta when the page may open against already-seeded data.
+
+**Detection:**
+```bash
+rg -n "function subscribeMatches|function subscribeMatch|refresh\\(\\);" src/stores/matches.ts
+```
+
+---
+
+### CP-076: Active E2E Specs Must Not Depend on Conditional `test.skip(...)`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-20 |
+| **Source Bug** | E2E suite reported broad coverage while silently skipping workflow scenarios whenever the generic seed did not happen to contain the right state |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const matchCount = await page.locator('.match-item').count();
+test.skip(matchCount === 0, 'Seeded data has no scorable matches');
+```
+
+**Correct Pattern (✅):**
+```typescript
+const scenario = await seedScoringWorkflowScenario('ready');
+await page.goto(`/tournaments/${scenario.tournamentId}/matches`);
+await expect(page.getByText(scenario.participantOneTeamName).first()).toBeVisible();
+```
+
+**Rule:** Active Playwright specs must seed or create the exact data they need. If a test cannot be made deterministic yet, remove it from the active suite rather than hiding it behind conditional skips.
+
+**Detection:**
+```bash
+rg -n "test\\.skip|describe\\.skip|\\.todo\\(" e2e tests
+```
+
+---
+
+### CP-077: Active E2E Specs Must Assert Behavior, Not Duplicate Page-Load Smoke Checks
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-20 |
+| **Source Bug** | The active suite carried extra “page loads” checks that consumed runtime but did not catch workflow regressions or state bugs |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+test('loads tournament settings page', async ({ page }) => {
+  await page.goto(`/tournaments/${tournamentId}/settings`);
+  await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+test('updates tournament basic information', async ({ page }) => {
+  await page.goto(`/tournaments/${tournamentId}/settings`);
+  await page.getByTestId('tournament-name').locator('input').fill('Updated Tournament Name');
+  await page.getByRole('button', { name: /save/i }).click();
+  await expect(page.getByText(/saved|success/i).first()).toBeVisible();
+});
+```
+
+**Rule:** Active Playwright specs should verify state changes, permissions, validations, or data flow. Remove duplicate heading-only or route-load checks when another active test already exercises the same page.
+
+**Detection:**
+```bash
+rg -n "should load .*page|should display .*tab|should load the .*route" e2e --glob '*.spec.ts'
+```
+
+---
+
+### CP-078: Vitest Must Bootstrap Browser Storage Before Import-Time Reads
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-20 |
+| **Source Bug** | Full Vitest release gate failed because modules reading `localStorage` at import time loaded before per-test stubs were installed |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const rail = ref(localStorage.getItem(RAIL_KEY) === 'true');
+```
+```typescript
+import AppLayout from '@/components/layout/AppLayout.vue';
+
+beforeEach(() => {
+  vi.stubGlobal('localStorage', {
+    getItem: vi.fn(() => null),
+  });
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+// vitest.config.ts
+test: {
+  environment: 'happy-dom',
+  setupFiles: ['tests/setup/browser-storage.ts'],
+}
+```
+```typescript
+// tests/setup/browser-storage.ts
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});
+```
+
+**Rule:** If production modules or tests touch `localStorage` or `sessionStorage` during import/setup time, Vitest must install a real Storage-like bootstrap in `setupFiles` before test files import those modules. Per-test stubs alone are too late for import-time reads.
+
+**Detection:**
+```bash
+rg -n "localStorage|getItem\\(|sessionStorage" src tests --glob "*.ts" --glob "*.vue"
+rg -n "setupFiles" vitest.config.ts
 ```
 
 ---

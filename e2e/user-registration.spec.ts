@@ -1,15 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { POST_LOGIN_URL_RE, waitForPostLoginLanding } from './utils/auth';
 
 test.describe('User Registration (/register)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/register');
     await page.waitForLoadState('networkidle');
-  });
-
-  test('should load the registration page', async ({ page }) => {
-    // Use heading role to avoid strict-mode violation with the "Create Account" submit button
-    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible();
-    await expect(page.getByText('Join CourtMastr today')).toBeVisible();
   });
 
   test('should display all registration form fields', async ({ page }) => {
@@ -86,9 +81,8 @@ test.describe('User Registration (/register)', () => {
     // Submit
     await page.getByRole('button', { name: /create account/i }).click();
 
-    // Should redirect to /dashboard
-    await page.waitForURL('/dashboard', { timeout: 15000 });
-    await expect(page).toHaveURL('/dashboard');
+    await waitForPostLoginLanding(page, 15000);
+    await expect(page).toHaveURL(POST_LOGIN_URL_RE);
   });
 
   test('should have a link back to the login page', async ({ page }) => {

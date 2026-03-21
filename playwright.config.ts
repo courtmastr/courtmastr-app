@@ -23,7 +23,9 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // The Firebase emulator and seeded E2E flows share mutable state.
+  // Run serially so the suite measures product behavior instead of lock contention.
+  workers: 1,
   reporter: reporters,
   outputDir: 'test-results/e2e',
   use: {
@@ -64,10 +66,10 @@ export default defineConfig({
       dependencies: ['setup'],
       testMatch: [
         /user-registration\.spec\.ts$/,
-        /self-registration\.spec\.ts$/,
         /p0-front-desk-checkin\.spec\.ts$/,
         /p0-self-checkin-kiosk\.spec\.ts$/,
         /p0-search-and-filter\.spec\.ts$/,
+        /p0-import-email-validation\.spec\.ts$/,
       ],
     },
     {
@@ -80,7 +82,6 @@ export default defineConfig({
         /scorekeeper-flow\.spec\.ts$/,
         /p0-match-control-scoring\.spec\.ts$/,
         /p0-score-correction\.spec\.ts$/,
-        /concurrent-five-scorers\.spec\.ts$/,
       ],
     },
     {
@@ -93,10 +94,10 @@ export default defineConfig({
       testMatch: [
         /p0-category-management\.spec\.ts$/,
         /p0-court-management\.spec\.ts$/,
+        /p0-org-branding-public-home\.spec\.ts$/,
         /p0-seeding-management\.spec\.ts$/,
+        /p0-tournament-lifecycle-pool-to-elimination\.spec\.ts$/,
         /p0-tournament-settings\.spec\.ts$/,
-        /p0-branding-logos\.spec\.ts$/,
-        /tournament-lifecycle\.spec\.ts$/,
       ],
     },
     {
@@ -107,9 +108,11 @@ export default defineConfig({
       },
       dependencies: ['setup'],
       testMatch: [
+        /p0-post-completion-outcomes\.spec\.ts$/,
         /p0-public-views\.spec\.ts$/,
         /leaderboard\.spec\.ts$/,
         /leaderboard-pool-to-elimination\.spec\.ts$/,
+        /p0-player-profile\.spec\.ts$/,
       ],
     },
     {

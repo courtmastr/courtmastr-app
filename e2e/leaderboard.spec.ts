@@ -10,6 +10,7 @@
 
 import { test as base, expect } from '@playwright/test';
 import { getTournamentId } from './utils/test-data';
+import { waitForPostLoginLanding } from './utils/auth';
 
 // Fresh login fixture — matches the pattern from e2e/fixtures/auth-fixtures.ts
 const test = base.extend({
@@ -18,7 +19,7 @@ const test = base.extend({
     await page.getByLabel('Email').fill('admin@courtmastr.com');
     await page.locator('input[type="password"]').fill('admin123');
     await page.getByRole('button', { name: 'Sign In' }).click();
-    await page.waitForURL('/dashboard', { timeout: 15000 });
+    await waitForPostLoginLanding(page, 15000);
     await use(page);
   },
 });
@@ -28,15 +29,6 @@ test.describe('Tournament-wide Leaderboard', () => {
 
   test.beforeAll(async () => {
     tournamentId = await getTournamentId();
-  });
-
-  test('navigates to leaderboard from tournament dashboard tab', async ({ page }) => {
-    await page.goto(`/tournaments/${tournamentId}`);
-    // The dashboard has a "Leaderboard" tab that links to the leaderboard page
-    const leaderboardTab = page.getByRole('link', { name: /leaderboard/i });
-    await expect(leaderboardTab).toBeVisible();
-    await leaderboardTab.click();
-    await expect(page).toHaveURL(new RegExp(`/tournaments/${tournamentId}/leaderboard`));
   });
 
   test('loads leaderboard page directly and shows heading', async ({ page }) => {

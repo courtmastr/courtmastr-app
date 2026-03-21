@@ -61,7 +61,11 @@ function formatDate(date: Date): string {
         <div class="d-flex align-center justify-space-between">
           <div>
             <h1 class="text-h4 font-weight-bold d-flex align-center ga-2">
-              <v-icon :icon="NAVIGATION_ICONS.tournaments" size="26" color="primary" />
+              <v-icon
+                :icon="NAVIGATION_ICONS.tournaments"
+                size="26"
+                color="primary"
+              />
               Tournaments
             </h1>
             <p class="text-body-2 text-grey">

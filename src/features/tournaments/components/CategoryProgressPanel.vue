@@ -17,7 +17,10 @@ function colorForIndex(index: number): string {
 </script>
 
 <template>
-  <v-card class="category-progress-panel" variant="outlined">
+  <v-card
+    class="category-progress-panel"
+    variant="outlined"
+  >
     <div class="cp-header">
       <span class="cp-title">Category Progress</span>
     </div>

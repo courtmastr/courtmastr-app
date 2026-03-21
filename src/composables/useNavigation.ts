@@ -112,6 +112,12 @@ export function useNavigation() {
           icon: 'mdi-account-group',
           to: `/tournaments/${tournamentId}/participants`,
           allowed: isAdmin.value || isOrganizer.value,
+        },
+        {
+          title: 'Audit Log',
+          icon: 'mdi-clipboard-text-clock',
+          to: `/tournaments/${tournamentId}/audit`,
+          allowed: isAdmin.value || isOrganizer.value,
         }
       );
     }

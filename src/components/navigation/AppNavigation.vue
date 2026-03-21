@@ -52,6 +52,32 @@
       </template>
     </v-list-item>
 
+    <!-- Super Admin Identity Badge -->
+    <div
+      v-if="isWebAdmin && !rail"
+      class="super-admin-badge"
+    >
+      <v-icon
+        size="13"
+        color="#a855f7"
+      >
+        mdi-shield-crown
+      </v-icon>
+      <span class="super-admin-badge__label">Platform Admin</span>
+    </div>
+    <div
+      v-else-if="isWebAdmin && rail"
+      class="super-admin-badge super-admin-badge--rail"
+      title="Platform Admin"
+    >
+      <v-icon
+        size="16"
+        color="#a855f7"
+      >
+        mdi-shield-crown
+      </v-icon>
+    </div>
+
     <v-divider />
 
     <v-list
@@ -67,6 +93,35 @@
         rounded="lg"
         :ripple="false"
       />
+      <!-- Super Admin primary nav (no org context) -->
+      <template v-if="isSuperAdminMode">
+        <v-divider class="my-2" />
+        <v-list-item
+          to="/super/dashboard"
+          prepend-icon="mdi-view-dashboard-outline"
+          title="Platform Dashboard"
+          class="nav-item nav-item--super-admin"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          to="/super/orgs"
+          prepend-icon="mdi-domain"
+          title="All Organizations"
+          class="nav-item nav-item--super-orgs"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          to="/admin/reviews"
+          :prepend-icon="NAVIGATION_ICONS.reviewModeration"
+          title="Review Moderation"
+          class="nav-item nav-item--reviews"
+          rounded="lg"
+          :ripple="false"
+        />
+      </template>
+
       <template v-if="showOrgNav">
         <v-list-item
           to="/tournaments"
@@ -104,16 +159,16 @@
           :ripple="false"
         />
       </template>
-      <v-list-item
-        v-if="isWebAdmin"
-        to="/admin/reviews"
-        :prepend-icon="NAVIGATION_ICONS.reviewModeration"
-        title="Review Moderation"
-        class="nav-item nav-item--reviews"
-        rounded="lg"
-        :ripple="false"
-      />
-      <template v-if="isWebAdmin">
+      <!-- While impersonating an org: show review moderation + escape back to super dashboard -->
+      <template v-if="isWebAdmin && superAdminStore.isImpersonating">
+        <v-list-item
+          to="/admin/reviews"
+          :prepend-icon="NAVIGATION_ICONS.reviewModeration"
+          title="Review Moderation"
+          class="nav-item nav-item--reviews"
+          rounded="lg"
+          :ripple="false"
+        />
         <v-divider class="my-2" />
         <v-list-item
           to="/super/dashboard"
@@ -379,6 +434,7 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useTournamentStore } from '@/stores/tournaments';
+import { useSuperAdminStore } from '@/stores/superAdmin';
 import { useNavigationState } from '@/composables/useNavigationState';
 import BrandLogo from '@/components/common/BrandLogo.vue';
 import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
@@ -389,12 +445,20 @@ const { rail, sections, collapseToRail, expandFromRail, toggleSection } = useNav
 
 const authStore = useAuthStore();
 const tournamentStore = useTournamentStore();
+const superAdminStore = useSuperAdminStore();
 const route = useRoute();
 const router = useRouter();
 
 const isOrganizer = computed(() => authStore.isOrganizer);
 const isWebAdmin = computed(() => authStore.isSuperAdmin);
-const showOrgNav = computed(() => !route.path.startsWith('/super'));
+
+// Pure super-admin mode: web admin who is NOT currently impersonating an org
+const isSuperAdminMode = computed(() => isWebAdmin.value && !superAdminStore.isImpersonating);
+
+// Hide org-level nav items when super admin hasn't entered an org context
+const showOrgNav = computed(() =>
+  !route.path.startsWith('/super') && (!isWebAdmin.value || superAdminStore.isImpersonating)
+);
 const categories = computed(() => tournamentStore.categories);
 const currentTournamentId = computed(() => {
   const routeParams = route.params;
@@ -652,6 +716,49 @@ async function handleLogout(): Promise<void> {
   --cm-active-bg-soft: rgba(222, 79, 79, 0.08);
   --cm-shadow: rgba(222, 79, 79, 0.3);
   --cm-shadow-strong: rgba(222, 79, 79, 0.39);
+}
+
+// Super Admin identity badge
+.super-admin-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 16px 6px;
+  background: rgba(168, 85, 247, 0.08);
+  border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+
+  &__label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #a855f7;
+  }
+
+  &--rail {
+    justify-content: center;
+    padding: 6px 0;
+  }
+}
+
+.nav-item--super-admin {
+  --cm-icon-start: #c084fc;
+  --cm-icon-end: #9333ea;
+  --cm-accent: #7e22ce;
+  --cm-active-bg: rgba(147, 51, 234, 0.18);
+  --cm-active-bg-soft: rgba(147, 51, 234, 0.07);
+  --cm-shadow: rgba(147, 51, 234, 0.26);
+  --cm-shadow-strong: rgba(147, 51, 234, 0.36);
+}
+
+.nav-item--super-orgs {
+  --cm-icon-start: #d8b4fe;
+  --cm-icon-end: #a855f7;
+  --cm-accent: #9333ea;
+  --cm-active-bg: rgba(168, 85, 247, 0.18);
+  --cm-active-bg-soft: rgba(168, 85, 247, 0.07);
+  --cm-shadow: rgba(168, 85, 247, 0.26);
+  --cm-shadow-strong: rgba(168, 85, 247, 0.36);
 }
 
 // Collapsible section headers

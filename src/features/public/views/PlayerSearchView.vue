@@ -40,26 +40,44 @@ const initials = (p: GlobalPlayer) =>
         style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#1D4ED8,#D97706);
                display:flex;align-items:center;justify-content:center;color:white;flex-shrink:0;"
       >
-        <v-icon size="22">mdi-account-search</v-icon>
+        <v-icon size="22">
+          mdi-account-search
+        </v-icon>
       </div>
       <div>
-        <div style="font-size:18px;font-weight:800;color:white;">Find a Player</div>
-        <div style="font-size:12px;color:#64748b;">Search the global player registry</div>
+        <div style="font-size:18px;font-weight:800;color:white;">
+          Find a Player
+        </div>
+        <div style="font-size:12px;color:#64748b;">
+          Search the global player registry
+        </div>
       </div>
     </div>
     <!-- Stats bar -->
     <div style="background:#1E293B;border-radius:10px 10px 0 0;display:grid;grid-template-columns:repeat(3,1fr);">
       <div style="padding:12px;text-align:center;border-right:1px solid #334155;">
-        <div style="font-size:22px;font-weight:800;color:#F59E0B;">{{ playersStore.players.length }}</div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Total</div>
+        <div style="font-size:22px;font-weight:800;color:#F59E0B;">
+          {{ playersStore.players.length }}
+        </div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+          Total
+        </div>
       </div>
       <div style="padding:12px;text-align:center;border-right:1px solid #334155;">
-        <div style="font-size:22px;font-weight:800;color:#F59E0B;">{{ playersStore.players.filter(p => p.isActive).length }}</div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Active</div>
+        <div style="font-size:22px;font-weight:800;color:#F59E0B;">
+          {{ playersStore.players.filter(p => p.isActive).length }}
+        </div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+          Active
+        </div>
       </div>
       <div style="padding:12px;text-align:center;">
-        <div style="font-size:22px;font-weight:800;color:#F59E0B;">{{ filteredPlayers.length }}</div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Matching</div>
+        <div style="font-size:22px;font-weight:800;color:#F59E0B;">
+          {{ filteredPlayers.length }}
+        </div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+          Matching
+        </div>
       </div>
     </div>
   </div>
@@ -74,13 +92,24 @@ const initials = (p: GlobalPlayer) =>
       class="mb-4"
     />
 
-    <v-progress-circular v-if="loading" indeterminate color="primary" class="d-block mx-auto my-8" />
+    <v-progress-circular
+      v-if="loading"
+      indeterminate
+      color="primary"
+      class="d-block mx-auto my-8"
+    />
 
-    <div v-else-if="filteredPlayers.length === 0 && search" class="text-center py-8 text-medium-emphasis">
+    <div
+      v-else-if="filteredPlayers.length === 0 && search"
+      class="text-center py-8 text-medium-emphasis"
+    >
       No players matching "{{ search }}".
     </div>
 
-    <div v-else-if="filteredPlayers.length === 0" class="text-center py-8 text-medium-emphasis">
+    <div
+      v-else-if="filteredPlayers.length === 0"
+      class="text-center py-8 text-medium-emphasis"
+    >
       No players registered yet.
     </div>
 
@@ -106,12 +135,25 @@ const initials = (p: GlobalPlayer) =>
           <div>
             <div style="font-size:14px;font-weight:600;color:#0F172A;">
               {{ player.firstName }} {{ player.lastName }}
-              <v-icon v-if="player.isVerified" size="14" color="success" class="ml-1">mdi-check-circle</v-icon>
+              <v-icon
+                v-if="player.isVerified"
+                size="14"
+                color="success"
+                class="ml-1"
+              >
+                mdi-check-circle
+              </v-icon>
             </div>
-            <div style="font-size:12px;color:#64748b;">{{ player.skillLevel ? `Skill: ${player.skillLevel}` : 'Player' }}</div>
+            <div style="font-size:12px;color:#64748b;">
+              {{ player.skillLevel ? `Skill: ${player.skillLevel}` : 'Player' }}
+            </div>
           </div>
         </div>
-        <v-chip size="small" :color="player.isActive ? 'success' : 'default'" label>
+        <v-chip
+          size="small"
+          :color="player.isActive ? 'success' : 'default'"
+          label
+        >
           {{ player.isActive ? 'Active' : 'Inactive' }}
         </v-chip>
       </div>

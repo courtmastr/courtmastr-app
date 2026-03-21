@@ -341,7 +341,9 @@ function handleExport() {
     <!-- Header band -->
     <div class="ec-header">
       <div class="ec-header__left">
-        <div class="ec-tournament-name">{{ tournament.name }}</div>
+        <div class="ec-tournament-name">
+          {{ tournament.name }}
+        </div>
         <div class="ec-tournament-meta">
           <span v-if="tournament.startDate">{{ formatDate(tournament.startDate) }}</span>
           <template v-if="tournament.location">
@@ -495,6 +497,18 @@ function handleExport() {
                 />
               </template>
             </v-list-item>
+            <v-list-item
+              :to="`/tournaments/${tournamentId}/audit`"
+              title="Audit Log"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-clipboard-text-clock"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
             <v-divider class="my-1" />
             <v-list-item
               title="Delete Tournament"
@@ -530,22 +544,36 @@ function handleExport() {
       </template>
       <template v-else>
         <div class="ec-stat">
-          <div class="ec-stat__number">{{ stats.approvedRegistrations }}</div>
-          <div class="ec-stat__label">Players</div>
+          <div class="ec-stat__number">
+            {{ stats.approvedRegistrations }}
+          </div>
+          <div class="ec-stat__label">
+            Players
+          </div>
         </div>
         <div class="ec-stat ec-stat--orange">
-          <div class="ec-stat__number">{{ stats.inProgressMatches }}</div>
-          <div class="ec-stat__label">Live Now</div>
+          <div class="ec-stat__number">
+            {{ stats.inProgressMatches }}
+          </div>
+          <div class="ec-stat__label">
+            Live Now
+          </div>
         </div>
         <div class="ec-stat ec-stat--green">
           <div class="ec-stat__number">
             {{ stats.progress }}<span class="ec-stat__unit">%</span>
           </div>
-          <div class="ec-stat__label">Complete</div>
+          <div class="ec-stat__label">
+            Complete
+          </div>
         </div>
         <div class="ec-stat ec-stat--purple">
-          <div class="ec-stat__number">{{ queueMatches.length }}</div>
-          <div class="ec-stat__label">In Queue</div>
+          <div class="ec-stat__number">
+            {{ queueMatches.length }}
+          </div>
+          <div class="ec-stat__label">
+            In Queue
+          </div>
         </div>
       </template>
     </div>
@@ -553,7 +581,9 @@ function handleExport() {
     <!-- Status + CTA bar -->
     <div class="ec-status-bar">
       <div>
-        <div class="ec-status-bar__eyebrow">Tournament Status</div>
+        <div class="ec-status-bar__eyebrow">
+          Tournament Status
+        </div>
         <div class="ec-status-bar__text">
           <span
             class="ec-status-dot"

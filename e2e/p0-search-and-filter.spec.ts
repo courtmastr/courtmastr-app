@@ -13,21 +13,6 @@ test.describe('P0 - Search and Filter', () => {
     await page.waitForSelector('text=Tournaments', { timeout: 10000 });
   });
 
-  test.describe('Global Search', () => {
-    test.skip('should display global search', async ({ page }) => {
-      const searchInput = page.locator('input[placeholder*="search" i]').or(page.getByPlaceholder(/search/i));
-      await expect(searchInput).toBeVisible();
-    });
-
-    test.skip('should search tournaments by name', async ({ page }) => {
-      const searchInput = page.locator('input[placeholder*="search" i]').or(page.getByPlaceholder(/search/i));
-      await searchInput.fill('E2E Test');
-      await page.waitForTimeout(500);
-
-      await expect(page.getByText(/E2E Test Tournament/i).first()).toBeVisible();
-    });
-  });
-
   test.describe('Registration Filters', () => {
     test.beforeEach(async ({ page }) => {
       await page.goto(`/tournaments/${tournamentId}/registrations`);

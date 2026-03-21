@@ -42,6 +42,8 @@ export interface CategoryRef {
 interface RegistrationSeed {
   id: string;
   seed: number | null;
+  playerId?: string;
+  partnerPlayerId?: string;
 }
 
 interface PlayerName {
@@ -378,7 +380,7 @@ export async function createPlayersAndRegistrations(
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    push(doublesCategory.id, { id: ref.id, seed: i + 1 });
+    push(doublesCategory.id, { id: ref.id, seed: i + 1, playerId, partnerPlayerId });
   }
 
   // Mixed Doubles
@@ -503,7 +505,7 @@ export async function completePoolMatches(
   categoryId: string,
   poolStageId: number,
   registrationSeeds: RegistrationSeed[]
-): Promise<number> {
+): Promise<{ completed: number; globalStats: Map<string, { wins: number; losses: number }> }> {
   const storage = new ClientFirestoreStorage(db, `tournaments/${tournamentId}/categories/${categoryId}`);
   const matchesRaw = await storage.select<StoredMatch>('match', { stage_id: poolStageId });
   const participantsRaw = await storage.select<StoredParticipant>('participant');
@@ -516,9 +518,21 @@ export async function completePoolMatches(
   );
   const seedByRegId = new Map<string, number>(
     registrationSeeds
-      .filter((r): r is { id: string; seed: number } => r.seed !== null)
+      .filter((r): r is { id: string; seed: number; playerId?: string; partnerPlayerId?: string } => r.seed !== null)
       .map((r) => [r.id, r.seed])
   );
+  const playersByRegId = new Map<string, { playerId: string; partnerPlayerId?: string }>(
+    registrationSeeds
+      .filter((r): r is RegistrationSeed & { playerId: string } => !!r.playerId)
+      .map((r) => [r.id, { playerId: r.playerId!, partnerPlayerId: r.partnerPlayerId }])
+  );
+
+  const globalStats = new Map<string, { wins: number; losses: number }>();
+  const trackStat = (globalId: string, won: boolean): void => {
+    const s = globalStats.get(globalId) ?? { wins: 0, losses: 0 };
+    if (won) s.wins += 1; else s.losses += 1;
+    globalStats.set(globalId, s);
+  };
 
   let completed = 0;
 
@@ -543,6 +557,8 @@ export async function completePoolMatches(
       {
         tournamentId,
         status: 'completed', winnerId,
+        participant1Id: reg1,
+        participant2Id: reg2,
         scores: [{
           gameNumber: 1,
           score1: winnerIsP1 ? 21 : loserScore,
@@ -565,6 +581,18 @@ export async function completePoolMatches(
       { merge: true }
     );
 
+    // Accumulate wins/losses per globalPlayerId (both primary and partner)
+    const info1 = playersByRegId.get(reg1);
+    const info2 = playersByRegId.get(reg2);
+    if (info1) {
+      trackStat(info1.playerId, winnerIsP1);
+      if (info1.partnerPlayerId) trackStat(info1.partnerPlayerId, winnerIsP1);
+    }
+    if (info2) {
+      trackStat(info2.playerId, !winnerIsP1);
+      if (info2.partnerPlayerId) trackStat(info2.partnerPlayerId, !winnerIsP1);
+    }
+
     completed += 1;
   }
 
@@ -574,7 +602,7 @@ export async function completePoolMatches(
     { merge: true }
   );
 
-  return completed;
+  return { completed, globalStats };
 }
 
 // ─── Main orchestration (env-agnostic) ────────────────────────────────────────
@@ -609,7 +637,7 @@ export async function runSeed(db: Firestore, adminId: string, orgId?: string): P
   console.log("\n[7] Completing all Men's Doubles pool matches...");
   if (!doublesCategoryId || doublesStageId === null) throw new Error("Men's Doubles pool stage not found");
 
-  const completedCount = await completePoolMatches(
+  const { completed: completedCount, globalStats } = await completePoolMatches(
     db,
     tournamentId,
     doublesCategoryId,
@@ -617,6 +645,34 @@ export async function runSeed(db: Firestore, adminId: string, orgId?: string): P
     registrationsByCategory.get(doublesCategoryId) ?? []
   );
   console.log(`  Completed ${completedCount} pool matches`);
+
+  console.log('\n[8] Seeding GlobalPlayer match stats...');
+  for (const [globalPlayerId, stats] of globalStats) {
+    await setDoc(
+      doc(db, 'players', globalPlayerId),
+      {
+        stats: {
+          overall: {
+            wins: stats.wins,
+            losses: stats.losses,
+            gamesPlayed: stats.wins + stats.losses,
+            tournamentsPlayed: 1,
+          },
+          badminton: {
+            doubles: {
+              wins: stats.wins,
+              losses: stats.losses,
+              gamesPlayed: stats.wins + stats.losses,
+              tournamentsPlayed: 1,
+            },
+          },
+        },
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+  console.log(`  Updated stats for ${globalStats.size} players`);
 
   console.log('\n' + '='.repeat(64));
   console.log('  Seed completed successfully');

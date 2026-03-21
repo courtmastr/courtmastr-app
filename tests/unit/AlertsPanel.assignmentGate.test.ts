@@ -17,12 +17,13 @@ vi.mock('@/composables/useDurationFormatter', () => ({
 interface AlertsPanelVm {
   alerts: Array<{
     type: string;
+    title: string;
     message: string;
   }>;
   handleAlertClick: (alert: { type: string; message: string }) => void;
 }
 
-const mountPanel = () =>
+const mountPanel = (recentAutoAssignDecision?: { title: string; message: string; severity: 'info' | 'warning' }) =>
   shallowMount(AlertsPanel, {
     props: {
       courts: [],
@@ -33,6 +34,7 @@ const mountPanel = () =>
         blockedBySchedule: 1,
         blockedByPublish: 1,
       },
+      recentAutoAssignDecision,
       getCategoryName: () => 'Category',
     },
     global: {
@@ -72,5 +74,20 @@ describe('AlertsPanel assignment gate alerts', () => {
 
     expect(wrapper.emitted('goToCheckIn')).toBeTruthy();
     expect(wrapper.emitted('goToCheckIn')?.length).toBe(1);
+  });
+
+  it('prepends the latest auto-assign decision as an organizer-visible alert', () => {
+    const wrapper = mountPanel({
+      title: 'Auto-assign skipped blocked match',
+      message: 'Skipped MD #2: Waiting for check-in. Auto-assigned MD #3 to Court 1.',
+      severity: 'warning',
+    });
+    const vm = wrapper.vm as unknown as AlertsPanelVm;
+
+    expect(vm.alerts[0]).toMatchObject({
+      type: 'auto_assign_decision',
+      title: 'Auto-assign skipped blocked match',
+      message: 'Skipped MD #2: Waiting for check-in. Auto-assigned MD #3 to Court 1.',
+    });
   });
 });

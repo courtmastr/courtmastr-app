@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { usePlayersStore } from '@/stores/players';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
+import { usePlayerMatchHistory } from '@/composables/usePlayerMatchHistory';
 import type { GlobalPlayer, PlayerStats } from '@/types';
 
 const route = useRoute();
@@ -12,6 +13,7 @@ const player = ref<GlobalPlayer | null>(null);
 const activeSportTab = ref<string>('overall');
 
 const { execute, loading } = useAsyncOperation();
+const { history, loading: historyLoading, loadHistory } = usePlayerMatchHistory();
 
 function load() {
   return execute(async () => {
@@ -22,6 +24,8 @@ function load() {
       const sports = Object.keys(player.value.stats).filter((k) => k !== 'overall');
       if (sports.length > 0) activeSportTab.value = sports[0];
     }
+    // Load match history in parallel (non-blocking for the profile header)
+    loadHistory(id);
   });
 }
 
@@ -71,18 +75,45 @@ const categoryColor = (label: string): string => {
   return map[label.toLowerCase()] ?? '#94A3B8';
 };
 
+function formatScores(scores: Array<{ score1: number; score2: number }>): string {
+  return scores.map((s) => `${s.score1}-${s.score2}`).join(', ');
+}
+
 onMounted(load);
 </script>
 
 <template>
-  <v-container v-if="loading" class="d-flex justify-center pa-8">
-    <v-progress-circular indeterminate color="primary" />
+  <v-container
+    v-if="loading"
+    class="d-flex justify-center pa-8"
+  >
+    <v-progress-circular
+      indeterminate
+      color="primary"
+    />
   </v-container>
 
-  <v-container v-else-if="!player" class="text-center pa-8">
-    <v-icon size="48" color="grey-lighten-1" class="mb-4">mdi-account-off-outline</v-icon>
-    <p class="text-body-1 text-medium-emphasis">Player not found.</p>
-    <v-btn :to="'/players'" variant="text" class="mt-2">Back to Players</v-btn>
+  <v-container
+    v-else-if="!player"
+    class="text-center pa-8"
+  >
+    <v-icon
+      size="48"
+      color="grey-lighten-1"
+      class="mb-4"
+    >
+      mdi-account-off-outline
+    </v-icon>
+    <p class="text-body-1 text-medium-emphasis">
+      Player not found.
+    </p>
+    <v-btn
+      :to="'/players'"
+      variant="text"
+      class="mt-2"
+    >
+      Back to Players
+    </v-btn>
   </v-container>
 
   <template v-else>
@@ -98,10 +129,23 @@ onMounted(load);
         <div>
           <div class="d-flex align-center ga-2">
             <span style="font-size:20px;font-weight:800;color:white;">{{ player.firstName }} {{ player.lastName }}</span>
-            <v-icon v-if="player.isVerified" color="success" size="18">mdi-check-circle</v-icon>
+            <v-icon
+              v-if="player.isVerified"
+              color="success"
+              size="18"
+            >
+              mdi-check-circle
+            </v-icon>
           </div>
           <div class="d-flex align-center ga-2 mt-1">
-            <v-chip v-if="player.skillLevel" size="x-small" color="primary" label>Level {{ player.skillLevel }}</v-chip>
+            <v-chip
+              v-if="player.skillLevel"
+              size="x-small"
+              color="primary"
+              label
+            >
+              Level {{ player.skillLevel }}
+            </v-chip>
             <span style="font-size:12px;color:#64748b;">Member since {{ player.createdAt?.toLocaleDateString?.() ?? '—' }}</span>
           </div>
         </div>
@@ -110,34 +154,61 @@ onMounted(load);
       <!-- Overall stats bar -->
       <div style="background:#1E293B;border-radius:10px 10px 0 0;display:grid;grid-template-columns:repeat(4,1fr);">
         <div style="padding:12px;text-align:center;border-right:1px solid #334155;">
-          <div style="font-size:20px;font-weight:800;color:#F59E0B;">{{ overallStats.wins }}</div>
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Wins</div>
+          <div style="font-size:20px;font-weight:800;color:#F59E0B;">
+            {{ overallStats.wins }}
+          </div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+            Wins
+          </div>
         </div>
         <div style="padding:12px;text-align:center;border-right:1px solid #334155;">
-          <div style="font-size:20px;font-weight:800;color:#F59E0B;">{{ overallStats.losses }}</div>
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Losses</div>
+          <div style="font-size:20px;font-weight:800;color:#F59E0B;">
+            {{ overallStats.losses }}
+          </div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+            Losses
+          </div>
         </div>
         <div style="padding:12px;text-align:center;border-right:1px solid #334155;">
-          <div style="font-size:20px;font-weight:800;color:#F59E0B;">{{ overallStats.tournamentsPlayed }}</div>
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Tournaments</div>
+          <div style="font-size:20px;font-weight:800;color:#F59E0B;">
+            {{ overallStats.tournamentsPlayed }}
+          </div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+            Tournaments
+          </div>
         </div>
         <div style="padding:12px;text-align:center;">
-          <div style="font-size:20px;font-weight:800;color:#F59E0B;">{{ winRate(overallStats.wins, overallStats.losses) }}%</div>
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Win Rate</div>
+          <div style="font-size:20px;font-weight:800;color:#F59E0B;">
+            {{ winRate(overallStats.wins, overallStats.losses) }}%
+          </div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+            Win Rate
+          </div>
         </div>
       </div>
     </div>
 
     <v-container class="pa-4">
       <!-- No sport data yet -->
-      <div v-if="sportTabs.length === 0" class="text-center py-6 text-medium-emphasis">
-        <v-icon size="32" class="mb-2">mdi-chart-bar</v-icon>
+      <div
+        v-if="sportTabs.length === 0"
+        class="text-center py-6 text-medium-emphasis"
+      >
+        <v-icon
+          size="32"
+          class="mb-2"
+        >
+          mdi-chart-bar
+        </v-icon>
         <p>No stats yet. Stats are computed after tournament completion.</p>
       </div>
 
       <template v-else>
         <!-- Sport tabs -->
-        <v-tabs v-model="activeSportTab" class="mb-4">
+        <v-tabs
+          v-model="activeSportTab"
+          class="mb-4"
+        >
           <v-tab
             v-for="sport in sportTabs"
             :key="sport"
@@ -149,7 +220,11 @@ onMounted(load);
 
         <!-- Stat cards grid for active sport -->
         <v-window v-model="activeSportTab">
-          <v-window-item v-for="sport in sportTabs" :key="sport" :value="sport">
+          <v-window-item
+            v-for="sport in sportTabs"
+            :key="sport"
+            :value="sport"
+          >
             <v-row>
               <v-col
                 v-for="{ label, stats } in categoryStats(sport)"
@@ -185,6 +260,119 @@ onMounted(load);
           </v-window-item>
         </v-window>
       </template>
+
+      <!-- Match History section -->
+      <div class="mt-6">
+        <div class="d-flex align-center ga-2 mb-3">
+          <v-icon color="primary">mdi-history</v-icon>
+          <span style="font-size:16px;font-weight:700;">Match History</span>
+        </div>
+
+        <v-progress-circular
+          v-if="historyLoading"
+          indeterminate
+          color="primary"
+          size="24"
+        />
+
+        <div
+          v-else-if="history.length === 0"
+          class="text-medium-emphasis text-body-2 py-4"
+          data-testid="match-history-empty"
+        >
+          No completed matches found.
+        </div>
+
+        <v-expansion-panels
+          v-else
+          variant="accordion"
+          data-testid="match-history-panels"
+        >
+          <v-expansion-panel
+            v-for="entry in history"
+            :key="entry.tournamentId + entry.categoryId"
+          >
+            <v-expansion-panel-title>
+              <div class="d-flex align-center ga-2 flex-wrap">
+                <span style="font-weight:600;">{{ entry.tournamentName }}</span>
+                <v-chip
+                  size="x-small"
+                  :color="entry.categoryType === 'singles' ? 'primary' : entry.categoryType === 'doubles' ? 'warning' : 'success'"
+                  label
+                >
+                  {{ entry.categoryName }}
+                </v-chip>
+                <span
+                  v-if="entry.sport"
+                  style="font-size:12px;color:#64748b;"
+                >
+                  {{ entry.sport }}
+                </span>
+                <span style="font-size:12px;color:#64748b;">
+                  · {{ entry.startDate?.toLocaleDateString?.() ?? '—' }}
+                </span>
+                <v-chip
+                  size="x-small"
+                  variant="outlined"
+                  color="grey"
+                >
+                  {{ entry.matches.length }} match{{ entry.matches.length !== 1 ? 'es' : '' }}
+                </v-chip>
+              </div>
+            </v-expansion-panel-title>
+
+            <v-expansion-panel-text>
+              <div
+                v-if="entry.matches.length === 0"
+                class="text-medium-emphasis text-body-2 py-2"
+              >
+                No completed matches in this tournament.
+              </div>
+
+              <div
+                v-for="match in entry.matches"
+                :key="match.matchId"
+                class="d-flex align-center ga-3 py-2"
+                style="border-bottom:1px solid #f1f5f9;"
+              >
+                <!-- W/L badge -->
+                <v-chip
+                  size="small"
+                  :color="match.result === 'win' ? 'success' : match.result === 'loss' ? 'error' : 'grey'"
+                  style="min-width:36px;justify-content:center;"
+                >
+                  {{ match.result === 'win' ? 'W' : match.result === 'loss' ? 'L' : 'WO' }}
+                </v-chip>
+
+                <!-- Opponent + partner -->
+                <div style="flex:1;">
+                  <div style="font-weight:500;font-size:14px;">vs {{ match.opponentName }}</div>
+                  <div
+                    v-if="match.partnerName"
+                    style="font-size:12px;color:#64748b;"
+                  >
+                    with {{ match.partnerName }}
+                  </div>
+                </div>
+
+                <!-- Score -->
+                <div
+                  v-if="match.scores.length > 0"
+                  style="font-size:13px;color:#475569;font-family:monospace;"
+                >
+                  {{ formatScores(match.scores) }}
+                </div>
+                <div
+                  v-else-if="match.result === 'walkover'"
+                  style="font-size:12px;color:#94a3b8;"
+                >
+                  walkover
+                </div>
+              </div>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+      </div>
     </v-container>
   </template>
 </template>

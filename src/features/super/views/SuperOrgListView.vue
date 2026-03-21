@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useSuperAdminStore } from '@/stores/superAdmin'
+import { useOrganizationsStore } from '@/stores/organizations'
 import type { Organization } from '@/types'
 
 const superAdminStore = useSuperAdminStore()
+const orgStore = useOrganizationsStore()
+const router = useRouter()
 
 const search = ref('')
 const statusFilter = ref<'all' | 'active' | 'suspended'>('all')
 const enteringOrgId = ref<string | null>(null)
+const viewingProfileOrgId = ref<string | null>(null)
 
 const filteredOrgs = computed(() => {
   return superAdminStore.allOrgs.filter((org) => {
@@ -37,13 +42,26 @@ async function handleEnter(org: Organization): Promise<void> {
   }
 }
 
+async function handleViewProfile(org: Organization): Promise<void> {
+  viewingProfileOrgId.value = org.id
+  try {
+    await orgStore.fetchOrgById(org.id)
+    router.push('/org/profile')
+  } finally {
+    viewingProfileOrgId.value = null
+  }
+}
+
 onMounted(() => {
   superAdminStore.fetchAllOrgs()
 })
 </script>
 
 <template>
-  <v-container fluid class="pa-6">
+  <v-container
+    fluid
+    class="pa-6"
+  >
     <div class="d-flex align-center mb-6">
       <v-btn
         icon="mdi-arrow-left"
@@ -51,17 +69,31 @@ onMounted(() => {
         class="mr-2"
         to="/super/dashboard"
       />
-      <v-icon icon="mdi-domain" color="purple" class="mr-3" size="28" />
-      <h1 class="text-h5 font-weight-bold">All Organizations</h1>
+      <v-icon
+        icon="mdi-domain"
+        color="purple"
+        class="mr-3"
+        size="28"
+      />
+      <h1 class="text-h5 font-weight-bold">
+        All Organizations
+      </h1>
       <v-spacer />
-      <v-chip color="purple" variant="tonal" size="small">
+      <v-chip
+        color="purple"
+        variant="tonal"
+        size="small"
+      >
         {{ filteredOrgs.length }} orgs
       </v-chip>
     </div>
 
     <!-- Filters -->
     <v-row class="mb-4">
-      <v-col cols="12" sm="8">
+      <v-col
+        cols="12"
+        sm="8"
+      >
         <v-text-field
           v-model="search"
           placeholder="Search organizations..."
@@ -72,7 +104,10 @@ onMounted(() => {
           clearable
         />
       </v-col>
-      <v-col cols="12" sm="4">
+      <v-col
+        cols="12"
+        sm="4"
+      >
         <v-select
           v-model="statusFilter"
           :items="[
@@ -88,26 +123,42 @@ onMounted(() => {
     </v-row>
 
     <!-- Loading -->
-    <div v-if="superAdminStore.loading" class="text-center py-8">
-      <v-progress-circular indeterminate color="purple" />
+    <div
+      v-if="superAdminStore.loading"
+      class="text-center py-8"
+    >
+      <v-progress-circular
+        indeterminate
+        color="purple"
+      />
     </div>
 
     <!-- Table -->
-    <v-card v-else rounded="lg">
+    <v-card
+      v-else
+      rounded="lg"
+    >
       <v-table>
         <thead>
           <tr>
             <th>Organization</th>
             <th>Status</th>
             <th>Created</th>
-            <th></th>
+            <th />
           </tr>
         </thead>
         <tbody>
-          <tr v-for="org in filteredOrgs" :key="org.id">
+          <tr
+            v-for="org in filteredOrgs"
+            :key="org.id"
+          >
             <td>
-              <div class="font-weight-medium">{{ org.name }}</div>
-              <div class="text-caption text-medium-emphasis">{{ org.slug }}</div>
+              <div class="font-weight-medium">
+                {{ org.name }}
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                {{ org.slug }}
+              </div>
             </td>
             <td>
               <v-chip
@@ -122,20 +173,35 @@ onMounted(() => {
               {{ org.createdAt instanceof Date ? org.createdAt.toLocaleDateString() : '—' }}
             </td>
             <td>
-              <v-btn
-                size="small"
-                variant="flat"
-                color="purple"
-                :loading="enteringOrgId === org.id"
-                append-icon="mdi-arrow-right"
-                @click="handleEnter(org)"
-              >
-                Enter
-              </v-btn>
+              <div class="d-flex ga-2">
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  color="purple"
+                  :loading="viewingProfileOrgId === org.id"
+                  prepend-icon="mdi-pencil-outline"
+                  @click="handleViewProfile(org)"
+                >
+                  Profile
+                </v-btn>
+                <v-btn
+                  size="small"
+                  variant="flat"
+                  color="purple"
+                  :loading="enteringOrgId === org.id"
+                  append-icon="mdi-arrow-right"
+                  @click="handleEnter(org)"
+                >
+                  Enter
+                </v-btn>
+              </div>
             </td>
           </tr>
           <tr v-if="filteredOrgs.length === 0">
-            <td colspan="4" class="text-center text-medium-emphasis py-6">
+            <td
+              colspan="4"
+              class="text-center text-medium-emphasis py-6"
+            >
               No organizations found
             </td>
           </tr>

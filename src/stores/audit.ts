@@ -55,6 +55,9 @@ export interface AuditRecord {
   details: Record<string, unknown>;
   previousValues?: Record<string, unknown>;
   newValues?: Record<string, unknown>;
+  description?: string;
+  actorPhotoUrl?: string;
+  actorRole?: string;
   createdAt: Date;
 }
 
@@ -178,6 +181,7 @@ export const useAuditStore = defineStore('audit', () => {
       targetType?: AuditRecord['targetType'];
       previousValues?: Record<string, unknown>;
       newValues?: Record<string, unknown>;
+      description?: string;
     } = {}
   ): Promise<string> {
     const authStore = useAuthStore();
@@ -198,11 +202,14 @@ export const useAuditStore = defineStore('audit', () => {
           actorId: firebaseUser.uid,
           actorEmail: actor.email || 'unknown',
           actorName: actor.displayName || actor.email || 'Unknown User',
+          actorPhotoUrl: actor.photoUrl || null,
+          actorRole: actor.role || 'organizer',
           targetId: options.targetId || null,
           targetType: options.targetType || null,
           details,
           previousValues: options.previousValues || null,
           newValues: options.newValues || null,
+          description: options.description || null,
           createdAt: serverTimestamp(),
         }
       );
@@ -416,7 +423,8 @@ export const useAuditStore = defineStore('audit', () => {
     participant2Name: string,
     previousScore: string,
     newScore: string,
-    reason?: string
+    reason?: string,
+    correctionType?: 'manual' | 'correction'
   ): Promise<void> {
     await logAudit(
       tournamentId,
@@ -425,6 +433,7 @@ export const useAuditStore = defineStore('audit', () => {
         participant1Name,
         participant2Name,
         reason,
+        correctionType,
       },
       {
         targetId: matchId,

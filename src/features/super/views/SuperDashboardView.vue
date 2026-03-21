@@ -31,10 +31,20 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-container fluid class="pa-6">
+  <v-container
+    fluid
+    class="pa-6"
+  >
     <div class="d-flex align-center mb-6">
-      <v-icon icon="mdi-shield-crown" color="purple" class="mr-3" size="28" />
-      <h1 class="text-h5 font-weight-bold">Platform Admin</h1>
+      <v-icon
+        icon="mdi-shield-crown"
+        color="purple"
+        class="mr-3"
+        size="28"
+      />
+      <h1 class="text-h5 font-weight-bold">
+        Platform Admin
+      </h1>
     </div>
 
     <!-- Stat tiles -->
@@ -46,12 +56,24 @@ onMounted(async () => {
         sm="6"
         lg="3"
       >
-        <v-card rounded="lg" variant="tonal">
+        <v-card
+          rounded="lg"
+          variant="tonal"
+        >
           <v-card-text class="d-flex align-center pa-5">
-            <v-icon :icon="tile.icon" color="purple" size="36" class="mr-4" />
+            <v-icon
+              :icon="tile.icon"
+              color="purple"
+              size="36"
+              class="mr-4"
+            />
             <div>
-              <div class="text-h4 font-weight-bold">{{ tile.value }}</div>
-              <div class="text-caption text-medium-emphasis">{{ tile.label }}</div>
+              <div class="text-h4 font-weight-bold">
+                {{ tile.value }}
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                {{ tile.label }}
+              </div>
             </div>
           </v-card-text>
         </v-card>
@@ -60,7 +82,10 @@ onMounted(async () => {
 
     <v-row>
       <!-- Recent orgs -->
-      <v-col cols="12" md="6">
+      <v-col
+        cols="12"
+        md="6"
+      >
         <v-card rounded="lg">
           <v-card-title class="text-subtitle-1 font-weight-semibold pa-4 pb-2">
             Recent Organizations
@@ -84,11 +109,18 @@ onMounted(async () => {
               </template>
             </v-list-item>
             <v-list-item v-if="recentOrgs.length === 0">
-              <v-list-item-title class="text-medium-emphasis">No organizations yet</v-list-item-title>
+              <v-list-item-title class="text-medium-emphasis">
+                No organizations yet
+              </v-list-item-title>
             </v-list-item>
           </v-list>
           <v-card-actions>
-            <v-btn variant="text" color="purple" to="/super/orgs" size="small">
+            <v-btn
+              variant="text"
+              color="purple"
+              to="/super/orgs"
+              size="small"
+            >
               View all orgs →
             </v-btn>
           </v-card-actions>
@@ -96,7 +128,10 @@ onMounted(async () => {
       </v-col>
 
       <!-- Quick actions -->
-      <v-col cols="12" md="6">
+      <v-col
+        cols="12"
+        md="6"
+      >
         <v-card rounded="lg">
           <v-card-title class="text-subtitle-1 font-weight-semibold pa-4 pb-2">
             Quick Actions

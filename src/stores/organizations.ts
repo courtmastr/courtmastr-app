@@ -17,8 +17,9 @@ import {
   serverTimestamp,
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
-import type { Organization, OrganizationMember, Tournament } from '@/types';
+import type { Organization, OrganizationMember, OrgSponsor, Tournament } from '@/types';
 import { useAuthStore } from '@/stores/auth';
+import { uploadOrgSponsorLogo, deleteOrgBrandingAsset } from '@/services/orgBrandingStorage';
 
 export const useOrganizationsStore = defineStore('organizations', () => {
   const myOrgs = ref<Organization[]>([]);
@@ -183,6 +184,55 @@ export const useOrganizationsStore = defineStore('organizations', () => {
     }
   };
 
+  const addOrgSponsor = async (
+    orgId: string,
+    sponsorData: { name: string; website?: string },
+    logoFile: File
+  ): Promise<void> => {
+    const org = currentOrg.value;
+    if (!org) throw new Error('No current org');
+
+    const sponsorId = `sponsor_${Date.now()}`;
+    const { downloadUrl, storagePath } = await uploadOrgSponsorLogo(orgId, sponsorId, logoFile);
+
+    const existing = org.sponsors ?? [];
+    const newSponsor: OrgSponsor = {
+      id: sponsorId,
+      name: sponsorData.name,
+      website: sponsorData.website,
+      logoUrl: downloadUrl,
+      logoPath: storagePath,
+      displayOrder: existing.length,
+    };
+
+    await updateOrg(orgId, { sponsors: [...existing, newSponsor] });
+  };
+
+  const removeOrgSponsor = async (orgId: string, sponsorId: string): Promise<void> => {
+    const org = currentOrg.value;
+    if (!org) throw new Error('No current org');
+
+    const existing = org.sponsors ?? [];
+    const target = existing.find((s) => s.id === sponsorId);
+
+    const updated = existing
+      .filter((s) => s.id !== sponsorId)
+      .map((s, i) => ({ ...s, displayOrder: i }));
+
+    await updateOrg(orgId, { sponsors: updated });
+
+    if (target?.logoPath) {
+      await deleteOrgBrandingAsset(target.logoPath).catch(() => {
+        // Non-fatal: storage cleanup can fail silently
+      });
+    }
+  };
+
+  const reorderOrgSponsors = async (orgId: string, sponsors: OrgSponsor[]): Promise<void> => {
+    const reordered = sponsors.map((s, i) => ({ ...s, displayOrder: i }));
+    await updateOrg(orgId, { sponsors: reordered });
+  };
+
   const addOrgMember = async (orgId: string, memberUid: string, role: string): Promise<void> => {
     try {
       const memberRef = doc(db, `organizations/${orgId}/members`, memberUid);
@@ -213,5 +263,8 @@ export const useOrganizationsStore = defineStore('organizations', () => {
     fetchOrgTournaments,
     fetchOrgMembers,
     addOrgMember,
+    addOrgSponsor,
+    removeOrgSponsor,
+    reorderOrgSponsors,
   };
 });

@@ -56,11 +56,20 @@ onMounted(load);
         style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#1D4ED8,#D97706);
                display:flex;align-items:center;justify-content:center;color:white;flex-shrink:0;"
       >
-        <v-icon size="22">mdi-account-group</v-icon>
+        <v-icon size="22">
+          mdi-account-group
+        </v-icon>
       </div>
       <div>
-        <div style="font-size:18px;font-weight:800;color:white;">Players</div>
-        <div style="font-size:12px;color:#64748b;">Global player registry</div>
+        <div
+          data-testid="players-page-title"
+          style="font-size:18px;font-weight:800;color:white;"
+        >
+          Players
+        </div>
+        <div style="font-size:12px;color:#64748b;">
+          Global player registry
+        </div>
       </div>
     </div>
     <!-- Stats bar -->
@@ -68,16 +77,28 @@ onMounted(load);
       style="background:#1E293B;border-radius:10px 10px 0 0;display:grid;grid-template-columns:repeat(3,1fr);"
     >
       <div style="padding:12px;text-align:center;border-right:1px solid #334155;">
-        <div style="font-size:22px;font-weight:800;color:#F59E0B;">{{ playersStore.players.length }}</div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Total</div>
+        <div style="font-size:22px;font-weight:800;color:#F59E0B;">
+          {{ playersStore.players.length }}
+        </div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+          Total
+        </div>
       </div>
       <div style="padding:12px;text-align:center;border-right:1px solid #334155;">
-        <div style="font-size:22px;font-weight:800;color:#F59E0B;">{{ playersStore.players.filter(p => p.isActive).length }}</div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Active</div>
+        <div style="font-size:22px;font-weight:800;color:#F59E0B;">
+          {{ playersStore.players.filter(p => p.isActive).length }}
+        </div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+          Active
+        </div>
       </div>
       <div style="padding:12px;text-align:center;">
-        <div style="font-size:22px;font-weight:800;color:#F59E0B;">{{ playersStore.players.filter(p => p.isVerified).length }}</div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Verified</div>
+        <div style="font-size:22px;font-weight:800;color:#F59E0B;">
+          {{ playersStore.players.filter(p => p.isVerified).length }}
+        </div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">
+          Verified
+        </div>
       </div>
     </div>
   </div>
@@ -91,9 +112,17 @@ onMounted(load);
       class="mb-4"
     />
 
-    <v-progress-circular v-if="loading" indeterminate color="primary" class="d-block mx-auto my-8" />
+    <v-progress-circular
+      v-if="loading"
+      indeterminate
+      color="primary"
+      class="d-block mx-auto my-8"
+    />
 
-    <div v-else-if="filteredPlayers.length === 0" class="text-center py-8 text-medium-emphasis">
+    <div
+      v-else-if="filteredPlayers.length === 0"
+      class="text-center py-8 text-medium-emphasis"
+    >
       No players found.
     </div>
 
@@ -101,6 +130,7 @@ onMounted(load);
       <div
         v-for="player in filteredPlayers"
         :key="player.id"
+        data-testid="player-list-card"
         style="background:white;border-left:3px solid #1D4ED8;border-radius:0 8px 8px 0;
                padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;
                justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.05);cursor:pointer;"
@@ -116,17 +146,38 @@ onMounted(load);
           <div>
             <div style="font-size:14px;font-weight:600;color:#0F172A;">
               {{ player.firstName }} {{ player.lastName }}
-              <v-icon v-if="player.isVerified" size="14" color="success" class="ml-1">mdi-check-circle</v-icon>
+              <v-icon
+                v-if="player.isVerified"
+                size="14"
+                color="success"
+                class="ml-1"
+              >
+                mdi-check-circle
+              </v-icon>
             </div>
-            <div style="font-size:12px;color:#64748b;">{{ player.email }}</div>
+            <div style="font-size:12px;color:#64748b;">
+              {{ player.email }}
+            </div>
           </div>
         </div>
         <div class="d-flex align-center ga-2">
-          <div v-if="player.stats?.overall" class="text-right">
-            <div style="font-size:13px;font-weight:700;color:#0F172A;">{{ winRate(player) }}</div>
-            <div style="font-size:10px;color:#64748b;">win rate</div>
+          <div
+            v-if="player.stats?.overall"
+            class="text-right"
+          >
+            <div style="font-size:13px;font-weight:700;color:#0F172A;">
+              {{ winRate(player) }}
+            </div>
+            <div style="font-size:10px;color:#64748b;">
+              win rate
+            </div>
           </div>
-          <v-icon color="grey-lighten-1" size="18">mdi-chevron-right</v-icon>
+          <v-icon
+            color="grey-lighten-1"
+            size="18"
+          >
+            mdi-chevron-right
+          </v-icon>
         </div>
       </div>
     </template>

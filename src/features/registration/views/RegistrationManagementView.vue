@@ -11,6 +11,12 @@ import FilterBar from '@/components/common/FilterBar.vue';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { FORMAT_LABELS, type Category } from '@/types';
 import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
+import {
+  parseImportText,
+  normalizeEmail,
+  buildPlayerNameKey,
+  type ImportPreviewRow,
+} from '@/features/registration/utils/csvParser';
 
 const route = useRoute();
 const router = useRouter();
@@ -34,22 +40,6 @@ interface PlayerNameSource {
   fullName?: string;
 }
 
-interface ImportPreviewRow {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  skillLevel: number;
-  categoryName: string;
-  categoryId: string | null;
-  participantType: 'player' | 'team';
-  partnerFirstName: string;
-  partnerLastName: string;
-  partnerEmail: string;
-  partnerPhone: string;
-  partnerSkillLevel: number | null;
-  valid: boolean;
-}
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -589,7 +579,7 @@ ${IMPORT_DOUBLES_EXAMPLE}
 
 # Instructions:
 # - First Name and Last Name are required
-# - Email is optional but recommended
+# - Email is required (used for global player identity across tournaments)
 # - Phone is optional
 # - Skill Level should be 1-10 (defaults to 5 if empty)
 # - Category must match one of your tournament categories exactly:
@@ -621,43 +611,14 @@ function handleFileUpload(event: Event) {
   const reader = new FileReader();
   reader.onload = (e) => {
     const text = e.target?.result as string;
-    parseImportText(text);
+    runParseImportText(text);
   };
   reader.readAsText(file);
-}
-
-function normalizeEmail(email?: string): string {
-  return (email || '').trim().toLowerCase();
-}
-
-function buildPlayerNameKey(firstName: string, lastName: string, phone?: string): string {
-  return `${firstName.trim().toLowerCase()}|${lastName.trim().toLowerCase()}|${(phone || '').trim().toLowerCase()}`;
 }
 
 function getCategoryById(categoryId: string | null): Category | undefined {
   if (!categoryId) return undefined;
   return categories.value.find((category) => category.id === categoryId);
-}
-
-function normalizeCategoryName(categoryName: string): string {
-  return categoryName
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
-}
-
-function findCategoryByName(categoryName: string): Category | undefined {
-  const trimmedName = categoryName.trim();
-  if (!trimmedName) return undefined;
-
-  const exact = categories.value.find(
-    (category) => category.name.toLowerCase() === trimmedName.toLowerCase()
-  );
-  if (exact) return exact;
-
-  const normalizedInput = normalizeCategoryName(trimmedName);
-  return categories.value.find(
-    (category) => normalizeCategoryName(category.name) === normalizedInput
-  );
 }
 
 function buildRegistrationKey(
@@ -673,166 +634,10 @@ function buildRegistrationKey(
   return `${categoryId}|team|${sortedPair}`;
 }
 
-function parseSkillLevel(raw: string, lineNumber: number, fieldName: string, errors: string[]): number | null {
-  if (!raw.trim()) return null;
-  const parsed = parseInt(raw.trim(), 10);
-  if (isNaN(parsed) || parsed < 1 || parsed > 10) {
-    errors.push(`Row ${lineNumber}: ${fieldName} must be 1-10`);
-    return null;
-  }
-  return parsed;
-}
-
-function parseImportColumns(line: string): string[] {
-  if (line.includes(',')) {
-    return line.split(',').map((value) => value.trim());
-  }
-
-  if (line.includes('|')) {
-    return line.split('|').map((value) => value.trim());
-  }
-
-  return [];
-}
-
-function parseImportText(text: string) {
-  const lines = text
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#') && !line.startsWith('//'));
-
-  const errors: string[] = [];
-  const preview: ImportPreviewRow[] = [];
-
-  if (lines.length === 0) {
-    importErrors.value = ['No data found. Upload a file or paste rows to continue'];
-    importPreview.value = [];
-    return;
-  }
-
-  const firstLine = lines[0].toLowerCase();
-  const hasHeader = (
-    firstLine.includes('first name') ||
-    firstLine.includes('last name') ||
-    firstLine.includes('email') ||
-    firstLine.includes('category')
-  );
-
-  const dataLines = hasHeader ? lines.slice(1) : lines;
-
-  for (let i = 0; i < dataLines.length; i++) {
-    const line = dataLines[i];
-    const lineNumber = hasHeader ? i + 2 : i + 1;
-    let firstName = '';
-    let lastName = '';
-    let email = '';
-    let phone = '';
-    let skillLevel = 5;
-    let categoryName = '';
-    let partnerFirstName = '';
-    let partnerLastName = '';
-    let partnerEmail = '';
-    let partnerPhone = '';
-    let partnerSkillLevel: number | null = null;
-
-    const values = parseImportColumns(line);
-    if (values.length > 0) {
-      const skillLevelRaw = values[4] || '';
-      const partnerSkillLevelRaw = values[10] || '';
-      [
-        firstName,
-        lastName,
-        email = '',
-        phone = '',
-        ,
-        categoryName = '',
-        partnerFirstName = '',
-        partnerLastName = '',
-        partnerEmail = '',
-        partnerPhone = '',
-      ] = values;
-
-      const parsedSkill = parseSkillLevel(skillLevelRaw, lineNumber, 'Skill Level', errors);
-      if (parsedSkill === null && skillLevelRaw.trim()) continue;
-      skillLevel = parsedSkill ?? 5;
-
-      const parsedPartnerSkill = parseSkillLevel(partnerSkillLevelRaw, lineNumber, 'Partner Skill Level', errors);
-      if (parsedPartnerSkill === null && partnerSkillLevelRaw.trim()) continue;
-      partnerSkillLevel = parsedPartnerSkill;
-    } else {
-      const nameParts = line.split(/\s+/).filter(Boolean);
-      if (nameParts.length < 2) {
-        errors.push(`Row ${lineNumber}: For TXT import, provide at least first and last name`);
-        continue;
-      }
-      firstName = nameParts[0];
-      lastName = nameParts.slice(1).join(' ');
-    }
-
-    if (!firstName || !lastName) {
-      errors.push(`Row ${lineNumber}: First Name and Last Name are required`);
-      continue;
-    }
-
-    const hasAnyPartnerField = Boolean(
-      partnerFirstName || partnerLastName || partnerEmail || partnerPhone || partnerSkillLevel !== null
-    );
-    const hasPartnerName = Boolean(partnerFirstName && partnerLastName);
-
-    if (hasAnyPartnerField && !hasPartnerName) {
-      errors.push(`Row ${lineNumber}: Partner First Name and Partner Last Name are both required for doubles`);
-      continue;
-    }
-
-    if (
-      hasPartnerName &&
-      normalizeEmail(email) &&
-      normalizeEmail(email) === normalizeEmail(partnerEmail)
-    ) {
-      errors.push(`Row ${lineNumber}: Player and partner email cannot be the same`);
-      continue;
-    }
-
-    let matchedCategory: Category | undefined;
-    if (categoryName) {
-      matchedCategory = findCategoryByName(categoryName);
-      if (!matchedCategory) {
-        errors.push(`Row ${lineNumber}: Category "${categoryName}" not found`);
-        continue;
-      }
-
-      const isCategoryDoubles = matchedCategory.type === 'doubles' || matchedCategory.type === 'mixed_doubles';
-      if (isCategoryDoubles && !hasPartnerName) {
-        errors.push(`Row ${lineNumber}: ${matchedCategory.name} requires partner columns in the same row`);
-        continue;
-      }
-      if (!isCategoryDoubles && hasPartnerName) {
-        errors.push(`Row ${lineNumber}: Partner columns are only allowed for doubles/mixed doubles categories`);
-        continue;
-      }
-    }
-
-    preview.push({
-      firstName,
-      lastName,
-      email: email || '',
-      phone: phone || '',
-      skillLevel,
-      categoryName: categoryName || '',
-      categoryId: matchedCategory?.id || null,
-      participantType: hasPartnerName ? 'team' : 'player',
-      partnerFirstName,
-      partnerLastName,
-      partnerEmail: partnerEmail || '',
-      partnerPhone: partnerPhone || '',
-      partnerSkillLevel: hasPartnerName ? (partnerSkillLevel ?? skillLevel) : null,
-      valid: true,
-    });
-  }
-
-  importErrors.value = errors;
-  importPreview.value = preview;
+function runParseImportText(text: string) {
+  const result = parseImportText(text, categories.value);
+  importErrors.value = result.errors;
+  importPreview.value = result.preview;
 }
 
 function previewPastedData(): void {
@@ -847,7 +652,7 @@ function previewPastedData(): void {
   importMode.value = 'paste';
   importErrors.value = [];
   importPreview.value = [];
-  parseImportText(text);
+  runParseImportText(text);
 }
 
 interface ImportPlayerPayload {

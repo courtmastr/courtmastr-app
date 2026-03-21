@@ -35,6 +35,7 @@ vi.mock('@/stores/audit', () => ({
   useAuditStore: () => ({
     logMatchCompleted: vi.fn(),
     logScoreCorrection: vi.fn(),
+    logScoreCorrected: vi.fn(),
     logMatchAssigned: vi.fn(),
   }),
 }));
@@ -170,6 +171,7 @@ describe('matches store score correction', () => {
         originalWinnerId: 'reg-1',
         newWinnerId: 'reg-2',
         reason: 'Score entry was swapped',
+        correctionType: 'correction',
       },
       'cat-1'
     );
@@ -190,6 +192,7 @@ describe('matches store score correction', () => {
         originalWinnerId: 'reg-1',
         newWinnerId: 'reg-2',
         reason: 'Score entry was swapped',
+        correctionType: 'correction',
         correctedByName: 'Admin User',
       })
     );

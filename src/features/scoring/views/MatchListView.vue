@@ -11,6 +11,8 @@ import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import FilterBar from '@/components/common/FilterBar.vue';
 import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.vue';
+import ScoreCorrectionDialog from '@/features/scoring/components/ScoreCorrectionDialog.vue';
+import { BADMINTON_CONFIG } from '@/types';
 import type { Match } from '@/types';
 
 const route = useRoute();
@@ -31,6 +33,7 @@ const selectedCourt = ref<string>('all');
 const selectedSort = ref<string>('round_asc');
 const selectedMatch = ref<Match | null>(null);
 const showManualScoreDialog = ref(false);
+const showCorrectionDialog = ref(false);
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -82,6 +85,13 @@ function openScoreDialog(match: Match): void {
     return;
   }
 
+  selectedMatch.value = match;
+
+  if (match.status === 'completed' || match.status === 'walkover') {
+    showCorrectionDialog.value = true;
+    return;
+  }
+
   if (isVolunteerScorekeeperMode.value) {
     router.push({
       name: 'volunteer-scoring-match',
@@ -94,7 +104,6 @@ function openScoreDialog(match: Match): void {
     return;
   }
 
-  selectedMatch.value = match;
   showManualScoreDialog.value = true;
 }
 
@@ -724,6 +733,15 @@ function clearFilters() {
         :tournament="tournament"
         :categories="tournamentStore.categories"
         @saved="showManualScoreDialog = false"
+      />
+
+      <ScoreCorrectionDialog
+        v-model="showCorrectionDialog"
+        :match="selectedMatch"
+        :tournament-id="tournamentId"
+        :category-id="selectedMatch?.categoryId"
+        :scoring-config="selectedMatch?.scoringConfig || BADMINTON_CONFIG"
+        @corrected="showCorrectionDialog = false"
       />
     </div>
   </v-container>

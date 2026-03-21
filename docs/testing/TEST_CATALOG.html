@@ -1,0 +1,1227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CourtMastr Test Catalog</title>
+  <style>
+    :root {
+      --bg: #f6f4ef;
+      --panel: #ffffff;
+      --ink: #1d2433;
+      --muted: #5b6474;
+      --line: #d9d8d2;
+      --covered: #1f7a4d;
+      --missing: #b33a3a;
+      --accent: #c97a19;
+    }
+    body { margin: 0; font-family: Georgia, "Times New Roman", serif; background: var(--bg); color: var(--ink); }
+    main { max-width: 1200px; margin: 0 auto; padding: 32px 24px 48px; }
+    h1, h2 { margin: 0 0 12px; }
+    .hero, .workflow-card, .inventory-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.05); }
+    .hero { margin-bottom: 24px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+    .summary-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fcfbf8; }
+    .summary-card strong { display: block; font-size: 1.6rem; }
+    .run-status { margin-top: 16px; padding: 12px; border-radius: 12px; background: #fff7ea; border: 1px solid #eed3aa; }
+    .workflow-card { margin-bottom: 20px; }
+    .inventory-card { margin-bottom: 20px; }
+    .workflow-meta { color: var(--muted); margin: 0 0 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    tr.covered td:nth-child(6) { color: var(--covered); font-weight: 700; }
+    tr.missing td:nth-child(6) { color: var(--missing); font-weight: 700; }
+    code { background: #f1eee7; padding: 2px 6px; border-radius: 6px; }
+    a { color: #124f84; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <h1>CourtMastr Automated Test Catalog</h1>
+      <p>Generated 2026-03-20T23:13:31.537Z</p>
+      <div class="summary-grid">
+        <div class="summary-card"><span>Automated Cases</span><strong>14</strong></div>
+        <div class="summary-card"><span>Unit</span><strong>2</strong></div>
+        <div class="summary-card"><span>Integration</span><strong>0</strong></div>
+        <div class="summary-card"><span>E2E</span><strong>12</strong></div>
+        <div class="summary-card"><span>Release Coverage</span><strong>13/13</strong></div>
+        <div class="summary-card"><span>Discovered E2E Tests</span><strong>116</strong></div>
+      </div>
+      <div class="run-status">E2E latest run: 88/88 passed.</div>
+    </section>
+    <section class="inventory-card">
+      <h2>Discovered E2E Inventory</h2>
+      <p class="workflow-meta">Files: 24 · Titles: 116</p>
+      <table>
+        <thead>
+          <tr><th>File</th><th>Titles</th><th>Test Names</th></tr>
+        </thead>
+        <tbody><tr>
+  <td><a href="e2e/edge-cases.spec.ts">e2e/edge-cases.spec.ts</a></td>
+  <td>11</td>
+  <td>shows an auth error for a valid-but-unknown email with special characters • rejects malformed email payloads without leaving the login screen • rejects SQL-injection style credentials without authenticating • prevents an end date before the start date • accepts all available category selections • treats HTML in tournament name input as plain text • does not create auth cookies after Firebase login • redirects unauthenticated users away from admin routes • Edge Cases - Authentication • Edge Cases - Tournament Creation • Edge Cases - Security</td>
+</tr><tr>
+  <td><a href="e2e/leaderboard-pool-to-elimination.spec.ts">e2e/leaderboard-pool-to-elimination.spec.ts</a></td>
+  <td>2</td>
+  <td>shows pool and category leaderboard views and exports CSV • Leaderboard UI - pool to elimination category</td>
+</tr><tr>
+  <td><a href="e2e/leaderboard.spec.ts">e2e/leaderboard.spec.ts</a></td>
+  <td>12</td>
+  <td>loads leaderboard page directly and shows heading • shows empty state when no completed matches • renders filter controls • refresh button re-triggers generation • export button is visible and shows CSV/JSON options • back button navigates away from leaderboard • search input filters visible rows (or shows no-filter message) • clearing search restores all rows • leaderboard renders on 390px wide screen • Tournament-wide Leaderboard • Leaderboard — search filter • Leaderboard — mobile viewport</td>
+</tr><tr>
+  <td><a href="e2e/negative-tests.spec.ts">e2e/negative-tests.spec.ts</a></td>
+  <td>13</td>
+  <td>shows an error for invalid credentials • disables sign-in when email is empty • redirects unauthenticated users from protected routes • disables continue with an empty tournament name • requires at least one category before continuing • keeps the final court undeletable • shows tournament not found for a non-existent bracket • redirects a non-existent live route into the empty public schedule shell • shows an error for an invalid scoring route • Negative Test Cases • Authentication • Tournament Creation • Public Pages</td>
+</tr><tr>
+  <td><a href="e2e/p0-auth-and-role-guards.spec.ts">e2e/p0-auth-and-role-guards.spec.ts</a></td>
+  <td>3</td>
+  <td>redirects unauthenticated users to login for protected routes • blocks scorekeeper from admin-only match-control route • P0 - Auth and Role Guards</td>
+</tr><tr>
+  <td><a href="e2e/p0-category-management.spec.ts">e2e/p0-category-management.spec.ts</a></td>
+  <td>4</td>
+  <td>should add new category • should edit existing category • should delete category • P0 - Category Management</td>
+</tr><tr>
+  <td><a href="e2e/p0-court-management.spec.ts">e2e/p0-court-management.spec.ts</a></td>
+  <td>5</td>
+  <td>should add new court • should edit existing court • should delete court • should change court status to maintenance • P0 - Court Management</td>
+</tr><tr>
+  <td><a href="e2e/p0-front-desk-checkin.spec.ts">e2e/p0-front-desk-checkin.spec.ts</a></td>
+  <td>3</td>
+  <td>loads front-desk check-in shell with rapid/bulk controls • allows toggling between rapid and bulk modes • P0 - Front Desk Check-in</td>
+</tr><tr>
+  <td><a href="e2e/p0-import-email-validation.spec.ts">e2e/p0-import-email-validation.spec.ts</a></td>
+  <td>4</td>
+  <td>should show error when email is missing from a CSV row • should accept a CSV row that includes a valid email • should show error when partner email is missing for a doubles row • P0 - Import Email Validation</td>
+</tr><tr>
+  <td><a href="e2e/p0-match-control-scoring.spec.ts">e2e/p0-match-control-scoring.spec.ts</a></td>
+  <td>3</td>
+  <td>opens the manual scoring dialog from a deterministic ready match • skips blocked due matches and auto-assigns the next eligible published match • P0 - Match Control and Scoring</td>
+</tr><tr>
+  <td><a href="e2e/p0-org-branding-public-home.spec.ts">e2e/p0-org-branding-public-home.spec.ts</a></td>
+  <td>2</td>
+  <td>updates organization branding in admin and shows it on the public org page • P0 - Org Branding Public Home</td>
+</tr><tr>
+  <td><a href="e2e/p0-player-profile.spec.ts">e2e/p0-player-profile.spec.ts</a></td>
+  <td>8</td>
+  <td>should show the players list page • should show at least one seeded player in the list • should navigate to a player profile when clicking a player link • should show the Match History section on player profile • should show Wins stat on player profile • should resolve Match History into empty or populated state • should handle browser back navigation from player profile • P0 - Player Profile</td>
+</tr><tr>
+  <td><a href="e2e/p0-post-completion-outcomes.spec.ts">e2e/p0-post-completion-outcomes.spec.ts</a></td>
+  <td>2</td>
+  <td>shows player profile stats, tournament reports, and public leaderboard results after completion • P0 - Post Completion Outcomes</td>
+</tr><tr>
+  <td><a href="e2e/p0-public-views.spec.ts">e2e/p0-public-views.spec.ts</a></td>
+  <td>5</td>
+  <td>loads public bracket page • loads public schedule page • loads public scoring page • publishes a level schedule from Categories and clears the draft state on the public schedule • P0 - Public Views</td>
+</tr><tr>
+  <td><a href="e2e/p0-score-correction.spec.ts">e2e/p0-score-correction.spec.ts</a></td>
+  <td>2</td>
+  <td>shows correct-score action for admin on scoring interface • P0 - Score Correction</td>
+</tr><tr>
+  <td><a href="e2e/p0-search-and-filter.spec.ts">e2e/p0-search-and-filter.spec.ts</a></td>
+  <td>4</td>
+  <td>should filter by category • should search by participant name • P0 - Search and Filter • Registration Filters</td>
+</tr><tr>
+  <td><a href="e2e/p0-seeding-management.spec.ts">e2e/p0-seeding-management.spec.ts</a></td>
+  <td>4</td>
+  <td>should open seeding dialog for category • should assign seed number to participant • should auto-seed participants • P0 - Seeding Management</td>
+</tr><tr>
+  <td><a href="e2e/p0-self-checkin-kiosk.spec.ts">e2e/p0-self-checkin-kiosk.spec.ts</a></td>
+  <td>3</td>
+  <td>renders self-check-in search form • shows no-match feedback for unmatched participant query • P0 - Self Check-in Kiosk</td>
+</tr><tr>
+  <td><a href="e2e/p0-tournament-lifecycle-pool-to-elimination.spec.ts">e2e/p0-tournament-lifecycle-pool-to-elimination.spec.ts</a></td>
+  <td>2</td>
+  <td>shows the completed men&#39;s doubles pool-to-elimination lifecycle for a seeded 28-team tournament • P0 - Tournament Lifecycle Pool to Elimination</td>
+</tr><tr>
+  <td><a href="e2e/p0-tournament-settings.spec.ts">e2e/p0-tournament-settings.spec.ts</a></td>
+  <td>3</td>
+  <td>should update tournament basic information • should show delete confirmation dialog • P0 - Tournament Settings</td>
+</tr><tr>
+  <td><a href="e2e/p0-user-management.spec.ts">e2e/p0-user-management.spec.ts</a></td>
+  <td>3</td>
+  <td>blocks scorekeeper from tournament settings access • shows organizer-management controls for admin in settings • P0 - User Management Access</td>
+</tr><tr>
+  <td><a href="e2e/scorekeeper-flow.spec.ts">e2e/scorekeeper-flow.spec.ts</a></td>
+  <td>4</td>
+  <td>should display match sections or empty state • should open score dialog from a ready match • should display score dialog controls when a match is opened • Scorekeeper Flow</td>
+</tr><tr>
+  <td><a href="e2e/smoke.spec.ts">e2e/smoke.spec.ts</a></td>
+  <td>3</td>
+  <td>basic page load test • login page loads • tournaments page requires auth</td>
+</tr><tr>
+  <td><a href="e2e/user-registration.spec.ts">e2e/user-registration.spec.ts</a></td>
+  <td>11</td>
+  <td>should display all registration form fields • should limit public signup to player accounts • should have terms checkbox • should keep Create Account button disabled when form is empty • should keep Create Account button disabled without terms acceptance • should show password mismatch error • should show password strength indicator • should enable Create Account button with valid form data • should register a new account and redirect to tournaments • should have a link back to the login page • User Registration (/register)</td>
+</tr></tbody>
+      </table>
+    </section>
+    <section class="inventory-card">
+      <h2>Discovered Test Library</h2>
+      <p class="workflow-meta">Files: 165 · Titles: 925</p>
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>File</th><th>Titles</th><th>Test Names</th></tr>
+        </thead>
+        <tbody><tr>
+  <td>e2e</td>
+  <td><a href="e2e/edge-cases.spec.ts">e2e/edge-cases.spec.ts</a></td>
+  <td>11</td>
+  <td>shows an auth error for a valid-but-unknown email with special characters • rejects malformed email payloads without leaving the login screen • rejects SQL-injection style credentials without authenticating • prevents an end date before the start date • accepts all available category selections • treats HTML in tournament name input as plain text • does not create auth cookies after Firebase login • redirects unauthenticated users away from admin routes • Edge Cases - Authentication • Edge Cases - Tournament Creation • Edge Cases - Security</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/leaderboard-pool-to-elimination.spec.ts">e2e/leaderboard-pool-to-elimination.spec.ts</a></td>
+  <td>2</td>
+  <td>shows pool and category leaderboard views and exports CSV • Leaderboard UI - pool to elimination category</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/leaderboard.spec.ts">e2e/leaderboard.spec.ts</a></td>
+  <td>12</td>
+  <td>loads leaderboard page directly and shows heading • shows empty state when no completed matches • renders filter controls • refresh button re-triggers generation • export button is visible and shows CSV/JSON options • back button navigates away from leaderboard • search input filters visible rows (or shows no-filter message) • clearing search restores all rows • leaderboard renders on 390px wide screen • Tournament-wide Leaderboard • Leaderboard — search filter • Leaderboard — mobile viewport</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/negative-tests.spec.ts">e2e/negative-tests.spec.ts</a></td>
+  <td>13</td>
+  <td>shows an error for invalid credentials • disables sign-in when email is empty • redirects unauthenticated users from protected routes • disables continue with an empty tournament name • requires at least one category before continuing • keeps the final court undeletable • shows tournament not found for a non-existent bracket • redirects a non-existent live route into the empty public schedule shell • shows an error for an invalid scoring route • Negative Test Cases • Authentication • Tournament Creation • Public Pages</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-auth-and-role-guards.spec.ts">e2e/p0-auth-and-role-guards.spec.ts</a></td>
+  <td>3</td>
+  <td>redirects unauthenticated users to login for protected routes • blocks scorekeeper from admin-only match-control route • P0 - Auth and Role Guards</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-category-management.spec.ts">e2e/p0-category-management.spec.ts</a></td>
+  <td>4</td>
+  <td>should add new category • should edit existing category • should delete category • P0 - Category Management</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-court-management.spec.ts">e2e/p0-court-management.spec.ts</a></td>
+  <td>5</td>
+  <td>should add new court • should edit existing court • should delete court • should change court status to maintenance • P0 - Court Management</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-front-desk-checkin.spec.ts">e2e/p0-front-desk-checkin.spec.ts</a></td>
+  <td>3</td>
+  <td>loads front-desk check-in shell with rapid/bulk controls • allows toggling between rapid and bulk modes • P0 - Front Desk Check-in</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-import-email-validation.spec.ts">e2e/p0-import-email-validation.spec.ts</a></td>
+  <td>4</td>
+  <td>should show error when email is missing from a CSV row • should accept a CSV row that includes a valid email • should show error when partner email is missing for a doubles row • P0 - Import Email Validation</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-match-control-scoring.spec.ts">e2e/p0-match-control-scoring.spec.ts</a></td>
+  <td>3</td>
+  <td>opens the manual scoring dialog from a deterministic ready match • skips blocked due matches and auto-assigns the next eligible published match • P0 - Match Control and Scoring</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-org-branding-public-home.spec.ts">e2e/p0-org-branding-public-home.spec.ts</a></td>
+  <td>2</td>
+  <td>updates organization branding in admin and shows it on the public org page • P0 - Org Branding Public Home</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-player-profile.spec.ts">e2e/p0-player-profile.spec.ts</a></td>
+  <td>8</td>
+  <td>should show the players list page • should show at least one seeded player in the list • should navigate to a player profile when clicking a player link • should show the Match History section on player profile • should show Wins stat on player profile • should resolve Match History into empty or populated state • should handle browser back navigation from player profile • P0 - Player Profile</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-post-completion-outcomes.spec.ts">e2e/p0-post-completion-outcomes.spec.ts</a></td>
+  <td>2</td>
+  <td>shows player profile stats, tournament reports, and public leaderboard results after completion • P0 - Post Completion Outcomes</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-public-views.spec.ts">e2e/p0-public-views.spec.ts</a></td>
+  <td>5</td>
+  <td>loads public bracket page • loads public schedule page • loads public scoring page • publishes a level schedule from Categories and clears the draft state on the public schedule • P0 - Public Views</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-score-correction.spec.ts">e2e/p0-score-correction.spec.ts</a></td>
+  <td>2</td>
+  <td>shows correct-score action for admin on scoring interface • P0 - Score Correction</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-search-and-filter.spec.ts">e2e/p0-search-and-filter.spec.ts</a></td>
+  <td>4</td>
+  <td>should filter by category • should search by participant name • P0 - Search and Filter • Registration Filters</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-seeding-management.spec.ts">e2e/p0-seeding-management.spec.ts</a></td>
+  <td>4</td>
+  <td>should open seeding dialog for category • should assign seed number to participant • should auto-seed participants • P0 - Seeding Management</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-self-checkin-kiosk.spec.ts">e2e/p0-self-checkin-kiosk.spec.ts</a></td>
+  <td>3</td>
+  <td>renders self-check-in search form • shows no-match feedback for unmatched participant query • P0 - Self Check-in Kiosk</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-tournament-lifecycle-pool-to-elimination.spec.ts">e2e/p0-tournament-lifecycle-pool-to-elimination.spec.ts</a></td>
+  <td>2</td>
+  <td>shows the completed men&#39;s doubles pool-to-elimination lifecycle for a seeded 28-team tournament • P0 - Tournament Lifecycle Pool to Elimination</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-tournament-settings.spec.ts">e2e/p0-tournament-settings.spec.ts</a></td>
+  <td>3</td>
+  <td>should update tournament basic information • should show delete confirmation dialog • P0 - Tournament Settings</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/p0-user-management.spec.ts">e2e/p0-user-management.spec.ts</a></td>
+  <td>3</td>
+  <td>blocks scorekeeper from tournament settings access • shows organizer-management controls for admin in settings • P0 - User Management Access</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/scorekeeper-flow.spec.ts">e2e/scorekeeper-flow.spec.ts</a></td>
+  <td>4</td>
+  <td>should display match sections or empty state • should open score dialog from a ready match • should display score dialog controls when a match is opened • Scorekeeper Flow</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/smoke.spec.ts">e2e/smoke.spec.ts</a></td>
+  <td>3</td>
+  <td>basic page load test • login page loads • tournaments page requires auth</td>
+</tr><tr>
+  <td>e2e</td>
+  <td><a href="e2e/user-registration.spec.ts">e2e/user-registration.spec.ts</a></td>
+  <td>11</td>
+  <td>should display all registration form fields • should limit public signup to player accounts • should have terms checkbox • should keep Create Account button disabled when form is empty • should keep Create Account button disabled without terms acceptance • should show password mismatch error • should show password strength indicator • should enable Create Account button with valid form data • should register a new account and redirect to tournaments • should have a link back to the login page • User Registration (/register)</td>
+</tr><tr>
+  <td>unknown</td>
+  <td><a href="tests/diagnose_data.test.ts">tests/diagnose_data.test.ts</a></td>
+  <td>2</td>
+  <td>lists all tournaments and their sub-collections • Data Diagnosis</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/bracket-generation.integration.test.ts">tests/integration/bracket-generation.integration.test.ts</a></td>
+  <td>2</td>
+  <td>moves from blocked pending pool stage to successful elimination generation • bracket generation integration</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/category-management.integration.test.ts">tests/integration/category-management.integration.test.ts</a></td>
+  <td>3</td>
+  <td>persists round-robin settings with minGamesGuaranteed • persists pool-to-elimination settings with teamsPerPool and seeding method • category management integration</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/checkin.integration.test.ts">tests/integration/checkin.integration.test.ts</a></td>
+  <td>2</td>
+  <td>returns partial bulk success and supports undoing successful subset • check-in integration workflow</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/court-management.integration.test.ts">tests/integration/court-management.integration.test.ts</a></td>
+  <td>2</td>
+  <td>reassigns to an available court and can restore maintenance court • court management integration (store)</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/leaderboard-pool-history.integration.test.ts">tests/integration/leaderboard-pool-history.integration.test.ts</a></td>
+  <td>2</td>
+  <td>live-recomputes pool and category standings after a pool score correction • leaderboard pool-history recomputation</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/leaderboard.integration.test.ts">tests/integration/leaderboard.integration.test.ts</a></td>
+  <td>6</td>
+  <td>generates category leaderboard using store-preloaded data and records fetch lifecycle • applies includeEliminated filter to expose only active participants • supports pool phase scope selection for category generation • uses category ranking preset override when present • falls back to tournament default ranking preset when category override is missing • leaderboard integration</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/leaderboard.pool-to-elimination.massive.integration.test.ts">tests/integration/leaderboard.pool-to-elimination.massive.integration.test.ts</a></td>
+  <td>4</td>
+  <td>shows pool-level leaderboard for 10 pools x 4 members in a category • shows full category leaderboard with carry-forward pool + elimination results • supports tournament-wide standings across multiple categories with overlapping players • leaderboard - pool_to_elimination large tournament scenarios</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/match-assignment.integration.test.ts">tests/integration/match-assignment.integration.test.ts</a></td>
+  <td>5</td>
+  <td>rejects assign-anyway for non-admin users before any firestore reads • blocks assignment when target court is under maintenance • writes match and court updates atomically when assignment succeeds • blocks assignment when a doubles team is only partially checked in • match assignment integration (store)</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/ops-stores.integration.test.ts">tests/integration/ops-stores.integration.test.ts</a></td>
+  <td>2</td>
+  <td>routes realtime snapshots into notification, activity, alert, and audit store state • ops stores integration</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/player-match-history.integration.test.ts">tests/integration/player-match-history.integration.test.ts</a></td>
+  <td>6</td>
+  <td>returns empty array when player has no registrations in any tournament • resolves a complete singles match history with player names • resolves doubles history with partner name and team opponent name • returns two entries when player appears in two tournaments • returns empty matches array when player is registered but has no completed matches • fetchPlayerMatchHistory — integration</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/pool-leveling.integration.test.ts">tests/integration/pool-leveling.integration.test.ts</a></td>
+  <td>3</td>
+  <td>marks previews as pending when pool matches are unfinished and recommends global bands for uneven pools • recommends pool-position mapping when pool sizes are balanced and complete • pool leveling integration</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/public-views.integration.test.ts">tests/integration/public-views.integration.test.ts</a></td>
+  <td>2</td>
+  <td>initializes all public views and wires expected subscriptions • public views integration</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/registration-management.integration.test.ts">tests/integration/registration-management.integration.test.ts</a></td>
+  <td>2</td>
+  <td>applies registration status transitions and related audit hooks • registration management integration (store transitions)</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/scheduling-intelligence.integration.test.ts">tests/integration/scheduling-intelligence.integration.test.ts</a></td>
+  <td>3</td>
+  <td>avoids over-capacity overlap across categories by shifting to next available boundary • prevents the same player from being scheduled back-to-back even across categories • scheduling intelligence integration</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/scoring-correction.integration.test.ts">tests/integration/scoring-correction.integration.test.ts</a></td>
+  <td>2</td>
+  <td>completes match, releases court, and records winner-change correction • scoring + correction integration flow</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/tournament-management.integration.test.ts">tests/integration/tournament-management.integration.test.ts</a></td>
+  <td>2</td>
+  <td>creates tournament and persists category/court writes with tournament-scoped paths • tournament management integration (store writes)</td>
+</tr><tr>
+  <td>integration</td>
+  <td><a href="tests/integration/user-management.integration.test.ts">tests/integration/user-management.integration.test.ts</a></td>
+  <td>2</td>
+  <td>enforces self-protection and writes activation metadata through the users store • user management integration</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/activities.store.test.ts">tests/unit/activities.store.test.ts</a></td>
+  <td>3</td>
+  <td>categorizes subscribed activities into match and court buckets • logs reassignment messages with reason context • activities store</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/AdminReviewsView.test.ts">tests/unit/AdminReviewsView.test.ts</a></td>
+  <td>3</td>
+  <td>subscribes moderation queues on mount • approves a pending review from action buttons • AdminReviewsView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/alerts.store.test.ts">tests/unit/alerts.store.test.ts</a></td>
+  <td>4</td>
+  <td>escalates long-match alerts to critical when duration exceeds 90 minutes • marks subscription as disconnected when realtime listener errors • builds query constraints when filters are provided • alerts store</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/AlertsPanel.assignmentGate.test.ts">tests/unit/AlertsPanel.assignmentGate.test.ts</a></td>
+  <td>4</td>
+  <td>shows a blocker alert with check-in reason details • emits goToCheckIn when assignment blocker alert is clicked • prepends the latest auto-assign decision as an organizer-visible alert • AlertsPanel assignment gate alerts</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/AppLayout.publicFooter.test.ts">tests/unit/AppLayout.publicFooter.test.ts</a></td>
+  <td>5</td>
+  <td>renders public website footer for public routes • hides public website footer for authenticated routes • hides public website footer for non-marketing public routes • hides public website footer for obs overlay routes • AppLayout public footer</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/assignmentGate.test.ts">tests/unit/assignmentGate.test.ts</a></td>
+  <td>10</td>
+  <td>blocks when match is not scheduled • blocks when schedule is not published • blocks when participants are missing • blocks when players are not checked-in • allows admin check-in override when other gates pass • does not let check-in override bypass schedule/publish blockers • still blocks when participants are missing even with admin override • treats publishedAt as published even when scheduleStatus is draft • returns no blockers when all gates pass • evaluateAssignmentBlockers</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/audit.store.test.ts">tests/unit/audit.store.test.ts</a></td>
+  <td>4</td>
+  <td>returns empty id and skips write when actor context is missing • writes actor metadata and returns audit id when user is authenticated • builds query constraints when action and actor filters are provided • audit store</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/AutoScheduleDialog.level-scope.test.ts">tests/unit/AutoScheduleDialog.level-scope.test.ts</a></td>
+  <td>5</td>
+  <td>schedules all level scopes and avoids base scope when levels exist • keeps base scope scheduling for non-leveled categories • handles mixed selection by clearing only leveled targets and preserving base targets • shifts schedule start when other categories already consume court capacity • AutoScheduleDialog level scope routing</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/autoScheduleTargets.test.ts">tests/unit/autoScheduleTargets.test.ts</a></td>
+  <td>4</td>
+  <td>uses level scopes for generated pool-to-elimination categories with level matches • falls back to base category scope when no level matches exist • falls back to base scope for non pool-to-elimination formats • resolveScheduleTargetsForCategory</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/BaseDialog.test.ts">tests/unit/BaseDialog.test.ts</a></td>
+  <td>13</td>
+  <td>accepts required props: modelValue and title • emits update:modelValue event • emits confirm event • emits cancel event • supports optional props with correct defaults • accepts custom maxWidth prop • accepts persistent prop • accepts loading prop • accepts showClose prop • has proper TypeScript interface for Props • has proper TypeScript interface for Emits • supports Vuetify v-dialog, v-card, and v-btn components • BaseDialog.vue</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/bracket.test.ts">tests/unit/bracket.test.ts</a></td>
+  <td>17</td>
+  <td>should calculate bracket size as next power of 2 • should calculate correct number of rounds • should calculate correct number of byes • should distribute byes evenly • should return empty array when no byes needed • should calculate single elimination matches correctly • should calculate double elimination matches correctly • should advance winner to next match correctly • should fill correct slot in next match • should sort seeded players first • should handle all seeded players • should handle no seeded players • Bracket Generation • Single Elimination • Match Count Calculations • Match Progression • Seeding</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/bracketMatchAdapter.test.ts">tests/unit/bracketMatchAdapter.test.ts</a></td>
+  <td>5</td>
+  <td>maps round_id to round number and bracket type • resolves round from round_id when round field is absent • falls back to direct round/bracket fields when structure map is missing • buildMatchStructureMaps • adaptBracketsMatchToLegacyMatch</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/brackets-storage-utils.test.ts">tests/unit/brackets-storage-utils.test.ts</a></td>
+  <td>3</td>
+  <td>removes undefined keys deeply • normalizes *_id object references to string ids • brackets-storage-utils</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/BracketSlotStateRendering.test.ts">tests/unit/BracketSlotStateRendering.test.ts</a></td>
+  <td>3</td>
+  <td>BracketView renders BYE and TBD from shared slot-state rules • DoubleEliminationBracket renders BYE and TBD from shared slot-state rules • Bracket slot-state rendering</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/BulkCheckInPanel.test.ts">tests/unit/BulkCheckInPanel.test.ts</a></td>
+  <td>4</td>
+  <td>disables bulk check-in button when no rows are selected • emits bulkCheckIn when primary action is clicked • styles checked-in rows with checked-in class • BulkCheckInPanel</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/CategoriesView.draft-schedule-routing.test.ts">tests/unit/CategoriesView.draft-schedule-routing.test.ts</a></td>
+  <td>2</td>
+  <td>routes to Match Control schedule draft filter when draft schedule view is requested • CategoriesView draft schedule routing</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/CategoryManagement.test.ts">tests/unit/CategoryManagement.test.ts</a></td>
+  <td>3</td>
+  <td>stamps checkInClosedAt when check-in is closed • does not stamp checkInClosedAt when check-in is opened • Category management rules (store)</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/CategoryProgressPanel.test.ts">tests/unit/CategoryProgressPanel.test.ts</a></td>
+  <td>7</td>
+  <td>renders a row for each category • shows category names • shows completed / total fraction • sets progress bar width correctly • renders empty state when no statuses • handles total=0 without dividing by zero • CategoryProgressPanel</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/CategoryRegistrationStats.pool-phase.test.ts">tests/unit/CategoryRegistrationStats.pool-phase.test.ts</a></td>
+  <td>4</td>
+  <td>shows &quot;Setup &amp; Generate Levels&quot; when pool is complete and only pool stageId exists • shows and emits &quot;View Draft Schedule&quot; when draft schedule exists • hides &quot;View Draft Schedule&quot; when schedule is already published • CategoryRegistrationStats pool-phase CTA regression</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/CategoryRegistrationStats.test.ts">tests/unit/CategoryRegistrationStats.test.ts</a></td>
+  <td>15</td>
+  <td>shows level creation CTA when pool play is complete and levels are not started • shows generate levels CTA when pool play is complete and leveling is configured • shows level scheduling CTA once level matches exist after pool completion • uses pool-play CTA for round-robin categories before completion • shows setup CTA for single-elimination categories before bracket creation • shows publish CTA for single-elimination categories once elimination matches are scheduled • shows pool setup CTA before pool stage exists • shows pool scheduling CTA when pool stage exists but matches are not generated yet • shows pool publish CTA when pool matches are scheduled but not published • shows level publish CTA when level matches are scheduled but not published • keeps level publish CTA when only placeholder level matches remain unscheduled • shows bracket CTA when elimination stage already exists • shows results CTA for completed categories • shows single-elimination schedule CTA when bracket exists but matches are not yet scheduled • CategoryRegistrationStats primary CTA behavior</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/checkInSearchUtils.test.ts">tests/unit/checkInSearchUtils.test.ts</a></td>
+  <td>3</td>
+  <td>normalizes query text with trim and lowercase • ranks exact and prefix matches ahead of broad contains matches • checkInSearchUtils</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/checkInTypes.test.ts">tests/unit/checkInTypes.test.ts</a></td>
+  <td>3</td>
+  <td>accepts only searchable statuses • normalizes invalid statuses to null • checkInTypes</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/CourtManagement.test.ts">tests/unit/CourtManagement.test.ts</a></td>
+  <td>2</td>
+  <td>unassigns court-bound matches when no replacement court exists • court management rules (store)</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/CreateLevelsDialog.test.ts">tests/unit/CreateLevelsDialog.test.ts</a></td>
+  <td>3</td>
+  <td>loads preview immediately when mounted with dialog already open • loads preview when dialog transitions from closed to open • CreateLevelsDialog</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/csvParser.test.ts">tests/unit/csvParser.test.ts</a></td>
+  <td>20</td>
+  <td>rejects a row with missing email • rejects a row with whitespace-only email • accepts a row with a valid email • accepts multiple valid rows • reports per-row line numbers correctly when header is present • rejects a doubles row where partner email is missing • accepts a doubles row where both player and partner emails are present • still rejects when player and partner share the same email • rejects space-delimited rows because email cannot be included • rejects pipe-less, comma-less rows even with valid first+last name • returns an error when input is empty • ignores comment lines and blank lines • rejects a row missing first name • rejects invalid skill level • rejects unknown category • parseImportText — email required (singles) • parseImportText — partner email required (doubles) • parseImportText — TXT format rejection • parseImportText — empty input • parseImportText — existing validations still work</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/effectiveRankingConfig.test.ts">tests/unit/effectiveRankingConfig.test.ts</a></td>
+  <td>3</td>
+  <td>uses category overrides when present • falls back to tournament defaults, then system defaults • resolveEffectiveRankingConfig</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/firestoreAdapter.test.ts">tests/unit/firestoreAdapter.test.ts</a></td>
+  <td>4</td>
+  <td>selects numeric primary ids using number queries when passed a string id • updates numeric primary ids when partial filters include a string id • preserves numeric foreign key filters for bracket round lookups • FirestoreStorage</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/FrontDeskCheckInView.test.ts">tests/unit/FrontDeskCheckInView.test.ts</a></td>
+  <td>5</td>
+  <td>shows warning when bulk check-in is triggered without selection • surfaces scan ambiguity errors from workflow • uses workflow undoLatest for keyboard shortcut path • renders app logo and tournament date in the branded header • FrontDeskCheckInView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/frontDeskRoute.test.ts">tests/unit/frontDeskRoute.test.ts</a></td>
+  <td>4</td>
+  <td>registers tournament-checkin route at expected path • loads FrontDeskCheckInView for tournament-checkin route • requires authenticated admin access • front desk check-in route</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/HallOfChampionsView.test.ts">tests/unit/HallOfChampionsView.test.ts</a></td>
+  <td>4</td>
+  <td>loads tournament data and resolves champions across elimination, round-robin, and level scopes • exposes an empty champions state when no completed title holders exist yet • shows not-found state when tournament fetch fails • HallOfChampionsView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/HomeView.test.ts">tests/unit/HomeView.test.ts</a></td>
+  <td>4</td>
+  <td>loads featured metrics and subscribes approved reviews on mount • shows safe fallback metrics message when featured tournament is missing • keeps fallback helper text user-facing when live metrics fail • HomeView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/i18n-smoke.test.ts">tests/unit/i18n-smoke.test.ts</a></td>
+  <td>3</td>
+  <td>uses english as default locale and falls back to key for unknown translation • switches to spanish locale and updates translated values • i18n smoke</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/leaderboard-presets.test.ts">tests/unit/leaderboard-presets.test.ts</a></td>
+  <td>4</td>
+  <td>defines default preset and progression mode • contains required preset ids • falls back to default for unknown preset ids • ranking presets</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/leaderboard-resolve.test.ts">tests/unit/leaderboard-resolve.test.ts</a></td>
+  <td>20</td>
+  <td>resolves opponent IDs through participantMap (no registrationId enhancement) • prefers registrationId enhancement field over participantMap lookup • supports mixed resolution when only one side has registrationId enhancement • skips matches where participant IDs cannot be resolved • skips matches where opponent1 is null (bye slot) • skips matches where opponent2 is null (bye slot) • includes completed matches • includes walkover matches • excludes matches with no score document • excludes score docs with missing winnerId • propagates game scores, round, and completedAt correctly • handles missing completedAt gracefully (undefined) • resolves all 6 matches • all matches have categoryId set • resolves correct participant IDs for each match • participant.id string coercion works (brackets-manager uses integers) • resolveMatches — participant ID resolution via participant.name • resolveMatches — status filtering • resolveMatches — score and round propagation • resolveMatches — full 4-player round robin scenario</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/leaderboard-source-docs.test.ts">tests/unit/leaderboard-source-docs.test.ts</a></td>
+  <td>2</td>
+  <td>drops matches when participants cannot be resolved • resolveMatches source-doc typing</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/leaderboard.test.ts">tests/unit/leaderboard.test.ts</a></td>
+  <td>78</td>
+  <td>returns only pool-stage matches for pool scope when poolStageId exists • falls back to non-level matches for pool scope when no stage metadata is present • returns all category matches for category scope • returns only elimination matches for category scope when progression mode is phase_reset • returns unchanged input for tournament scope • returns full names for doubles when partnerPlayerId exists • returns teamName when present • returns full player name from players list • returns &quot;Unknown&quot; when player not found • returns &quot;Unknown&quot; when no playerId and no teamName • groups and sorts descending • returns single group when all values equal • initializes all registrations with zero stats • awards 2 pts for win, 1 pt for loss • counts games won/lost from GameScore.winnerId • ignores post-clinch games in best-of-3 matches • aggregates points correctly: score1 goes to p1, score2 to p2 • computes derived fields correctly • win rate rounds to 2 decimal places • treats walkover same as regular match • skips match and warns when participant not in statsMap • does nothing for round_robin • single_elimination: loser is eliminated with round recorded • single_elimination: winner is never eliminated • double_elimination: winners bracket loss does NOT eliminate • double_elimination: losers bracket loss DOES eliminate • double_elimination: finals loss eliminates • pool_to_elimination: treated as single elimination • finds match in original order • finds match in reversed order • returns undefined when no match exists • resolves by head-to-head when direct match exists • resolves when participants appear in reversed order in match • falls through to game difference when no h2h match • resolves fully by game difference • partially resolves by game diff, recurses for sub-group (Art. 16.2.3.1) • falls through to point difference when game diff all equal • equal standing when all tiebreakers exhausted • Scenario A: clear winner, no ties • Scenario B: two-way tie resolved by h2h • Scenario C: three-way tie, game difference fully resolves • Scenario D: three-way tie, partial game diff then h2h subset • Scenario E: complete deadlock — equal standing • assigns ranks correctly across multiple non-tied groups • produces tiebreaker resolutions for each resolved tie • simple_ladder preset resolves by point difference before game difference • single-member groups get ranked without recursion • multi-member sub-group recurses into full BWF procedure • single participant gets rank 1 • empty entries list returns empty sorted • aggregateStats with no matches keeps all counters at zero • all participants tied on all metrics → equal standing for all • converts completed matches to ResolvedMatch[] • includes walkover matches • filters out non-completed/walkover statuses • filters out matches with missing winnerId • filters out matches with missing participant1Id • filters out matches with missing participant2Id • maps bracketPosition.bracket correctly • handles undefined bracketPosition gracefully • preserves all score objects • returns ranking metadata for the effective preset and progression mode • includes category summaries for tournament scope • respects tournament categoryIds filter and returns matching category summaries • shares equal standing rank when all tie-breakers are exhausted in category scope • selectMatchesForPhaseScope • resolveParticipantName • groupByDescending • aggregateStats • applyEliminationStatus • findHeadToHeadMatch • resolveTieGroup — two-way tie • resolveTieGroup — three-way tie • sortWithBWFTiebreaker • resolvePartialTies • edge cases • matchesToResolvedMatches • generateLeaderboard</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/MatchControlView.assignments.test.ts">tests/unit/MatchControlView.assignments.test.ts</a></td>
+  <td>7</td>
+  <td>does not allow non-admin assign-anyway path and shows blocker warning • allows admins to open assign-anyway dialog when check-in is the only blocker • surfaces mixed blocker reasons with check-in first for organizer queue messaging • hydrates schedule view + draft filters from query params • maps missing slots to BYE/TBD labels via shared slot-state rules • falls back to command view when query requests removed queue mode • MatchControlView assignment actions</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/MatchControlView.auto-assign.test.ts">tests/unit/MatchControlView.auto-assign.test.ts</a></td>
+  <td>4</td>
+  <td>auto-assigns once a scheduled match becomes published and both players check in • skips blocked due matches and auto-assigns the next eligible due match with a warning • skips partially checked-in and absent doubles teams until a fully checked-in match is due • MatchControlView auto-assign reactivity</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/matchDisplayIdentity.test.ts">tests/unit/matchDisplayIdentity.test.ts</a></td>
+  <td>8</td>
+  <td>returns expected aliases for standard badminton category names • uses tournament, category, level scope, and match id • falls back to base scope when levelId is missing • numbers matches independently inside each category • orders by round and matchNumber so finals get the last code • getCategoryAlias • buildGlobalMatchKey • buildDisplayCodeMap</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/matches.correction.store.test.ts">tests/unit/matches.correction.store.test.ts</a></td>
+  <td>3</td>
+  <td>records correction history and triggers bracket reversal when winner changes • loads correction history into store state • matches store score correction</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/matches.scoring.store.test.ts">tests/unit/matches.scoring.store.test.ts</a></td>
+  <td>7</td>
+  <td>releases assigned court and advances bracket when completeMatch succeeds • uses the callable path for volunteer scorekeeper start-match updates • uses the callable path for volunteer scorekeeper match completion • does not auto-complete a game when score reaches a legal finish until confirmed • completes the current game only when completeCurrentGame is called • fetchMatch applies match_scores overlay status so started matches render as in-progress • matches store scoring completion</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/matches.subscription.store.test.ts">tests/unit/matches.subscription.store.test.ts</a></td>
+  <td>3</td>
+  <td>primes subscribeMatches with an immediate fetch instead of waiting for later snapshot changes • primes subscribeMatch with an immediate fetch of the scoped match • matches store subscriptions</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/MatchListView.volunteerMode.test.ts">tests/unit/MatchListView.volunteerMode.test.ts</a></td>
+  <td>3</td>
+  <td>routes volunteer scorekeepers into the point-by-point scoring screen • keeps the manual score dialog for staff scoring routes • MatchListView volunteer scoring mode</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/MatchQueueList.test.ts">tests/unit/MatchQueueList.test.ts</a></td>
+  <td>3</td>
+  <td>does not mark fresh ready matches as urgent • falls back to planned start time when queuedAt is missing • MatchQueueList urgency</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/navigationGuards.test.ts">tests/unit/navigationGuards.test.ts</a></td>
+  <td>7</td>
+  <td>requireRole redirects guests to login • requireRole allows organizer for scorekeeper routes • requireAnyRole denies unauthorized users • requireTournamentAccess redirects when tournament id is missing • requireAuth sends redirect query for guests • redirectIfAuthenticated sends logged-in users to tournaments • navigationGuards</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/notifications.store.test.ts">tests/unit/notifications.store.test.ts</a></td>
+  <td>3</td>
+  <td>shows toast when unread notification arrives in subscription • captures subscription errors as connection-loss state • notifications store</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/ObsScoreboardView.test.ts">tests/unit/ObsScoreboardView.test.ts</a></td>
+  <td>4</td>
+  <td>filters by category and caps ready matches to top three • uses ticker/light query mode and prefers incomplete game for current score • renders the CourtMastr watermark overlay • ObsScoreboardView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/ObsScoreBugView.test.ts">tests/unit/ObsScoreBugView.test.ts</a></td>
+  <td>4</td>
+  <td>maps position query and calculates games won from completed games • sets error state and skips match subscription when fetchMatch fails • renders the CourtMastr watermark overlay • ObsScoreBugView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/OverlayBoardView.test.ts">tests/unit/OverlayBoardView.test.ts</a></td>
+  <td>4</td>
+  <td>builds court card state with live match precedence over ready match • enables carousel paging when more than four courts exist • renders structured sponsor data without object-string coercion • OverlayBoardView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/OverlayCourtView.test.ts">tests/unit/OverlayCourtView.test.ts</a></td>
+  <td>3</td>
+  <td>prioritizes live over ready state for a court tile • shows idle state with default score when no live or ready match exists on court • OverlayCourtView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/OverlayTickerView.test.ts">tests/unit/OverlayTickerView.test.ts</a></td>
+  <td>3</td>
+  <td>duplicates ticker items and prioritizes live match on each court • maps speed query to ticker duration and falls back to no-courts idle item • OverlayTickerView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/poolAssignment.test.ts">tests/unit/poolAssignment.test.ts</a></td>
+  <td>54</td>
+  <td>should produce same sequence with same seed • should produce different sequences with different seeds • should shuffle deterministically with same seed • should sample deterministically with same seed • should return all items when sample size equals array length • should compute correct plan when N is divisible by K (no byes) • should compute correct plan when N is not divisible by K (with byes) • should compute correct plan for N=17, K=4 • should return correct minimum seeding options • should cap seeding options at N • should throw error for N &lt;= 0 • should throw error for K &lt; 2 • should compute plan for various N/K combinations • should assign teams in classic serpentine pattern • should handle 3 pools correctly • should be deterministic • should throw error for P &lt; 2 • should throw error for empty teams • should handle uneven distribution • should assign all teams exactly once • should be deterministic with same rngSeed • should produce different results with different seeds • should create pools of size K or K-1 • should create correct number of pools • should handle teams with no seeds • should handle mixed seeded and unseeded teams • should handle byes correctly • should use rotate bye pool selection when specified • should return null for valid assignment • should detect team count mismatch • should detect duplicate assignments • should detect invalid pool sizes • should detect incorrect pool count • should detect unknown team IDs • should handle minimum N with byes • should handle large N • should handle large K • should handle N just above multiple of K • should handle all unseeded teams • should handle all seeded teams • should maintain strength banding in tiers • should apply serpentine direction skipping bye pools in last tier • should reject P &lt; 2 (less than 2 pools) • should accept N=5, K=4 (P=2 pools) • should expose byePools in result • should be deterministic regardless of input array order • should support explicit rotateKey for deterministic rotation • should handle byes=3 correctly (N=73, K=4) • SeededRng • computePoolPlan • assignClassicSerpentine • assignShuffledSerpentineModelA • validatePoolAssignment • Edge Cases</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/poolLeveling.test.ts">tests/unit/poolLeveling.test.ts</a></td>
+  <td>7</td>
+  <td>buildDefaultPoolMappings maps rank 1/2/3+ to level 1/2/3 • assignByPoolPosition applies per-pool rank mapping • assignByGlobalBands fills top/next/last and sends remainder to last level • buildDefaultPoolMappings falls back to first level when only one level exists • assignByPoolPosition skips participants whose pool has no mapping • assignByGlobalBands routes overflow to the final level when band slots are undersized • usePoolLeveling assignment helpers</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/PoolSchedulePanel.test.ts">tests/unit/PoolSchedulePanel.test.ts</a></td>
+  <td>3</td>
+  <td>disables Create Levels while pool matches are still pending • enables Create Levels and emits create-levels once pool play is complete • PoolSchedulePanel level-creation CTA</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/PublicBracketView.test.ts">tests/unit/PublicBracketView.test.ts</a></td>
+  <td>4</td>
+  <td>marks tournament as not found when fetch fails • loads first category levels after successful tournament fetch • exposes install prompt state for bracket spectator banner rendering • PublicBracketView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/PublicScheduleView.test.ts">tests/unit/PublicScheduleView.test.ts</a></td>
+  <td>6</td>
+  <td>shows not-found state when tournament fetch fails • only treats published planned matches as public schedule entries • does not show unpublished-schedule alert when live data is visible • exposes live-match status for header live badge rendering • exposes install-prompt state for spectator install banner rendering • PublicScheduleView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/PublicScoringView.test.ts">tests/unit/PublicScoringView.test.ts</a></td>
+  <td>5</td>
+  <td>shows not-found state when tournament fetch fails • auto-starts ready match once before score updates • exposes live-match state for shell live badge rendering • exposes install prompt state for public scoring banner rendering • PublicScoringView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/RapidCheckInPanel.test.ts">tests/unit/RapidCheckInPanel.test.ts</a></td>
+  <td>7</td>
+  <td>emits scanSubmit when Enter is pressed and no suggestions are active • uses keyboard selection and emits quickCheckIn for active suggestion on Enter • shows collision hint and clears suggestions on Escape • emits undoLatestShortcut on Ctrl/Cmd+Z from input • blocks quick check-in for rows already pending • renders undo countdown copy for recent rows • RapidCheckInPanel</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/ReadyQueue.blocked-reason.test.ts">tests/unit/ReadyQueue.blocked-reason.test.ts</a></td>
+  <td>2</td>
+  <td>renders the full organizer-facing blocker summary when a ready match cannot be assigned • ReadyQueue blocked reason messaging</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/RegisterView.test.ts">tests/unit/RegisterView.test.ts</a></td>
+  <td>2</td>
+  <td>does not expose organizer or scorekeeper roles in public signup • RegisterView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/RegistrationManagementView.test.ts">tests/unit/RegistrationManagementView.test.ts</a></td>
+  <td>4</td>
+  <td>requires partner selection for doubles registration • creates doubles registration payload with team participant data • routes approve action through registration store with actor id • RegistrationManagementView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/registrations.store.test.ts">tests/unit/registrations.store.test.ts</a></td>
+  <td>6</td>
+  <td>delegates to findOrCreateByEmail and writes tournament mirror via setDoc • throws when email is missing • stamps approved metadata when status transitions to approved • routes check-in mutations through the volunteer callable when a kiosk session is active • routes volunteer bib assignment through the callable instead of direct writes • registration store</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/reports.duration-metrics.test.ts">tests/unit/reports.duration-metrics.test.ts</a></td>
+  <td>3</td>
+  <td>renders minute values and observed/excluded counters • falls back to not-enough-data text for null durations • DurationMetrics</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/ReviewCard.test.ts">tests/unit/ReviewCard.test.ts</a></td>
+  <td>2</td>
+  <td>renders quote metadata without date label • ReviewCard</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/ReviewFloatingCta.test.ts">tests/unit/ReviewFloatingCta.test.ts</a></td>
+  <td>2</td>
+  <td>renders floating CTA with accessible label • ReviewFloatingCta</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/ReviewList.test.ts">tests/unit/ReviewList.test.ts</a></td>
+  <td>3</td>
+  <td>duplicates cards and enables marquee animation in moving mode • renders grid mode when moving is disabled • ReviewList</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/reviews.service.test.ts">tests/unit/reviews.service.test.ts</a></td>
+  <td>2</td>
+  <td>submits review payload through submitReview callable • reviewsService</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/reviews.store.test.ts">tests/unit/reviews.store.test.ts</a></td>
+  <td>2</td>
+  <td>initializes empty review queues • useReviewStore</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/ReviewSubmissionDialog.test.ts">tests/unit/ReviewSubmissionDialog.test.ts</a></td>
+  <td>3</td>
+  <td>validates required fields before submit • submits review payload when inputs are valid • ReviewSubmissionDialog</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/router-guards-auth.test.ts">tests/unit/router-guards-auth.test.ts</a></td>
+  <td>10</td>
+  <td>bypasses auth for overlay and obs routes • allows unauthenticated access to public marketing routes • blocks non-web-admin users from /admin/reviews and allows admin users • redirects unauthenticated users to login for protected routes • redirects non-admin users away from admin-only routes • allows scorekeepers into scoring routes and blocks viewers • requires a matching volunteer session for kiosk routes • requires a matching volunteer session for volunteer scoring detail routes • initializes auth when the store is still loading • router auth guards</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/scheduleCapacityGuard.test.ts">tests/unit/scheduleCapacityGuard.test.ts</a></td>
+  <td>6</td>
+  <td>detects conflict when draft/published occupancy + candidate exceeds court capacity • returns no conflict when remaining capacity is enough • treats boundary touch as non-overlap (end == start) • excludes same scheduling scope when building occupied windows • uses fallback duration when plannedEndAt is missing • scheduleCapacityGuard</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/scheduleExport.test.ts">tests/unit/scheduleExport.test.ts</a></td>
+  <td>8</td>
+  <td>returns one row per scheduled match sorted by time • includes compact display code and stable global key • appends unscheduled matches at the bottom with empty time • includes duration in minutes • formats time as HH:MM in local timezone representation • returns empty string for undefined • buildScheduleExportRows • formatExportTime</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/ScheduleGridView.rendering.test.ts">tests/unit/ScheduleGridView.rendering.test.ts</a></td>
+  <td>3</td>
+  <td>renders BYE labels and keeps BYE matches out of scheduled grid cards • keeps non-bye TBD placeholders schedulable and labeled as TBD • ScheduleGridView slot labels and schedulability</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/ScheduleGridView.test.ts">tests/unit/ScheduleGridView.test.ts</a></td>
+  <td>14</td>
+  <td>generates slots at 15-minute intervals • returns empty array when start equals end • calculates span for a 30-minute match on 15-minute slots as 2 • returns 1 for a match shorter than one slot • returns 0 for a match starting at grid start • returns 2 for a match starting 30 minutes after grid start • maps a match to the correct slot and court • marks continuation cells for multi-slot matches • places scheduled matches without courtId into inferred lanes • spreads overlapping matches without courtId across lanes • computeTimeSlots • computeMatchRowSpan • computeSlotIndex • buildGridCellMap</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/scheduleRules.test.ts">tests/unit/scheduleRules.test.ts</a></td>
+  <td>7</td>
+  <td>has sensible default values • constraints have min &lt;= max • field names are non-empty strings • status values match expected strings • plannedStartAt is the canonical time field name • algorithmic invariant flags are all true • scheduleRules</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/scoring.test.ts">tests/unit/scoring.test.ts</a></td>
+  <td>20</td>
+  <td>should not complete game when score is below 21 • should complete game at 21-0 • should complete game at 21-19 (win by 2) • should not complete game at 21-20 (need win by 2) • should complete game at 22-20 (win by 2 in extended play) • should not complete game at 29-28 • should complete game at 30-29 (max points) • should complete game at 29-30 (max points, player 2 wins) • should handle player 2 winning normally • should not complete match with 1-0 games • should complete match at 2-0 games • should complete match at 2-1 games • should not complete match at 1-1 games • should handle player 2 winning the match • should ignore incomplete games when determining match winner • should have correct default values • Badminton Scoring Rules • Game Completion • Match Completion • Badminton Configuration</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/ScoringInterfaceView.volunteerMode.test.ts">tests/unit/ScoringInterfaceView.volunteerMode.test.ts</a></td>
+  <td>4</td>
+  <td>returns volunteer scorekeepers to the kiosk match list • allows volunteer scorekeepers to correct completed matches • locks point entry at game point and requires explicit complete-game action • ScoringInterfaceView volunteer mode</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/selfCheckInDomain.test.ts">tests/unit/selfCheckInDomain.test.ts</a></td>
+  <td>6</td>
+  <td>returns both player and partner ids for doubles registration • keeps status approved when partner is still missing • switches to checked_in when all required participants are present • keeps non-eligible statuses unchanged • normalizes search query safely • selfCheckInDomain</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/selfCheckInRoute.test.ts">tests/unit/selfCheckInRoute.test.ts</a></td>
+  <td>3</td>
+  <td>registers public self-checkin route • loads SelfCheckInView as a public route component • self check-in route</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/SelfCheckInView.test.ts">tests/unit/SelfCheckInView.test.ts</a></td>
+  <td>6</td>
+  <td>loads tournament metadata for branded header rendering • shows waiting-for-partner message when single participant checks in first • submits both participant ids for partner check-in path • uses arrow-key navigation to select matching participants • disables check-in actions for already checked-in participants • SelfCheckInView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/SelfRegistrationView.test.ts">tests/unit/SelfRegistrationView.test.ts</a></td>
+  <td>3</td>
+  <td>creates partner registration for doubles and marks status pending when approval is required • auto-approves singles registration when tournament does not require approval • SelfRegistrationView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/stageLayout.test.ts">tests/unit/stageLayout.test.ts</a></td>
+  <td>5</td>
+  <td>returns true when first stage is round_robin • returns false when first stage is elimination • returns false for empty stage arrays • returns false when first stage has no type • isRoundRobinStage</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/test-catalog.inventory.test.ts">tests/unit/test-catalog.inventory.test.ts</a></td>
+  <td>3</td>
+  <td>resolves the seeded catalog against real repo tests • flags a missing file and pattern mismatch clearly • test catalog inventory resolution</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/test-catalog.report-html.test.ts">tests/unit/test-catalog.report-html.test.ts</a></td>
+  <td>2</td>
+  <td>renders visual summary and workflow tables • test catalog html report</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/test-catalog.report-markdown.test.ts">tests/unit/test-catalog.report-markdown.test.ts</a></td>
+  <td>2</td>
+  <td>includes summary, workflow coverage, and release-required cases • test catalog markdown report</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/test-catalog.schema.test.ts">tests/unit/test-catalog.schema.test.ts</a></td>
+  <td>2</td>
+  <td>loads a valid catalog document with seeded entries • test catalog schema</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/test-catalog.validation.test.ts">tests/unit/test-catalog.validation.test.ts</a></td>
+  <td>3</td>
+  <td>accepts the seeded catalog • rejects duplicate ids and invalid enum values • test catalog validation</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/test-run-summary.test.ts">tests/unit/test-run-summary.test.ts</a></td>
+  <td>3</td>
+  <td>builds a normalized run summary • parses vitest and playwright output counts • test run summary utilities</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/timeScheduler.test.ts">tests/unit/timeScheduler.test.ts</a></td>
+  <td>15</td>
+  <td>schedules_all_pool_matches_with_planned_times (70 teams, 3-team pools) • respects_min_rest_time_between_team_matches • unscheduled_when_out_of_time_with_reason • lockedTime_match_not_overwritten_by_reschedule • tbd_matches_get_placeholder_planned_times • auto_assign_picks_earliest_due_match_by_planned_time • scheduleVersion is a positive integer • stats reflect actual counts • estimatedEndTime is the latest plannedEndAt • computeEpochs_assigns_correct_epochs_for_4_team_pool • epoch_sort_fills_all_courts_before_advancing_to_next_epoch • publishes only planned draft slots unless force=true • unpublishes only matches that are currently public • scheduleTimes — Time-First Scheduler • publish/unpublish schedule gates</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/TournamentAnnouncementCardDialog.test.ts">tests/unit/TournamentAnnouncementCardDialog.test.ts</a></td>
+  <td>2</td>
+  <td>calls html2canvas and triggers link download on export • TournamentAnnouncementCardDialog</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/TournamentBrandingCard.test.ts">tests/unit/TournamentBrandingCard.test.ts</a></td>
+  <td>2</td>
+  <td>blocks adding a twenty-first sponsor • TournamentBrandingCard</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/tournamentBrandingStorage.test.ts">tests/unit/tournamentBrandingStorage.test.ts</a></td>
+  <td>3</td>
+  <td>builds deterministic storage paths • rejects oversize files • tournamentBrandingStorage helpers</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/TournamentBrandMark.test.ts">tests/unit/TournamentBrandMark.test.ts</a></td>
+  <td>3</td>
+  <td>renders the tournament logo when a logo URL is provided • falls back to the configured icon when no logo is available • TournamentBrandMark</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/TournamentCreateView.test.ts">tests/unit/TournamentCreateView.test.ts</a></td>
+  <td>4</td>
+  <td>requires at least one category before creating tournament • creates tournament, categories, courts, then navigates to dashboard • maps continue state and disabled reason to the active step • TournamentCreateView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/TournamentLandingTemplateView.test.ts">tests/unit/TournamentLandingTemplateView.test.ts</a></td>
+  <td>4</td>
+  <td>loads tournament and resolves requested template variant • falls back to classic template when query variant is invalid • shows not-found state when tournament fetch fails • TournamentLandingTemplateView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/TournamentPublicShell.test.ts">tests/unit/TournamentPublicShell.test.ts</a></td>
+  <td>2</td>
+  <td>renders JSON-LD structured data with SportsEvent and Organization entries • TournamentPublicShell</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/tournaments.store.test.ts">tests/unit/tournaments.store.test.ts</a></td>
+  <td>3</td>
+  <td>defaults organizerIds to current user when creating tournament • preserves explicit organizerIds when provided • tournaments store - createTournament</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/TournamentSettingsView.volunteerAccess.test.ts">tests/unit/TournamentSettingsView.volunteerAccess.test.ts</a></td>
+  <td>2</td>
+  <td>saves a check-in PIN through the callable and refreshes the tournament • TournamentSettingsView volunteer access</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/TournamentSponsorStrip.test.ts">tests/unit/TournamentSponsorStrip.test.ts</a></td>
+  <td>2</td>
+  <td>renders sponsor links for sponsors with websites and text fallbacks when logos are missing • TournamentSponsorStrip</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/tournamentState.test.ts">tests/unit/tournamentState.test.ts</a></td>
+  <td>9</td>
+  <td>maps status values to lifecycle defaults • normalizes to explicit state when valid, else falls back to status • maps lifecycle state to storage status • returns the next state in sequence and null at terminal state • allows only adjacent forward transitions and same-state no-op • allows emergency unlock BRACKET_LOCKED -&gt; BRACKET_GENERATED only • enforces roster, bracket, and scoring lock boundaries • throws lock-specific edit errors once boundaries are crossed • tournamentState guards</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/TournamentSummaryView.test.ts">tests/unit/TournamentSummaryView.test.ts</a></td>
+  <td>3</td>
+  <td>excludes invalid and &gt;720 minute durations from KPI metrics • exports csv with duration metrics and shows success toast • TournamentSummaryView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useAsyncOperation.test.ts">tests/unit/useAsyncOperation.test.ts</a></td>
+  <td>11</td>
+  <td>should initialize with null data, false loading, and null error • should execute async operation and set data on success • should set loading to true during execution • should handle errors and set error message • should use custom error message when provided • should call onSuccess callback on successful execution • should call onError callback on failure • should reset all state to initial values • should handle non-Error thrown values • should support generic types • useAsyncOperation</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useBracketGenerator.logic.test.ts">tests/unit/useBracketGenerator.logic.test.ts</a></td>
+  <td>3</td>
+  <td>blocks elimination generation when pool matches are still pending • generates elimination stage after pool completion and persists category pointers • useBracketGenerator.generateEliminationFromPool</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useBracketGenerator.test.ts">tests/unit/useBracketGenerator.test.ts</a></td>
+  <td>18</td>
+  <td>should return 13 pools for 38 players with teamsPerPool=3 • should distribute 38 players into 13 pools (12x3 + 1x2) • should return 3 pools for 9 players with teamsPerPool=3 • should have no bye pool when players divide evenly • should return 4 pools for 10 players with teamsPerPool=3 • should ensure no pool has more than 3 players • should return 3 pools for 12 players with teamsPerPool=4 • should have all pools with exactly 4 players • should handle minimum of 1 pool • should default to 4 teams per pool when not specified • should handle large numbers • should floor the teamsPerPool value • calculatePoolGroupCount • Test Case 1: Core Fix (38 players, teamsPerPool=3) • Test Case 2: Edge Case (9 players, teamsPerPool=3) • Test Case 3: Edge Case (10 players, teamsPerPool=3) • Test Case 4: Regression (12 players, teamsPerPool=4) • Additional edge cases</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useFrontDeskCheckInWorkflow.test.ts">tests/unit/useFrontDeskCheckInWorkflow.test.ts</a></td>
+  <td>24</td>
+  <td>parses explicit registration token payload • parses bib payload • rejects empty input • assigns the smallest available bib from start • returns start when no bibs are used • uses approved_total semantics for rate • handles zero denominator • returns partial success summary when one mutation fails • creates item and bulk undo tokens with expected windows • expires item undo after 5s • includes disabled reason for urgent participants that cannot check in • tracks throughput metrics for recent check-ins • undoes the most recent check-in via undoLatest • matches a participant by unique full name • matches a participant by unique partial name • returns ambiguous when multiple names match • returns not_found when no name match exists • parseScanInput • assignSmallestAvailableBib • computeFrontDeskStats • makeBatchRunner • createUndoState • useFrontDeskCheckInWorkflow • findRegistrationByTypedQuery</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useMatchIdentification.test.ts">tests/unit/useMatchIdentification.test.ts</a></td>
+  <td>4</td>
+  <td>uses WS prefix for women categories without men-substring collision • formats match number with women alias • generateMatchDisplayId • useMatchIdentification</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useMatchScheduler.bye-filter.test.ts">tests/unit/useMatchScheduler.bye-filter.test.ts</a></td>
+  <td>2</td>
+  <td>excludes BYE matches but keeps TBD matches for scheduling • useMatchScheduler BYE filtering</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useMatchSlotState.test.ts">tests/unit/useMatchSlotState.test.ts</a></td>
+  <td>8</td>
+  <td>returns resolved for populated slots • returns bye for missing slot when match is finalized with winner • returns bye for missing slot when match status is walkover/completed • returns tbd for missing slot when match is not finalized • returns tbd when both slots are missing • getSlotLabel returns BYE/TBD/resolved name consistently • isSchedulableMatch is false for terminal statuses even when no bye • useMatchSlotState</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useNavigationState.test.ts">tests/unit/useNavigationState.test.ts</a></td>
+  <td>10</td>
+  <td>rail defaults to false when localStorage is empty • rail reads persisted value from localStorage • collapseToRail sets rail to true and persists • expandFromRail sets rail to false • sections default correctly — shareStream collapsed, others expanded • toggleSection flips a section • sections are shared across composable calls (singleton) • rail is shared across composable calls (singleton) • sections fall back to defaults when localStorage contains invalid JSON • useNavigationState</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/usePlayerMatchHistory.test.ts">tests/unit/usePlayerMatchHistory.test.ts</a></td>
+  <td>8</td>
+  <td>returns empty array when player has no registrations • returns history for a singles player as primary registrant • marks a match as loss when opponent is the winnerId • marks a walkover match correctly • returns history for doubles player as partner (not primary registrant) • sorts multiple tournaments by startDate descending • deduplicates matches that appear in both participant1Id and participant2Id queries • fetchPlayerMatchHistory</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/usePublicPageMetadata.test.ts">tests/unit/usePublicPageMetadata.test.ts</a></td>
+  <td>2</td>
+  <td>sets document title and description for public pages • usePublicPageMetadata</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/usePwaInstallPrompt.test.ts">tests/unit/usePwaInstallPrompt.test.ts</a></td>
+  <td>3</td>
+  <td>captures the deferred install prompt and resolves accepted installs • persists dismissals across mounts for the current session • usePwaInstallPrompt</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/UserManagementView.test.ts">tests/unit/UserManagementView.test.ts</a></td>
+  <td>3</td>
+  <td>blocks self-admin demotion and shows guardrail toast • passes actor metadata when confirming status change • UserManagementView</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/users.store.test.ts">tests/unit/users.store.test.ts</a></td>
+  <td>3</td>
+  <td>persists activation metadata when deactivating a user • clears deactivation metadata when reactivating a user • users store</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useScheduleOrchestrator.test.ts">tests/unit/useScheduleOrchestrator.test.ts</a></td>
+  <td>3</td>
+  <td>clears level scopes before scheduling leveled targets • does not clear scopes for non-leveled categories • useScheduleOrchestrator</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useSelfCheckIn.test.ts">tests/unit/useSelfCheckIn.test.ts</a></td>
+  <td>4</td>
+  <td>loads candidates from search callable • clears candidates when query has fewer than 2 chars • submits check-in payload and stores result • useSelfCheckIn</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useTimeScheduler.clearTimedSchedule.test.ts">tests/unit/useTimeScheduler.clearTimedSchedule.test.ts</a></td>
+  <td>3</td>
+  <td>clears schedule metadata only for targeted level scopes • returns zero and skips writes when there is nothing to clear • clearTimedScheduleScopes</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useTournamentBranding.test.ts">tests/unit/useTournamentBranding.test.ts</a></td>
+  <td>2</td>
+  <td>normalizes legacy string sponsors and sorts structured sponsors by display order • useTournamentBranding</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/useTournamentStateAdvance.test.ts">tests/unit/useTournamentStateAdvance.test.ts</a></td>
+  <td>7</td>
+  <td>computes next state and supports default first transition when state is missing • advances state and keeps status synchronized • does nothing when no current state exists • shows error toast when advance transition fails • transitions directly to target state and synchronizes status • shows error toast when direct transition fails • useTournamentStateAdvance</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/verify-release.test.ts">tests/unit/verify-release.test.ts</a></td>
+  <td>3</td>
+  <td>fails when a release-required case is unresolved • runs commands, writes summary, and returns results when coverage is valid • verify release</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/volunteerAccessCore.test.ts">tests/unit/volunteerAccessCore.test.ts</a></td>
+  <td>5</td>
+  <td>round-trips an encrypted PIN • rejects tampered volunteer session tokens • rejects volunteer sessions whose pin revision no longer matches the tournament config • accepts a volunteer session when tournament, role, and revision all match • volunteerAccessCore</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/volunteerAccessStore.test.ts">tests/unit/volunteerAccessStore.test.ts</a></td>
+  <td>2</td>
+  <td>persists a volunteer session for the matching tournament and role • volunteer access store</td>
+</tr><tr>
+  <td>unit</td>
+  <td><a href="tests/unit/VolunteerAccessView.test.ts">tests/unit/VolunteerAccessView.test.ts</a></td>
+  <td>2</td>
+  <td>submits the PIN and routes into check-in kiosk mode • VolunteerAccessView</td>
+</tr></tbody>
+      </table>
+    </section>
+    <section class="workflow-card">
+  <h2>organization</h2>
+  <p class="workflow-meta">Cases: 1 · Release required: 1 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>organization.public-home.branding-sync</code></td>
+  <td>updates organization branding in admin and shows it on the public org page</td>
+  <td>e2e</td>
+  <td>critical</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/p0-org-branding-public-home.spec.ts">e2e/p0-org-branding-public-home.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>registration</h2>
+  <p class="workflow-meta">Cases: 1 · Release required: 1 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>registration.player-signup.valid-form</code></td>
+  <td>should enable Create Account button with valid form data</td>
+  <td>e2e</td>
+  <td>high</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/user-registration.spec.ts">e2e/user-registration.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>check-in</h2>
+  <p class="workflow-meta">Cases: 1 · Release required: 1 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>check-in.front-desk.rapid-bulk-toggle</code></td>
+  <td>allows toggling between rapid and bulk modes</td>
+  <td>e2e</td>
+  <td>high</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/p0-front-desk-checkin.spec.ts">e2e/p0-front-desk-checkin.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>scheduling</h2>
+  <p class="workflow-meta">Cases: 1 · Release required: 1 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>scheduling.match-control.ready-queue</code></td>
+  <td>skips blocked due matches and auto-assigns the next eligible published match</td>
+  <td>e2e</td>
+  <td>critical</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/p0-match-control-scoring.spec.ts">e2e/p0-match-control-scoring.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>publish</h2>
+  <p class="workflow-meta">Cases: 1 · Release required: 1 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>public-views.publish-level-schedule</code></td>
+  <td>publishes a level schedule from Categories and clears the draft state on the public schedule</td>
+  <td>e2e</td>
+  <td>critical</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/p0-public-views.spec.ts">e2e/p0-public-views.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>match-control</h2>
+  <p class="workflow-meta">Cases: 2 · Release required: 2 · Layers: unit</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>match-control.auto-assign.skip-blocked</code></td>
+  <td>skips blocked due matches and auto-assigns the next eligible due match with a warning</td>
+  <td>unit</td>
+  <td>critical</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="tests/unit/MatchControlView.auto-assign.test.ts">tests/unit/MatchControlView.auto-assign.test.ts</a></td>
+</tr><tr class="covered">
+  <td><code>match-control.category-cta.level-publish</code></td>
+  <td>shows pool publish CTA when pool matches are scheduled but not published</td>
+  <td>unit</td>
+  <td>high</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="tests/unit/CategoryRegistrationStats.test.ts">tests/unit/CategoryRegistrationStats.test.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>scoring</h2>
+  <p class="workflow-meta">Cases: 2 · Release required: 2 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>scoring.match-correction.correct-score-action</code></td>
+  <td>shows correct-score action for admin on scoring interface</td>
+  <td>e2e</td>
+  <td>high</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/p0-score-correction.spec.ts">e2e/p0-score-correction.spec.ts</a></td>
+</tr><tr class="covered">
+  <td><code>scoring.match-control.manual-dialog</code></td>
+  <td>opens the manual scoring dialog from a deterministic ready match</td>
+  <td>e2e</td>
+  <td>high</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/p0-match-control-scoring.spec.ts">e2e/p0-match-control-scoring.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>public-views</h2>
+  <p class="workflow-meta">Cases: 1 · Release required: 0 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>public-views.schedule-shell.loads</code></td>
+  <td>loads public schedule page</td>
+  <td>e2e</td>
+  <td>medium</td>
+  <td>no</td>
+  <td>covered</td>
+  <td><a href="e2e/p0-public-views.spec.ts">e2e/p0-public-views.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>tournament-lifecycle</h2>
+  <p class="workflow-meta">Cases: 1 · Release required: 1 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>tournament-lifecycle.pool-to-elimination.completed-journey</code></td>
+  <td>shows the completed men&#39;s doubles pool-to-elimination lifecycle for a seeded 28-team tournament</td>
+  <td>e2e</td>
+  <td>critical</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/p0-tournament-lifecycle-pool-to-elimination.spec.ts">e2e/p0-tournament-lifecycle-pool-to-elimination.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>post-completion</h2>
+  <p class="workflow-meta">Cases: 1 · Release required: 1 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>post-completion.player-reports-public-proof</code></td>
+  <td>shows player profile stats, tournament reports, and public leaderboard results after completion</td>
+  <td>e2e</td>
+  <td>critical</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/p0-post-completion-outcomes.spec.ts">e2e/p0-post-completion-outcomes.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>auth-roles</h2>
+  <p class="workflow-meta">Cases: 1 · Release required: 1 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>auth.roles.protected-routes</code></td>
+  <td>redirects unauthenticated users to login for protected routes</td>
+  <td>e2e</td>
+  <td>critical</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/p0-auth-and-role-guards.spec.ts">e2e/p0-auth-and-role-guards.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+<section class="workflow-card">
+  <h2>leaderboard</h2>
+  <p class="workflow-meta">Cases: 1 · Release required: 1 · Layers: e2e</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Title</th><th>Layer</th><th>Risk</th><th>Release</th><th>Status</th><th>File</th></tr>
+    </thead>
+    <tbody><tr class="covered">
+  <td><code>leaderboard.direct-load.heading</code></td>
+  <td>loads leaderboard page directly and shows heading</td>
+  <td>e2e</td>
+  <td>medium</td>
+  <td>yes</td>
+  <td>covered</td>
+  <td><a href="e2e/leaderboard.spec.ts">e2e/leaderboard.spec.ts</a></td>
+</tr></tbody>
+  </table>
+</section>
+  </main>
+</body>
+</html>

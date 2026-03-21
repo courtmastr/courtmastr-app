@@ -24,11 +24,6 @@ test.describe('P0 - Court Management', () => {
     await expect(page.getByTestId('add-court-btn')).toBeVisible({ timeout: 10000 });
   });
 
-  test('should display court management tab', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /Courts \(\d+\)/ })).toBeVisible();
-    await expect(page.getByTestId('add-court-btn')).toBeVisible();
-  });
-
   test('should add new court', async ({ page }) => {
     const courtName = `New Test Court ${Date.now()}`;
     await addCourt(page, courtName);

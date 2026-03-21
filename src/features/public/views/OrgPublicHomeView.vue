@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { useOrganizationsStore } from '@/stores/organizations';
+import OrgSponsorCarousel from '@/components/common/OrgSponsorCarousel.vue';
 import type { Organization, Tournament } from '@/types';
 
 const route = useRoute();
@@ -69,6 +70,22 @@ const orgInitials = computed(() => {
   return org.value.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 });
 
+// Stats bar
+const upcomingCount = computed(() => upcomingTournaments.value.length);
+const yearsActive = computed(() => {
+  if (!org.value?.foundedYear) return null;
+  return new Date().getFullYear() - org.value.foundedYear;
+});
+
+// Sponsors
+const orgSponsors = computed(() => org.value?.sponsors ?? []);
+
+// Social links
+const socialLinks = computed(() => org.value?.socialLinks ?? {});
+const hasSocialLinks = computed(() =>
+  !!(socialLinks.value.instagram || socialLinks.value.facebook || socialLinks.value.youtube || socialLinks.value.twitter)
+);
+
 onMounted(async () => {
   try {
     const result = await orgStore.fetchOrgBySlug(slug.value);
@@ -89,21 +106,49 @@ onMounted(async () => {
 
 <template>
   <!-- Loading -->
-  <div v-if="loading" class="org-public-loading">
-    <v-progress-circular indeterminate color="#F59E0B" size="48" />
+  <div
+    v-if="loading"
+    class="org-public-loading"
+  >
+    <v-progress-circular
+      indeterminate
+      color="#F59E0B"
+      size="48"
+    />
   </div>
 
   <!-- Not Found -->
-  <div v-else-if="notFound" class="org-not-found">
-    <v-icon size="72" color="#475569">mdi-office-building-remove</v-icon>
-    <h2 class="org-not-found__title">Organization not found</h2>
-    <p class="org-not-found__sub">The page <strong>{{ slug }}</strong> doesn't exist or may have moved.</p>
-    <v-btn variant="outlined" color="#F59E0B" to="/" class="mt-4">Go Home</v-btn>
+  <div
+    v-else-if="notFound"
+    class="org-not-found"
+  >
+    <v-icon
+      size="72"
+      color="#475569"
+    >
+      mdi-office-building-remove
+    </v-icon>
+    <h2 class="org-not-found__title">
+      Organization not found
+    </h2>
+    <p class="org-not-found__sub">
+      The page <strong>{{ slug }}</strong> doesn't exist or may have moved.
+    </p>
+    <v-btn
+      variant="outlined"
+      color="#F59E0B"
+      to="/"
+      class="mt-4"
+    >
+      Go Home
+    </v-btn>
   </div>
 
   <!-- Org Page -->
-  <div v-else-if="org" class="org-public">
-
+  <div
+    v-else-if="org"
+    class="org-public"
+  >
     <!-- ── Hero ─────────────────────────────────────────────────────────── -->
     <div class="org-hero">
       <div 
@@ -121,25 +166,142 @@ onMounted(async () => {
               :src="org.logoUrl"
               :alt="org.name"
               class="org-hero__logo-img"
-            />
-            <div v-else class="org-hero__logo-initials">
+            >
+            <div
+              v-else
+              class="org-hero__logo-initials"
+            >
               {{ orgInitials }}
             </div>
           </div>
 
           <div class="org-hero__meta">
-            <h1 class="org-hero__name">{{ org.name }}</h1>
+            <h1 class="org-hero__name">
+              {{ org.name }}
+            </h1>
             
             <div class="org-hero__chips mt-3">
-               <span v-if="org.timezone" class="org-hero__chip org-hero__chip--timezone">
-                 <v-icon size="14" class="mr-1">mdi-earth</v-icon> {{ org.timezone.replace('_', ' ') }}
-               </span>
-               <span v-for="sport in sports" :key="sport" class="org-hero__chip org-hero__chip--sport">
-                 {{ getSportEmoji(sport) }} {{ sport }}
-               </span>
+              <span
+                v-if="org.city"
+                class="org-hero__chip org-hero__chip--timezone"
+              >
+                <v-icon
+                  size="14"
+                  class="mr-1"
+                >mdi-map-marker</v-icon> {{ org.city }}
+              </span>
+              <span
+                v-if="org.timezone"
+                class="org-hero__chip org-hero__chip--timezone"
+              >
+                <v-icon
+                  size="14"
+                  class="mr-1"
+                >mdi-earth</v-icon> {{ org.timezone.replace('_', ' ') }}
+              </span>
+              <span
+                v-if="org.foundedYear"
+                class="org-hero__chip org-hero__chip--timezone"
+              >
+                <v-icon
+                  size="14"
+                  class="mr-1"
+                >mdi-calendar-star</v-icon> Est. {{ org.foundedYear }}
+              </span>
+              <span
+                v-for="sport in sports"
+                :key="sport"
+                class="org-hero__chip org-hero__chip--sport"
+              >
+                {{ getSportEmoji(sport) }} {{ sport }}
+              </span>
+            </div>
+
+            <!-- Social links -->
+            <div
+              v-if="hasSocialLinks"
+              class="org-hero__social mt-4"
+            >
+              <a
+                v-if="socialLinks.instagram"
+                :href="socialLinks.instagram.startsWith('http') ? socialLinks.instagram : `https://instagram.com/${socialLinks.instagram.replace('@','')}`"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="org-hero__social-btn"
+                aria-label="Instagram"
+              >
+                <v-icon size="22">mdi-instagram</v-icon>
+              </a>
+              <a
+                v-if="socialLinks.facebook"
+                :href="socialLinks.facebook.startsWith('http') ? socialLinks.facebook : `https://facebook.com/${socialLinks.facebook}`"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="org-hero__social-btn"
+                aria-label="Facebook"
+              >
+                <v-icon size="22">mdi-facebook</v-icon>
+              </a>
+              <a
+                v-if="socialLinks.youtube"
+                :href="socialLinks.youtube.startsWith('http') ? socialLinks.youtube : `https://youtube.com/@${socialLinks.youtube.replace('@','')}`"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="org-hero__social-btn"
+                aria-label="YouTube"
+              >
+                <v-icon size="22">mdi-youtube</v-icon>
+              </a>
+              <a
+                v-if="socialLinks.twitter"
+                :href="socialLinks.twitter.startsWith('http') ? socialLinks.twitter : `https://x.com/${socialLinks.twitter.replace('@','')}`"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="org-hero__social-btn"
+                aria-label="X / Twitter"
+              >
+                <v-icon size="22">mdi-twitter</v-icon>
+              </a>
             </div>
           </div>
         </div>
+      </v-container>
+    </div>
+
+    <!-- ── Stats Bar ────────────────────────────────────────────────────── -->
+    <div class="org-stats-bar">
+      <v-container class="org-stats-bar__inner">
+        <div class="org-stats-bar__tile">
+          <span class="org-stats-bar__value">{{ totalTournaments }}</span>
+          <span class="org-stats-bar__label">Events</span>
+        </div>
+        <div class="org-stats-bar__divider" />
+        <div class="org-stats-bar__tile">
+          <span class="org-stats-bar__value org-stats-bar__value--live">{{ activeTournaments.length }}</span>
+          <span class="org-stats-bar__label">Live</span>
+        </div>
+        <div class="org-stats-bar__divider" />
+        <div class="org-stats-bar__tile">
+          <span class="org-stats-bar__value org-stats-bar__value--blue">{{ upcomingCount }}</span>
+          <span class="org-stats-bar__label">Upcoming</span>
+        </div>
+        <div class="org-stats-bar__divider" />
+        <div class="org-stats-bar__tile">
+          <span class="org-stats-bar__value org-stats-bar__value--muted">{{ completedTournaments.length }}</span>
+          <span class="org-stats-bar__label">Completed</span>
+        </div>
+        <div class="org-stats-bar__divider" />
+        <div class="org-stats-bar__tile">
+          <span class="org-stats-bar__value">{{ sports.length || '—' }}</span>
+          <span class="org-stats-bar__label">{{ sports.length === 1 ? 'Sport' : 'Sports' }}</span>
+        </div>
+        <template v-if="yearsActive !== null">
+          <div class="org-stats-bar__divider" />
+          <div class="org-stats-bar__tile">
+            <span class="org-stats-bar__value org-stats-bar__value--gold">{{ yearsActive }}+</span>
+            <span class="org-stats-bar__label">Years Active</span>
+          </div>
+        </template>
       </v-container>
     </div>
 
@@ -147,11 +309,20 @@ onMounted(async () => {
     <v-container class="org-main-layout pb-12 pt-8">
       <v-row>
         <!-- ── Left Column: About & Info ─────────────────────────────────── -->
-        <v-col cols="12" md="4" lg="4" class="org-sidebar">
-          
-          <v-card class="org-card mb-6" elevation="0">
+        <v-col
+          cols="12"
+          md="4"
+          lg="4"
+          class="org-sidebar"
+        >
+          <v-card
+            class="org-card mb-6"
+            elevation="0"
+          >
             <v-card-text class="pa-6">
-              <h3 class="org-sidebar__heading mb-3">About Us</h3>
+              <h3 class="org-sidebar__heading mb-3">
+                About Us
+              </h3>
               <p class="org-about-text">
                 {{ org.about || 'Welcome to our organization!' }}
               </p>
@@ -164,7 +335,11 @@ onMounted(async () => {
                   rel="noopener noreferrer"
                   class="org-link-item"
                 >
-                  <v-icon size="20" color="#60A5FA" class="mr-3">mdi-web</v-icon>
+                  <v-icon
+                    size="20"
+                    color="#60A5FA"
+                    class="mr-3"
+                  >mdi-web</v-icon>
                   <span class="text-truncate">{{ org.website.replace(/^https?:\/\//, '').replace(/\/$/, '') }}</span>
                 </a>
                 
@@ -173,16 +348,25 @@ onMounted(async () => {
                   :href="`mailto:${org.contactEmail}`"
                   class="org-link-item mt-3"
                 >
-                  <v-icon size="20" color="#60A5FA" class="mr-3">mdi-email-outline</v-icon>
+                  <v-icon
+                    size="20"
+                    color="#60A5FA"
+                    class="mr-3"
+                  >mdi-email-outline</v-icon>
                   <span class="text-truncate">{{ org.contactEmail }}</span>
                 </a>
               </div>
             </v-card-text>
           </v-card>
 
-          <v-card class="org-card mb-6" elevation="0">
+          <v-card
+            class="org-card mb-6"
+            elevation="0"
+          >
             <v-card-text class="pa-6">
-              <h3 class="org-sidebar__heading mb-5">Quick Stats</h3>
+              <h3 class="org-sidebar__heading mb-5">
+                Quick Stats
+              </h3>
               <div class="org-stats-grid">
                 <div class="org-stat-box">
                   <span class="org-stat-value text-primary">{{ totalTournaments }}</span>
@@ -215,10 +399,17 @@ onMounted(async () => {
         </v-col>
 
         <!-- ── Right Column: Tournaments ──────────────────────────────────── -->
-        <v-col cols="12" md="8" lg="8" class="org-content-area">
-          
+        <v-col
+          cols="12"
+          md="8"
+          lg="8"
+          class="org-content-area"
+        >
           <!-- Live Section -->
-          <section v-if="activeTournaments.length" class="org-section mb-10">
+          <section
+            v-if="activeTournaments.length"
+            class="org-section mb-10"
+          >
             <h2 class="org-section__heading text-success">
               <span class="org-section__dot org-section__dot--live" />
               Live Now
@@ -230,7 +421,9 @@ onMounted(async () => {
                 :to="`/tournaments/${t.id}/landing`"
                 class="org-tournament-card org-tournament-card--live"
               >
-                <div class="org-tournament-card__sport">{{ getSportEmoji(t.sport) }}</div>
+                <div class="org-tournament-card__sport">
+                  {{ getSportEmoji(t.sport) }}
+                </div>
                 <div class="org-tournament-card__body">
                   <div class="org-tournament-card__header">
                     <span class="org-tournament-card__name">{{ t.name }}</span>
@@ -239,18 +432,36 @@ onMounted(async () => {
                       :style="`background: ${getStatusColor(t.status)}22; color: ${getStatusColor(t.status)}`"
                     >{{ getStatusLabel(t.status) }}</span>
                   </div>
-                  <div class="org-tournament-card__date">{{ getTournamentDateRange(t) }}</div>
-                  <div v-if="t.location" class="org-tournament-card__location">
-                    <v-icon size="14" class="mr-1">mdi-map-marker</v-icon> {{ t.location }}
+                  <div class="org-tournament-card__date">
+                    {{ getTournamentDateRange(t) }}
+                  </div>
+                  <div
+                    v-if="t.location"
+                    class="org-tournament-card__location"
+                  >
+                    <v-icon
+                      size="14"
+                      class="mr-1"
+                    >
+                      mdi-map-marker
+                    </v-icon> {{ t.location }}
                   </div>
                 </div>
-                <v-icon class="org-tournament-card__chevron" size="24">mdi-chevron-right</v-icon>
+                <v-icon
+                  class="org-tournament-card__chevron"
+                  size="24"
+                >
+                  mdi-chevron-right
+                </v-icon>
               </router-link>
             </div>
           </section>
 
           <!-- Upcoming Section -->
-          <section v-if="upcomingTournaments.length" class="org-section mb-10">
+          <section
+            v-if="upcomingTournaments.length"
+            class="org-section mb-10"
+          >
             <h2 class="org-section__heading text-info">
               <span class="org-section__dot org-section__dot--upcoming" />
               Upcoming &amp; Open
@@ -262,7 +473,9 @@ onMounted(async () => {
                 :to="`/tournaments/${t.id}/landing`"
                 class="org-tournament-card org-tournament-card--upcoming"
               >
-                <div class="org-tournament-card__sport">{{ getSportEmoji(t.sport) }}</div>
+                <div class="org-tournament-card__sport">
+                  {{ getSportEmoji(t.sport) }}
+                </div>
                 <div class="org-tournament-card__body">
                   <div class="org-tournament-card__header">
                     <span class="org-tournament-card__name">{{ t.name }}</span>
@@ -271,19 +484,39 @@ onMounted(async () => {
                       :style="`background: ${getStatusColor(t.status)}22; color: ${getStatusColor(t.status)}`"
                     >{{ getStatusLabel(t.status) }}</span>
                   </div>
-                  <div class="org-tournament-card__date">{{ getTournamentDateRange(t) }}</div>
-                  <div v-if="t.location" class="org-tournament-card__location">
-                    <v-icon size="14" class="mr-1">mdi-map-marker</v-icon> {{ t.location }}
+                  <div class="org-tournament-card__date">
+                    {{ getTournamentDateRange(t) }}
+                  </div>
+                  <div
+                    v-if="t.location"
+                    class="org-tournament-card__location"
+                  >
+                    <v-icon
+                      size="14"
+                      class="mr-1"
+                    >
+                      mdi-map-marker
+                    </v-icon> {{ t.location }}
                   </div>
                 </div>
-                <v-icon class="org-tournament-card__chevron" size="24">mdi-chevron-right</v-icon>
+                <v-icon
+                  class="org-tournament-card__chevron"
+                  size="24"
+                >
+                  mdi-chevron-right
+                </v-icon>
               </router-link>
             </div>
           </section>
 
           <!-- Completed Section -->
-          <section v-if="completedTournaments.length" class="org-section">
-            <h2 class="org-section__heading text-grey-lighten-1">Past Tournaments</h2>
+          <section
+            v-if="completedTournaments.length"
+            class="org-section"
+          >
+            <h2 class="org-section__heading text-grey-lighten-1">
+              Past Tournaments
+            </h2>
             <div class="org-tournaments-grid">
               <router-link
                 v-for="t in completedTournaments"
@@ -291,7 +524,9 @@ onMounted(async () => {
                 :to="`/tournaments/${t.id}/landing`"
                 class="org-tournament-card org-tournament-card--completed"
               >
-                <div class="org-tournament-card__sport">{{ getSportEmoji(t.sport) }}</div>
+                <div class="org-tournament-card__sport">
+                  {{ getSportEmoji(t.sport) }}
+                </div>
                 <div class="org-tournament-card__body">
                   <div class="org-tournament-card__header">
                     <span class="org-tournament-card__name">{{ t.name }}</span>
@@ -300,29 +535,59 @@ onMounted(async () => {
                       :style="`background: ${getStatusColor(t.status)}22; color: ${getStatusColor(t.status)}`"
                     >{{ getStatusLabel(t.status) }}</span>
                   </div>
-                  <div class="org-tournament-card__date">{{ getTournamentDateRange(t) }}</div>
-                  <div v-if="t.location" class="org-tournament-card__location">
-                    <v-icon size="14" class="mr-1">mdi-map-marker</v-icon> {{ t.location }}
+                  <div class="org-tournament-card__date">
+                    {{ getTournamentDateRange(t) }}
+                  </div>
+                  <div
+                    v-if="t.location"
+                    class="org-tournament-card__location"
+                  >
+                    <v-icon
+                      size="14"
+                      class="mr-1"
+                    >
+                      mdi-map-marker
+                    </v-icon> {{ t.location }}
                   </div>
                 </div>
-                <v-icon class="org-tournament-card__chevron" size="24">mdi-chevron-right</v-icon>
+                <v-icon
+                  class="org-tournament-card__chevron"
+                  size="24"
+                >
+                  mdi-chevron-right
+                </v-icon>
               </router-link>
             </div>
           </section>
 
-          <section v-if="!totalTournaments" class="org-empty">
-            <v-icon size="56" color="#475569">mdi-calendar-blank</v-icon>
-            <p class="org-empty__text">No tournaments yet. Check back soon.</p>
+          <section
+            v-if="!totalTournaments"
+            class="org-empty"
+          >
+            <v-icon
+              size="56"
+              color="#475569"
+            >
+              mdi-calendar-blank
+            </v-icon>
+            <p class="org-empty__text">
+              No tournaments yet. Check back soon.
+            </p>
           </section>
         </v-col>
       </v-row>
     </v-container>
 
+    <!-- ── Sponsor Carousel ───────────────────────────────────────────── -->
+    <OrgSponsorCarousel
+      v-if="orgSponsors.length"
+      :sponsors="orgSponsors"
+    />
+
     <!-- ── Footer Attribution ─────────────────────────────────────────── -->
     <div class="org-footer">
       Powered by <strong>CourtMastr</strong>
     </div>
-
   </div><!-- /org-public -->
 </template>
 
@@ -475,6 +740,97 @@ onMounted(async () => {
 }
 .org-hero__chip--sport {
   text-transform: capitalize;
+}
+
+/* ── Social Links ─────────────────────────────────────────────────────────── */
+.org-hero__social {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.org-hero__social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #1E293B;
+  border: 1px solid #334155;
+  color: #64748B;
+  text-decoration: none;
+  transition: color 200ms ease, border-color 200ms ease, background 200ms ease;
+}
+.org-hero__social-btn:hover,
+.org-hero__social-btn:focus-visible {
+  color: #E2E8F0;
+  border-color: #475569;
+  background: #263348;
+  outline: none;
+}
+.org-hero__social-btn:focus-visible {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+/* ── Stats Bar ────────────────────────────────────────────────────────────── */
+.org-stats-bar {
+  background: linear-gradient(90deg, #1A2535 0%, #0F1B2D 50%, #1A2535 100%);
+  border-top: 1px solid #1E293B;
+  border-bottom: 1px solid #1E293B;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.org-stats-bar::-webkit-scrollbar { display: none; }
+
+.org-stats-bar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 96px;
+}
+
+.org-stats-bar__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 20px 32px;
+  flex: 1;
+  min-width: 100px;
+  text-align: center;
+}
+
+.org-stats-bar__divider {
+  width: 1px;
+  height: 40px;
+  background: #1E293B;
+  flex-shrink: 0;
+}
+
+.org-stats-bar__value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 2.75rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #F8FAFC;
+  letter-spacing: -0.02em;
+}
+.org-stats-bar__value--live   { color: #22C55E; }
+.org-stats-bar__value--blue   { color: #3B82F6; }
+.org-stats-bar__value--muted  { color: #64748B; }
+.org-stats-bar__value--gold   { color: #F59E0B; }
+
+.org-stats-bar__label {
+  font-size: 0.68rem;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
 }
 
 /* ── Left Sidebar (Cards) ────────────────────────────────────────────────── */
@@ -769,6 +1125,16 @@ onMounted(async () => {
   }
   .org-hero__chips {
     justify-content: center;
+  }
+  .org-hero__social {
+    justify-content: center;
+  }
+  .org-stats-bar__tile {
+    padding: 16px 20px;
+    min-width: 80px;
+  }
+  .org-stats-bar__value {
+    font-size: 2rem;
   }
   .org-sidebar {
     order: 2; /* Sidebar moves under tournaments on mobile */

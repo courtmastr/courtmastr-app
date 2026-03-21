@@ -293,8 +293,51 @@ const pendingMatches = computed(() => {
   });
 });
 
+interface AssignmentGateSummary {
+  blocked: number;
+  blockedByCheckIn: number;
+  blockedBySchedule: number;
+  blockedByPublish: number;
+}
+
+interface AutoAssignDecisionAlert {
+  title: string;
+  message: string;
+  severity: 'info' | 'warning';
+}
+
+interface PendingMatchAssignmentState {
+  match: Match;
+  blockers: string[];
+  isAssignable: boolean;
+  isDue: boolean;
+}
+
+const pendingMatchAssignmentStates = computed<PendingMatchAssignmentState[]>(() => {
+  const now = Date.now();
+  const dueThreshold = now + autoAssignDueWindowMs.value;
+
+  return pendingMatches.value.map((match) => {
+    const blockers = getMatchAssignBlockers(match);
+    const plannedTime = getMatchScheduleTime(match);
+    return {
+      match,
+      blockers,
+      isAssignable: blockers.length === 0,
+      isDue: Boolean(plannedTime && plannedTime.getTime() <= dueThreshold),
+    };
+  });
+});
+
 const assignablePendingMatches = computed(() =>
-  pendingMatches.value.filter((match) => canAssignCourtToMatch(match))
+  pendingMatchAssignmentStates.value
+    .filter((state) => state.isAssignable)
+    .map((state) => state.match)
+);
+
+const blockedPendingMatches = computed(() =>
+  pendingMatchAssignmentStates.value
+    .filter((state) => !state.isAssignable)
 );
 
 
@@ -669,6 +712,27 @@ function getMatchAssignBlockersText(match: Match, allowAdminCheckInOverride = fa
   return getMatchAssignBlockers(match, allowAdminCheckInOverride).join(' • ');
 }
 
+function getQueueBlockedReason(match: Match): string {
+  const blockers = getMatchAssignBlockers(match);
+  if (blockers.length === 0) return '';
+
+  const reasons: string[] = [];
+
+  if (blockers.includes('Blocked: Players not checked-in')) {
+    reasons.push('Waiting for check-in');
+  }
+  if (blockers.includes('Blocked: Not published')) {
+    reasons.push('Publish schedule first');
+  }
+  if (blockers.includes('Blocked: Not scheduled')) {
+    reasons.push('Missing planned time');
+  }
+
+  return reasons.length > 0
+    ? reasons.join(' • ')
+    : blockers[0].replace(/^Blocked:\s*/, '');
+}
+
 function canAssignCourtToMatch(match: Match, allowAdminCheckInOverride = false): boolean {
   if (match.courtId) return false;
   if (!hasAssignmentEligibleStatus(match)) return false;
@@ -967,6 +1031,37 @@ async function confirmResetSchedule(): Promise<void> {
 
 const autoAssignEnabled = ref(true);
 
+const autoAssignableDueMatches = computed(() => {
+  return pendingMatchAssignmentStates.value
+    .filter((state) => state.isAssignable && state.isDue)
+    .map((state) => state.match);
+});
+
+const dueBlockedMatches = computed(() =>
+  pendingMatchAssignmentStates.value
+    .filter((state) => !state.isAssignable && state.isDue)
+);
+
+const assignmentGateSummary = computed<AssignmentGateSummary>(() => {
+  const summary: AssignmentGateSummary = {
+    blocked: blockedPendingMatches.value.length,
+    blockedByCheckIn: 0,
+    blockedBySchedule: 0,
+    blockedByPublish: 0,
+  };
+
+  for (const state of blockedPendingMatches.value) {
+    if (state.blockers.includes('Blocked: Players not checked-in')) summary.blockedByCheckIn += 1;
+    if (state.blockers.includes('Blocked: Not scheduled')) summary.blockedBySchedule += 1;
+    if (state.blockers.includes('Blocked: Not published')) summary.blockedByPublish += 1;
+  }
+
+  return summary;
+});
+
+const lastAutoAssignSkipSignature = ref<string | null>(null);
+const recentAutoAssignDecision = ref<AutoAssignDecisionAlert | null>(null);
+
 watch(() => tournament.value?.settings, (settings) => {
   if (settings && typeof settings.autoAssignEnabled !== 'undefined') {
     autoAssignEnabled.value = settings.autoAssignEnabled;
@@ -974,19 +1069,45 @@ watch(() => tournament.value?.settings, (settings) => {
 }, { immediate: true });
 
 watch(
-  [() => autoAssignEnabled.value, () => availableCourts.value, () => pendingMatches.value],
-  async ([isEnabled, freeCourts, pending]) => {
-    if (!isEnabled || freeCourts.length === 0 || pending.length === 0) return;
+  [() => autoAssignEnabled.value, () => availableCourts.value, () => autoAssignableDueMatches.value],
+  async ([isEnabled, freeCourts, dueMatches]) => {
+    if (!isEnabled || freeCourts.length === 0 || dueMatches.length === 0) return;
 
-    const now = Date.now();
-    const match = (pending as typeof pendingMatches.value).find((m) => {
-      if (!canAssignCourtToMatch(m)) return false;
-      const plannedTime = getMatchScheduleTime(m);
-      return Boolean(plannedTime && plannedTime.getTime() <= now + autoAssignDueWindowMs.value);
-    });
+    const match = dueMatches[0] as Match | undefined;
     if (!match) return;
 
     const court = freeCourts[0];
+    const matchTime = getMatchScheduleTime(match)?.getTime() ?? Number.POSITIVE_INFINITY;
+    const skippedDueMatches = dueBlockedMatches.value.filter((state) => {
+      const blockedTime = getMatchScheduleTime(state.match)?.getTime() ?? Number.POSITIVE_INFINITY;
+      return blockedTime <= matchTime;
+    });
+
+    if (skippedDueMatches.length > 0) {
+      const skipped = skippedDueMatches[0];
+      const skippedMessage = `Skipped ${getDisplayCode(skipped.match)}: ${getQueueBlockedReason(skipped.match)}`;
+      const decisionMessage = `${skippedMessage}. Auto-assigned ${getDisplayCode(match)} to ${court.name}.`;
+      const signature = `${skipped.match.categoryId}:${skipped.match.levelId ?? 'base'}:${skipped.match.id}:${court.id}:${skippedMessage}`;
+      if (lastAutoAssignSkipSignature.value !== signature) {
+        lastAutoAssignSkipSignature.value = signature;
+        recentAutoAssignDecision.value = {
+          title: 'Auto-assign skipped blocked match',
+          message: decisionMessage,
+          severity: 'warning',
+        };
+        notificationStore.showToast(
+          'warning',
+          decisionMessage
+        );
+        activityStore.logActivity(
+          tournamentId.value,
+          'court_assigned',
+          `${skippedMessage}. Auto-assigned ${getMatchDisplayName(match)} → ${court.name}`
+        );
+      }
+    } else {
+      lastAutoAssignSkipSignature.value = null;
+    }
 
     try {
       await matchStore.assignCourt(
@@ -1742,6 +1863,8 @@ async function confirmCompleteTournament(): Promise<void> {
                 :get-participant-name="getParticipantName"
                 :get-category-name="getCategoryName"
                 :enable-assign="true"
+                :can-assign-match="canAssignCourtToMatch"
+                :get-assign-blocked-reason="getQueueBlockedReason"
                 @select="selectMatchFromQueue"
                 @assign="openAssignCourtDialogFromQueue"
               />
@@ -1753,6 +1876,8 @@ async function confirmCompleteTournament(): Promise<void> {
                 :matches="matches"
                 :get-participant-name="getParticipantName"
                 :get-category-name="getCategoryName"
+                :assignment-gate-summary="assignmentGateSummary"
+                :recent-auto-assign-decision="recentAutoAssignDecision"
                 @assign-to-court="openAssignCourtDialogForCourt"
                 @view-match="openScoreDialog"
                 @release-court="releaseCourt"

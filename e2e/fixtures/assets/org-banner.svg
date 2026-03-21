@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="500" viewBox="0 0 1600 500" role="img" aria-labelledby="title desc">
+  <title id="title">CourtMastr Org Banner</title>
+  <desc id="desc">Wide sports banner used for lifecycle branding upload tests.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="45%" stop-color="#1D4ED8" />
+      <stop offset="100%" stop-color="#0EA5E9" />
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="500" fill="url(#sky)" />
+  <circle cx="1330" cy="110" r="76" fill="#F59E0B" opacity="0.9" />
+  <path d="M0 388C168 330 294 308 488 332C688 356 830 438 1024 430C1220 422 1360 324 1600 280V500H0V388Z" fill="#0B1120" opacity="0.75" />
+  <path d="M0 424C196 360 370 372 566 412C768 454 950 486 1170 448C1320 422 1452 380 1600 332V500H0V424Z" fill="#F59E0B" opacity="0.24" />
+  <text x="120" y="182" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="72" font-weight="700">CourtMastr Lifecycle Club</text>
+  <text x="120" y="250" fill="#DBEAFE" font-family="Arial, sans-serif" font-size="34">Seeded branding banner for the first end-to-end lifecycle journey</text>
+</svg>

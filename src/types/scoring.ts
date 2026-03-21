@@ -14,6 +14,7 @@ export interface ScoreCorrectionRecord {
   originalWinnerId?: string;
   newWinnerId?: string;
   reason: string;
+  correctionType: 'manual' | 'correction';
   correctedBy: string;
   correctedByName: string;
   correctedAt: Date;
@@ -30,6 +31,7 @@ export interface ScoreCorrectionRequest {
   originalWinnerId?: string;
   newWinnerId?: string;
   reason: string;
+  correctionType: 'manual' | 'correction';
 }
 
 /**

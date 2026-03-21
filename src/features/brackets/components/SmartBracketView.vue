@@ -9,12 +9,12 @@ import RoundRobinStandings from './RoundRobinStandings.vue';
 import PoolDrawTab from './PoolDrawTab.vue';
 import StandingsTab from './StandingsTab.vue';
 import MatchesByRoundTab from './MatchesByRoundTab.vue';
-import BracketTab from './BracketTab.vue';
 import { FORMAT_LABELS } from '@/types';
 
 const props = defineProps<{
   tournamentId: string;
   categoryId: string;
+  hideSelector?: boolean;
 }>();
 
 const route = useRoute();
@@ -34,12 +34,14 @@ const isPoolPhase = computed(
 );
 const isPoolToElimFormat = computed(() => format.value === 'pool_to_elimination');
 
-// Pool-only matches — groupId != null means pool match (permanent, never deleted)
-const poolMatches = computed(() =>
-  matchStore.matches.filter(
-    (m) => m.categoryId === props.categoryId && m.groupId != null
-  )
-);
+// Pool-only matches — filter by poolStageId if available, fallback to groupId check
+const poolMatches = computed(() => {
+  const poolStageId = category.value?.poolStageId;
+  return matchStore.matches.filter((m) =>
+    m.categoryId === props.categoryId &&
+    (poolStageId != null ? String(m.stageId) === String(poolStageId) : m.groupId != null)
+  );
+});
 
 // Registration IDs of participants in any elimination bracket match
 // Uses participant1Id/participant2Id — the actual Match type field names
@@ -60,14 +62,11 @@ const snapshotLoading = computed(
   () => snapshotStage.value === 'fetching' || snapshotStage.value === 'calculating'
 );
 
-// Active outer tab — default to draw (pool phase) or bracket (elimination phase)
-const activeTab = ref<'draw' | 'standings' | 'matches' | 'bracket'>(
-  isPoolPhase.value ? 'draw' : 'bracket'
-);
+// Active outer tab
+const activeTab = ref<'draw' | 'standings' | 'matches'>('draw');
 
-// Auto-switch tab on phase transition and trigger snapshot generation
+// Trigger snapshot generation on phase transition to elimination
 watch(isPoolPhase, async (nowPool) => {
-  activeTab.value = nowPool ? 'draw' : 'bracket';
   if (!nowPool && isPoolToElimFormat.value) {
     await generateSnapshot(props.tournamentId, props.categoryId, { phaseScope: 'pool' });
   }
@@ -110,8 +109,11 @@ onMounted(async () => {
 
 <template>
   <div class="smart-bracket-view">
-    <!-- Category selector -->
-    <v-row class="mb-3">
+    <!-- Category selector (hidden when embedded inside BracketsView) -->
+    <v-row
+      v-if="!hideSelector"
+      class="mb-3"
+    >
       <v-col
         cols="12"
         sm="6"
@@ -193,16 +195,6 @@ onMounted(async () => {
           </v-icon>
           Matches by Round
         </v-tab>
-        <!-- Bracket tab: only rendered in elimination phase -->
-        <v-tab
-          v-if="!isPoolPhase"
-          value="bracket"
-        >
-          <v-icon start>
-            mdi-tournament
-          </v-icon>
-          Bracket
-        </v-tab>
       </v-tabs>
 
       <v-tabs-window v-model="activeTab">
@@ -210,6 +202,8 @@ onMounted(async () => {
           <PoolDrawTab
             :tournament-id="tournamentId"
             :category-id="categoryId"
+            :matches="poolMatches"
+            :pool-stage-id="category?.poolStageId"
           />
         </v-tabs-window-item>
 
@@ -229,28 +223,7 @@ onMounted(async () => {
         <v-tabs-window-item value="matches">
           <MatchesByRoundTab :matches="poolMatches" />
         </v-tabs-window-item>
-
-        <!-- Bracket window item: v-if mirrors the tab above -->
-        <v-tabs-window-item
-          v-if="!isPoolPhase"
-          value="bracket"
-        >
-          <BracketTab
-            v-if="category"
-            :tournament-id="tournamentId"
-            :category-id="categoryId"
-            :category="category"
-          />
-        </v-tabs-window-item>
       </v-tabs-window>
     </template>
-
-    <!-- Single or double elimination (non-pool formats) -->
-    <BracketTab
-      v-else-if="category"
-      :tournament-id="tournamentId"
-      :category-id="categoryId"
-      :category="category"
-    />
   </div>
 </template>

@@ -100,6 +100,14 @@
       ]
     },
     {
+      "collectionGroup": "registrations",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "partnerPlayerId", "order": "ASCENDING" },
+        { "fieldPath": "registeredAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "tournaments",
       "queryScope": "COLLECTION",
       "fields": [

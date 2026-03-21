@@ -35,6 +35,15 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    // Organization branding assets (logo, banner, sponsor logos)
+    match /orgs/{orgId}/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
     // Default deny all other paths
     match /{allPaths=**} {
       allow read, write: if false;

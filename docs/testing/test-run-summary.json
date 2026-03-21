@@ -1,0 +1,14 @@
+{
+  "generatedAt": "2026-03-20T23:12:43.843Z",
+  "scope": "full-release",
+  "vitest": {
+    "filesPassed": 140,
+    "testsPassed": 618
+  },
+  "e2e": {
+    "total": 88,
+    "passed": 88,
+    "failed": 0,
+    "skipped": 0
+  }
+}

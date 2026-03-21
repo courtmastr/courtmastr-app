@@ -180,7 +180,7 @@ describe('leaderboard integration', () => {
 
     await leaderboardVm.generate('t1', 'cat-1');
 
-    expect(mockDeps.fetchMatches).toHaveBeenCalledWith('t1');
+    expect(mockDeps.fetchMatches).toHaveBeenCalledWith('t1', 'cat-1');
     expect(mockDeps.fetchRegistrations).toHaveBeenCalledWith('t1');
     expect(mockDeps.fetchPlayers).toHaveBeenCalledWith('t1');
     expect(mockDeps.fetchTournament).not.toHaveBeenCalled();

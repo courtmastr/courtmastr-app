@@ -145,7 +145,7 @@ describe('router auth guards', () => {
 
     const championsRoute = await runGuard('/tournaments/t1/champions', { isAuthenticated: false });
     expect(championsRoute.type).toBe('allow');
-  });
+  }, ROUTER_GUARD_TEST_TIMEOUT_MS);
 
   it('blocks non-web-admin users from /admin/reviews and allows admin users', async () => {
     const organizerResult = await runGuard('/admin/reviews', {
@@ -154,7 +154,7 @@ describe('router auth guards', () => {
       isAdmin: true,
     });
     expect(organizerResult.type).toBe('redirect');
-    expect(organizerResult.name).toBe('tournament-list');
+    expect(organizerResult.name).toBe('dashboard');
 
     const adminResult = await runGuard('/admin/reviews', {
       isAuthenticated: true,
@@ -181,7 +181,7 @@ describe('router auth guards', () => {
     });
 
     expect(result.type).toBe('redirect');
-    expect(result.name).toBe('tournament-list');
+    expect(result.name).toBe('dashboard');
   });
 
   it('allows scorekeepers into scoring routes and blocks viewers', async () => {
@@ -201,7 +201,7 @@ describe('router auth guards', () => {
     });
 
     expect(viewer.type).toBe('redirect');
-    expect(viewer.name).toBe('tournament-list');
+    expect(viewer.name).toBe('dashboard');
   });
 
   it('requires a matching volunteer session for kiosk routes', async () => {
