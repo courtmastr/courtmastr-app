@@ -7,9 +7,9 @@
 - [x] Homepage hero update and printable QR cards.
 
 ## Milestone 2: Participant Operations (Horizon 2 - Current)
-- [ ] **Phase 1: Player Check-In System**. Digital check-in for venue flow.
-- [ ] **Phase 2: Score Correction & Audit Trail**. Administrative tools for resolving disputes.
-- [ ] **Phase 3: Volunteer Access Polish**. Refined views for on-court scorers.
+- [x] **Phase 1: Player Check-In System**. Digital check-in for venue flow.
+- [x] **Phase 2: Score Correction & Audit Trail**. Administrative tools for resolving disputes.
+- [x] **Phase 3: Volunteer Access Polish**. Refined views for on-court scorers.
 
 ## Milestone 3: Advanced Scheduling (Horizon 2B)
 - [ ] **Phase 4: Multi-Day Scheduling**. Support for tournaments spanning multiple dates.
