@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CourtMastr — Connection Map</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #e2e8f0; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; padding: 16px; }
+  h1 { font-size: 14px; color: #7eb8f7; margin-bottom: 4px; }
+  .subtitle { color: #64748b; font-size: 11px; margin-bottom: 16px; }
+
+  .diagram { display: flex; gap: 0; width: 100%; }
+
+  /* Column headers */
+  .col-header { text-align: center; font-size: 10px; font-weight: bold; letter-spacing: 0.08em; padding: 6px 4px; border-radius: 4px 4px 0 0; margin-bottom: 8px; }
+
+  /* Columns */
+  .col { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .col-views { flex: 1.4; }
+  .col-stores { flex: 1.2; }
+  .col-functions { flex: 1; }
+  .col-db { flex: 1.4; }
+
+  /* Separators */
+  .col-sep { width: 28px; display: flex; flex-direction: column; align-items: center; padding-top: 34px; flex-shrink: 0; }
+  .arrow-line { width: 100%; display: flex; flex-direction: column; align-items: center; color: #334155; }
+  .arrow-label { color: #334155; font-size: 9px; writing-mode: vertical-rl; text-orientation: mixed; margin: 4px 0; letter-spacing: 0.05em; }
+
+  /* Domain sections */
+  .domain { margin-bottom: 10px; border-left: 2px solid; padding-left: 6px; border-radius: 0 4px 4px 0; }
+  .domain-scoring   { border-color: #f87171; }
+  .domain-reg       { border-color: #fb923c; }
+  .domain-brackets  { border-color: #facc15; }
+  .domain-courts    { border-color: #4ade80; }
+  .domain-players   { border-color: #60a5fa; }
+  .domain-admin     { border-color: #c084fc; }
+  .domain-public    { border-color: #94a3b8; }
+
+  .domain-label { font-size: 9px; font-weight: bold; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+  .domain-scoring   .domain-label { color: #f87171; }
+  .domain-reg       .domain-label { color: #fb923c; }
+  .domain-brackets  .domain-label { color: #facc15; }
+  .domain-courts    .domain-label { color: #4ade80; }
+  .domain-players   .domain-label { color: #60a5fa; }
+  .domain-admin     .domain-label { color: #c084fc; }
+  .domain-public    .domain-label { color: #94a3b8; }
+
+  .item { background: #161b22; border: 1px solid #21262d; border-radius: 3px; padding: 4px 6px; margin-bottom: 3px; line-height: 1.4; }
+  .item-view   { color: #93c5fd; }
+  .item-store  { color: #fbbf24; }
+  .item-fn     { color: #f87171; }
+  .item-db     { color: #34d399; }
+  .item-comp   { color: #a78bfa; font-style: italic; }
+
+  .item-name { font-weight: bold; }
+  .item-sub  { color: #475569; font-size: 9.5px; margin-top: 2px; }
+
+  /* Arrow between cols */
+  .between { display: flex; align-items: center; justify-content: center; color: #334155; padding: 0 4px; }
+
+  /* Legend */
+  .legend { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* Column layout per domain */
+  .row { display: flex; gap: 0; margin-bottom: 10px; }
+  .row-domain-label { font-size: 9px; font-weight: bold; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 6px; border-radius: 3px; margin-bottom: 3px; }
+
+  /* Full-width grid */
+  .grid { display: grid; grid-template-columns: 1fr 24px 1fr 24px 1fr 24px 1fr; gap: 0; width: 100%; }
+  .grid-header { display: grid; grid-template-columns: 1fr 24px 1fr 24px 1fr 24px 1fr; gap: 0; margin-bottom: 8px; }
+  .gh { text-align: center; font-size: 10px; font-weight: bold; letter-spacing: 0.08em; padding: 6px 4px; background: #161b22; border: 1px solid #21262d; border-radius: 4px; }
+  .gh-view { color: #93c5fd; border-color: #1e3a5f; background: #0d1f33; }
+  .gh-store { color: #fbbf24; border-color: #3d2e00; background: #1a1300; }
+  .gh-fn { color: #f87171; border-color: #3d1515; background: #1a0808; }
+  .gh-db { color: #34d399; border-color: #0d3320; background: #051a0f; }
+  .gh-sep { border: none; background: none; }
+
+  .domain-row { display: contents; }
+  .domain-row .spacer { height: 6px; }
+
+  .cell { vertical-align: top; }
+  .sep-cell { display: flex; align-items: stretch; justify-content: center; }
+  .sep-arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; color: #2d3748; font-size: 14px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  td { vertical-align: top; padding: 3px; }
+  .td-sep { width: 24px; text-align: center; color: #2d3748; font-size: 16px; }
+</style>
+</head>
+<body>
+<h1>CourtMastr v2 — Full Connection Map</h1>
+<p class="subtitle">UI Views → Pinia Stores → Cloud Functions → Firestore, by domain</p>
+
+<div class="grid-header">
+  <div class="gh gh-view">UI VIEWS</div>
+  <div class="gh gh-sep"></div>
+  <div class="gh gh-store">STORES + COMPOSABLES</div>
+  <div class="gh gh-sep"></div>
+  <div class="gh gh-fn">CLOUD FUNCTIONS</div>
+  <div class="gh gh-sep"></div>
+  <div class="gh gh-db">FIRESTORE COLLECTIONS</div>
+</div>
+
+<table>
+  <colgroup>
+    <col style="width:22%">
+    <col style="width:3%">
+    <col style="width:22%">
+    <col style="width:3%">
+    <col style="width:18%">
+    <col style="width:3%">
+    <col style="width:29%">
+  </colgroup>
+
+  <!-- ── SCORING ── -->
+  <tr><td colspan="7" style="padding:6px 0 2px 0"><span style="color:#f87171;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;border-left:2px solid #f87171;padding-left:6px">SCORING</span></td></tr>
+  <tr>
+    <td>
+      <div class="item item-view"><div class="item-name">ScoringInterfaceView</div></div>
+      <div class="item item-view"><div class="item-name">MatchListView</div></div>
+      <div class="item item-view"><div class="item-name">LiveScoringView</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-store"><div class="item-name">matchesStore</div><div class="item-sub">read/write match + scores</div></div>
+      <div class="item item-store"><div class="item-name">tournamentsStore</div></div>
+      <div class="item item-store"><div class="item-name">registrationsStore</div></div>
+      <div class="item item-store"><div class="item-name">volunteerAccessStore</div></div>
+      <div class="item item-comp">useParticipantResolver</div>
+      <div class="item item-comp">useMatchDisplay</div>
+      <div class="item item-comp">useMatchSlotState</div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-fn"><div class="item-name">updateMatch</div><div class="item-sub">scores + advance winner + audit</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-db"><div class="item-name">…/categories/{id}/match_scores</div><div class="item-sub">write: scores, status, court, timestamp</div></div>
+      <div class="item item-db"><div class="item-name">…/categories/{id}/match</div><div class="item-sub">write: winner advancement</div></div>
+      <div class="item item-db"><div class="item-name">…/auditLog</div><div class="item-sub">write: score change record</div></div>
+    </td>
+  </tr>
+
+  <tr><td colspan="7" style="height:8px"></td></tr>
+
+  <!-- ── REGISTRATION ── -->
+  <tr><td colspan="7" style="padding:6px 0 2px 0"><span style="color:#fb923c;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;border-left:2px solid #fb923c;padding-left:6px">REGISTRATION</span></td></tr>
+  <tr>
+    <td>
+      <div class="item item-view"><div class="item-name">RegistrationMgmtView</div></div>
+      <div class="item item-view"><div class="item-name">SelfRegistrationView</div></div>
+      <div class="item item-view"><div class="item-name">ParticipantsView</div></div>
+      <div class="item item-view"><div class="item-name">FrontDeskCheckInView</div></div>
+      <div class="item item-view"><div class="item-name">SelfCheckInView</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-store"><div class="item-name">registrationsStore</div><div class="item-sub">approve / reject / import CSV</div></div>
+      <div class="item item-store"><div class="item-name">tournamentsStore</div></div>
+      <div class="item item-store"><div class="item-name">authStore</div></div>
+      <div class="item item-comp">useTournamentStateAdvance</div>
+      <div class="item item-comp">useParticipantResolver</div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-fn"><div class="item-name">applyVolunteerCheckInAction</div><div class="item-sub">bib + status update</div></div>
+      <div class="item item-fn"><div class="item-name">searchSelfCheckInCandidates</div></div>
+      <div class="item item-fn"><div class="item-name">submitSelfCheckIn</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-db"><div class="item-name">…/registrations</div><div class="item-sub">write: status, approvedAt, bibNumber, checkedInAt</div></div>
+      <div class="item item-db"><div class="item-name">…/players (tournament mirror)</div><div class="item-sub">write: player snapshot</div></div>
+    </td>
+  </tr>
+
+  <tr><td colspan="7" style="height:8px"></td></tr>
+
+  <!-- ── BRACKETS ── -->
+  <tr><td colspan="7" style="padding:6px 0 2px 0"><span style="color:#facc15;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;border-left:2px solid #facc15;padding-left:6px">BRACKETS</span></td></tr>
+  <tr>
+    <td>
+      <div class="item item-view"><div class="item-name">BracketsView</div></div>
+      <div class="item item-view"><div class="item-name">SmartBracketView</div></div>
+      <div class="item item-view"><div class="item-name">PublicBracketView</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-store"><div class="item-name">tournamentsStore</div><div class="item-sub">calls generateBracket CF</div></div>
+      <div class="item item-store"><div class="item-name">bracketMatchAdapter</div><div class="item-sub">brackets-manager ↔ Firestore adapter</div></div>
+      <div class="item item-comp">useBracketGenerator</div>
+      <div class="item item-comp">useBracketReversal</div>
+      <div class="item item-comp">useAdvanceWinner</div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-fn"><div class="item-name">generateBracket</div><div class="item-sub">uses brackets-manager lib</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-db"><div class="item-name">…/categories/{id}/match</div><div class="item-sub">write: bracket structure, seeding</div></div>
+      <div class="item item-db"><div class="item-name">…/categories/{id}/match_scores</div><div class="item-sub">write: initial match records</div></div>
+      <div class="item item-db"><div class="item-name">…/categories/{id}/stage|round|group</div><div class="item-sub">write: bracket stage metadata</div></div>
+      <div class="item item-db"><div class="item-name">…/categories/{id}/participant</div><div class="item-sub">write: seeded participants</div></div>
+    </td>
+  </tr>
+
+  <tr><td colspan="7" style="height:8px"></td></tr>
+
+  <!-- ── COURTS / SCHEDULING ── -->
+  <tr><td colspan="7" style="padding:6px 0 2px 0"><span style="color:#4ade80;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;border-left:2px solid #4ade80;padding-left:6px">COURTS &amp; SCHEDULING</span></td></tr>
+  <tr>
+    <td>
+      <div class="item item-view"><div class="item-name">CourtsView</div></div>
+      <div class="item item-view"><div class="item-name">MatchControlView</div></div>
+      <div class="item item-view"><div class="item-name">CategoriesView</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-store"><div class="item-name">tournamentsStore</div><div class="item-sub">court CRUD, calls generateSchedule</div></div>
+      <div class="item item-store"><div class="item-name">matchesStore</div><div class="item-sub">court assignment on match</div></div>
+      <div class="item item-comp">useMatchScheduler</div>
+      <div class="item item-comp">useAutoAssignment</div>
+      <div class="item item-comp">useTimeScheduler</div>
+      <div class="item item-comp">useCategoryStageStatus</div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-fn"><div class="item-name">generateSchedule</div><div class="item-sub">court assignment algorithm</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-db"><div class="item-name">tournaments/{id}/courts</div><div class="item-sub">read/write: court definitions</div></div>
+      <div class="item item-db"><div class="item-name">…/match_scores</div><div class="item-sub">write: scheduleTime, queuePosition, courtId</div></div>
+    </td>
+  </tr>
+
+  <tr><td colspan="7" style="height:8px"></td></tr>
+
+  <!-- ── PLAYERS / ORGS ── -->
+  <tr><td colspan="7" style="padding:6px 0 2px 0"><span style="color:#60a5fa;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;border-left:2px solid #60a5fa;padding-left:6px">PLAYERS &amp; ORGS</span></td></tr>
+  <tr>
+    <td>
+      <div class="item item-view"><div class="item-name">PlayersListView</div></div>
+      <div class="item item-view"><div class="item-name">PlayerProfileView</div></div>
+      <div class="item item-view"><div class="item-name">OrgProfileView</div></div>
+      <div class="item item-view"><div class="item-name">OrgDashboardView</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-store"><div class="item-name">playersStore</div><div class="item-sub">global player registry</div></div>
+      <div class="item item-store"><div class="item-name">organizationsStore</div></div>
+      <div class="item item-store"><div class="item-name">dashboardStore</div><div class="item-sub">metrics via collectionGroup</div></div>
+      <div class="item item-comp">usePlayerMatchHistory</div>
+      <div class="item item-comp">useLeaderboard</div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-fn"><div class="item-name">aggregatePlayerStats</div><div class="item-sub">compute stats from match history</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-db"><div class="item-name">players (global)</div><div class="item-sub">read/write: profile, stats</div></div>
+      <div class="item item-db"><div class="item-name">playerEmailIndex</div><div class="item-sub">write: email → playerId lookup</div></div>
+      <div class="item item-db"><div class="item-name">organizations</div><div class="item-sub">read/write: settings, branding</div></div>
+      <div class="item item-db"><div class="item-name">organizations/{id}/members</div></div>
+      <div class="item item-db"><div class="item-name">orgSlugIndex</div><div class="item-sub">write: slug uniqueness</div></div>
+    </td>
+  </tr>
+
+  <tr><td colspan="7" style="height:8px"></td></tr>
+
+  <!-- ── ADMIN / AUTH ── -->
+  <tr><td colspan="7" style="padding:6px 0 2px 0"><span style="color:#c084fc;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;border-left:2px solid #c084fc;padding-left:6px">ADMIN &amp; AUTH</span></td></tr>
+  <tr>
+    <td>
+      <div class="item item-view"><div class="item-name">UserManagementView</div></div>
+      <div class="item item-view"><div class="item-name">AuditLogView</div></div>
+      <div class="item item-view"><div class="item-name">SuperDashboardView</div></div>
+      <div class="item item-view"><div class="item-name">VolunteerAccessView</div></div>
+      <div class="item item-view"><div class="item-name">LoginView / RegisterView</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-store"><div class="item-name">authStore</div><div class="item-sub">Firebase Auth + role claims</div></div>
+      <div class="item item-store"><div class="item-name">usersStore</div></div>
+      <div class="item item-store"><div class="item-name">auditStore</div></div>
+      <div class="item item-store"><div class="item-name">superAdminStore</div></div>
+      <div class="item item-store"><div class="item-name">volunteerAccessStore</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-fn"><div class="item-name">setVolunteerPin</div></div>
+      <div class="item item-fn"><div class="item-name">revealVolunteerPin</div></div>
+      <div class="item item-fn"><div class="item-name">issueVolunteerSession</div><div class="item-sub">returns session token</div></div>
+      <div class="item item-fn"><div class="item-name">submitBugReport</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-db"><div class="item-name">users</div><div class="item-sub">read/write: roles, profile</div></div>
+      <div class="item item-db"><div class="item-name">…/auditLog</div><div class="item-sub">write: admin actions</div></div>
+      <div class="item item-db"><div class="item-name">…/volunteerAccess</div><div class="item-sub">write: encrypted PIN config</div></div>
+      <div class="item item-db"><div class="item-name">bugReports</div></div>
+    </td>
+  </tr>
+
+  <tr><td colspan="7" style="height:8px"></td></tr>
+
+  <!-- ── PUBLIC / OBS ── -->
+  <tr><td colspan="7" style="padding:6px 0 2px 0"><span style="color:#94a3b8;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;border-left:2px solid #94a3b8;padding-left:6px">PUBLIC &amp; OVERLAYS</span></td></tr>
+  <tr>
+    <td>
+      <div class="item item-view"><div class="item-name">PublicScoringView</div></div>
+      <div class="item item-view"><div class="item-name">PublicScheduleView</div></div>
+      <div class="item item-view"><div class="item-name">ObsScoreboardView</div></div>
+      <div class="item item-view"><div class="item-name">OverlayBoardView</div></div>
+      <div class="item item-view"><div class="item-name">HallOfChampionsView</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-store"><div class="item-name">matchesStore</div><div class="item-sub">real-time listener (no auth)</div></div>
+      <div class="item item-store"><div class="item-name">tournamentsStore</div></div>
+      <div class="item item-store"><div class="item-name">registrationsStore</div></div>
+      <div class="item item-comp">useParticipantResolver</div>
+      <div class="item item-comp">useAnnouncements</div>
+      <div class="item item-comp">useHallOfChampions</div>
+      <div class="item item-comp">usePwaInstallPrompt</div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-fn" style="color:#475569;border-color:#1e293b"><div class="item-name" style="color:#475569">— none —</div><div class="item-sub">read-only, no CF calls</div></div>
+      <div class="item item-fn"><div class="item-name">submitReview</div><div class="item-sub">via reviewsService</div></div>
+    </td>
+    <td class="td-sep">→</td>
+    <td>
+      <div class="item item-db"><div class="item-name">…/match (public read)</div><div class="item-sub">no auth required</div></div>
+      <div class="item item-db"><div class="item-name">…/match_scores (public read)</div></div>
+      <div class="item item-db"><div class="item-name">reviews</div><div class="item-sub">write: tournament reviews</div></div>
+    </td>
+  </tr>
+</table>
+
+<div class="legend">
+  <div class="legend-item"><div class="dot" style="background:#93c5fd"></div> UI View</div>
+  <div class="legend-item"><div class="dot" style="background:#fbbf24"></div> Pinia Store</div>
+  <div class="legend-item"><div class="dot" style="background:#a78bfa"></div> Composable</div>
+  <div class="legend-item"><div class="dot" style="background:#f87171"></div> Cloud Function</div>
+  <div class="legend-item"><div class="dot" style="background:#34d399"></div> Firestore Collection</div>
+</div>
+</body>
+</html>
