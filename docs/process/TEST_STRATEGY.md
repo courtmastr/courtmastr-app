@@ -37,8 +37,30 @@ For release/deploy:
 
 1. Confirm `master` contains merged changes.
 2. Enable checkout guard once (per local repo): `npm run hooks:enable`.
-3. Run `npm run deploy` and `npm run deploy:log` from a clean `master` context.
-4. Record deploy output (project, URL, and functions updated) in `docs/deployment/LAST_DEPLOY.md`.
+3. Run `npm run verify:release` to confirm the automated release catalog is covered and the latest E2E summary is recorded.
+4. Run `npm run deploy` and `npm run deploy:log` from a clean `master` context.
+5. Record deploy output (project, URL, and functions updated) in `docs/deployment/LAST_DEPLOY.md`.
+
+## Test Catalog
+
+CourtMastr now keeps an automated test catalog in `docs/testing/test-catalog.json`.
+
+Generated outputs:
+
+- `docs/testing/TEST_CATALOG.md`
+- `docs/testing/TEST_CATALOG.html`
+- `docs/testing/test-run-summary.json`
+
+Commands:
+
+1. `npm run report:tests`
+   - validates the catalog against the real suite
+   - regenerates Markdown and HTML reports
+2. `npm run verify:release`
+   - runs the release verification command
+   - records latest Vitest and E2E results
+   - regenerates the test catalog reports
+   - fails if release-required catalog entries are missing from the real suite
 
 ## UI Change Coverage
 

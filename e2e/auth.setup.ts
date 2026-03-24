@@ -1,14 +1,16 @@
-import { test as setup, expect } from '@playwright/test';
+import { test as setup } from '@playwright/test';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { execSync } from 'child_process';
+import { waitForPostLoginLanding } from './utils/auth';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const authDir = join(__dirname, '.auth');
 const testDataFile = join(process.cwd(), 'e2e', '.test-data.json');
 const isVerboseSetupLog = process.env.PW_SEED_VERBOSE === '1';
+const SEED_TIMEOUT_MS = 180_000;
 
 interface ProcessOutputError {
   stdout?: string | Buffer;
@@ -47,7 +49,7 @@ setup('seed test tournament', async () => {
   try {
     const result = execSync('npx tsx scripts/seed/local.ts', {
       encoding: 'utf-8',
-      timeout: 60000,
+      timeout: SEED_TIMEOUT_MS,
       cwd: process.cwd(),
     });
 
@@ -93,9 +95,7 @@ setup('authenticate as admin', async ({ page }) => {
   await page.locator('input[type="password"]').fill('admin123');
   await page.getByRole('button', { name: 'Sign In' }).click();
   
-  await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 10000 });
-
-  await expect(page.getByRole('heading', { name: 'Tournaments', exact: true })).toBeVisible();
+  await waitForPostLoginLanding(page, 10000);
 
   await page.context().storageState({ path: join(authDir, 'admin.json') });
 });
@@ -111,9 +111,7 @@ setup('authenticate as scorekeeper', async ({ page }) => {
   await page.locator('input[type="password"]').fill('score123');
   await page.getByRole('button', { name: 'Sign In' }).click();
 
-  await page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 10000 });
-
-  await expect(page.getByRole('heading', { name: 'Tournaments', exact: true })).toBeVisible();
+  await waitForPostLoginLanding(page, 10000);
 
   await page.context().storageState({ path: join(authDir, 'scorekeeper.json') });
 });

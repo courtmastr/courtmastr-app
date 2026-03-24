@@ -149,8 +149,12 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
             icon: NAVIGATION_ICONS.leaderboard,
           });
         } else if (pathArray[2] === 'categories' && pathArray[4] === 'smart-bracket') {
+          const smartBracketCategoryId = pathArray[3];
+          const smartBracketCategory = tournamentStore.categories.find((c) => c.id === smartBracketCategoryId);
+          const isPoolPhase = smartBracketCategory?.format === 'pool_to_elimination'
+            && smartBracketCategory?.poolPhase !== 'elimination';
           breadcrumbs.push({
-            title: 'Smart Bracket',
+            title: isPoolPhase ? 'Pool Play' : 'Bracket',
             to: `/tournaments/${tournamentId}/categories/${pathArray[3]}/smart-bracket`,
             icon: NAVIGATION_ICONS.smartBracket,
           });

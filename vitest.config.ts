@@ -7,6 +7,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom',
+    setupFiles: ['tests/setup/browser-storage.ts'],
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/diagnose_data.test.ts'],
     coverage: {

@@ -15,7 +15,6 @@ import AutoScheduleDialog from '../dialogs/AutoScheduleDialog.vue';
 import CategoryManagement from '../components/CategoryManagement.vue';
 import CategoryRegistrationStats from '../components/CategoryRegistrationStats.vue';
 import CreateLevelsDialog from '../components/CreateLevelsDialog.vue';
-import PoolSchedulePanel from '../components/PoolSchedulePanel.vue';
 import ManageSeedsDialog from '../dialogs/ManageSeedsDialog.vue';
 import type { Category, LevelDefinition, Match } from '@/types';
 
@@ -45,24 +44,6 @@ const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const categoryManagementRef = ref<CategoryManagementExposed | null>(null);
 
-const poolCategories = computed(() =>
-  categories.value.filter(
-    (category) => category.format === 'pool_to_elimination' && category.poolStageId != null
-  )
-);
-
-const expandedPoolPanels = ref<number[]>([]);
-const expandedPoolCategoryIds = computed(() =>
-  expandedPoolPanels.value
-    .map((index) => poolCategories.value[index]?.id)
-    .filter((id): id is string => Boolean(id))
-);
-
-watch(poolCategories, () => {
-  expandedPoolPanels.value = expandedPoolPanels.value.filter(
-    (index) => index >= 0 && index < poolCategories.value.length
-  );
-});
 
 async function loadCategoriesContext(): Promise<void> {
   try {
@@ -154,6 +135,7 @@ async function generateBracket(categoryId: string): Promise<void> {
     await tournamentStore.generateBracket(tournamentId.value, categoryId);
     notificationStore.showToast('success', 'Bracket generated successfully!');
     await refreshCategoryLevels(categoryId);
+    router.push({ name: 'smart-bracket-view', params: { tournamentId: tournamentId.value, categoryId } });
   } catch (error) {
     notificationStore.showToast('error', 'Failed to generate bracket');
   }
@@ -229,10 +211,12 @@ function confirmRegeneratePools(categoryId: string): void {
 async function regeneratePools(): Promise<void> {
   if (!regeneratePoolsCategoryId.value) return;
   regeneratePoolsInProgress.value = true;
+  const categoryId = regeneratePoolsCategoryId.value;
   try {
-    await tournamentStore.regeneratePools(tournamentId.value, regeneratePoolsCategoryId.value);
+    await tournamentStore.regeneratePools(tournamentId.value, categoryId);
     notificationStore.showToast('success', 'Pools regenerated successfully!');
     showRegeneratePoolsDialog.value = false;
+    router.push({ name: 'smart-bracket-view', params: { tournamentId: tournamentId.value, categoryId } });
   } catch (error) {
     console.error('Failed to regenerate pools:', error);
     notificationStore.showToast('error', 'Failed to regenerate pools');
@@ -411,7 +395,6 @@ function openSeedingDialog(categoryId: string): void {
 
     <CategoryRegistrationStats
       :tournament-id="tournamentId"
-      :expanded-pool-category-ids="expandedPoolCategoryIds"
       class="mt-6"
       @generate-bracket="generateBracket"
       @create-levels="openCreateLevelsDialog"
@@ -430,40 +413,6 @@ function openSeedingDialog(categoryId: string): void {
       @republish-schedule="(category) => publishCategorySchedule(category, true)"
       @unpublish-schedule="unpublishCategorySchedule"
     />
-
-    <v-expansion-panels
-      v-if="poolCategories.length > 0"
-      v-model="expandedPoolPanels"
-      class="mt-4"
-      variant="accordion"
-      multiple
-    >
-      <v-expansion-panel
-        v-for="(cat, idx) in poolCategories"
-        :key="'pool-' + cat.id"
-        :value="idx"
-      >
-        <v-expansion-panel-title>
-          <v-icon
-            class="mr-2"
-            size="18"
-            color="primary"
-          >
-            mdi-table-tennis
-          </v-icon>
-          <span class="text-body-2 font-weight-medium">{{ cat.name }} — Pool Schedule</span>
-          <v-spacer />
-        </v-expansion-panel-title>
-        <v-expansion-panel-text>
-          <PoolSchedulePanel
-            :tournament-id="tournamentId"
-            :category-id="cat.id"
-            :category-name="cat.name"
-            @create-levels="openCreateLevelsDialog"
-          />
-        </v-expansion-panel-text>
-      </v-expansion-panel>
-    </v-expansion-panels>
 
     <AutoScheduleDialog
       v-model="showScheduleDialog"

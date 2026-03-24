@@ -151,9 +151,10 @@ vi.mock('@/composables/useTournamentStateAdvance', () => ({
 interface MatchControlAssignmentsVm {
   canAdminAssignAnyway: (match: Match) => boolean;
   openAssignCourtDialog: (match: Match, options?: { ignoreCheckInGate?: boolean }) => void;
+  getQueueBlockedReason: (match: Match) => string;
   getMatchParticipantLabel: (match: Match, slot: 'participant1' | 'participant2') => string;
   getMatchParticipantsTooltip: (match: Match) => string;
-  viewMode: 'queue' | 'schedule' | 'command';
+  viewMode: 'schedule' | 'command';
   selectedCategory: string;
   scheduleViewMode: 'compact' | 'full';
   scheduleFilters: {
@@ -290,6 +291,17 @@ describe('MatchControlView assignment actions', () => {
     expect(mockDeps.showToast).not.toHaveBeenCalled();
   });
 
+  it('surfaces mixed blocker reasons with check-in first for organizer queue messaging', () => {
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as MatchControlAssignmentsVm;
+    const match = makeMatch({
+      scheduleStatus: 'draft',
+      publishedAt: undefined,
+    });
+
+    expect(vm.getQueueBlockedReason(match)).toBe('Waiting for check-in • Publish schedule first');
+  });
+
   it('hydrates schedule view + draft filters from query params', () => {
     runtimeState.routeQuery = {
       view: 'schedule',
@@ -336,12 +348,12 @@ describe('MatchControlView assignment actions', () => {
     expect(vm.getMatchParticipantsTooltip(tbdMatch)).toContain('TBD');
   });
 
-  it('renders queue mode as read-only for court grid and queue list', () => {
+  it('falls back to command view when query requests removed queue mode', () => {
     runtimeState.routeQuery = { view: 'queue' };
 
     const wrapper = mountView();
     const vm = wrapper.vm as unknown as MatchControlAssignmentsVm;
 
-    expect(vm.viewMode).toBe('queue');
+    expect(vm.viewMode).toBe('command');
   });
 });

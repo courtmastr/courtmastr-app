@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" role="img" aria-labelledby="title desc">
+  <title id="title">CourtMastr Org Logo</title>
+  <desc id="desc">Blue and amber geometric logo used for lifecycle upload tests.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="36" fill="url(#bg)" />
+  <circle cx="120" cy="120" r="72" fill="#F59E0B" opacity="0.92" />
+  <path d="M84 144L120 84L156 144H138L120 113L102 144H84Z" fill="#0F172A" />
+  <text x="120" y="196" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="28" font-weight="700">CM</text>
+</svg>

@@ -146,6 +146,16 @@ export function evaluateAssignmentBlockers(
   return blockers;
 }
 
+/**
+ * Stringifies game scores into a standard 21-15, 21-12 format.
+ */
+function stringifyScores(scores: GameScore[]): string {
+  if (!scores || scores.length === 0) return 'No scores';
+  return scores
+    .map(g => `${g.score1}-${g.score2}`)
+    .join(', ');
+}
+
 export const useMatchStore = defineStore('matches', () => {
   const matches = ref<Match[]>([]);
   const currentMatch = ref<Match | null>(null);
@@ -642,7 +652,7 @@ export const useMatchStore = defineStore('matches', () => {
         categoryId,
         levelId: levelDoc.id,
       }));
-      return levelScopes.length > 0 ? levelScopes : [{ categoryId }];
+      return [{ categoryId }, ...levelScopes];
     }
 
     // No category specified: fetch ALL categories and level scopes
@@ -658,7 +668,7 @@ export const useMatchStore = defineStore('matches', () => {
         categoryId: cid,
         levelId: levelDoc.id,
       }));
-      return levelScopes.length > 0 ? levelScopes : [{ categoryId: cid }];
+      return [{ categoryId: cid }, ...levelScopes];
     });
   }
 
@@ -790,6 +800,9 @@ export const useMatchStore = defineStore('matches', () => {
       unsubMatch();
       unsubScores();
     };
+
+    // Prime the store immediately instead of waiting for a later snapshot change.
+    refresh();
   }
 
   /**
@@ -1047,6 +1060,8 @@ export const useMatchStore = defineStore('matches', () => {
       unsubMatch();
       unsubScores();
     };
+
+    refresh();
   }
 
   // --- Match lifecycle operations ---
@@ -1081,6 +1096,7 @@ export const useMatchStore = defineStore('matches', () => {
     await setDoc(
       doc(db, matchScoresPath, matchId),
       {
+        tournamentId,
         scores: initialScores,
         startedAt: serverTimestamp(),
         status: 'in_progress',
@@ -1291,6 +1307,7 @@ export const useMatchStore = defineStore('matches', () => {
     await setDoc(
       doc(db, matchScoresPath, matchId),
       {
+        tournamentId,
         scores,
         winnerId,
         status: 'completed',
@@ -1760,6 +1777,7 @@ export const useMatchStore = defineStore('matches', () => {
       originalWinnerId?: string;
       newWinnerId?: string;
       reason: string;
+      correctionType: 'manual' | 'correction';
     },
     categoryId?: string,
     levelId?: string
@@ -1775,7 +1793,15 @@ export const useMatchStore = defineStore('matches', () => {
 
       const batch = writeBatch(db);
 
-      batch.update(doc(db, matchScoresPath, matchId), {
+      const matchRef = doc(db, matchScoresPath, matchId);
+      const matchDoc = await getDoc(matchRef);
+      const matchData = matchDoc.data() as any;
+      
+      // Resolve participant names if missing
+      const p1Name = matchData?.participant1Name || matchData?.participant1Id || 'Player 1';
+      const p2Name = matchData?.participant2Name || matchData?.participant2Id || 'Player 2';
+
+      batch.update(matchRef, {
         scores: correction.newScores,
         winnerId: correction.newWinnerId || null,
         status: correction.newWinnerId ? 'completed' : 'in_progress',
@@ -1793,10 +1819,24 @@ export const useMatchStore = defineStore('matches', () => {
         originalWinnerId: correction.originalWinnerId,
         newWinnerId: correction.newWinnerId,
         reason: correction.reason,
+        correctionType: correction.correctionType,
         correctedBy,
         correctedByName,
         correctedAt: serverTimestamp(),
       });
+
+      // Log to global audit trail
+      const auditStore = useAuditStore();
+      await auditStore.logScoreCorrected(
+        tournamentId,
+        matchId,
+        p1Name,
+        p2Name,
+        stringifyScores(correction.originalScores),
+        stringifyScores(correction.newScores),
+        correction.reason,
+        correction.correctionType
+      );
 
       await batch.commit();
 

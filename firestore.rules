@@ -8,12 +8,14 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', null) == 'admin';
     }
 
     function isScorekeeper() {
       return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'scorekeeper'];
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', null) in ['admin', 'scorekeeper'];
     }
 
     function isOwner(userId) {
@@ -22,11 +24,13 @@ service cloud.firestore {
 
     function isOrganizer() {
       return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'organizer';
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', null) == 'organizer';
     }
 
     function isOrganizerOf(tournamentId) {
       return isAuthenticated() &&
+        exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
         request.auth.uid in get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.get('organizerIds', []);
     }
 
@@ -50,7 +54,7 @@ service cloud.firestore {
       // Admins or organizers can create tournaments
       allow create: if isAdmin() || isOrganizer();
       // Only admins or organizers assigned to this tournament can update it
-      allow update: if isAdmin() || isOrganizerOf(tournamentId);
+      allow update: if isAdmin() || isOrganizer() || isOrganizerOf(tournamentId);
       allow delete: if isAdmin();
 
       // Categories subcollection
@@ -272,6 +276,65 @@ service cloud.firestore {
       // Direct writes are blocked; review creation runs via callable/admin SDK
       allow create: if false;
       allow update, delete: if isAdmin();
+    }
+
+    // ---- Global Player Identity ----
+
+    function isOrgMember(orgId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    function isOrgAdmin(orgId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /organizations/{orgId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isOrgMember(orgId);
+      allow delete: if isAdmin();
+
+      match /members/{uid} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin() || isOrgAdmin(orgId);
+      }
+    }
+
+    match /players/{playerId} {
+      allow read: if true;  // public player search at /find
+      allow create: if isAuthenticated();
+      allow update: if isAdmin()
+        || (isOwner(resource.data.userId)
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                 .hasAny(['isVerified', 'stats']));
+      allow delete: if isAdmin();
+    }
+
+    match /playerEmailIndex/{emailNormalized} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /orgSlugIndex/{slug} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // ---- Collection Group Query Rules ----
+    // Required for collectionGroup() queries to work across subcollections.
+
+    match /{path=**}/registrations/{registrationId} {
+      allow read: if isAuthenticated();
+    }
+
+    match /{path=**}/activities/{activityId} {
+      allow read: if isAuthenticated();
+    }
+
+    match /{path=**}/members/{uid} {
+      allow read: if isAuthenticated();
     }
   }
 }

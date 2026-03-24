@@ -15,6 +15,7 @@ import {
   setVolunteerPin as setVolunteerPinFn,
 } from './volunteerAccess';
 import { FirestoreStorage } from './storage/firestore-adapter';
+import { aggregatePlayerStats as aggregatePlayerStatsFn } from './playerStats';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -30,6 +31,7 @@ export const setVolunteerPin = setVolunteerPinFn;
 export const revealVolunteerPin = revealVolunteerPinFn;
 export const issueVolunteerSession = issueVolunteerSessionFn;
 export const applyVolunteerCheckInAction = applyVolunteerCheckInActionFn;
+export const aggregatePlayerStats = aggregatePlayerStatsFn;
 
 /**
  * Generate bracket for a tournament category

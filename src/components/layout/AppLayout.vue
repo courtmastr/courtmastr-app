@@ -10,8 +10,10 @@ import ContextualNavigation from '@/components/navigation/ContextualNavigation.v
 import GlobalSearch from '@/components/navigation/GlobalSearch.vue';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import BrandLogo from '@/components/common/BrandLogo.vue';
-import PublicWebsiteFooter from '@/components/common/PublicWebsiteFooter.vue';
+import PublicWebsiteFooter from '@/components/common/PublicWebsiteFooter.vue'
+import SuperAdminBanner from '@/components/layout/SuperAdminBanner.vue';
 import { useI18n, type SupportedLocale } from '@/i18n';
+import { useNavigationState } from '@/composables/useNavigationState';
 
 const router = useRouter();
 const route = useRoute();
@@ -20,9 +22,19 @@ const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
 const { locale, setLocale, t } = useI18n();
 
+const { rail, collapseToRail, expandFromRail } = useNavigationState();
 const drawer = ref(!display.smAndDown.value);
 
+function toggleNav(): void {
+  if (display.smAndDown.value) {
+    drawer.value = !drawer.value;
+  } else {
+    rail.value ? expandFromRail() : collapseToRail();
+  }
+}
+
 const isAuthenticated = computed(() => authStore.isAuthenticated);
+// Used for breadcrumbs, contextual nav, and search visibility (not sidebar — see AppNavigation v-if)
 const isAuthenticatedAppRoute = computed(() =>
   isAuthenticated.value && route.meta.requiresAuth === true
 );
@@ -264,7 +276,7 @@ async function submitBugReport() {
 
     <!-- Main Navigation (Drawer) -->
     <AppNavigation
-      v-if="isAuthenticatedAppRoute"
+      v-if="isAuthenticated && !route.meta.overlayPage && !route.meta.obsOverlay && !route.meta.volunteerLayout"
       v-model:drawer="drawer"
       :temporary="isSmallScreen"
       :permanent="!isSmallScreen"
@@ -281,7 +293,7 @@ async function submitBugReport() {
         v-if="isAuthenticated"
         :ripple="false"
         aria-label="Toggle navigation"
-        @click="drawer = !drawer"
+        @click="toggleNav"
       />
 
       <v-toolbar-title>
@@ -548,6 +560,7 @@ async function submitBugReport() {
       id="main-content"
       class="app-main"
     >
+      <SuperAdminBanner />
       <v-container
         fluid
         class="app-main__content"

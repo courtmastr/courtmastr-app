@@ -6,7 +6,7 @@ import type { Court, Match } from '@/types';
 
 interface Alert {
   id: string;
-  type: 'idle_court' | 'late_match' | 'unassigned_ready' | 'maintenance' | 'assignment_blocked';
+  type: 'idle_court' | 'late_match' | 'unassigned_ready' | 'maintenance' | 'assignment_blocked' | 'auto_assign_decision';
   severity: 'warning' | 'error' | 'info';
   title: string;
   message: string;
@@ -25,6 +25,12 @@ interface AssignmentGateSummary {
   blockedByPublish: number;
 }
 
+interface AutoAssignDecisionAlert {
+  title: string;
+  message: string;
+  severity: 'info' | 'warning';
+}
+
 interface Props {
   courts: Court[];
   matches: Match[];
@@ -34,6 +40,7 @@ interface Props {
   getParticipantName?: (id: string | undefined) => string;
   getCategoryName: (id: string) => string;
   assignmentGateSummary?: AssignmentGateSummary;
+  recentAutoAssignDecision?: AutoAssignDecisionAlert | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -169,6 +176,16 @@ const alerts = computed((): Alert[] => {
     });
   }
 
+  if (props.recentAutoAssignDecision) {
+    result.unshift({
+      id: 'auto_assign_decision',
+      type: 'auto_assign_decision',
+      severity: props.recentAutoAssignDecision.severity,
+      title: props.recentAutoAssignDecision.title,
+      message: props.recentAutoAssignDecision.message,
+    });
+  }
+
   // Sort by severity: error > warning > info
   const severityOrder = { error: 0, warning: 1, info: 2 };
   result.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
@@ -192,6 +209,8 @@ function getAlertIcon(type: Alert['type']): string {
       return 'mdi-wrench';
     case 'assignment_blocked':
       return 'mdi-shield-alert';
+    case 'auto_assign_decision':
+      return 'mdi-robot-happy-outline';
     default:
       return 'mdi-alert';
   }
@@ -223,20 +242,23 @@ function handleAlertClick(alert: Alert) {
 <template>
   <div class="alerts-panel">
     <!-- Header -->
-    <div class="alerts-panel__header d-flex align-center px-3 py-2 bg-surface border-b">
+    <div class="alerts-panel__header d-flex align-center px-3 py-2 border-b">
       <v-icon
-        size="20"
+        size="16"
         class="mr-2"
-        :color="errorCount > 0 ? 'error' : warningCount > 0 ? 'warning' : 'info'"
+        :color="errorCount > 0 ? 'error' : warningCount > 0 ? 'warning' : 'success'"
       >
         mdi-bell
       </v-icon>
-      <span class="font-weight-medium">Alerts</span>
+      <span
+        class="font-weight-bold"
+        style="font-size:13px;color:#0f172a;"
+      >Alerts</span>
       <v-spacer />
-      <v-chip 
-        v-if="alertCount > 0" 
-        size="x-small" 
-        :color="errorCount > 0 ? 'error' : warningCount > 0 ? 'warning' : 'info'"
+      <v-chip
+        v-if="alertCount > 0"
+        size="x-small"
+        :color="errorCount > 0 ? 'error' : 'warning'"
         variant="tonal"
       >
         {{ alertCount }}
@@ -323,7 +345,7 @@ function handleAlertClick(alert: Alert) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: rgb(var(--v-theme-background));
+  background: #fff;
 }
 
 .alerts-panel__header {

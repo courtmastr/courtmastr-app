@@ -1,3 +1,45 @@
+- id: 23f31b86
+  title: test:log full-suite run times out in router public-route guard coverage under parallel load
+  status: "✅ fixed"
+  date: "2026-03-20"
+  fingerprint: "23f31b86"
+  command: "npm run test:log -- --run"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-20-12-54-05.vitest-run.log"
+- id: 32185e3d
+  title: Logged skip-warning assertion failed because the blocked fixture was scheduled after the assigned fixture
+  status: "✅ fixed"
+  date: "2026-03-19"
+  fingerprint: "32185e3d"
+  command: "npm run test:log -- --run tests/unit/CategoryRegistrationStats.test.ts tests/unit/MatchControlView.auto-assign.test.ts tests/unit/AlertsPanel.assignmentGate.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-19-22-31-45.vitest-run-tests-unit-CategoryRegistrationStats-te.log"
+- id: 1adc5fb8
+  title: Logged skip-blocked auto-assign test used a helper that ignored overrides
+  status: "✅ fixed"
+  date: "2026-03-19"
+  fingerprint: "1adc5fb8"
+  command: "npm run test:log -- --run tests/unit/CategoryRegistrationStats.test.ts tests/unit/MatchControlView.auto-assign.test.ts tests/unit/AlertsPanel.assignmentGate.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-19-22-30-53.vitest-run-tests-unit-CategoryRegistrationStats-te.log"
+- id: 0f10a24a
+  title: Logged auto-assign test failed due to stale MatchControlView watcher across cases
+  status: "✅ fixed"
+  date: "2026-03-19"
+  fingerprint: "0f10a24a"
+  command: "npm run test:log -- --run tests/unit/CategoryRegistrationStats.test.ts tests/unit/MatchControlView.auto-assign.test.ts tests/unit/AlertsPanel.assignmentGate.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-19-22-30-10.vitest-run-tests-unit-CategoryRegistrationStats-te.log"
+- id: 348ed354
+  title: Targeted workflow regression tests failed after schedule-phase gating changes
+  status: "✅ fixed"
+  date: "2026-03-19"
+  fingerprint: "348ed354"
+  command: "npm run test:log -- --run tests/unit/CategoryRegistrationStats.test.ts tests/unit/MatchControlView.auto-assign.test.ts tests/unit/AlertsPanel.assignmentGate.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-19-22-28-50.vitest-run-tests-unit-CategoryRegistrationStats-te.log"
+- id: 2627fce6
+  title: lint:log fails on existing repository-wide ESLint baseline violations during workflow fix verification
+  status: "🟡 workaround"
+  date: "2026-03-19"
+  fingerprint: "2627fce6"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-19-19-13-01.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 441cf8f2
   title: AppLayout public footer test still fails until i18n is module-mocked
   status: "✅ fixed"

@@ -867,7 +867,10 @@ async function confirmDelete() {
           />
           <div class="ml-2">
             <h1 class="text-h5 font-weight-bold d-flex align-center ga-2">
-              <v-icon :icon="NAVIGATION_ICONS.settings" size="22" />
+              <v-icon
+                :icon="NAVIGATION_ICONS.settings"
+                size="22"
+              />
               Tournament Settings
             </h1>
             <p class="text-body-2 text-grey">

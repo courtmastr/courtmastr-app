@@ -67,20 +67,14 @@ const currentScore = computed(() => {
   <v-card
     :class="['court-card', visualState.borderClass]"
     variant="outlined"
-    :color="statusColor"
     density="compact"
   >
-    <!-- Header: Court Name & Status -->
+    <!-- Header: Court Name & Status badge -->
     <v-card-item class="pa-2 pb-1">
-      <template #prepend>
-        <v-icon
-          :color="statusColor"
-          size="20"
-        >
-          mdi-badminton
-        </v-icon>
-      </template>
-      <v-card-title class="text-subtitle-2 font-weight-bold px-0">
+      <v-card-title
+        class="text-subtitle-2 font-weight-bold px-0"
+        style="font-size:13px!important;font-weight:800!important;"
+      >
         {{ court.name }}
       </v-card-title>
       <template #append>
@@ -89,6 +83,7 @@ const currentScore = computed(() => {
           size="x-small"
           variant="tonal"
           label
+          style="font-size:10px;font-weight:700;letter-spacing:0.5px;"
         >
           {{ statusLabel }}
         </v-chip>
@@ -253,40 +248,54 @@ const currentScore = computed(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  border-left-width: 4px !important;
+  border-left-style: solid !important;
 }
 
 .court-card--live {
-  border-left: 4px solid rgb(var(--v-theme-success));
+  border-color: #bbf7d0 !important;
+  border-left-color: #16a34a !important;
+  background: linear-gradient(135deg, #fff 65%, #f0fdf4) !important;
 }
 
 .court-card--ready {
-  border-left: 4px solid rgb(var(--v-theme-info));
+  border-color: #bfdbfe !important;
+  border-left-color: #1d4ed8 !important;
+  background: linear-gradient(135deg, #fff 65%, #eff6ff) !important;
 }
 
 .court-card--free {
-  border-left: 4px solid rgba(var(--v-border-color), 0.3);
+  border-color: #e2e8f0 !important;
+  border-left-color: #e2e8f0 !important;
+  background: #fafafa !important;
 }
 
 .court-card--blocked {
-  border-left: 4px solid rgb(var(--v-theme-warning));
-  opacity: 0.75;
+  border-color: #fed7aa !important;
+  border-left-color: #f97316 !important;
+  background: #fff7ed !important;
+  opacity: 0.85;
 }
 
 .match-info {
-  min-height: 100px;
+  min-height: 80px;
 }
 
 .players {
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
 .player-name {
   max-width: 100%;
+  font-weight: 600;
 }
 
 .vs {
   text-align: center;
+  font-size: 10px;
+  color: #94a3b8;
+  padding: 1px 0;
 }
 
 .empty-state {
@@ -298,9 +307,12 @@ const currentScore = computed(() => {
 }
 
 .score-display {
-  min-width: 28px;
+  min-width: 24px;
   text-align: right;
-  color: rgb(var(--v-theme-success));
+  color: #16a34a;
   line-height: 1.2;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+  font-variant-numeric: tabular-nums;
 }
 </style>

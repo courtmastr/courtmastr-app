@@ -59,6 +59,7 @@ uv.lock
 .claude/
 .playwright-mcp/
 .sisyphus/
+.superpowers/
 
 # Python artifacts
 pyproject.toml

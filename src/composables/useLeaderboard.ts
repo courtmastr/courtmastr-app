@@ -1012,7 +1012,7 @@ export function useLeaderboard() {
     try {
       // Fetch data via stores (reuses the proven adapter pipeline)
       await Promise.all([
-        matchStore.fetchMatches(tournamentId), // Correctly fetch from root match collection
+        matchStore.fetchMatches(tournamentId, categoryId), // Scoped fetch prevents full replace
 
         registrationStore.fetchRegistrations(tournamentId),
         registrationStore.fetchPlayers(tournamentId),

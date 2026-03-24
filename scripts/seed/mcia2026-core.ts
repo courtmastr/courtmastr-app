@@ -16,10 +16,12 @@ import {
   Timestamp,
   type Firestore,
 } from 'firebase/firestore';
+import { seedGlobalPlayer } from './helpers';
 
 interface MCIA2026SeedConfig {
   db: Firestore;
   adminId: string;
+  orgId?: string;
   tournamentName?: string;
   startDateOffset?: number;
 }
@@ -159,7 +161,7 @@ function buildSeededTeams(): SeededTeam[] {
 }
 
 export async function runMCIA2026Seed(config: MCIA2026SeedConfig): Promise<string> {
-  const { db, adminId } = config;
+  const { db, adminId, orgId } = config;
   const tournamentName = config.tournamentName ?? 'MCIA Badminton 2026';
   const startDateOffset = config.startDateOffset ?? 7;
 
@@ -182,6 +184,7 @@ export async function runMCIA2026Seed(config: MCIA2026SeedConfig): Promise<strin
     endDate: Timestamp.fromDate(new Date(startDate.getTime() + 12 * 60 * 60 * 1000)),
     registrationDeadline: Timestamp.fromDate(new Date()),
     maxParticipants: 80,
+    ...(orgId ? { orgId } : {}),
     settings: {
       minRestTimeMinutes: 15,
       matchDurationMinutes: 20,
@@ -235,6 +238,7 @@ export async function runMCIA2026Seed(config: MCIA2026SeedConfig): Promise<strin
 
   console.log('\n[5] Creating players + team registrations...');
   const playerIdByName = new Map<string, string>();
+  const emailIdCache = new Map<string, string>();
 
   const getOrCreatePlayer = async (fullName: string): Promise<string> => {
     const normalized = normalizeName(fullName);
@@ -248,19 +252,17 @@ export async function runMCIA2026Seed(config: MCIA2026SeedConfig): Promise<strin
       .replace(/[^a-z0-9]+/g, '.')
       .replace(/^\.+|\.+$/g, '');
 
-    const pRef = await addDoc(collection(db, 'tournaments', tournamentId, 'players'), {
+    const globalPlayerId = await seedGlobalPlayer(db, tournamentId, {
       firstName,
       lastName,
       email: `${safeEmail || 'player'}@mcia2026.local`,
       phone: '555-0000',
       gender: 'male',
       skillLevel: 5,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    }, emailIdCache);
 
-    playerIdByName.set(key, pRef.id);
-    return pRef.id;
+    playerIdByName.set(key, globalPlayerId);
+    return globalPlayerId;
   };
 
   for (const team of seededTeams) {

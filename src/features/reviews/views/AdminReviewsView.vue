@@ -90,7 +90,11 @@ onUnmounted(() => {
                 Webapp Admin
               </p>
               <h1 class="text-h4 mb-1 d-flex align-center ga-2">
-                <v-icon :icon="NAVIGATION_ICONS.reviewModeration" size="26" color="secondary" />
+                <v-icon
+                  :icon="NAVIGATION_ICONS.reviewModeration"
+                  size="26"
+                  color="secondary"
+                />
                 Review Moderation
               </h1>
               <p class="text-body-2 text-medium-emphasis mb-0">

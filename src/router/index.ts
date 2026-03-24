@@ -27,6 +27,18 @@ const Leaderboard = () => import('@/features/tournaments/views/LeaderboardView.v
 // Admin views
 const AuditLogView = () => import('@/features/admin/views/AuditLogView.vue');
 const AdminReviewsView = () => import('@/features/reviews/views/AdminReviewsView.vue');
+const OrgProfile = () => import('@/features/org/views/OrgProfileView.vue');
+
+// Super admin views
+const SuperDashboard = () => import('@/features/super/views/SuperDashboardView.vue');
+const SuperOrgList = () => import('@/features/super/views/SuperOrgListView.vue');
+
+// Dashboard
+const OrgDashboard = () => import('@/features/dashboard/views/OrgDashboardView.vue');
+
+// Player views
+const PlayersListView = () => import('@/features/players/views/PlayersListView.vue');
+const PlayerProfileView = () => import('@/features/players/views/PlayerProfileView.vue');
 
 // Scoring views
 const ScoringInterface = () => import('@/features/scoring/views/ScoringInterfaceView.vue');
@@ -44,6 +56,8 @@ const About = () => import('@/features/public/views/AboutView.vue');
 const Pricing = () => import('@/features/public/views/PricingView.vue');
 const Privacy = () => import('@/features/public/views/PrivacyView.vue');
 const Terms = () => import('@/features/public/views/TermsView.vue');
+const OrgPublicHome = () => import('@/features/public/views/OrgPublicHomeView.vue');
+const PlayerSearchView = () => import('@/features/public/views/PlayerSearchView.vue');
 
 // Overlay views
 const OverlayCourtView = () => import('@/features/overlay/views/OverlayCourtView.vue');
@@ -223,6 +237,12 @@ const routes: RouteRecordRaw[] = [
 
   // Authenticated routes
   {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: OrgDashboard,
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/tournaments',
     name: 'tournament-list',
     component: TournamentList,
@@ -289,7 +309,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/tournaments/:tournamentId/live-view',
     name: 'match-live-view',
-    redirect: to => `/tournaments/${to.params.tournamentId}/match-control?view=queue`,
+    component: () => import('@/features/tournaments/views/LiveScoringView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
@@ -353,6 +373,20 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/reviews',
     name: 'admin-reviews',
     component: AdminReviewsView,
+    meta: { requiresAuth: true, requiresWebAdmin: true },
+  },
+
+  // Super admin routes
+  {
+    path: '/super/dashboard',
+    name: 'super-dashboard',
+    component: SuperDashboard,
+    meta: { requiresAuth: true, requiresWebAdmin: true },
+  },
+  {
+    path: '/super/orgs',
+    name: 'super-orgs',
+    component: SuperOrgList,
     meta: { requiresAuth: true, requiresWebAdmin: true },
   },
 
@@ -421,6 +455,40 @@ const routes: RouteRecordRaw[] = [
     name: 'overlay-links',
     component: OverlayLinksView,
     meta: { requiresAuth: true, requiresAdmin: true },
+  },
+
+  {
+    path: '/org/profile',
+    name: 'org-profile',
+    component: OrgProfile,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/players',
+    name: 'players-list',
+    component: PlayersListView,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/players/:playerId',
+    name: 'player-profile',
+    component: PlayerProfileView,
+    meta: { requiresAuth: true },
+  },
+
+  {
+    path: '/find',
+    name: 'player-search',
+    component: PlayerSearchView,
+    meta: { requiresAuth: false },
+  },
+
+  // Org public landing — must be LAST before catch-all to avoid shadowing static paths
+  {
+    path: '/:orgSlug([a-z0-9-]+)',
+    name: 'org-public-home',
+    component: OrgPublicHome,
+    meta: { requiresAuth: false },
   },
 
   // Catch-all 404
@@ -499,7 +567,7 @@ router.beforeEach(async (to, _from, next) => {
 
   // Redirect authenticated users away from guest-only pages
   if (guestOnly && authStore.isAuthenticated) {
-    next({ name: 'tournament-list' });
+    next({ name: 'dashboard' });
     return;
   }
 
@@ -511,18 +579,18 @@ router.beforeEach(async (to, _from, next) => {
 
   // Check admin role
   if (requiresAdmin && !authStore.isAdmin) {
-    next({ name: 'tournament-list' });
+    next({ name: 'dashboard' });
     return;
   }
 
   if (requiresWebAdmin && authStore.currentUser?.role !== 'admin') {
-    next({ name: 'tournament-list' });
+    next({ name: 'dashboard' });
     return;
   }
 
   // Check scorekeeper role
   if (requiresScorekeeper && !authStore.isScorekeeper) {
-    next({ name: 'tournament-list' });
+    next({ name: 'dashboard' });
     return;
   }
 

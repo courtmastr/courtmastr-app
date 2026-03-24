@@ -16,6 +16,13 @@ This document provides a comprehensive overview of CourtMastr's architecture, de
 - [Scalability Considerations](#scalability-considerations)
 - [Key Architectural Decisions](#key-architectural-decisions)
 
+## 🗺️ Connection Map (UI → Store → Function → DB)
+
+| Format | File | Use For |
+|--------|------|---------|
+| HTML visual (browser) | [`diagrams/connection-map.html`](diagrams/connection-map.html) | Human review — full grid by domain |
+| Mermaid + tables | [`ARCHITECTURE_FLOW.md`](ARCHITECTURE_FLOW.md) | AI context, docs, GitHub rendering |
+
 ---
 
 ## 🎯 System Overview

@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { waitForPostLoginLanding } from './auth';
 
 export interface TestTournament {
   id: string;
@@ -48,7 +49,7 @@ export class TestDataFactory {
       await this.page.locator('input[type="email"]').fill('admin@courtmastr.com');
       await this.page.locator('input[type="password"]').fill('admin123');
       await this.page.getByRole('button', { name: 'Sign In' }).click();
-      await this.page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 10000 });
+      await waitForPostLoginLanding(this.page, 10000);
     }
   }
 
@@ -179,7 +180,7 @@ export class TestDataFactory {
         await this.page.getByRole('button', { name: /settings/i }).click();
         await this.page.getByRole('button', { name: /delete tournament/i }).click();
         await this.page.getByRole('button', { name: /confirm|yes|delete/i }).click();
-        await this.page.waitForURL(/\/tournaments(?:\/|$|\?)/, { timeout: 10000 });
+        await waitForPostLoginLanding(this.page, 10000);
       } catch (e) {
         console.log(`Failed to cleanup tournament ${tournament.name}:`, e);
       }

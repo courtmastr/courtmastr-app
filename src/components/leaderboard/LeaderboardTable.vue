@@ -10,6 +10,7 @@ const props = defineProps<{
   tiebreakerResolutions: TiebreakerResolution[];
   showCategory?: boolean;
   dense?: boolean;
+  bracketParticipantIds?: Set<string>;
 }>();
 
 const resolutionMap = computed(() => {
@@ -85,6 +86,9 @@ function fmt(val: number): string {
 }
 
 function statusLabel(entry: LeaderboardEntry): string {
+  if (props.bracketParticipantIds) {
+    return props.bracketParticipantIds.has(entry.registrationId) ? 'Qualified' : 'Eliminated';
+  }
   if (entry.matchesPlayed === 0) return 'Awaiting';
   if (entry.eliminated) return 'Eliminated';
   if (entry.rank === 1) return 'Leader';
@@ -93,6 +97,9 @@ function statusLabel(entry: LeaderboardEntry): string {
 }
 
 function statusColor(entry: LeaderboardEntry): string {
+  if (props.bracketParticipantIds) {
+    return props.bracketParticipantIds.has(entry.registrationId) ? 'success' : 'error';
+  }
   if (entry.matchesPlayed === 0) return 'grey';
   if (entry.eliminated) return 'error';
   if (entry.rank === 1) return 'warning';

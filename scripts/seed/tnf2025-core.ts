@@ -85,12 +85,13 @@ export interface ExcelData {
 export interface TNF2025SeedConfig {
   db: Firestore;
   adminId: string;
+  orgId?: string;
   tournamentName?: string;
   startDateOffset?: number; // Days from now
 }
 
 export async function runTNF2025Seed(config: TNF2025SeedConfig): Promise<string> {
-  const { db, adminId } = config;
+  const { db, adminId, orgId } = config;
   const tournamentName = config.tournamentName ?? "2025_Tnf";
   const startDateOffset = config.startDateOffset ?? 14;
 
@@ -123,6 +124,7 @@ export async function runTNF2025Seed(config: TNF2025SeedConfig): Promise<string>
       mustWinBy: 2,
       maxPoints: 30,
     },
+    ...(orgId ? { orgId } : {}),
     createdBy: adminId,
     organizerIds: [adminId],
     createdAt: serverTimestamp(),

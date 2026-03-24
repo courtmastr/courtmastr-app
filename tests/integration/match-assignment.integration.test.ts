@@ -255,4 +255,69 @@ describe('match assignment integration (store)', () => {
     );
     expect(batchCommit).toHaveBeenCalledTimes(1);
   });
+
+  it('blocks assignment when a doubles team is only partially checked in', async () => {
+    const batchSet = vi.fn();
+    const batchUpdate = vi.fn();
+    const batchCommit = vi.fn().mockResolvedValue(undefined);
+    mockDeps.writeBatch.mockReset().mockReturnValue({
+      set: batchSet,
+      update: batchUpdate,
+      delete: vi.fn(),
+      commit: batchCommit,
+    });
+
+    configureGetDoc({
+      'tournaments/t1/categories/cat-1/match_scores/m1': {
+        exists: true,
+        data: {
+          plannedStartAt: new Date('2026-02-27T10:00:00.000Z'),
+          scheduleStatus: 'published',
+          participant1Id: 'reg-partial',
+          participant2Id: 'reg-ready',
+        },
+      },
+      'tournaments/t1/categories/cat-1/match/m1': {
+        exists: true,
+        data: {
+          participant1Id: 'reg-partial',
+          participant2Id: 'reg-ready',
+        },
+      },
+      'tournaments/t1/registrations/reg-partial': {
+        exists: true,
+        data: {
+          status: 'approved',
+          participantPresence: {
+            p1: true,
+            p2: false,
+          },
+        },
+      },
+      'tournaments/t1/registrations/reg-ready': {
+        exists: true,
+        data: {
+          status: 'checked_in',
+        },
+      },
+      'tournaments/t1/courts/court-1': {
+        exists: true,
+        data: {
+          status: 'available',
+          name: 'Court 1',
+        },
+      },
+    });
+
+    const { useMatchStore } = await import('@/stores/matches');
+    const store = useMatchStore();
+
+    await expect(
+      store.assignMatchToCourt('t1', 'm1', 'court-1', 'cat-1')
+    ).rejects.toThrow(/checked-in/i);
+
+    expect(batchSet).not.toHaveBeenCalled();
+    expect(batchUpdate).not.toHaveBeenCalled();
+    expect(batchCommit).not.toHaveBeenCalled();
+  });
 });

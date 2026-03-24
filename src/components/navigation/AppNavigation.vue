@@ -9,7 +9,7 @@
       class="branding-section cursor-pointer"
       nav
       :ripple="false"
-      @click="rail = !rail"
+      @click="router.push('/dashboard')"
     >
       <template #prepend>
         <div class="brand-logo-container">
@@ -32,15 +32,51 @@
         </div>
       </template>
       <template #append>
+        <!-- Collapse button: only when expanded -->
         <v-btn
           v-if="!rail"
           icon="mdi-chevron-left"
           variant="text"
           aria-label="Collapse sidebar"
-          @click.stop="rail = true"
+          @click.stop="collapseToRail"
+        />
+        <!-- Expand button: only when in rail (icon-only) mode -->
+        <v-btn
+          v-else
+          icon="mdi-chevron-right"
+          variant="text"
+          size="small"
+          aria-label="Expand sidebar"
+          @click.stop="expandFromRail"
         />
       </template>
     </v-list-item>
+
+    <!-- Super Admin Identity Badge -->
+    <div
+      v-if="isWebAdmin && !rail"
+      class="super-admin-badge"
+    >
+      <v-icon
+        size="13"
+        color="#a855f7"
+      >
+        mdi-shield-crown
+      </v-icon>
+      <span class="super-admin-badge__label">Platform Admin</span>
+    </div>
+    <div
+      v-else-if="isWebAdmin && rail"
+      class="super-admin-badge super-admin-badge--rail"
+      title="Platform Admin"
+    >
+      <v-icon
+        size="16"
+        color="#a855f7"
+      >
+        mdi-shield-crown
+      </v-icon>
+    </div>
 
     <v-divider />
 
@@ -50,170 +86,316 @@
     >
       <!-- Always visible -->
       <v-list-item
-        to="/tournaments"
-        :prepend-icon="NAVIGATION_ICONS.tournaments"
-        title="Tournaments"
-        class="nav-item nav-item--tournaments"
+        to="/dashboard"
+        :prepend-icon="NAVIGATION_ICONS.orgDashboard"
+        title="Overview"
+        class="nav-item nav-item--org-dashboard"
         rounded="lg"
         :ripple="false"
       />
-      <v-list-item
-        v-if="isOrganizer"
-        to="/tournaments/create"
-        :prepend-icon="NAVIGATION_ICONS.createTournament"
-        title="Create Tournament"
-        class="nav-item nav-item--create"
-        rounded="lg"
-        :ripple="false"
-      />
-      <v-list-item
-        v-if="isWebAdmin"
-        to="/admin/reviews"
-        :prepend-icon="NAVIGATION_ICONS.reviewModeration"
-        title="Review Moderation"
-        class="nav-item nav-item--reviews"
-        rounded="lg"
-        :ripple="false"
-      />
-
-      <!-- Tournament-specific (only when a tournament is active) -->
-      <template v-if="currentTournamentId">
+      <!-- Super Admin primary nav (no org context) -->
+      <template v-if="isSuperAdminMode">
         <v-divider class="my-2" />
+        <v-list-item
+          to="/super/dashboard"
+          prepend-icon="mdi-view-dashboard-outline"
+          title="Platform Dashboard"
+          class="nav-item nav-item--super-admin"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          to="/super/orgs"
+          prepend-icon="mdi-domain"
+          title="All Organizations"
+          class="nav-item nav-item--super-orgs"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          to="/admin/reviews"
+          :prepend-icon="NAVIGATION_ICONS.reviewModeration"
+          title="Review Moderation"
+          class="nav-item nav-item--reviews"
+          rounded="lg"
+          :ripple="false"
+        />
+      </template>
 
-        <v-list-subheader v-if="!rail">
-          Operate
-        </v-list-subheader>
+      <template v-if="showOrgNav">
+        <v-list-item
+          to="/tournaments"
+          :prepend-icon="NAVIGATION_ICONS.tournaments"
+          title="Tournaments"
+          class="nav-item nav-item--tournaments"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
+          to="/tournaments/create"
+          :prepend-icon="NAVIGATION_ICONS.createTournament"
+          title="Create Tournament"
+          class="nav-item nav-item--create"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
+          to="/org/profile"
+          :prepend-icon="NAVIGATION_ICONS.organization"
+          title="Organization"
+          class="nav-item nav-item--organization"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
+          v-if="isOrganizer"
+          to="/players"
+          :prepend-icon="NAVIGATION_ICONS.players"
+          title="Players"
+          class="nav-item nav-item--players"
+          rounded="lg"
+          :ripple="false"
+        />
+      </template>
+      <!-- While impersonating an org: show review moderation + escape back to super dashboard -->
+      <template v-if="isWebAdmin && superAdminStore.isImpersonating">
+        <v-list-item
+          to="/admin/reviews"
+          :prepend-icon="NAVIGATION_ICONS.reviewModeration"
+          title="Review Moderation"
+          class="nav-item nav-item--reviews"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-divider class="my-2" />
+        <v-list-item
+          to="/super/dashboard"
+          prepend-icon="mdi-shield-crown"
+          title="Platform Admin"
+          class="nav-item nav-item--super-admin"
+          rounded="lg"
+          :ripple="false"
+        />
+      </template>
+
+      <!-- Tournament-specific sections -->
+      <template v-if="currentTournamentId">
+        <!-- Event Center (standalone anchor — always visible) -->
+        <v-divider class="my-2" />
         <v-list-item
           :to="`/tournaments/${currentTournamentId}`"
           :prepend-icon="NAVIGATION_ICONS.dashboard"
-          title="Dashboard"
+          title="Event Center"
           class="nav-item nav-item--dashboard"
           rounded="lg"
           :ripple="false"
         />
-        <v-list-item
-          v-if="isOrganizer"
-          :to="`/tournaments/${currentTournamentId}/match-control`"
-          :prepend-icon="NAVIGATION_ICONS.matchControl"
-          title="Match Control"
-          class="nav-item nav-item--match-control"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          v-if="isOrganizer"
-          :to="`/tournaments/${currentTournamentId}/checkin`"
-          :prepend-icon="NAVIGATION_ICONS.checkIn"
-          title="Check-in"
-          class="nav-item nav-item--check-in"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          v-if="isOrganizer"
-          :to="`/tournaments/${currentTournamentId}/live-view`"
-          :prepend-icon="NAVIGATION_ICONS.liveView"
-          title="Live View"
-          class="nav-item nav-item--live-view"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          :to="`/tournaments/${currentTournamentId}/brackets`"
-          :prepend-icon="NAVIGATION_ICONS.brackets"
-          title="Brackets"
-          class="nav-item nav-item--brackets"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          v-if="smartBracketPath"
-          :to="smartBracketPath"
-          :prepend-icon="NAVIGATION_ICONS.smartBracket"
-          title="Smart Bracket"
-          class="nav-item nav-item--smart-bracket"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          :to="`/tournaments/${currentTournamentId}/leaderboard`"
-          :prepend-icon="NAVIGATION_ICONS.leaderboard"
-          title="Leaderboard"
-          class="nav-item nav-item--leaderboard"
-          rounded="lg"
-          :ripple="false"
-        />
 
+        <!-- ── DAY OF ─────────────────────────────────── -->
         <v-divider class="my-2" />
-        <v-list-subheader v-if="!rail">
-          Setup
-        </v-list-subheader>
-        <v-list-item
-          v-if="isOrganizer"
-          :to="`/tournaments/${currentTournamentId}/categories`"
-          :prepend-icon="NAVIGATION_ICONS.categories"
-          title="Categories"
-          class="nav-item nav-item--categories"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          v-if="isOrganizer"
-          :to="`/tournaments/${currentTournamentId}/courts`"
-          :prepend-icon="NAVIGATION_ICONS.courts"
-          title="Courts"
-          class="nav-item nav-item--courts"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          v-if="isOrganizer"
-          :to="`/tournaments/${currentTournamentId}/registrations`"
-          :prepend-icon="NAVIGATION_ICONS.registrations"
-          title="Registrations"
-          class="nav-item nav-item--registrations"
-          rounded="lg"
-          :ripple="false"
-        />
+        <div
+          v-if="!rail"
+          class="nav-section-header"
+          role="button"
+          tabindex="0"
+          :aria-expanded="sections.dayOf"
+          @click="toggleSection('dayOf')"
+          @keydown.enter.prevent="toggleSection('dayOf')"
+          @keydown.space.prevent="toggleSection('dayOf')"
+        >
+          <span class="nav-section-label">Day Of</span>
+          <v-icon
+            icon="mdi-chevron-down"
+            size="14"
+            class="nav-section-arrow"
+            :class="{ 'nav-section-arrow--collapsed': !sections.dayOf }"
+          />
+        </div>
+        <template v-if="rail || sections.dayOf">
+          <v-list-item
+            v-if="isOrganizer"
+            :to="`/tournaments/${currentTournamentId}/match-control`"
+            :prepend-icon="NAVIGATION_ICONS.matchControl"
+            title="Match Control"
+            class="nav-item nav-item--match-control"
+            rounded="lg"
+            :ripple="false"
+          />
+          <v-list-item
+            v-if="isOrganizer"
+            :to="`/tournaments/${currentTournamentId}/checkin`"
+            :prepend-icon="NAVIGATION_ICONS.checkIn"
+            title="Check-in"
+            class="nav-item nav-item--check-in"
+            rounded="lg"
+            :ripple="false"
+          />
+          <v-list-item
+            v-if="isOrganizer && isTournamentLive"
+            :to="`/tournaments/${currentTournamentId}/live-view`"
+            :prepend-icon="NAVIGATION_ICONS.liveView"
+            title="Live View"
+            class="nav-item nav-item--live-view"
+            rounded="lg"
+            :ripple="false"
+          />
+        </template>
 
-        <!-- Public / Shareable links -->
+        <!-- ── RESULTS ────────────────────────────────── -->
         <v-divider class="my-2" />
-        <v-list-subheader v-if="!rail">
-          Public & Broadcast
-        </v-list-subheader>
-        <v-list-item
-          :to="`/tournaments/${currentTournamentId}/bracket`"
-          :prepend-icon="NAVIGATION_ICONS.publicBracket"
-          title="Public Bracket"
-          class="nav-item nav-item--public-bracket"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          :to="`/tournaments/${currentTournamentId}/schedule`"
-          :prepend-icon="NAVIGATION_ICONS.publicSchedule"
-          title="Public Schedule"
-          class="nav-item nav-item--public-schedule"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          :to="`/tournaments/${currentTournamentId}/score`"
-          :prepend-icon="NAVIGATION_ICONS.scoreEntry"
-          title="Score Entry"
-          class="nav-item nav-item--score-entry"
-          rounded="lg"
-          :ripple="false"
-        />
-        <v-list-item
-          v-if="isOrganizer"
-          :to="`/tournaments/${currentTournamentId}/overlays`"
-          :prepend-icon="NAVIGATION_ICONS.overlayLinks"
-          title="Overlay Links"
-          class="nav-item nav-item--overlay-links"
-          rounded="lg"
-          :ripple="false"
-        />
+        <div
+          v-if="!rail"
+          class="nav-section-header"
+          role="button"
+          tabindex="0"
+          :aria-expanded="sections.results"
+          @click="toggleSection('results')"
+          @keydown.enter.prevent="toggleSection('results')"
+          @keydown.space.prevent="toggleSection('results')"
+        >
+          <span class="nav-section-label">Results</span>
+          <v-icon
+            icon="mdi-chevron-down"
+            size="14"
+            class="nav-section-arrow"
+            :class="{ 'nav-section-arrow--collapsed': !sections.results }"
+          />
+        </div>
+        <template v-if="rail || sections.results">
+          <v-list-item
+            :to="`/tournaments/${currentTournamentId}/brackets`"
+            :prepend-icon="NAVIGATION_ICONS.brackets"
+            title="Brackets"
+            class="nav-item nav-item--brackets"
+            rounded="lg"
+            :ripple="false"
+          />
+          <v-list-item
+            v-if="smartBracketPath"
+            :to="smartBracketPath"
+            :prepend-icon="NAVIGATION_ICONS.smartBracket"
+            :title="smartBracketNavTitle"
+            class="nav-item nav-item--smart-bracket"
+            rounded="lg"
+            :ripple="false"
+          />
+          <v-list-item
+            :to="`/tournaments/${currentTournamentId}/leaderboard`"
+            :prepend-icon="NAVIGATION_ICONS.leaderboard"
+            title="Leaderboard"
+            class="nav-item nav-item--leaderboard"
+            rounded="lg"
+            :ripple="false"
+          />
+        </template>
+
+        <!-- ── PREPARE ────────────────────────────────── -->
+        <v-divider class="my-2" />
+        <div
+          v-if="!rail"
+          class="nav-section-header"
+          role="button"
+          tabindex="0"
+          :aria-expanded="sections.prepare"
+          @click="toggleSection('prepare')"
+          @keydown.enter.prevent="toggleSection('prepare')"
+          @keydown.space.prevent="toggleSection('prepare')"
+        >
+          <span class="nav-section-label">Prepare</span>
+          <v-icon
+            icon="mdi-chevron-down"
+            size="14"
+            class="nav-section-arrow"
+            :class="{ 'nav-section-arrow--collapsed': !sections.prepare }"
+          />
+        </div>
+        <template v-if="rail || sections.prepare">
+          <v-list-item
+            v-if="isOrganizer"
+            :to="`/tournaments/${currentTournamentId}/categories`"
+            :prepend-icon="NAVIGATION_ICONS.categories"
+            title="Categories"
+            class="nav-item nav-item--categories"
+            rounded="lg"
+            :ripple="false"
+          />
+          <v-list-item
+            v-if="isOrganizer"
+            :to="`/tournaments/${currentTournamentId}/courts`"
+            :prepend-icon="NAVIGATION_ICONS.courts"
+            title="Courts"
+            class="nav-item nav-item--courts"
+            rounded="lg"
+            :ripple="false"
+          />
+          <v-list-item
+            v-if="isOrganizer"
+            :to="`/tournaments/${currentTournamentId}/registrations`"
+            :prepend-icon="NAVIGATION_ICONS.registrations"
+            title="Registrations"
+            class="nav-item nav-item--registrations"
+            rounded="lg"
+            :ripple="false"
+          />
+        </template>
+
+        <!-- ── SHARE & STREAM ──────────────────────────── -->
+        <v-divider class="my-2" />
+        <div
+          v-if="!rail"
+          class="nav-section-header"
+          role="button"
+          tabindex="0"
+          :aria-expanded="sections.shareStream"
+          @click="toggleSection('shareStream')"
+          @keydown.enter.prevent="toggleSection('shareStream')"
+          @keydown.space.prevent="toggleSection('shareStream')"
+        >
+          <span class="nav-section-label">Share & Stream</span>
+          <v-icon
+            icon="mdi-chevron-down"
+            size="14"
+            class="nav-section-arrow"
+            :class="{ 'nav-section-arrow--collapsed': !sections.shareStream }"
+          />
+        </div>
+        <template v-if="rail || sections.shareStream">
+          <v-list-item
+            :to="`/tournaments/${currentTournamentId}/bracket`"
+            :prepend-icon="NAVIGATION_ICONS.publicBracket"
+            title="Public Bracket"
+            class="nav-item nav-item--public-bracket"
+            rounded="lg"
+            :ripple="false"
+          />
+          <v-list-item
+            :to="`/tournaments/${currentTournamentId}/schedule`"
+            :prepend-icon="NAVIGATION_ICONS.publicSchedule"
+            title="Public Schedule"
+            class="nav-item nav-item--public-schedule"
+            rounded="lg"
+            :ripple="false"
+          />
+          <v-list-item
+            :to="`/tournaments/${currentTournamentId}/score`"
+            :prepend-icon="NAVIGATION_ICONS.scoreEntry"
+            title="Score Entry"
+            class="nav-item nav-item--score-entry"
+            rounded="lg"
+            :ripple="false"
+          />
+          <v-list-item
+            v-if="isOrganizer"
+            :to="`/tournaments/${currentTournamentId}/overlays`"
+            :prepend-icon="NAVIGATION_ICONS.overlayLinks"
+            title="Overlay Links"
+            class="nav-item nav-item--overlay-links"
+            rounded="lg"
+            :ripple="false"
+          />
+        </template>
       </template>
     </v-list>
 
@@ -248,38 +430,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useTournamentStore } from '@/stores/tournaments';
+import { useSuperAdminStore } from '@/stores/superAdmin';
+import { useNavigationState } from '@/composables/useNavigationState';
 import BrandLogo from '@/components/common/BrandLogo.vue';
 import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
 
-// Allow parent to control drawer state
 const drawer = defineModel<boolean>('drawer');
 
-// Persist rail (minimized) state
-// Default to false (expanded) for better organizer usability.
-const storedRail = localStorage.getItem('courtmaster_sidebar_rail');
-const rail = ref(storedRail === null ? false : storedRail === 'true');
-
-watch(rail, (newValue) => {
-  localStorage.setItem('courtmaster_sidebar_rail', String(newValue));
-});
+const { rail, sections, collapseToRail, expandFromRail, toggleSection } = useNavigationState();
 
 const authStore = useAuthStore();
 const tournamentStore = useTournamentStore();
+const superAdminStore = useSuperAdminStore();
 const route = useRoute();
 const router = useRouter();
 
 const isOrganizer = computed(() => authStore.isOrganizer);
-const isWebAdmin = computed(() => authStore.currentUser?.role === 'admin');
+const isWebAdmin = computed(() => authStore.isSuperAdmin);
+
+// Pure super-admin mode: web admin who is NOT currently impersonating an org
+const isSuperAdminMode = computed(() => isWebAdmin.value && !superAdminStore.isImpersonating);
+
+// Hide org-level nav items when super admin hasn't entered an org context
+const showOrgNav = computed(() =>
+  !route.path.startsWith('/super') && (!isWebAdmin.value || superAdminStore.isImpersonating)
+);
 const categories = computed(() => tournamentStore.categories);
 const currentTournamentId = computed(() => {
-  // Try to get tournament ID from route, otherwise use the current tournament from store
   const routeParams = route.params;
   return routeParams.tournamentId as string || tournamentStore.currentTournament?.id || '';
 });
+
+const isTournamentLive = computed(() =>
+  tournamentStore.currentTournament?.state === 'LIVE'
+);
 
 const smartBracketPath = computed(() => {
   const tournamentId = currentTournamentId.value;
@@ -290,6 +478,18 @@ const smartBracketPath = computed(() => {
   if (!categoryId) return '';
 
   return `/tournaments/${tournamentId}/categories/${categoryId}/smart-bracket`;
+});
+
+const smartBracketNavTitle = computed(() => {
+  const routeCategoryId = route.params.categoryId as string | undefined;
+  const categoryId = routeCategoryId || categories.value[0]?.id;
+  if (!categoryId) return 'Bracket';
+
+  const category = categories.value.find((c) => c.id === categoryId);
+  if (!category) return 'Bracket';
+
+  const isPoolPhase = category.format === 'pool_to_elimination' && category.poolPhase !== 'elimination';
+  return isPoolPhase ? 'Pool Play' : 'Bracket';
 });
 
 async function handleLogout(): Promise<void> {
@@ -478,6 +678,26 @@ async function handleLogout(): Promise<void> {
   --cm-shadow-strong: rgba(226, 108, 162, 0.38);
 }
 
+.nav-item--organization {
+  --cm-icon-start: #60b4ff;
+  --cm-icon-end: #1d7ed8;
+  --cm-accent: #1566b8;
+  --cm-active-bg: rgba(29, 126, 216, 0.18);
+  --cm-active-bg-soft: rgba(29, 126, 216, 0.07);
+  --cm-shadow: rgba(29, 126, 216, 0.26);
+  --cm-shadow-strong: rgba(29, 126, 216, 0.35);
+}
+
+.nav-item--players {
+  --cm-icon-start: #4ade80;
+  --cm-icon-end: #16a34a;
+  --cm-accent: #15803d;
+  --cm-active-bg: rgba(22, 163, 74, 0.18);
+  --cm-active-bg-soft: rgba(22, 163, 74, 0.07);
+  --cm-shadow: rgba(22, 163, 74, 0.26);
+  --cm-shadow-strong: rgba(22, 163, 74, 0.35);
+}
+
 .nav-item--settings {
   --cm-icon-start: #a2b0c8;
   --cm-icon-end: #708099;
@@ -498,4 +718,79 @@ async function handleLogout(): Promise<void> {
   --cm-shadow-strong: rgba(222, 79, 79, 0.39);
 }
 
+// Super Admin identity badge
+.super-admin-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 16px 6px;
+  background: rgba(168, 85, 247, 0.08);
+  border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+
+  &__label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #a855f7;
+  }
+
+  &--rail {
+    justify-content: center;
+    padding: 6px 0;
+  }
+}
+
+.nav-item--super-admin {
+  --cm-icon-start: #c084fc;
+  --cm-icon-end: #9333ea;
+  --cm-accent: #7e22ce;
+  --cm-active-bg: rgba(147, 51, 234, 0.18);
+  --cm-active-bg-soft: rgba(147, 51, 234, 0.07);
+  --cm-shadow: rgba(147, 51, 234, 0.26);
+  --cm-shadow-strong: rgba(147, 51, 234, 0.36);
+}
+
+.nav-item--super-orgs {
+  --cm-icon-start: #d8b4fe;
+  --cm-icon-end: #a855f7;
+  --cm-accent: #9333ea;
+  --cm-active-bg: rgba(168, 85, 247, 0.18);
+  --cm-active-bg-soft: rgba(168, 85, 247, 0.07);
+  --cm-shadow: rgba(168, 85, 247, 0.26);
+  --cm-shadow-strong: rgba(168, 85, 247, 0.36);
+}
+
+// Collapsible section headers
+.nav-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px 2px 16px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 6px;
+  transition: background 120ms ease;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+.nav-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.nav-section-arrow {
+  opacity: 0.4;
+  transition: transform 160ms ease-out;
+
+  &--collapsed {
+    transform: rotate(-90deg);
+  }
+}
 </style>

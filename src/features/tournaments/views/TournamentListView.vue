@@ -17,6 +17,7 @@ const loading = computed(() => tournamentStore.loading);
 const isAdmin = computed(() => authStore.isAdmin);
 
 onMounted(() => {
+  tournamentStore.clearCurrentTournament();
   tournamentStore.subscribeTournaments();
 });
 
@@ -60,7 +61,11 @@ function formatDate(date: Date): string {
         <div class="d-flex align-center justify-space-between">
           <div>
             <h1 class="text-h4 font-weight-bold d-flex align-center ga-2">
-              <v-icon :icon="NAVIGATION_ICONS.tournaments" size="26" color="primary" />
+              <v-icon
+                :icon="NAVIGATION_ICONS.tournaments"
+                size="26"
+                color="primary"
+              />
               Tournaments
             </h1>
             <p class="text-body-2 text-grey">
@@ -167,6 +172,7 @@ function formatDate(date: Date): string {
 
           <v-card-actions>
             <v-chip
+              v-if="tournament.sport"
               size="small"
               variant="outlined"
             >

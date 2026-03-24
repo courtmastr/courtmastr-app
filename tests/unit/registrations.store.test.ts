@@ -6,21 +6,27 @@ const mockDeps = vi.hoisted(() => {
   const collection = vi.fn();
   const getDocs = vi.fn();
   const addDoc = vi.fn();
+  const setDoc = vi.fn();
   const updateDoc = vi.fn();
   const doc = vi.fn();
   const serverTimestamp = vi.fn();
   const callableFactory = vi.fn();
   const volunteerCheckInCallable = vi.fn();
+  const runTransaction = vi.fn();
+  const findOrCreateByEmail = vi.fn();
 
   return {
     collection,
     getDocs,
     addDoc,
+    setDoc,
     updateDoc,
     doc,
     serverTimestamp,
     callableFactory,
     volunteerCheckInCallable,
+    runTransaction,
+    findOrCreateByEmail,
   };
 });
 
@@ -59,6 +65,7 @@ vi.mock('@/services/firebase', () => ({
   doc: mockDeps.doc,
   getDocs: mockDeps.getDocs,
   addDoc: mockDeps.addDoc,
+  setDoc: mockDeps.setDoc,
   updateDoc: mockDeps.updateDoc,
   deleteDoc: vi.fn(),
   query: vi.fn(),
@@ -67,6 +74,13 @@ vi.mock('@/services/firebase', () => ({
   onSnapshot: vi.fn(),
   serverTimestamp: mockDeps.serverTimestamp,
   writeBatch: vi.fn(),
+  runTransaction: mockDeps.runTransaction,
+}));
+
+vi.mock('@/stores/players', () => ({
+  usePlayersStore: () => ({
+    findOrCreateByEmail: mockDeps.findOrCreateByEmail,
+  }),
 }));
 
 const getBasePlayer = (): Omit<Player, 'id' | 'createdAt' | 'updatedAt'> => ({
@@ -83,9 +97,12 @@ describe('registration store', () => {
     mockDeps.collection.mockReset().mockReturnValue('players-collection-ref');
     mockDeps.getDocs.mockReset().mockResolvedValue({ docs: [] });
     mockDeps.addDoc.mockReset().mockResolvedValue({ id: 'player-1' });
+    mockDeps.setDoc.mockReset().mockResolvedValue(undefined);
     mockDeps.updateDoc.mockReset().mockResolvedValue(undefined);
     mockDeps.doc.mockReset().mockReturnValue('registration-doc-ref');
     mockDeps.serverTimestamp.mockReset().mockReturnValue('SERVER_TS');
+    mockDeps.runTransaction.mockReset().mockResolvedValue('global-player-1');
+    mockDeps.findOrCreateByEmail.mockReset().mockResolvedValue('global-player-1');
     mockDeps.callableFactory.mockReset().mockImplementation((_functions: unknown, name: string) => {
       if (name === 'applyVolunteerCheckInAction') {
         return mockDeps.volunteerCheckInCallable;
@@ -97,43 +114,43 @@ describe('registration store', () => {
     runtime.volunteerSession = null;
   });
 
-  it('rejects duplicate email against local cache and remote snapshot', async () => {
+  it('delegates to findOrCreateByEmail and writes tournament mirror via setDoc', async () => {
     const { useRegistrationStore } = await import('@/stores/registrations');
     const store = useRegistrationStore();
 
-    store.players = [{
-      id: 'existing-1',
-      firstName: 'Existing',
-      lastName: 'Player',
-      email: 'aanya@example.com',
-      phone: '555-9999',
-      skillLevel: 4,
-      createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    }];
+    const id = await store.addPlayer('t1', getBasePlayer());
+
+    expect(id).toBe('global-player-1');
+    expect(mockDeps.findOrCreateByEmail).toHaveBeenCalledWith(
+      'aanya@example.com',
+      expect.objectContaining({
+        firstName: 'Aanya',
+        lastName: 'Khan',
+      })
+    );
+    expect(mockDeps.setDoc).toHaveBeenCalledWith(
+      'registration-doc-ref',
+      expect.objectContaining({
+        id: 'global-player-1',
+        globalPlayerId: 'global-player-1',
+        emailNormalized: 'aanya@example.com',
+        createdAt: 'SERVER_TS',
+        updatedAt: 'SERVER_TS',
+      })
+    );
+    expect(mockDeps.addDoc).not.toHaveBeenCalled();
+  });
+
+  it('throws when email is missing', async () => {
+    const { useRegistrationStore } = await import('@/stores/registrations');
+    const store = useRegistrationStore();
 
     await expect(
-      store.addPlayer('t1', {
-        ...getBasePlayer(),
-        email: 'AANYA@example.com',
-      })
-    ).rejects.toThrow(/already exists/i);
+      store.addPlayer('t1', { ...getBasePlayer(), email: '' })
+    ).rejects.toThrow(/email is required/i);
 
-    expect(mockDeps.getDocs).not.toHaveBeenCalled();
-    expect(mockDeps.addDoc).not.toHaveBeenCalled();
-
-    store.players = [];
-    mockDeps.getDocs.mockResolvedValueOnce({
-      docs: [
-        {
-          data: () => ({ email: 'aanya@example.com' }),
-        },
-      ],
-    });
-
-    await expect(store.addPlayer('t1', getBasePlayer())).rejects.toThrow(/already exists/i);
-    expect(mockDeps.getDocs).toHaveBeenCalledTimes(1);
-    expect(mockDeps.addDoc).not.toHaveBeenCalled();
+    expect(mockDeps.findOrCreateByEmail).not.toHaveBeenCalled();
+    expect(mockDeps.setDoc).not.toHaveBeenCalled();
   });
 
   it('stamps approved metadata when status transitions to approved', async () => {

@@ -1,0 +1,16 @@
+{
+  "gsd": {
+    "version": "1.0",
+    "workflow": "vue-firebase-pro",
+    "parallel_limit": 4,
+    "require_tests": true,
+    "enforce_agents_md": true,
+    "notifications": "toast",
+    "auto_commit": true
+  },
+  "project": {
+    "id": "courtmaster-v2",
+    "name": "CourtMastr v2",
+    "owner": "Marvy Technologies"
+  }
+}

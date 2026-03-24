@@ -113,6 +113,7 @@ type PrimaryActionEvent =
   | 'generate-bracket'
   | 'view-bracket'
   | 'schedule-times'
+  | 'publish-schedule'
   | 'open-checkin'
   | 'create-levels';
 
@@ -217,6 +218,13 @@ function phaseIndex(steps: PhaseStep[], key: PhaseKey): number {
   return steps.findIndex((step) => step.key === key);
 }
 
+function isScheduleRelevantMatch(match: Match): boolean {
+  if (match.participant1Id && match.participant2Id) return true;
+  if (match.plannedStartAt || match.scheduledTime) return true;
+  if (match.publishedAt || match.scheduleStatus === 'published') return true;
+  return false;
+}
+
 const categoryStats = computed<CategoryStats[]>(() => {
   return categories.value.map((category) => {
     const resolvedFormat = resolveCategoryFormat(category);
@@ -247,20 +255,24 @@ const categoryStats = computed<CategoryStats[]>(() => {
     const levelMatches = categoryMatches.filter((m) => Boolean(m.levelId));
     const elimMatches = categoryMatches.filter((m) => !m.groupId && !m.levelId);
 
-    const poolMatchesScheduled =
-      poolMatches.length > 0 && poolMatches.every((m) => Boolean(m.plannedStartAt));
-    const levelMatchesScheduled =
-      levelMatches.length > 0 && levelMatches.every((m) => Boolean(m.plannedStartAt));
-    const elimMatchesScheduled =
-      elimMatches.length > 0 && elimMatches.every((m) => Boolean(m.plannedStartAt));
+    const actionablePoolMatches = poolMatches.filter(isScheduleRelevantMatch);
+    const actionableLevelMatches = levelMatches.filter(isScheduleRelevantMatch);
+    const actionableElimMatches = elimMatches.filter(isScheduleRelevantMatch);
 
-    const poolSchedulePublished = poolMatches.some(
+    const poolMatchesScheduled =
+      actionablePoolMatches.length > 0 && actionablePoolMatches.every((m) => Boolean(m.plannedStartAt));
+    const levelMatchesScheduled =
+      actionableLevelMatches.length > 0 && actionableLevelMatches.every((m) => Boolean(m.plannedStartAt));
+    const elimMatchesScheduled =
+      actionableElimMatches.length > 0 && actionableElimMatches.every((m) => Boolean(m.plannedStartAt));
+
+    const poolSchedulePublished = actionablePoolMatches.some(
       (m) => Boolean(m.publishedAt) || m.scheduleStatus === 'published'
     );
-    const levelSchedulePublished = levelMatches.some(
+    const levelSchedulePublished = actionableLevelMatches.some(
       (m) => Boolean(m.publishedAt) || m.scheduleStatus === 'published'
     );
-    const elimSchedulePublished = elimMatches.some(
+    const elimSchedulePublished = actionableElimMatches.some(
       (m) => Boolean(m.publishedAt) || m.scheduleStatus === 'published'
     );
 
@@ -630,7 +642,7 @@ function getPrimaryAction(stats: CategoryStats): PrimaryAction | null {
         label: 'Publish Schedule',
         icon: 'mdi-publish',
         color: 'warning',
-        event: 'schedule-times',
+        event: 'publish-schedule',
       };
 
     case 'pool_schedule':
@@ -646,7 +658,7 @@ function getPrimaryAction(stats: CategoryStats): PrimaryAction | null {
         label: 'Publish Pool Schedule',
         icon: 'mdi-publish',
         color: 'warning',
-        event: 'schedule-times',
+        event: 'publish-schedule',
       };
 
     case 'checkin':
@@ -704,7 +716,7 @@ function getPrimaryAction(stats: CategoryStats): PrimaryAction | null {
         label: 'Publish Level Schedule',
         icon: 'mdi-publish',
         color: 'warning',
-        event: 'schedule-times',
+        event: 'publish-schedule',
       };
 
     case 'elimination':
@@ -746,6 +758,9 @@ function handlePrimaryAction(action: PrimaryAction, stats: CategoryStats): void 
       break;
     case 'schedule-times':
       emit('schedule-times', stats.category);
+      break;
+    case 'publish-schedule':
+      emit('publish-schedule', stats.category);
       break;
     case 'open-checkin':
       void handleOpenCheckin(stats);

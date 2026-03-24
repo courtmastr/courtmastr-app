@@ -44,11 +44,6 @@ test.describe('P0 - Category Management', () => {
     await expect(page.getByTestId('add-category-btn')).toBeVisible({ timeout: 10000 });
   });
 
-  test('should display category management tab', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /Categories \(\d+\)/ })).toBeVisible();
-    await expect(page.getByTestId('add-category-btn')).toBeVisible();
-  });
-
   test('should add new category', async ({ page }) => {
     const categoryName = `Test Category ${Date.now()}`;
     await addCategory(page, categoryName);

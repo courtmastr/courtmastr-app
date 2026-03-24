@@ -29,6 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Getters
   const isAuthenticated = computed(() => !!currentUser.value);
   const isAdmin = computed(() => currentUser.value?.role === 'admin' || currentUser.value?.role === 'organizer');
+  const isSuperAdmin = computed(() => currentUser.value?.role === 'admin');
   const isOrganizer = computed(() => currentUser.value?.role === 'organizer' || currentUser.value?.role === 'admin');
   const isScorekeeper = computed(() => currentUser.value?.role === 'scorekeeper' || currentUser.value?.role === 'admin' || currentUser.value?.role === 'organizer');
   const isPlayer = computed(() => currentUser.value?.role === 'player');
@@ -56,6 +57,7 @@ export const useAuthStore = defineStore('auth', () => {
       email: user.email || '',
       displayName: user.displayName || String(userData.displayName || user.email?.split('@')[0] || ''),
       role: (userData.role as UserRole) || 'viewer',
+      activeOrgId: (userData.activeOrgId as string | null) ?? null,
       createdAt: createdAtValue?.toDate?.() || (user.metadata.creationTime ? new Date(user.metadata.creationTime) : new Date()),
       updatedAt: updatedAtValue?.toDate?.() || new Date(),
     };
@@ -292,6 +294,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Getters
     isAuthenticated,
     isAdmin,
+    isSuperAdmin,
     isOrganizer,
     isScorekeeper,
     isPlayer,

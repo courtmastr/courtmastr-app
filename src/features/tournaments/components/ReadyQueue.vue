@@ -10,6 +10,8 @@ interface Props {
   getCategoryName: (id: string) => string;
   selectedMatchKey?: string | null;
   enableAssign?: boolean;
+  canAssignMatch?: (match: Match) => boolean;
+  getAssignBlockedReason?: (match: Match) => string;
 }
 
 const { formatMatchNumber } = useMatchIdentification();
@@ -65,20 +67,34 @@ function getMatchKey(match: Match): string {
 function isSelected(match: Match): boolean {
   return props.selectedMatchKey === getMatchKey(match);
 }
+
+function showAssignButton(match: Match): boolean {
+  if (match.status !== 'ready' || props.enableAssign === false) return false;
+  if (!props.canAssignMatch) return true;
+  return props.canAssignMatch(match);
+}
+
+function getBlockedReason(match: Match): string {
+  if (!props.getAssignBlockedReason) return '';
+  return props.getAssignBlockedReason(match);
+}
 </script>
 
 <template>
   <div class="ready-queue">
     <!-- Header -->
-    <div class="ready-queue__header d-flex align-center px-3 py-2 bg-surface border-b">
+    <div class="ready-queue__header d-flex align-center px-3 py-2 border-b">
       <v-icon
-        size="20"
+        size="16"
         class="mr-2"
-        color="warning"
+        color="primary"
       >
         mdi-playlist-play
       </v-icon>
-      <span class="font-weight-medium">Ready Queue</span>
+      <span
+        class="font-weight-bold"
+        style="font-size:13px;color:#0f172a;"
+      >Ready Queue</span>
       <v-spacer />
       <v-chip
         size="x-small"
@@ -92,7 +108,7 @@ function isSelected(match: Match): boolean {
         v-if="scheduledCount > 0"
         size="x-small"
         variant="tonal"
-        color="info"
+        color="primary"
       >
         {{ scheduledCount }} scheduled
       </v-chip>
@@ -149,7 +165,7 @@ function isSelected(match: Match): boolean {
                 {{ getCategoryName(match.categoryId) }}
               </span>
               <v-btn
-                v-if="match.status === 'ready' && props.enableAssign !== false"
+                v-if="showAssignButton(match)"
                 size="x-small"
                 variant="tonal"
                 color="success"
@@ -159,6 +175,12 @@ function isSelected(match: Match): boolean {
               >
                 Assign
               </v-btn>
+              <span
+                v-else-if="match.status === 'ready' && getBlockedReason(match)"
+                class="text-caption text-warning mt-1 ready-queue__blocked-reason"
+              >
+                {{ getBlockedReason(match) }}
+              </span>
             </div>
           </template>
         </v-list-item>
@@ -194,9 +216,7 @@ function isSelected(match: Match): boolean {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: rgb(var(--v-theme-surface));
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
+  background: #fff;
   overflow: hidden;
 }
 
@@ -222,6 +242,12 @@ function isSelected(match: Match): boolean {
 
 .ready-queue__item--selected {
   background-color: rgba(var(--v-theme-primary), 0.1);
+}
+
+.ready-queue__blocked-reason {
+  max-width: 160px;
+  text-align: right;
+  line-height: 1.2;
 }
 
 .ready-queue__empty {

@@ -324,7 +324,7 @@ describe('CategoryRegistrationStats primary CTA behavior', () => {
     expect(actionButton.text()).toContain('Publish Schedule');
 
     await actionButton.trigger('click');
-    expect(wrapper.emitted('schedule-times')?.[0]?.[0]).toMatchObject({ id: 'cat-1' });
+    expect(wrapper.emitted('publish-schedule')?.[0]?.[0]).toMatchObject({ id: 'cat-1' });
   });
 
   it('shows pool setup CTA before pool stage exists', () => {
@@ -360,7 +360,7 @@ describe('CategoryRegistrationStats primary CTA behavior', () => {
     expect(actionButton.text()).toContain('Schedule Pool Matches');
   });
 
-  it('shows pool publish CTA when pool matches are scheduled but not published', () => {
+  it('shows pool publish CTA when pool matches are scheduled but not published', async () => {
     runtime.categories = [
       makeCategory({
         name: 'Pool Publish',
@@ -381,9 +381,12 @@ describe('CategoryRegistrationStats primary CTA behavior', () => {
     const actionButton = getPrimaryActionButton(wrapper);
 
     expect(actionButton.text()).toContain('Publish Pool Schedule');
+
+    await actionButton.trigger('click');
+    expect(wrapper.emitted('publish-schedule')?.[0]?.[0]).toMatchObject({ id: 'cat-1' });
   });
 
-  it('shows level publish CTA when level matches are scheduled but not published', () => {
+  it('shows level publish CTA when level matches are scheduled but not published', async () => {
     runtime.categories = [
       makeCategory({
         name: 'Level Publish',
@@ -402,6 +405,58 @@ describe('CategoryRegistrationStats primary CTA behavior', () => {
         levelId: 'level-1',
         status: 'ready',
         plannedStartAt: baseDate,
+      }),
+    ];
+
+    const wrapper = mountComponent();
+    const actionButton = getPrimaryActionButton(wrapper);
+
+    expect(actionButton.text()).toContain('Publish Level Schedule');
+
+    await actionButton.trigger('click');
+    expect(wrapper.emitted('publish-schedule')?.[0]?.[0]).toMatchObject({ id: 'cat-1' });
+  });
+
+  it('keeps level publish CTA when only placeholder level matches remain unscheduled', () => {
+    runtime.categories = [
+      makeCategory({
+        name: 'Level Publish With Placeholder',
+        format: 'pool_to_elimination',
+        poolStageId: 10,
+        levelingStatus: 'generated',
+      }),
+    ];
+    runtime.registrations = [
+      makeRegistration('r1'),
+      makeRegistration('r2'),
+      makeRegistration('r3'),
+      makeRegistration('r4'),
+    ];
+    runtime.matches = [
+      makeMatch('m-pool-1', {
+        groupId: 'g-1',
+        status: 'completed',
+      }),
+      makeMatch('m-level-1', {
+        levelId: 'level-1',
+        participant1Id: 'r1',
+        participant2Id: 'r2',
+        status: 'ready',
+        plannedStartAt: baseDate,
+      }),
+      makeMatch('m-level-2', {
+        levelId: 'level-1',
+        participant1Id: 'r3',
+        participant2Id: 'r4',
+        status: 'ready',
+        plannedStartAt: baseDate,
+      }),
+      makeMatch('m-level-placeholder', {
+        levelId: 'level-1',
+        participant1Id: 'r1',
+        participant2Id: undefined,
+        status: 'ready',
+        plannedStartAt: undefined,
       }),
     ];
 

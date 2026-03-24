@@ -42,10 +42,12 @@ export interface User {
   displayName: string;
   phone?: string;
   role: UserRole;
+  photoUrl?: string; // Add this
   isActive?: boolean;
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  activeOrgId?: string | null;
 }
 
 // Tournament Types
@@ -82,7 +84,7 @@ export interface Tournament {
   id: string;
   name: string;
   description?: string;
-  sport: 'badminton'; // Starting with badminton only
+  sport?: string | null; // Multi-sport support
   format: TournamentFormat;
   status: TournamentStatus;
   state?: TournamentLifecycleState;
@@ -92,6 +94,7 @@ export interface Tournament {
   location?: string;
   maxParticipants?: number;
   settings: TournamentSettings;
+  orgId?: string; // Links tournament to an organization
   createdBy: string;
   organizerIds?: string[];
   tournamentLogo?: TournamentLogo | null;
@@ -624,3 +627,112 @@ export type {
   ShuffledSerpentineOptions,
   RngState,
 } from './poolAssignment';
+
+// ============================================
+// Global Player Identity
+// ============================================
+
+export interface PlayerStats {
+  wins: number;
+  losses: number;
+  gamesPlayed: number;
+  tournamentsPlayed: number;
+}
+
+export interface PlayerSportStats {
+  [categoryType: string]: PlayerStats; // 'singles' | 'doubles' | 'mixed'
+}
+
+export interface GlobalPlayer {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  emailNormalized: string;
+  phone?: string | null;
+  skillLevel?: number | null;
+  userId?: string | null;
+  isActive: boolean;
+  isVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  stats: {
+    [sport: string]: PlayerSportStats | PlayerStats;
+    overall: PlayerStats;
+  };
+}
+
+// ============================================
+// Organizations
+// ============================================
+
+export type OrgMemberRole = 'admin' | 'organizer';
+
+export interface OrgSponsor {
+  id: string;
+  name: string;
+  logoUrl: string;
+  logoPath: string;
+  website?: string;
+  displayOrder: number;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  contactEmail?: string | null;
+  timezone?: string | null;
+  about?: string | null;
+  website?: string | null;
+  city?: string | null;
+  foundedYear?: number | null;
+  socialLinks?: {
+    instagram?: string | null;
+    facebook?: string | null;
+    youtube?: string | null;
+    twitter?: string | null;
+  } | null;
+  sponsors?: OrgSponsor[];
+  suspended?: boolean;
+  suspendedAt?: Date;
+  suspendedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OrganizationMember {
+  uid: string;
+  role: OrgMemberRole;
+  joinedAt: Date;
+}
+
+// ============================================
+// Player Match History
+// ============================================
+
+export interface MatchHistoryEntry {
+  matchId: string;
+  /** Singles: opponent name. Doubles: "Partner A / Partner B" */
+  opponentName: string;
+  /** Doubles only: this player's partner's full name */
+  partnerName?: string;
+  scores: GameScore[];
+  result: 'win' | 'loss' | 'walkover';
+  completedAt?: Date;
+  categoryType: CategoryType;
+}
+
+export interface TournamentHistoryEntry {
+  tournamentId: string;
+  tournamentName: string;
+  startDate: Date;
+  sport?: string | null;
+  categoryId: string;
+  categoryName: string;
+  categoryType: CategoryType;
+  registrationId: string;
+  matches: MatchHistoryEntry[];
+}

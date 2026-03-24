@@ -6,6 +6,7 @@ declare module 'vue-router' {
     requiresAuth?: boolean;
     guestOnly?: boolean;
     requiresAdmin?: boolean;
+    requiresWebAdmin?: boolean;
     requiresScorekeeper?: boolean;
     requiresVolunteerSession?: boolean;
     volunteerAccessPage?: boolean;
