@@ -6,11 +6,13 @@ export const TEST_RUN_SUMMARY_PATH = path.resolve(process.cwd(), 'docs/testing/t
 export const buildRunSummary = ({
   vitest,
   e2e,
+  release,
   scope = 'full-release',
   generatedAt = new Date().toISOString(),
 }) => ({
   generatedAt,
   scope,
+  release,
   vitest,
   e2e,
 });

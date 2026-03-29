@@ -3995,6 +3995,37 @@ rg -n "setupFiles" vitest.config.ts
 
 ---
 
+### CP-079: Preserve Raw `git status --porcelain` Output Until After Parsing
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-29 |
+| **Source Bug** | `release:deploy` misreported the first dirty file because the porcelain output was trimmed before parsing status codes |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const statusOutput = execSync('git status --porcelain', { encoding: 'utf8' }).trim();
+const dirtyEntries = statusOutput.split('\n').map(parsePorcelainLine);
+```
+
+**Correct Pattern (✅):**
+```typescript
+const statusOutput = execSync('git status --porcelain', { encoding: 'utf8' });
+const dirtyEntries = parseDirtyWorktreeEntries(statusOutput);
+const isClean = statusOutput.trim() === '';
+```
+
+**Rule:** Never call `.trim()` on raw porcelain output before parsing individual status lines. Leading spaces are part of Git's status code format and trimming them corrupts the first entry.
+
+**Detection:**
+```bash
+rg -n "git status --porcelain.*trim\\(" scripts src tests --glob "*.mjs" --glob "*.ts"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

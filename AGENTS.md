@@ -38,6 +38,8 @@ npm run seed:simple      # Seed emulator with test data
 # Build & Deploy
 npm run hooks:enable      # One-time: enable repo git hooks (includes post-checkout env check)
 npm run check:firebase-env # Validate required Firebase web env before production build/deploy
+npm run release:plan      # Dry-run next semantic release, notes, and guardrails
+npm run release:deploy    # Auto-bump version, generate notes, run guardrails, and deploy
 npm run build            # Type-check + build for production
 npm run preview          # Preview production build locally
 npm run deploy           # Build + deploy to Firebase
@@ -142,6 +144,8 @@ Run build verification whenever a change can affect build output.
 - Run build verification for any build-affecting change (see §2.2): `npm run build` then `npm run build:log`.
 - Run relevant `:log` commands after changes.
 - Run `npm run check:firebase-env` before production deploys (especially in new checkouts/worktrees).
+- Use `npm run release:plan` before local production releases to preview the computed version and release note.
+- Use `npm run release:deploy` as the default local production deploy path so versioning, release notes, tests, and deploy guardrails stay aligned.
 - Enable repo hooks once per clone/worktree set: `npm run hooks:enable`.
 - Update `docs/deployment/LAST_DEPLOY.md` after any production deploy.
 - Follow Debug KB Protocol on failures.

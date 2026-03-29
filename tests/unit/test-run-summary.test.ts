@@ -5,6 +5,11 @@ describe('test run summary utilities', () => {
     const { buildRunSummary } = await import('../../scripts/testing/write-test-run-summary.mjs');
 
     const summary = buildRunSummary({
+      release: {
+        version: '1.1.0',
+        releaseId: 'v1.1.0',
+        releaseNotesPath: '/tmp/docs/releases/v1.1.0.md',
+      },
       vitest: { filesPassed: 130, testsPassed: 580 },
       e2e: { total: 76, passed: 76, failed: 0, skipped: 0 },
       scope: 'custom',
@@ -13,6 +18,7 @@ describe('test run summary utilities', () => {
 
     expect(summary.generatedAt).toBe('2026-03-20T12:00:00.000Z');
     expect(summary.scope).toBe('custom');
+    expect(summary.release.releaseId).toBe('v1.1.0');
     expect(summary.vitest.testsPassed).toBe(580);
     expect(summary.e2e.total).toBe(76);
   });

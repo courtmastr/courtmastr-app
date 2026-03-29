@@ -1,4 +1,5 @@
 import type { Catalog, InventoryEntry, ResolvedCatalogCase } from './catalog-utils.mjs';
+import type { ReleaseMetadata } from './release-notes-utils.mjs';
 import type { RunSummary } from './write-test-run-summary.mjs';
 
 export interface ReleaseCommands {
@@ -22,6 +23,7 @@ export function runReleaseVerification(args: {
     inventory: InventoryEntry[];
     runSummary: RunSummary;
   }) => Promise<unknown>;
+  verifyReleaseMetadata?: () => ReleaseMetadata;
   loadCatalog: () => Promise<Catalog> | Catalog;
   validateCatalog: (catalog: unknown) => string[];
   collectTestInventory: () => Promise<InventoryEntry[]> | InventoryEntry[];

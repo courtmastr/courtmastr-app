@@ -12,6 +12,7 @@ This directory is the repo-native source of truth for automated test coverage re
   - generated visual report with latest E2E status and discovered library tables
 - `test-run-summary.json`
   - latest recorded automated run summary
+  - includes the release version and release-note path verified for the run
 
 ## Commands
 
@@ -22,9 +23,18 @@ This directory is the repo-native source of truth for automated test coverage re
 
 - `npm run verify:release`
   - run release verification
+  - validate the current package version has a matching release note in `docs/releases/`
   - record latest Vitest and E2E status
   - regenerate reports
   - fail if release-required catalog entries are missing from the active suite
+
+- `npm run release:plan`
+  - preview the next semantic version and release-note path without changing files
+
+- `npm run release:deploy`
+  - auto-bump the version
+  - generate the release note
+  - run release verification, build gates, and deploy commands
 
 ## Adding a New Test Case
 
@@ -55,3 +65,5 @@ If you want to know whether all E2E passed before deploy:
 1. run `npm run verify:release`
 2. check `docs/testing/test-run-summary.json`
 3. open `docs/testing/TEST_CATALOG.html`
+4. open `docs/releases/v<version>.md` for the human release summary
+5. for the full local release path, use `npm run release:plan` then `npm run release:deploy`

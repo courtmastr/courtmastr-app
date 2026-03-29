@@ -37,9 +37,15 @@ For release/deploy:
 
 1. Confirm `master` contains merged changes.
 2. Enable checkout guard once (per local repo): `npm run hooks:enable`.
-3. Run `npm run verify:release` to confirm the automated release catalog is covered and the latest E2E summary is recorded.
-4. Run `npm run deploy` and `npm run deploy:log` from a clean `master` context.
-5. Record deploy output (project, URL, and functions updated) in `docs/deployment/LAST_DEPLOY.md`.
+3. Run `npm run release:plan` to preview the computed release size, next semantic version, and draft release-note path.
+4. Run `npm run release:deploy` from a clean `master` context.
+5. `release:deploy` is responsible for:
+   - auto-bumping the semantic version
+   - generating `docs/releases/v<version>.md`
+   - running `npm run verify:release`
+   - running `npm run build` and `npm run build:log`
+   - running `npm run deploy` and `npm run deploy:log`
+   - updating `docs/deployment/LAST_DEPLOY.md` after successful deploy
 
 ## Test Catalog
 
@@ -50,6 +56,9 @@ Generated outputs:
 - `docs/testing/TEST_CATALOG.md`
 - `docs/testing/TEST_CATALOG.html`
 - `docs/testing/test-run-summary.json`
+  - includes release metadata for the version that passed release verification
+- `docs/releases/v<version>.md`
+  - operator-facing versioned release notes for the release being deployed
 
 Commands:
 
@@ -58,6 +67,7 @@ Commands:
    - regenerates Markdown and HTML reports
 2. `npm run verify:release`
    - runs the release verification command
+   - validates the current package version has a matching release note
    - records latest Vitest and E2E results
    - regenerates the test catalog reports
    - fails if release-required catalog entries are missing from the real suite
