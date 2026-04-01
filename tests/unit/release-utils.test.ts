@@ -184,4 +184,25 @@ M  scripts/release/release-cli.mjs`);
       '/tmp/courtmastr-release/docs/releases/v2.0.0.md',
     ]);
   });
+
+  it('auto-restores generated release artifacts before checking worktree cleanliness', async () => {
+    const {
+      PRE_RELEASE_AUTORESTORE_PATHS,
+      restorePreReleaseGeneratedFiles,
+    } = await import('../../scripts/release/release-utils.mjs');
+
+    const restoredCommands = [];
+
+    const result = restorePreReleaseGeneratedFiles({
+      cwd: '/tmp/courtmastr-release',
+      execGitRestore: (args) => {
+        restoredCommands.push(args);
+      },
+    });
+
+    expect(result).toEqual(PRE_RELEASE_AUTORESTORE_PATHS);
+    expect(restoredCommands).toEqual([
+      ['restore', '--worktree', '--staged', '--', ...PRE_RELEASE_AUTORESTORE_PATHS],
+    ]);
+  });
 });

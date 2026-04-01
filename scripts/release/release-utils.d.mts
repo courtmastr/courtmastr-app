@@ -42,6 +42,7 @@ export interface ReleasePlan {
 
 export const LAST_DEPLOY_RECORD_PATH: string;
 export const RELEASES_DIR: string;
+export const PRE_RELEASE_AUTORESTORE_PATHS: string[];
 
 export function parseLatestProductionDeploy(content: string): LatestProductionDeploy;
 export function incrementVersion(version: string, releaseType: 'patch' | 'minor' | 'major'): string;
@@ -100,6 +101,11 @@ export function rollbackReleaseWorktree(args: {
   trackedPaths: string[];
   untrackedPaths: string[];
 };
+export function restorePreReleaseGeneratedFiles(args?: {
+  cwd?: string;
+  execGitRestore?: (args: string[]) => string | void;
+  paths?: string[];
+}): string[];
 export function formatDirtyWorktreeMessage(commandName: string, dirtyEntries: {
   code: string;
   path: string;

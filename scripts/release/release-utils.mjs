@@ -6,6 +6,14 @@ import { compareSemverVersions } from '../testing/release-notes-utils.mjs';
 export const LAST_DEPLOY_RECORD_PATH = path.resolve(process.cwd(), 'docs/deployment/LAST_DEPLOY.md');
 export const RELEASES_DIR = path.resolve(process.cwd(), 'docs/releases');
 const DIRTY_STATUS_LINE_PATTERN = /^(..)\s(.+)$/;
+export const PRE_RELEASE_AUTORESTORE_PATHS = [
+  'e2e/.auth/admin.json',
+  'e2e/.auth/scorekeeper.json',
+  'e2e/.test-data.json',
+  'docs/testing/TEST_CATALOG.md',
+  'docs/testing/TEST_CATALOG.html',
+  'docs/testing/test-run-summary.json',
+];
 
 export const parseLatestProductionDeploy = (content) => {
   const sectionMatch = content.match(/## Latest Production Deploy\s+([\s\S]*?)\n## /);
@@ -324,6 +332,15 @@ export const rollbackReleaseWorktree = ({
     trackedPaths,
     untrackedPaths,
   };
+};
+
+export const restorePreReleaseGeneratedFiles = ({
+  cwd = process.cwd(),
+  execGitRestore = (args) => execFileSync('git', args, { cwd, encoding: 'utf8' }),
+  paths = PRE_RELEASE_AUTORESTORE_PATHS,
+}) => {
+  execGitRestore(['restore', '--worktree', '--staged', '--', ...paths]);
+  return paths;
 };
 
 export const formatDirtyWorktreeMessage = (commandName, dirtyEntries) => {

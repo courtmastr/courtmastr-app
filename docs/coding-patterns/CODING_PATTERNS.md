@@ -4271,6 +4271,47 @@ rg -n "const originalState = \\{|packageJson: fs\\.readFileSync\\(|releaseNotesE
 
 ---
 
+### CP-085: Release Preflight Must Auto-Restore Known Generated Test Artifacts
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | `release:deploy` was blocked after successful Playwright runs because tracked auth and test-data artifacts were left modified by the test harness |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const gitState = getCurrentGitState();
+assertCleanGitState('release:deploy', gitState);
+```
+
+**Correct Pattern (✅):**
+```typescript
+restorePreReleaseGeneratedFiles();
+const gitState = getCurrentGitState();
+assertCleanGitState('release:deploy', gitState);
+```
+```typescript
+export const PRE_RELEASE_AUTORESTORE_PATHS = [
+  'e2e/.auth/admin.json',
+  'e2e/.auth/scorekeeper.json',
+  'e2e/.test-data.json',
+  'docs/testing/TEST_CATALOG.md',
+  'docs/testing/TEST_CATALOG.html',
+  'docs/testing/test-run-summary.json',
+];
+```
+
+**Rule:** Release preflight should preserve the clean-worktree guard, but it must first auto-restore tracked files that are intentionally rewritten by the repo’s own test/report generators. Do not make operators manually clean Playwright auth state or test catalog artifacts before every release.
+
+**Detection:**
+```bash
+rg -n "assertCleanGitState\\('release:(plan|deploy)'|restorePreReleaseGeneratedFiles|PRE_RELEASE_AUTORESTORE_PATHS" scripts/release --glob "*.mjs"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

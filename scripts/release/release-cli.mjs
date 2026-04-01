@@ -12,6 +12,7 @@ import {
   getCurrentGitState,
   parseLatestProductionDeploy,
   readCurrentVersion,
+  restorePreReleaseGeneratedFiles,
   rollbackReleaseWorktree,
   updateLastDeployRecord,
 } from './release-utils.mjs';
@@ -81,6 +82,7 @@ const printPlan = (plan, latestDeploy) => {
 
 const runPlanMode = () => {
   const { metadata } = readLastDeploy();
+  restorePreReleaseGeneratedFiles();
   const gitState = getCurrentGitState();
   assertCleanGitState('release:plan', gitState);
   const currentVersion = readCurrentVersion();
@@ -95,6 +97,7 @@ const runPlanMode = () => {
 
 const runDeployMode = () => {
   const { metadata, content: lastDeployContent } = readLastDeploy();
+  restorePreReleaseGeneratedFiles();
   const gitState = getCurrentGitState();
   assertCleanGitState('release:deploy', gitState);
 
