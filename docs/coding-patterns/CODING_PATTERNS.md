@@ -4026,6 +4026,52 @@ rg -n "git status --porcelain.*trim\\(" scripts src tests --glob "*.mjs" --glob 
 
 ---
 
+### CP-080: Release Plan and Deploy Must Share the Same Clean-Worktree Gate
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-03-31 |
+| **Source Bug** | `release:plan` allowed dirty working trees while `release:deploy` blocked them, creating inconsistent release workflow guardrails |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const runPlanMode = () => {
+  const gitState = getCurrentGitState();
+  // no clean-worktree guard
+  printPlan(buildReleasePlan({ gitState, ... }));
+};
+
+const runDeployMode = () => {
+  const gitState = getCurrentGitState();
+  assertCleanGitState('release:deploy', gitState);
+};
+```
+
+**Correct Pattern (✅):**
+```typescript
+const runPlanMode = () => {
+  const gitState = getCurrentGitState();
+  assertCleanGitState('release:plan', gitState);
+  printPlan(buildReleasePlan({ gitState, ... }));
+};
+
+const runDeployMode = () => {
+  const gitState = getCurrentGitState();
+  assertCleanGitState('release:deploy', gitState);
+};
+```
+
+**Rule:** Any release workflow entrypoint that inspects or records a release candidate must enforce the same clean-worktree precondition. Do not let preview commands bypass the cleanliness gate if deploy commands depend on it.
+
+**Detection:**
+```bash
+rg -n "assertCleanGitState\\('release:(plan|deploy)'" scripts/release/release-cli.mjs
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

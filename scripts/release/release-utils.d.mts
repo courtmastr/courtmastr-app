@@ -80,10 +80,11 @@ export function parseDirtyWorktreeEntries(statusOutput: string): {
   code: string;
   path: string;
 }[];
-export function formatDirtyWorktreeMessage(dirtyEntries: {
+export function formatDirtyWorktreeMessage(commandName: string, dirtyEntries: {
   code: string;
   path: string;
 }[]): string;
+export function assertCleanGitState(commandName: string, gitState: GitState): void;
 export function buildPreviousReleaseBullet(deploy: LatestProductionDeploy): string;
 export function updateLastDeployRecord(content: string, newDeploy: {
   date: string;

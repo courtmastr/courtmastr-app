@@ -104,7 +104,7 @@ Updated: 2026-03-28 (America/Chicago)
     const dirtyEntries = parseDirtyWorktreeEntries(` M package.json
 ?? docs/releases/v2.0.0.md
 M  scripts/release/release-cli.mjs`);
-    const message = formatDirtyWorktreeMessage(dirtyEntries);
+    const message = formatDirtyWorktreeMessage('release:deploy', dirtyEntries);
 
     expect(dirtyEntries).toEqual([
       { code: ' M', path: 'package.json' },
@@ -115,5 +115,29 @@ M  scripts/release/release-cli.mjs`);
     expect(message).toContain('-  M package.json');
     expect(message).toContain('- ?? docs/releases/v2.0.0.md');
     expect(message).toContain('git stash push -u -m "pre-release-deploy"');
+  });
+
+  it('throws the command-specific dirty worktree error for plan and deploy', async () => {
+    const {
+      assertCleanGitState,
+      parseDirtyWorktreeEntries,
+    } = await import('../../scripts/release/release-utils.mjs');
+
+    const dirtyEntries = parseDirtyWorktreeEntries(' M package.json');
+    const dirtyGitState = {
+      branch: 'master',
+      headCommit: 'abcdef1234567890',
+      headCommitShort: 'abcdef1',
+      headMessage: 'feat: release automation',
+      isClean: false,
+      dirtyEntries,
+    };
+
+    expect(() => assertCleanGitState('release:plan', dirtyGitState)).toThrowError(
+      'release:plan requires a clean git worktree before starting.',
+    );
+    expect(() => assertCleanGitState('release:deploy', dirtyGitState)).toThrowError(
+      'release:deploy requires a clean git worktree before starting.',
+    );
   });
 });

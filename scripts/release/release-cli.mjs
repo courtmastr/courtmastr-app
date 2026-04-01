@@ -5,9 +5,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   LAST_DEPLOY_RECORD_PATH,
+  assertCleanGitState,
   buildReleaseNotes,
   buildReleasePlan,
-  formatDirtyWorktreeMessage,
   formatCentralDateTime,
   getCurrentGitState,
   parseLatestProductionDeploy,
@@ -81,6 +81,7 @@ const printPlan = (plan, latestDeploy) => {
 const runPlanMode = () => {
   const { metadata } = readLastDeploy();
   const gitState = getCurrentGitState();
+  assertCleanGitState('release:plan', gitState);
   const currentVersion = readCurrentVersion();
   const plan = buildReleasePlan({
     lastDeploy: metadata,
@@ -94,10 +95,7 @@ const runPlanMode = () => {
 const runDeployMode = () => {
   const { metadata, content: lastDeployContent } = readLastDeploy();
   const gitState = getCurrentGitState();
-
-  if (!gitState.isClean) {
-    throw new Error(formatDirtyWorktreeMessage(gitState.dirtyEntries));
-  }
+  assertCleanGitState('release:deploy', gitState);
 
   const currentVersion = readCurrentVersion();
   const plan = buildReleasePlan({

@@ -290,7 +290,7 @@ export const parseDirtyWorktreeEntries = (statusOutput) =>
       };
     });
 
-export const formatDirtyWorktreeMessage = (dirtyEntries) => {
+export const formatDirtyWorktreeMessage = (commandName, dirtyEntries) => {
   const preview = dirtyEntries
     .slice(0, 10)
     .map((entry) => `- ${entry.code} ${entry.path}`)
@@ -299,18 +299,24 @@ export const formatDirtyWorktreeMessage = (dirtyEntries) => {
   const remainderLine = remainingCount > 0 ? `\n- ... and ${remainingCount} more` : '';
 
   return [
-    'release:deploy requires a clean git worktree before starting.',
+    `${commandName} requires a clean git worktree before starting.`,
     '',
     'Blocking files:',
     preview || '- none reported',
     `${remainderLine}`.trimEnd(),
     '',
     'Next step:',
-    '- Commit the changes you want included in the deploy, then rerun `npm run release:deploy`.',
+    `- Commit the changes you want included in the release workflow, then rerun \`npm run ${commandName}\`.`,
     '- Or temporarily stash them with `git stash push -u -m "pre-release-deploy"` and rerun.',
   ]
     .filter((line, index, lines) => !(line === '' && lines[index - 1] === ''))
     .join('\n');
+};
+
+export const assertCleanGitState = (commandName, gitState) => {
+  if (!gitState.isClean) {
+    throw new Error(formatDirtyWorktreeMessage(commandName, gitState.dirtyEntries));
+  }
 };
 
 export const buildPreviousReleaseBullet = (deploy) => `- \`${deploy.releaseId}\`
