@@ -33,7 +33,7 @@ function generateTimestamp() {
 function normalizeForFingerprint(text) {
   return text
     // Remove file paths (Unix and Windows)
-    .replace(/[\/~][\w\-./]+\.[\w]+/g, '<PATH>')
+    .replace(/[/~][\w\-./]+\.[\w]+/g, '<PATH>')
     .replace(/[a-zA-Z]:\\[\w\-.\\]+/g, '<PATH>')
     // Remove line numbers from error messages
     .replace(/:\d+:\d+/g, ':<LN>')
@@ -66,9 +66,9 @@ function sanitizeFilename(cmd) {
     .slice(0, 50);
 }
 
-async function runCommand(command, args = []) {
+async function runCommand(command, args = [], options = {}) {
   const timestamp = generateTimestamp();
-  const cmdString = [command, ...args].join(' ');
+  const cmdString = options.rawCommand ?? [command, ...args].join(' ');
   const sanitizedCmd = sanitizeFilename(cmdString);
   const logFilename = `${timestamp}.${sanitizedCmd}.log`;
   const logPath = join(ARTIFACTS_DIR, logFilename);
@@ -94,7 +94,9 @@ async function runCommand(command, args = []) {
   }
   
   return new Promise((resolve) => {
-    const child = spawn(command, args, {
+    const spawnCommand = options.rawCommand ? options.rawCommand : command;
+    const spawnArgs = options.rawCommand ? [] : args;
+    const child = spawn(spawnCommand, spawnArgs, {
       stdio: ['inherit', 'pipe', 'pipe'],
       shell: true,
     });
@@ -137,14 +139,17 @@ async function runCommand(command, args = []) {
 // Main execution
 const args = process.argv.slice(2);
 if (args.length === 0) {
-  console.error('Usage: node run-and-log.mjs <command> [args...]');
+  console.error('Usage: node run-and-log.mjs [--shell "<command>"] | <command> [args...]');
   console.error('Example: node run-and-log.mjs npm run build');
+  console.error('Example: node run-and-log.mjs --shell "npm run build && firebase deploy"');
   process.exit(1);
 }
 
-const command = args[0];
-const commandArgs = args.slice(1);
+const isShellMode = args[0] === '--shell';
+const command = isShellMode ? null : args[0];
+const commandArgs = isShellMode ? [] : args.slice(1);
+const rawCommand = isShellMode ? args.slice(1).join(' ') : null;
 
-runCommand(command, commandArgs).then(code => {
+runCommand(command, commandArgs, { rawCommand }).then(code => {
   process.exit(code);
 });

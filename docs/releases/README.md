@@ -1,0 +1,34 @@
+# CourtMastr Release History
+
+This directory is the source of truth for versioned release notes.
+
+## Rules
+
+1. Every future production deploy must have a unique semantic version in `package.json`.
+2. Every future production deploy must have a matching note file at `docs/releases/v<version>.md`.
+3. `npm run verify:release` is expected to validate the release note for the current package version before deploy.
+4. `docs/deployment/LAST_DEPLOY.md` records the latest production deployment and should link back to the matching release note.
+5. For local production releases, the default path is:
+   - `npm run release:plan`
+   - `npm run release:deploy`
+
+## Historical Backfill
+
+This repo did not consistently version deploys before this workflow. Historical release notes below are backfilled from git and deploy records only.
+
+- When the package version is known, the release uses `v<version>`.
+- When the same package version was deployed more than once, historical build metadata is used to distinguish the second deploy, for example `v1.1.0+deploy.2`.
+- When evidence is incomplete, the gap is called out directly instead of inventing missing details.
+
+## Releases
+
+| Release ID | Package Version | Status | Deploy Date | Notes |
+|---|---|---|---|---|
+| `v1.1.0+deploy.2` | `1.1.0` | deployed | 2026-03-15 | [v1.1.0+deploy.2](/Users/ramc/Documents/Code/courtmaster-v2/docs/releases/v1.1.0+deploy.2.md) |
+| `v1.1.0` | `1.1.0` | deployed | 2026-03-15 | [v1.1.0](/Users/ramc/Documents/Code/courtmaster-v2/docs/releases/v1.1.0.md) |
+| `v1.0.0` | `1.0.0` | deployed | 2026-03-14 | [v1.0.0](/Users/ramc/Documents/Code/courtmaster-v2/docs/releases/v1.0.0.md) |
+| `unreleased` | `1.1.0` | draft | n/a | [UNRELEASED](/Users/ramc/Documents/Code/courtmaster-v2/docs/releases/UNRELEASED.md) |
+
+## Historical Evidence With Gaps
+
+- 2026-02-18 hosting deploy is recorded in [LAST_DEPLOY.md](/Users/ramc/Documents/Code/courtmaster-v2/docs/deployment/LAST_DEPLOY.md), but no deployed commit or package version is recorded for that event, so it is not assigned a semantic release ID retroactively.

@@ -1,3 +1,10 @@
+- id: f4debf35
+  title: lint:log fails on existing repository-wide ESLint baseline violations during release automation verification
+  status: "🟡 workaround"
+  date: "2026-03-29"
+  fingerprint: "f4debf35"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-29-15-03-45.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
 - id: 23f31b86
   title: test:log full-suite run times out in router public-route guard coverage under parallel load
   status: "✅ fixed"
@@ -803,3 +810,17 @@
   fingerprint: "1ba03fd8"
   command: "npm run test:log -- --run tests/unit/HallOfChampionsView.test.ts tests/unit/router-guards-auth.test.ts tests/unit/usePwaInstallPrompt.test.ts tests/unit/PublicScheduleView.test.ts tests/unit/PublicScoringView.test.ts tests/unit/PublicBracketView.test.ts tests/integration/public-views.integration.test.ts"
   artifact_log: "docs/debug-kb/_artifacts/2026-03-14-21-42-00.vitest-run-tests-unit-HallOfChampionsView-test-ts-.log"
+- id: 2c767f18
+  title: release-utils unit test fixture is classified as minor because it touches release verification paths
+  status: "✅ fixed"
+  date: "2026-03-28"
+  fingerprint: "2c767f18"
+  command: "npm run test:log -- --run tests/unit/release-utils.test.ts tests/unit/release-notes-utils.test.ts tests/unit/verify-release.test.ts tests/unit/test-run-summary.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-29-04-12-40.vitest-run-tests-unit-release-utils-test-ts-tests-.log"
+- id: 25c25e64
+  title: release-utils major fixture stays minor because it lacks breaking or cross-area signals
+  status: "✅ fixed"
+  date: "2026-03-28"
+  fingerprint: "25c25e64"
+  command: "npm run test:log -- --run tests/unit/release-utils.test.ts tests/unit/release-notes-utils.test.ts tests/unit/verify-release.test.ts tests/unit/test-run-summary.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-03-29-04-13-28.vitest-run-tests-unit-release-utils-test-ts-tests-.log"

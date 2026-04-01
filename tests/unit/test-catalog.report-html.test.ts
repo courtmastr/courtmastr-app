@@ -34,6 +34,11 @@ describe('test catalog html report', () => {
       runSummary: {
         generatedAt: '2026-03-20T11:45:00.000Z',
         scope: 'custom',
+        release: {
+          version: '1.1.0',
+          releaseId: 'v1.1.0',
+          releaseNotesPath: '/tmp/docs/releases/v1.1.0.md',
+        },
         vitest: { filesPassed: 7, testsPassed: 11 },
         e2e: { total: 1, passed: 1, failed: 0, skipped: 0 },
       },

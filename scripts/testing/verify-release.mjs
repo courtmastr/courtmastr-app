@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { buildRunSummary, parsePlaywrightOutput, parseVitestOutput, writeRunSummary, TEST_RUN_SUMMARY_PATH } from './write-test-run-summary.mjs';
 import { generateAndWriteReports } from './generate-test-catalog-report.mjs';
+import { verifyReleaseNotes } from './release-notes-utils.mjs';
 
 export const DEFAULT_COMMANDS = {
   vitest: process.env.VERIFY_RELEASE_VITEST_COMMAND || 'npm run test -- --run',
@@ -11,6 +12,7 @@ export const runReleaseVerification = async ({
   commands = DEFAULT_COMMANDS,
   runCommand = (command) => execSync(command, { cwd: process.cwd(), encoding: 'utf8', stdio: 'pipe', maxBuffer: 20 * 1024 * 1024 }),
   generateReports = generateAndWriteReports,
+  verifyReleaseMetadata = verifyReleaseNotes,
   loadCatalog,
   validateCatalog,
   collectTestInventory,
@@ -35,6 +37,7 @@ export const runReleaseVerification = async ({
     throw new Error(`Release catalog has missing coverage: ${missingReleaseCoverage.map((entry) => entry.id).join(', ')}`);
   }
 
+  const release = verifyReleaseMetadata();
   const vitestOutput = runCommand(commands.vitest);
   const vitest = parseVitestOutput(vitestOutput);
 
@@ -46,6 +49,7 @@ export const runReleaseVerification = async ({
   }
 
   const runSummary = buildRunSummary({
+    release,
     vitest,
     e2e,
     scope:

@@ -24,6 +24,11 @@ describe('verify release', () => {
         hasMatch: false,
         validationErrors: [],
       }],
+      verifyReleaseMetadata: vi.fn(() => ({
+        version: '1.1.0',
+        releaseId: 'v1.1.0',
+        releaseNotesPath: '/tmp/docs/releases/v1.1.0.md',
+      })),
       runCommand: vi.fn(),
     })).rejects.toThrow(/missing coverage/i);
   });
@@ -56,11 +61,17 @@ describe('verify release', () => {
         validationErrors: [],
       }],
       runCommand,
+      verifyReleaseMetadata: vi.fn(() => ({
+        version: '1.1.0',
+        releaseId: 'v1.1.0',
+        releaseNotesPath: '/tmp/docs/releases/v1.1.0.md',
+      })),
       generateReports: vi.fn(),
       summaryPath: '/tmp/courtmastr-test-run-summary.json',
     });
 
     expect(runCommand).toHaveBeenCalledTimes(2);
+    expect(result.runSummary.release.releaseId).toBe('v1.1.0');
     expect(result.runSummary.vitest.testsPassed).toBe(580);
     expect(result.runSummary.e2e.passed).toBe(76);
   });

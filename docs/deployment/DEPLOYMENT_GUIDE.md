@@ -1,5 +1,22 @@
 # CourtMastr v2 - Production Deployment Guide
 
+## Release Governance
+
+Before any future production deploy:
+
+1. run `npm run release:plan`
+2. run `npm run release:deploy`
+
+`release:deploy` will:
+- classify the release as patch, minor, or major
+- auto-bump the semantic version
+- generate `docs/releases/v<version>.md`
+- run release verification and build guardrails
+- run the Firebase deploy commands
+- update [LAST_DEPLOY.md](/Users/ramc/Documents/Code/courtmaster-v2/docs/deployment/LAST_DEPLOY.md) after success
+
+Historical release notes live in [docs/releases/README.md](/Users/ramc/Documents/Code/courtmaster-v2/docs/releases/README.md).
+
 ## ✅ Pre-Deployment Tasks Completed
 
 The following preparation tasks have been completed:
