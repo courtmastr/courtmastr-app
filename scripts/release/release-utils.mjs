@@ -338,7 +338,7 @@ export const restorePreReleaseGeneratedFiles = ({
   cwd = process.cwd(),
   execGitRestore = (args) => execFileSync('git', args, { cwd, encoding: 'utf8' }),
   paths = PRE_RELEASE_AUTORESTORE_PATHS,
-}) => {
+} = {}) => {
   execGitRestore(['restore', '--worktree', '--staged', '--', ...paths]);
   return paths;
 };

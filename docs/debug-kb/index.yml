@@ -831,3 +831,10 @@
   fingerprint: "f8869d67"
   command: "npm run test:log -- --run"
   artifact_log: "docs/debug-kb/_artifacts/2026-04-01-06-09-35.vitest-run.log"
+- id: 76118f78
+  title: test:log fails when release-utils test invokes git restore inside the log wrapper
+  status: "✅ fixed"
+  date: "2026-04-01"
+  fingerprint: "76118f78"
+  command: "npm run test:log -- --run tests/unit/release-utils.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-01-06-36-49.vitest-run-tests-unit-release-utils-test-ts.log"
