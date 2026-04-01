@@ -4342,6 +4342,54 @@ rg -n "const [A-Za-z0-9_]+ = \\[\\];" tests/unit --glob "*.test.ts"
 
 ---
 
+### CP-087: Optimistic Store Writes Must Refresh Local Source of Truth
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Tournament settings saves reverted visible form values because `updateTournament()` wrote to Firestore but left `currentTournament` stale until a later snapshot, and a category watcher repopulated the form from that stale store state |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await updateDoc(doc(db, 'tournaments', tournamentId), updateData);
+```
+
+**Correct Pattern (✅):**
+```typescript
+await updateDoc(doc(db, 'tournaments', tournamentId), updateData);
+
+const optimisticUpdates: Partial<Tournament> = {
+  ...updates,
+  updatedAt: new Date(),
+};
+
+tournaments.value = tournaments.value.map((tournament) => {
+  if (tournament.id !== tournamentId) return tournament;
+  return {
+    ...tournament,
+    ...optimisticUpdates,
+  };
+});
+
+if (currentTournament.value?.id === tournamentId) {
+  currentTournament.value = {
+    ...currentTournament.value,
+    ...optimisticUpdates,
+  };
+}
+```
+
+**Rule:** Any store action that writes the current entity to Firestore and is also used as the UI's immediate source of truth must update the local store copy after a successful write. Do not rely on a later snapshot when the view can be repopulated from local store state in the same interaction.
+
+**Detection:**
+```bash
+rg -n "async function updateTournament|await updateDoc\\(doc\\(db, 'tournaments', tournamentId\\), updateData\\);" src/stores/tournaments.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

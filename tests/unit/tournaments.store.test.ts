@@ -5,15 +5,19 @@ import type { Tournament } from '@/types';
 const mockDeps = vi.hoisted(() => {
   const addDoc = vi.fn();
   const collection = vi.fn();
+  const doc = vi.fn();
   const serverTimestamp = vi.fn();
   const timestampFromDate = vi.fn((date: Date) => ({ __timestamp: date.toISOString() }));
+  const updateDoc = vi.fn();
   const logTournamentCreated = vi.fn();
 
   return {
     addDoc,
     collection,
+    doc,
     serverTimestamp,
     timestampFromDate,
+    updateDoc,
     logTournamentCreated,
   };
 });
@@ -51,12 +55,12 @@ vi.mock('@/services/firebase', () => ({
   db: { __name: 'mock-db' },
   functions: {},
   collection: mockDeps.collection,
-  doc: vi.fn(),
+  doc: mockDeps.doc,
   getDoc: vi.fn(),
   getDocs: vi.fn(),
   addDoc: mockDeps.addDoc,
   setDoc: vi.fn(),
-  updateDoc: vi.fn(),
+  updateDoc: mockDeps.updateDoc,
   deleteDoc: vi.fn(),
   writeBatch: vi.fn(),
   query: vi.fn(),
@@ -100,9 +104,11 @@ describe('tournaments store - createTournament', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     mockDeps.collection.mockReset().mockReturnValue('tournaments-collection-ref');
+    mockDeps.doc.mockReset().mockReturnValue('tournament-doc-ref');
     mockDeps.addDoc.mockReset().mockResolvedValue({ id: 't-1' });
     mockDeps.serverTimestamp.mockReset().mockReturnValue('SERVER_TS');
     mockDeps.timestampFromDate.mockClear();
+    mockDeps.updateDoc.mockReset().mockResolvedValue(undefined);
     mockDeps.logTournamentCreated.mockReset().mockResolvedValue(undefined);
   });
 
@@ -145,6 +151,70 @@ describe('tournaments store - createTournament', () => {
       'tournaments-collection-ref',
       expect.objectContaining({
         organizerIds: ['org-2'],
+      })
+    );
+  });
+});
+
+describe('tournaments store - updateTournament', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockDeps.doc.mockReset().mockReturnValue('tournament-doc-ref');
+    mockDeps.serverTimestamp.mockReset().mockReturnValue('SERVER_TS');
+    mockDeps.timestampFromDate.mockClear();
+    mockDeps.updateDoc.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('updates local tournament state after a successful save', async () => {
+    const { useTournamentStore } = await import('@/stores/tournaments');
+    const store = useTournamentStore();
+    const existingTournament: Tournament = {
+      id: 't-1',
+      ...getBasePayload(),
+      location: 'Original Location',
+      description: 'Original description',
+      createdAt: new Date('2026-03-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-02T00:00:00.000Z'),
+    };
+
+    store.currentTournament = existingTournament;
+    store.tournaments = [existingTournament];
+
+    const nextStartDate = new Date('2026-04-01T09:00:00.000Z');
+    const nextEndDate = new Date('2026-04-02T17:00:00.000Z');
+
+    await store.updateTournament('t-1', {
+      name: 'Updated Tournament Name',
+      description: 'Updated description',
+      location: 'Updated Location',
+      startDate: nextStartDate,
+      endDate: nextEndDate,
+    });
+
+    expect(mockDeps.updateDoc).toHaveBeenCalledWith(
+      'tournament-doc-ref',
+      expect.objectContaining({
+        name: 'Updated Tournament Name',
+        description: 'Updated description',
+        location: 'Updated Location',
+        startDate: { __timestamp: nextStartDate.toISOString() },
+        endDate: { __timestamp: nextEndDate.toISOString() },
+        updatedAt: 'SERVER_TS',
+      })
+    );
+    expect(store.currentTournament).toEqual(
+      expect.objectContaining({
+        name: 'Updated Tournament Name',
+        description: 'Updated description',
+        location: 'Updated Location',
+        startDate: nextStartDate,
+        endDate: nextEndDate,
+      })
+    );
+    expect(store.tournaments[0]).toEqual(
+      expect.objectContaining({
+        name: 'Updated Tournament Name',
+        location: 'Updated Location',
       })
     );
   });
