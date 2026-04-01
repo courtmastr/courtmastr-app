@@ -7,11 +7,13 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useDurationFormatter } from '@/composables/useDurationFormatter';
+import { useMatchScopeLabels } from '@/composables/useMatchScopeLabels';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { usePwaInstallPrompt } from '@/composables/usePwaInstallPrompt';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import { BRAND_INSTALL_PROMPT_TITLE } from '@/constants/branding';
+import { buildGlobalMatchKey } from '@/features/tournaments/utils/matchDisplayIdentity';
 import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import LiveBadge from '@/components/common/LiveBadge.vue';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
@@ -34,7 +36,8 @@ interface PublicScheduleItem {
   categoryId: string;
   categoryLabel: string;
   matchup: string;
-  poolLabel: string | null;
+  scopeKey: string | null;
+  scopeLabel: string | null;
   roundLabel: string;
   participant1: ParticipantLookup;
   participant2: ParticipantLookup;
@@ -83,6 +86,10 @@ const registrationsById = computed(() =>
 );
 const playersById = computed(() =>
   new Map(registrationStore.players.map((player) => [player.id, player]))
+);
+const { availableScopes: availableMatchScopes, buildMatchScopeKey, getMatchScopeLabel } = useMatchScopeLabels(
+  tournamentId,
+  computed(() => matchStore.matches),
 );
 
 function getQueryValue(value: unknown): string | null {
@@ -143,10 +150,6 @@ function getCourtName(courtId: string | null | undefined): string {
 function formatTime(date?: Date): string {
   if (!date) return 'TBD';
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function getPoolLabel(match: Match): string | null {
-  return match.groupId ? `Pool ${match.groupId}` : null;
 }
 
 function getRoundLabel(match: Match): string {
@@ -219,7 +222,8 @@ function createScheduleItem(match: Match): PublicScheduleItem {
   const participant1 = buildParticipantLookup(match.participant1Id);
   const participant2 = buildParticipantLookup(match.participant2Id);
   const matchup = `${participant1.displayName} vs ${participant2.displayName}`;
-  const poolLabel = getPoolLabel(match);
+  const scopeKey = buildMatchScopeKey(match);
+  const scopeLabel = getMatchScopeLabel(match);
   const roundLabel = getRoundLabel(match);
   const playerIds = uniqueValues([...participant1.playerIds, ...participant2.playerIds]);
   const playerNames = uniqueValues([...participant1.playerNames, ...participant2.playerNames]);
@@ -230,7 +234,7 @@ function createScheduleItem(match: Match): PublicScheduleItem {
   const searchText = [
     categoryLabel,
     matchup,
-    poolLabel || '',
+    scopeLabel || '',
     roundLabel,
     participant1.searchText,
     participant2.searchText,
@@ -245,7 +249,8 @@ function createScheduleItem(match: Match): PublicScheduleItem {
     categoryId: match.categoryId,
     categoryLabel,
     matchup,
-    poolLabel,
+    scopeKey,
+    scopeLabel,
     roundLabel,
     participant1,
     participant2,
@@ -284,25 +289,11 @@ function getCategoryColor(categoryId: string): string {
 }
 
 const searchQuery = ref('');
-const sortBy = ref<'time' | 'court' | 'name' | 'pool'>('time');
+const sortBy = ref<'time' | 'court' | 'name' | 'scope'>('time');
 const courtFilter = ref<string>('all');
-const poolFilter = ref<string>('all');
+const scopeFilter = ref<string>('all');
 
 const availableCourts = computed(() => tournamentStore.courts);
-
-const availablePools = computed(() => {
-  const pools = new Set<string>();
-  for (const match of matchStore.matches) {
-    if (match.groupId) pools.add(match.groupId);
-  }
-  return Array.from(pools).sort((a, b) => {
-    // try to numeric sort if possible
-    const numA = parseInt(a, 10);
-    const numB = parseInt(b, 10);
-    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-    return a.localeCompare(b);
-  });
-});
 
 // Show ALL matches with a planned time — not just published ones.
 // Organizers can still "publish" to lock in a schedule, but players
@@ -332,7 +323,17 @@ const categoryScopedItems = computed<PublicScheduleItem[]>(() =>
     .map(createScheduleItem)
 );
 
-// Full filtered list — applies search, court, and pool filters on top of category filter
+const availableScopes = computed(() => {
+  const visibleScopeKeys = new Set(
+    categoryScopedItems.value
+      .map((item) => item.scopeKey)
+      .filter((scopeKey): scopeKey is string => Boolean(scopeKey))
+  );
+
+  return availableMatchScopes.value.filter((scope) => visibleScopeKeys.has(scope.value));
+});
+
+// Full filtered list — applies search, court, and scope filters on top of category filter
 const filteredScheduleItems = computed<PublicScheduleItem[]>(() => {
   const q = searchQuery.value.trim().toLowerCase();
   
@@ -345,8 +346,8 @@ const filteredScheduleItems = computed<PublicScheduleItem[]>(() => {
     });
   }
 
-  if (poolFilter.value !== 'all') {
-    items = items.filter(item => item.match.groupId === poolFilter.value);
+  if (scopeFilter.value !== 'all') {
+    items = items.filter((item) => item.scopeKey === scopeFilter.value);
   }
 
   if (q) {
@@ -364,10 +365,10 @@ const filteredScheduleItems = computed<PublicScheduleItem[]>(() => {
       return (a.match.plannedStartAt?.getTime() || 0) - (b.match.plannedStartAt?.getTime() || 0);
     } else if (sortBy.value === 'name') {
       return a.participant1.displayName.localeCompare(b.participant1.displayName);
-    } else if (sortBy.value === 'pool') {
-      const aPool = a.match.groupId || 'Z'; // push non-pools to bottom
-      const bPool = b.match.groupId || 'Z';
-      if (aPool !== bPool) return aPool.localeCompare(bPool);
+    } else if (sortBy.value === 'scope') {
+      const aScope = a.scopeLabel || 'ZZZ';
+      const bScope = b.scopeLabel || 'ZZZ';
+      if (aScope !== bScope) return aScope.localeCompare(bScope, undefined, { numeric: true });
       return (a.match.plannedStartAt?.getTime() || 0) - (b.match.plannedStartAt?.getTime() || 0);
     }
     return 0;
@@ -765,11 +766,11 @@ onUnmounted(() => {
         >
           <article
             v-for="item in nowPlayingItems"
-            :key="`display-live-${item.categoryId}-${item.match.id}`"
+            :key="`display-live-${buildGlobalMatchKey(item.match)}`"
             class="display-live-card"
           >
             <div class="display-live-card__meta">
-              {{ item.categoryLabel }} · {{ item.roundLabel }}
+              {{ item.categoryLabel }}<template v-if="item.scopeLabel"> · {{ item.scopeLabel }}</template> · {{ item.roundLabel }}
             </div>
             <h2 class="display-live-card__matchup">
               {{ item.matchup }}
@@ -795,13 +796,13 @@ onUnmounted(() => {
           <v-list density="compact">
             <v-list-item
               v-for="item in displayQueueItems"
-              :key="`display-next-${item.categoryId}-${item.match.id}`"
+              :key="`display-next-${buildGlobalMatchKey(item.match)}`"
             >
               <v-list-item-title class="text-body-2">
                 {{ item.matchup }}
               </v-list-item-title>
               <v-list-item-subtitle class="text-caption">
-                {{ formatTime(item.match.plannedStartAt) }} · {{ item.categoryLabel }}
+                {{ formatTime(item.match.plannedStartAt) }} · {{ item.categoryLabel }}<template v-if="item.scopeLabel"> · {{ item.scopeLabel }}</template>
               </v-list-item-subtitle>
               <template #append>
                 <v-chip
@@ -1051,9 +1052,9 @@ onUnmounted(() => {
         <!-- Sort and Filter -->
         <div class="d-flex align-center gap-2 sort-filter-group ml-auto">
           <v-select
-            v-if="availablePools.length > 0"
-            v-model="poolFilter"
-            :items="[{ value: 'all', title: 'All Pools' }, ...availablePools.map(p => ({ value: p, title: `Pool ${p}` }))]"
+            v-if="availableScopes.length > 0"
+            v-model="scopeFilter"
+            :items="[{ value: 'all', title: 'All Divisions' }, ...availableScopes]"
             density="compact"
             variant="outlined"
             hide-details
@@ -1079,7 +1080,7 @@ onUnmounted(() => {
               { value: 'time', title: 'Sort: Time' },
               { value: 'court', title: 'Sort: Court' },
               { value: 'name', title: 'Sort: Player' },
-              ...(availablePools.length > 0 ? [{ value: 'pool', title: 'Sort: Pool' }] : [])
+              ...(availableScopes.length > 0 ? [{ value: 'scope', title: 'Sort: Division' }] : [])
             ]"
             density="compact"
             variant="outlined"
@@ -1116,7 +1117,7 @@ onUnmounted(() => {
         <div class="now-playing-grid">
           <v-card
             v-for="item in nowPlayingItems"
-            :key="`live-${item.match.id}`"
+            :key="`live-${buildGlobalMatchKey(item.match)}`"
             variant="tonal"
             color="success"
             class="court-card"
@@ -1144,7 +1145,7 @@ onUnmounted(() => {
                 {{ item.participant2.displayName }}
               </div>
               <div class="text-caption text-medium-emphasis mt-2">
-                {{ item.categoryLabel }} · {{ item.roundLabel }}
+                {{ item.categoryLabel }}<template v-if="item.scopeLabel"> · {{ item.scopeLabel }}</template> · {{ item.roundLabel }}
               </div>
             </v-card-text>
           </v-card>
@@ -1176,7 +1177,7 @@ onUnmounted(() => {
           >
             <div
               v-for="(item, index) in displayQueueItems"
-              :key="`next-${item.match.id}`"
+              :key="`next-${buildGlobalMatchKey(item.match)}`"
               class="match-row"
               :class="{ 'match-row--divider': index > 0 }"
             >
@@ -1222,15 +1223,15 @@ onUnmounted(() => {
                     {{ item.categoryLabel }}
                   </v-chip>
                   
-                  <!-- Pool Chip -->
+                  <!-- Division Chip -->
                   <v-chip
-                    v-if="item.poolLabel"
+                    v-if="item.scopeLabel"
                     size="x-small"
                     variant="tonal"
                     color="deep-orange-darken-1"
                     class="font-weight-bold"
                   >
-                    {{ item.poolLabel }}
+                    {{ item.scopeLabel }}
                   </v-chip>
 
                   <!-- Round Chip -->
@@ -1361,7 +1362,7 @@ onUnmounted(() => {
               <div class="match-list">
                 <div
                   v-for="(item, index) in group.items"
-                  :key="`sched-${item.match.id}`"
+                  :key="`sched-${buildGlobalMatchKey(item.match)}`"
                   class="match-row"
                   :class="{
                     'match-row--divider': index > 0,
@@ -1410,15 +1411,15 @@ onUnmounted(() => {
                         {{ item.categoryLabel }}
                       </v-chip>
                       
-                      <!-- Pool Chip -->
+                      <!-- Division Chip -->
                       <v-chip
-                        v-if="item.poolLabel"
+                        v-if="item.scopeLabel"
                         size="x-small"
                         variant="tonal"
                         color="deep-orange-darken-1"
                         class="font-weight-bold"
                       >
-                        {{ item.poolLabel }}
+                        {{ item.scopeLabel }}
                       </v-chip>
 
                       <!-- Round Chip -->

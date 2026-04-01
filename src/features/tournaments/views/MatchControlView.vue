@@ -24,7 +24,7 @@ import ReadyQueue from '@/features/tournaments/components/ReadyQueue.vue';
 import AlertsPanel from '@/features/tournaments/components/AlertsPanel.vue';
 import ScheduleGridView from '@/features/tournaments/components/ScheduleGridView.vue';
 import { useTournamentStateAdvance } from '@/composables/useTournamentStateAdvance';
-import type { Match } from '@/types';
+import type { Match, LevelDefinition } from '@/types';
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import type { ScheduleResult } from '@/composables/useMatchScheduler';
 import {
@@ -70,6 +70,7 @@ const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const courts = computed(() => tournamentStore.courts);
 const matches = computed(() => matchStore.matches);
+const categoryLevels = ref<Record<string, LevelDefinition[]>>({});
 
 interface MatchControlScheduleSettings {
   bufferMinutes?: number;
@@ -606,6 +607,24 @@ onUnmounted(() => {
   activityStore.unsubscribe();
 });
 
+watch(
+  matches,
+  (currentMatches) => {
+    const categoryIdsWithLevels = [...new Set(
+      currentMatches
+        .filter((match) => Boolean(match.levelId))
+        .map((match) => match.categoryId)
+    )];
+
+    for (const categoryId of categoryIdsWithLevels) {
+      if (!categoryLevels.value[categoryId]) {
+        void refreshCategoryLevels(categoryId);
+      }
+    }
+  },
+  { immediate: true }
+);
+
 function getCategoryName(categoryId: string): string {
   const category = categories.value.find((c) => c.id === categoryId);
   return category?.name || 'Unknown';
@@ -617,12 +636,40 @@ function getCourtName(courtId: string | undefined): string {
   return court?.name || 'Unknown';
 }
 
+function toReadableLevelLabel(levelId: string): string {
+  return levelId
+    .replace(/^level-/i, 'Level ')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+async function refreshCategoryLevels(categoryId: string): Promise<void> {
+  if (categoryLevels.value[categoryId]) return;
+
+  try {
+    const levels = await tournamentStore.fetchCategoryLevels(tournamentId.value, categoryId);
+    categoryLevels.value = {
+      ...categoryLevels.value,
+      [categoryId]: levels,
+    };
+  } catch (error) {
+    console.error('Failed to fetch category levels for match control:', error);
+  }
+}
+
 const displayCodeMap = computed<Map<string, string>>(() =>
   buildDisplayCodeMap(matches.value, getCategoryName)
 );
 
 function getDisplayCode(match: Match): string {
   return displayCodeMap.value.get(buildGlobalMatchKey(match)) ?? match.id;
+}
+
+function getMatchScopeLabel(match: Match): string | null {
+  if (!match.levelId) return null;
+
+  const levelDefinition = categoryLevels.value[match.categoryId]?.find((level) => level.id === match.levelId);
+  return levelDefinition?.name?.trim() || toReadableLevelLabel(match.levelId);
 }
 
 function getBracketCode(match: Match): string {
@@ -1906,6 +1953,8 @@ async function confirmCompleteTournament(): Promise<void> {
       :tournament-id="tournamentId"
       :get-participant-name="getParticipantName"
       :get-category-name="getCategoryName"
+      :get-match-scope-label="getMatchScopeLabel"
+      :get-match-display-code="getDisplayCode"
       @assigned="showSelectMatchForCourtDialog = false"
     />
 

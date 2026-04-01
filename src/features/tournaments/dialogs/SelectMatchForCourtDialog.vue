@@ -4,6 +4,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useNotificationStore } from '@/stores/notifications';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import type { Match } from '@/types';
+import { buildGlobalMatchKey } from '@/features/tournaments/utils/matchDisplayIdentity';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -13,6 +14,8 @@ const props = defineProps<{
   tournamentId: string;
   getParticipantName: (id: string | undefined) => string;
   getCategoryName: (id: string) => string;
+  getMatchScopeLabel: (match: Match) => string | null;
+  getMatchDisplayCode: (match: Match) => string;
 }>();
 
 const emit = defineEmits<{
@@ -23,12 +26,12 @@ const emit = defineEmits<{
 const matchStore = useMatchStore();
 const notificationStore = useNotificationStore();
 
-const selectedMatchId = ref<string | null>(null);
+const selectedMatchKey = ref<string | null>(null);
 const loading = ref(false);
 
 // Reset selection when dialog opens
 watch(() => props.modelValue, (isOpen) => {
-  if (isOpen) selectedMatchId.value = null;
+  if (isOpen) selectedMatchKey.value = null;
 });
 
 const sortedMatches = computed(() => {
@@ -44,8 +47,12 @@ const close = (): void => {
   emit('update:modelValue', false);
 };
 
+function getMatchKey(match: Match): string {
+  return buildGlobalMatchKey(match);
+}
+
 async function assignMatch(): Promise<void> {
-  const match = props.matches.find(m => m.id === selectedMatchId.value);
+  const match = props.matches.find((candidate) => getMatchKey(candidate) === selectedMatchKey.value);
   if (!match || !props.courtId) return;
   
   loading.value = true;
@@ -100,19 +107,29 @@ async function assignMatch(): Promise<void> {
     >
       <v-list-item
         v-for="match in sortedMatches"
-        :key="match.id"
-        :active="selectedMatchId === match.id"
+        :key="getMatchKey(match)"
+        :active="selectedMatchKey === getMatchKey(match)"
         active-color="primary"
-        @click="selectedMatchId = match.id"
+        @click="selectedMatchKey = getMatchKey(match)"
       >
         <template #prepend>
-          <v-chip
-            size="x-small"
-            variant="tonal"
-            color="primary"
-          >
-            {{ getCategoryName(match.categoryId) }}
-          </v-chip>
+          <div class="d-flex flex-column align-start ga-1">
+            <v-chip
+              size="x-small"
+              variant="tonal"
+              color="primary"
+            >
+              {{ getCategoryName(match.categoryId) }}
+            </v-chip>
+            <v-chip
+              v-if="getMatchScopeLabel(match)"
+              size="x-small"
+              variant="outlined"
+              color="secondary"
+            >
+              {{ getMatchScopeLabel(match) }}
+            </v-chip>
+          </div>
         </template>
 
         <template #title>
@@ -120,12 +137,12 @@ async function assignMatch(): Promise<void> {
         </template>
 
         <template #subtitle>
-          R{{ match.round }} · Match #{{ match.matchNumber }}
+          {{ getMatchDisplayCode(match) }} · R{{ match.round }} · Match #{{ match.matchNumber }}
         </template>
 
         <template #append>
           <v-icon
-            v-if="selectedMatchId === match.id"
+            v-if="selectedMatchKey === getMatchKey(match)"
             icon="mdi-check-circle"
             color="primary"
             size="18"
@@ -147,7 +164,7 @@ async function assignMatch(): Promise<void> {
         color="primary"
         variant="flat"
         :loading="loading"
-        :disabled="!selectedMatchId || loading"
+        :disabled="!selectedMatchKey || loading"
         @click="assignMatch"
       >
         Assign to Court

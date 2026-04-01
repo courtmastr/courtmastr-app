@@ -4072,6 +4072,104 @@ rg -n "assertCleanGitState\\('release:(plan|deploy)'" scripts/release/release-cl
 
 ---
 
+### CP-081: Level-Scoped Match Selection Must Use Composite Match Keys
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Match Control court-assignment dialog selected multiple rows at once when pool-to-elimination levels reused the same `match.id` across scopes |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```vue
+<v-list-item
+  v-for="match in matches"
+  :key="match.id"
+  :active="selectedMatchId === match.id"
+  @click="selectedMatchId = match.id"
+/>
+```
+```typescript
+const selectedMatch = matches.find((match) => match.id === selectedMatchId);
+```
+
+**Correct Pattern (✅):**
+```vue
+<v-list-item
+  v-for="match in matches"
+  :key="buildGlobalMatchKey(match)"
+  :active="selectedMatchKey === buildGlobalMatchKey(match)"
+  @click="selectedMatchKey = buildGlobalMatchKey(match)"
+/>
+```
+```typescript
+const selectedMatch = matches.find(
+  (match) => buildGlobalMatchKey(match) === selectedMatchKey
+);
+```
+
+**Rule:** Any selection state, Vue key, or assignment lookup for matches that can exist in multiple scopes must use the full tournament/category/level/match identity, not `match.id` alone. When pool-to-elimination levels are present, organizer UI must also surface the level label so duplicate round or match numbers remain distinguishable.
+
+**Detection:**
+```bash
+rg -n ":key=\"match.id\"|selectedMatchId === match.id|selectedMatchId = match.id|find\\(.*match.id === selectedMatchId" src/features/tournaments/dialogs src/features/tournaments/components --glob "*.vue"
+```
+
+---
+
+### CP-082: Public Match Labels Must Prefer Level Names Over Raw Pool IDs
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Public schedule and live scoring showed `Pool 0` for level-scoped pool-to-elimination matches even when the level was known |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+function getPoolLabel(match: Match): string | null {
+  return match.groupId ? `Pool ${match.groupId}` : null;
+}
+```
+```vue
+<v-card-subtitle>
+  {{ getCategoryName(match.categoryId) }} | {{ getCourtName(match.courtId) }}
+</v-card-subtitle>
+```
+
+**Correct Pattern (✅):**
+```typescript
+const { getMatchScopeLabel } = useMatchScopeLabels(
+  tournamentId,
+  computed(() => matchStore.matches),
+);
+```
+```vue
+<v-chip v-if="item.scopeLabel">
+  {{ item.scopeLabel }}
+</v-chip>
+```
+```vue
+<v-card-subtitle>
+  {{ getCategoryName(match.categoryId) }}
+  <template v-if="getMatchScopeLabel(match)">
+    | {{ getMatchScopeLabel(match) }}
+  </template>
+  | {{ getCourtName(match.courtId) }}
+</v-card-subtitle>
+```
+
+**Rule:** Any public or live match list that already knows `levelId` must resolve and display the human level name (`Advanced`, `Intermediate`, etc.) before falling back to raw pool labels. `Pool ${groupId}` is only acceptable when no level scope exists for that match.
+
+**Detection:**
+```bash
+rg -n "Pool \\$\\{match\\.groupId\\}|All Pools|Sort: Pool" src/features/public/views src/features/tournaments/views --glob "*.vue"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

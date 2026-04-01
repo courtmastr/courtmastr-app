@@ -122,7 +122,8 @@ const makeMatch = (
   id: string,
   status: Match['status'],
   scheduleStatus?: Match['scheduleStatus'],
-  plannedStartAt?: Date
+  plannedStartAt?: Date,
+  overrides: Partial<Match> = {},
 ): Match => ({
   id,
   tournamentId: 't1',
@@ -139,6 +140,7 @@ const makeMatch = (
   scores: [],
   createdAt: new Date('2026-02-27T09:00:00.000Z'),
   updatedAt: new Date('2026-02-27T09:00:00.000Z'),
+  ...overrides,
 });
 
 const commonStubs = [
@@ -241,6 +243,62 @@ describe('public views integration', () => {
     expect(scorableMatches).toHaveLength(1);
 
     bracket.unmount();
+    schedule.unmount();
+    scoring.unmount();
+  });
+
+  it('prefers level labels over raw pool labels in public schedule and scoring views', async () => {
+    runtime.matches = [
+      makeMatch(
+        'm-level',
+        'ready',
+        'published',
+        new Date('2026-02-27T11:00:00.000Z'),
+        {
+          groupId: '0',
+          levelId: 'level-advanced',
+        },
+      ),
+    ];
+    mockDeps.fetchCategoryLevels.mockReset().mockResolvedValue([
+      {
+        id: 'level-advanced',
+        name: 'Advanced',
+        order: 1,
+        eliminationFormat: 'single_elimination',
+        participantCount: 8,
+        createdAt: new Date('2026-02-27T09:00:00.000Z'),
+        updatedAt: new Date('2026-02-27T09:00:00.000Z'),
+      },
+    ]);
+
+    const schedule = shallowMount(PublicScheduleView, { global: { stubs: commonStubs } });
+    const scoring = shallowMount(PublicScoringView, { global: { stubs: commonStubs } });
+
+    await flushPromises();
+
+    const scheduleVm = schedule.vm as unknown as {
+      filteredScheduleItems: Array<{ scopeLabel: string | null }> | { value: Array<{ scopeLabel: string | null }> };
+      availableScopes: Array<{ title: string; value: string }> | { value: Array<{ title: string; value: string }> };
+    };
+    const filteredScheduleItems = Array.isArray(scheduleVm.filteredScheduleItems)
+      ? scheduleVm.filteredScheduleItems
+      : scheduleVm.filteredScheduleItems.value;
+    const availableScopes = Array.isArray(scheduleVm.availableScopes)
+      ? scheduleVm.availableScopes
+      : scheduleVm.availableScopes.value;
+
+    expect(filteredScheduleItems[0]?.scopeLabel).toBe('Advanced');
+    expect(availableScopes).toContainEqual({
+      title: 'Advanced',
+      value: 'level:cat-1:level-advanced',
+    });
+
+    const scoringVm = scoring.vm as unknown as {
+      getMatchScopeLabel: (match: Match) => string | null;
+    };
+    expect(scoringVm.getMatchScopeLabel(runtime.matches[0])).toBe('Advanced');
+
     schedule.unmount();
     scoring.unmount();
   });

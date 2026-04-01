@@ -5,9 +5,11 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { usePwaInstallPrompt } from '@/composables/usePwaInstallPrompt';
+import { useMatchScopeLabels } from '@/composables/useMatchScopeLabels';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { BRAND_INSTALL_PROMPT_TITLE } from '@/constants/branding';
+import { buildGlobalMatchKey } from '@/features/tournaments/utils/matchDisplayIdentity';
 import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import LiveBadge from '@/components/common/LiveBadge.vue';
 import type { Match } from '@/types';
@@ -32,6 +34,10 @@ const hasAutoStartedMatch = ref(false); // Track if we've already auto-started t
 const notFound = ref(false);
 const { canInstall, installApp, dismiss } = usePwaInstallPrompt();
 const showInstallPrompt = computed(() => canInstall.value);
+const { getMatchScopeLabel } = useMatchScopeLabels(
+  tournamentId,
+  computed(() => matchStore.matches),
+);
 
 // Get matches ready to score or in progress
 const scorableMatches = computed(() => {
@@ -127,7 +133,7 @@ function getCourtName(courtId: string | undefined): string {
   return court?.name || 'Court';
 }
 
-function selectMatch(match: Match) {
+function selectMatch(match: Match): void {
   selectedMatch.value = match;
   hasAutoStartedMatch.value = false; // Reset auto-start flag for new match
   // Subscribe to this specific match for real-time updates
@@ -135,7 +141,7 @@ function selectMatch(match: Match) {
   scoringMode.value = true;
 }
 
-function backToList() {
+function backToList(): void {
   scoringMode.value = false;
   selectedMatch.value = null;
   hasAutoStartedMatch.value = false;
@@ -200,7 +206,11 @@ const currentMatch = computed(() => matchStore.currentMatch);
 
 // Watch for updates from the store - replaces polling mechanism
 watch(currentMatch, (newMatch) => {
-  if (newMatch && selectedMatch.value && selectedMatch.value.id === newMatch.id) {
+  if (
+    newMatch &&
+    selectedMatch.value &&
+    buildGlobalMatchKey(selectedMatch.value) === buildGlobalMatchKey(newMatch)
+  ) {
     selectedMatch.value = newMatch;
   }
 });
@@ -358,7 +368,11 @@ watch(currentMatch, (newMatch) => {
               </v-card-title>
 
               <v-card-subtitle>
-                {{ getCategoryName(match.categoryId) }} | {{ getCourtName(match.courtId) }}
+                {{ getCategoryName(match.categoryId) }}
+                <template v-if="getMatchScopeLabel(match)">
+                  | {{ getMatchScopeLabel(match) }}
+                </template>
+                | {{ getCourtName(match.courtId) }}
               </v-card-subtitle>
 
               <template #append>
@@ -392,6 +406,15 @@ watch(currentMatch, (newMatch) => {
                 class="text-primary font-weight-bold"
               >
                 {{ getCategoryName(selectedMatch.categoryId) }}
+              </v-chip>
+              <v-chip
+                v-if="getMatchScopeLabel(selectedMatch)"
+                size="small"
+                variant="flat"
+                color="white"
+                class="text-primary font-weight-bold"
+              >
+                {{ getMatchScopeLabel(selectedMatch) }}
               </v-chip>
               <v-chip
                 size="small"

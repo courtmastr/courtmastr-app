@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router';
 import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
+import { useMatchScopeLabels } from '@/composables/useMatchScopeLabels';
+import { buildGlobalMatchKey } from '@/features/tournaments/utils/matchDisplayIdentity';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Court, Match, GameScore } from '@/types';
 
@@ -18,6 +20,10 @@ const loading = ref(true);
 
 const tournament = computed(() => tournamentStore.currentTournament);
 const courts = computed(() => tournamentStore.courts);
+const { getMatchScopeLabel } = useMatchScopeLabels(
+  tournamentId,
+  computed(() => matchStore.matches),
+);
 
 // Mirror CourtGrid's source-of-truth: iterate physical courts, find their in-progress match.
 // This prevents showing stale/orphaned in_progress matches that have no assigned court.
@@ -64,6 +70,11 @@ function getGamesWon(match: Match, participantId: string | undefined): number {
 function getCategoryName(categoryId: string): string {
   const category = tournamentStore.categories.find((c) => c.id === categoryId);
   return category?.name ?? 'Match';
+}
+
+function getMatchMetaLabel(match: Match): string {
+  const scopeLabel = getMatchScopeLabel(match);
+  return scopeLabel ? `${getCategoryName(match.categoryId)} · ${scopeLabel}` : getCategoryName(match.categoryId);
 }
 
 
@@ -169,7 +180,7 @@ onUnmounted(() => {
                       Court {{ court.number }}
                     </div>
                     <div class="text-caption text-medium-emphasis">
-                      {{ getCategoryName(match.categoryId) }}
+                      {{ getMatchMetaLabel(match) }}
                     </div>
                   </div>
                   <v-chip
@@ -251,7 +262,7 @@ onUnmounted(() => {
         <v-row>
           <v-col
             v-for="match in readyMatches"
-            :key="`ready-${match.categoryId}-${match.id}`"
+            :key="`ready-${buildGlobalMatchKey(match)}`"
             cols="12"
             md="6"
             lg="4"
@@ -265,7 +276,7 @@ onUnmounted(() => {
               <v-card-text class="pa-4">
                 <div class="mb-2">
                   <span class="text-caption font-weight-medium">
-                    {{ getCategoryName(match.categoryId) }}
+                    {{ getMatchMetaLabel(match) }}
                   </span>
                 </div>
                 <div class="text-body-2 font-weight-medium">
