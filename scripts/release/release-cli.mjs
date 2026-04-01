@@ -12,6 +12,7 @@ import {
   getCurrentGitState,
   parseLatestProductionDeploy,
   readCurrentVersion,
+  rollbackReleaseWorktree,
   updateLastDeployRecord,
 } from './release-utils.mjs';
 
@@ -104,27 +105,15 @@ const runDeployMode = () => {
     gitState,
   });
 
-  const packageJsonPath = path.resolve(process.cwd(), 'package.json');
-  const packageLockPath = path.resolve(process.cwd(), 'package-lock.json');
   const releaseNotesPath = plan.releaseNotesPath;
-  const originalState = {
-    packageJson: fs.readFileSync(packageJsonPath, 'utf8'),
-    packageLock: fs.readFileSync(packageLockPath, 'utf8'),
-    lastDeploy: lastDeployContent,
-    releaseNotesExisted: fs.existsSync(releaseNotesPath),
-    releaseNotes: fs.existsSync(releaseNotesPath) ? fs.readFileSync(releaseNotesPath, 'utf8') : null,
-  };
 
   const rollback = () => {
-    fs.writeFileSync(packageJsonPath, originalState.packageJson, 'utf8');
-    fs.writeFileSync(packageLockPath, originalState.packageLock, 'utf8');
-    fs.writeFileSync(LAST_DEPLOY_RECORD_PATH, originalState.lastDeploy, 'utf8');
-
-    if (originalState.releaseNotesExisted) {
-      fs.writeFileSync(releaseNotesPath, originalState.releaseNotes, 'utf8');
-    } else if (fs.existsSync(releaseNotesPath)) {
-      fs.unlinkSync(releaseNotesPath);
-    }
+    const rollbackGitState = getCurrentGitState();
+    rollbackReleaseWorktree({
+      cwd: process.cwd(),
+      headCommit: gitState.headCommit,
+      dirtyEntries: rollbackGitState.dirtyEntries,
+    });
   };
 
   try {

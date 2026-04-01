@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { compareSemverVersions } from '../testing/release-notes-utils.mjs';
@@ -289,6 +289,42 @@ export const parseDirtyWorktreeEntries = (statusOutput) =>
         path: match[2],
       };
     });
+
+export const splitRollbackPaths = (dirtyEntries) => dirtyEntries.reduce((accumulator, entry) => {
+  if (entry.code === '??') {
+    accumulator.untrackedPaths.push(entry.path);
+  } else {
+    accumulator.trackedPaths.push(entry.path);
+  }
+
+  return accumulator;
+}, {
+  trackedPaths: [],
+  untrackedPaths: [],
+});
+
+export const rollbackReleaseWorktree = ({
+  cwd = process.cwd(),
+  headCommit,
+  dirtyEntries,
+  execGitRestore = (args) => execFileSync('git', args, { cwd, encoding: 'utf8' }),
+  removePath = (targetPath) => fs.rmSync(targetPath, { recursive: true, force: true }),
+}) => {
+  const { trackedPaths, untrackedPaths } = splitRollbackPaths(dirtyEntries);
+
+  if (trackedPaths.length > 0) {
+    execGitRestore(['restore', '--source', headCommit, '--staged', '--worktree', '--', ...trackedPaths]);
+  }
+
+  for (const relativePath of untrackedPaths) {
+    removePath(path.resolve(cwd, relativePath));
+  }
+
+  return {
+    trackedPaths,
+    untrackedPaths,
+  };
+};
 
 export const formatDirtyWorktreeMessage = (commandName, dirtyEntries) => {
   const preview = dirtyEntries

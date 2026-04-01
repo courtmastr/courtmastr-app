@@ -140,4 +140,48 @@ M  scripts/release/release-cli.mjs`);
       'release:deploy requires a clean git worktree before starting.',
     );
   });
+
+  it('restores tracked files and removes untracked files after a failed release', async () => {
+    const {
+      rollbackReleaseWorktree,
+      splitRollbackPaths,
+    } = await import('../../scripts/release/release-utils.mjs');
+
+    const dirtyEntries = [
+      { code: ' M', path: 'package.json' },
+      { code: 'M ', path: 'docs/testing/test-run-summary.json' },
+      { code: '??', path: 'docs/releases/v2.0.0.md' },
+    ];
+
+    expect(splitRollbackPaths(dirtyEntries)).toEqual({
+      trackedPaths: ['package.json', 'docs/testing/test-run-summary.json'],
+      untrackedPaths: ['docs/releases/v2.0.0.md'],
+    });
+
+    const restoredCommands = [];
+    const removedPaths = [];
+
+    const result = rollbackReleaseWorktree({
+      cwd: '/tmp/courtmastr-release',
+      headCommit: 'abcdef1234567890',
+      dirtyEntries,
+      execGitRestore: (args) => {
+        restoredCommands.push(args);
+      },
+      removePath: (targetPath) => {
+        removedPaths.push(targetPath);
+      },
+    });
+
+    expect(result).toEqual({
+      trackedPaths: ['package.json', 'docs/testing/test-run-summary.json'],
+      untrackedPaths: ['docs/releases/v2.0.0.md'],
+    });
+    expect(restoredCommands).toEqual([
+      ['restore', '--source', 'abcdef1234567890', '--staged', '--worktree', '--', 'package.json', 'docs/testing/test-run-summary.json'],
+    ]);
+    expect(removedPaths).toEqual([
+      '/tmp/courtmastr-release/docs/releases/v2.0.0.md',
+    ]);
+  });
 });

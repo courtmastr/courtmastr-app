@@ -80,6 +80,26 @@ export function parseDirtyWorktreeEntries(statusOutput: string): {
   code: string;
   path: string;
 }[];
+export function splitRollbackPaths(dirtyEntries: {
+  code: string;
+  path: string;
+}[]): {
+  trackedPaths: string[];
+  untrackedPaths: string[];
+};
+export function rollbackReleaseWorktree(args: {
+  cwd?: string;
+  headCommit: string;
+  dirtyEntries: {
+    code: string;
+    path: string;
+  }[];
+  execGitRestore?: (args: string[]) => string | void;
+  removePath?: (targetPath: string) => void;
+}): {
+  trackedPaths: string[];
+  untrackedPaths: string[];
+};
 export function formatDirtyWorktreeMessage(commandName: string, dirtyEntries: {
   code: string;
   path: string;

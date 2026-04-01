@@ -4212,6 +4212,65 @@ rg -n "verifyReleaseNotes\\(\\{ enforceVersionBump: false \\}\\)|expect\\(metada
 
 ---
 
+### CP-084: Failed Release Rollback Must Restore the Worktree from Git State
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Failed `release:deploy` runs rolled back version files but could still leave tracked verification artifacts dirty, causing the next clean-worktree gate to fail |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const originalState = {
+  packageJson: fs.readFileSync(packageJsonPath, 'utf8'),
+  packageLock: fs.readFileSync(packageLockPath, 'utf8'),
+  lastDeploy: lastDeployContent,
+  releaseNotesExisted: fs.existsSync(releaseNotesPath),
+};
+
+const rollback = () => {
+  fs.writeFileSync(packageJsonPath, originalState.packageJson, 'utf8');
+  fs.writeFileSync(packageLockPath, originalState.packageLock, 'utf8');
+  fs.writeFileSync(LAST_DEPLOY_RECORD_PATH, originalState.lastDeploy, 'utf8');
+};
+```
+
+**Correct Pattern (✅):**
+```typescript
+const rollback = () => {
+  const rollbackGitState = getCurrentGitState();
+  rollbackReleaseWorktree({
+    cwd: process.cwd(),
+    headCommit: gitState.headCommit,
+    dirtyEntries: rollbackGitState.dirtyEntries,
+  });
+};
+```
+```typescript
+export const rollbackReleaseWorktree = ({ cwd, headCommit, dirtyEntries }) => {
+  const { trackedPaths, untrackedPaths } = splitRollbackPaths(dirtyEntries);
+
+  if (trackedPaths.length > 0) {
+    execFileSync('git', ['restore', '--source', headCommit, '--staged', '--worktree', '--', ...trackedPaths], { cwd });
+  }
+
+  for (const relativePath of untrackedPaths) {
+    fs.rmSync(path.resolve(cwd, relativePath), { recursive: true, force: true });
+  }
+};
+```
+
+**Rule:** Release automation that starts from a clean worktree must roll back by restoring every tracked dirty path to the starting `HEAD` and removing any newly-created untracked files. Do not hardcode a short list of version files, because verification steps can legitimately rewrite other tracked artifacts.
+
+**Detection:**
+```bash
+rg -n "const originalState = \\{|packageJson: fs\\.readFileSync\\(|releaseNotesExisted|fs\\.unlinkSync\\(releaseNotesPath\\)" scripts/release --glob "*.mjs"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
