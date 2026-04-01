@@ -4312,6 +4312,36 @@ rg -n "assertCleanGitState\\('release:(plan|deploy)'|restorePreReleaseGeneratedF
 
 ---
 
+### CP-086: Mutable Test Collector Arrays Must Be Explicitly Typed
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | `release:deploy` passed tests but failed `vue-tsc -b` because release utility tests used untyped mutable arrays that inferred to implicit `any[]` |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const restoredCommands = [];
+const removedPaths = [];
+```
+
+**Correct Pattern (✅):**
+```typescript
+const restoredCommands: string[][] = [];
+const removedPaths: string[] = [];
+```
+
+**Rule:** In strict TypeScript tests, any mutable collector array used across callback boundaries must declare its element type explicitly. Do not rely on empty-array inference inside helper/mocking tests, because `vue-tsc` can treat them as implicit `any[]` even when Vitest itself passes.
+
+**Detection:**
+```bash
+rg -n "const [A-Za-z0-9_]+ = \\[\\];" tests/unit --glob "*.test.ts"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

@@ -158,8 +158,8 @@ M  scripts/release/release-cli.mjs`);
       untrackedPaths: ['docs/releases/v2.0.0.md'],
     });
 
-    const restoredCommands = [];
-    const removedPaths = [];
+    const restoredCommands: string[][] = [];
+    const removedPaths: string[] = [];
 
     const result = rollbackReleaseWorktree({
       cwd: '/tmp/courtmastr-release',
@@ -191,7 +191,7 @@ M  scripts/release/release-cli.mjs`);
       restorePreReleaseGeneratedFiles,
     } = await import('../../scripts/release/release-utils.mjs');
 
-    const restoredCommands = [];
+    const restoredCommands: string[][] = [];
 
     const result = restorePreReleaseGeneratedFiles({
       cwd: '/tmp/courtmastr-release',
