@@ -9,6 +9,34 @@ const writePackageJson = (directory: string, version = '1.2.0'): string => {
   return packageJsonPath;
 };
 
+const writeReleaseNotes = (directory: string, version: string): string => {
+  const releaseNotesPath = path.join(directory, 'docs/releases', `v${version}.md`);
+  fs.mkdirSync(path.dirname(releaseNotesPath), { recursive: true });
+  fs.writeFileSync(releaseNotesPath, `# Release v${version}
+
+## Summary
+
+Summary
+
+## Highlights
+
+- Highlight
+
+## Verification
+
+- Verification
+
+## Deployment
+
+- Deployment
+
+## Risks / Follow-Ups
+
+- None
+`, 'utf8');
+  return releaseNotesPath;
+};
+
 describe('release notes utilities', () => {
   it('reports missing release notes', async () => {
     const { verifyReleaseNotes } = await import('../../scripts/testing/release-notes-utils.mjs');
@@ -49,11 +77,18 @@ describe('release notes utilities', () => {
 
   it('accepts the current release notes file for the package version', async () => {
     const { verifyReleaseNotes } = await import('../../scripts/testing/release-notes-utils.mjs');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'courtmastr-release-notes-current-'));
+    const packageJsonPath = writePackageJson(tempDir, '2.0.0');
+    const releaseNotesPath = writeReleaseNotes(tempDir, '2.0.0');
 
-    const metadata = verifyReleaseNotes({ enforceVersionBump: false });
+    const metadata = verifyReleaseNotes({
+      packageJsonPath,
+      releasesDir: path.join(tempDir, 'docs/releases'),
+      enforceVersionBump: false,
+    });
 
-    expect(metadata.version).toBe('1.1.0');
-    expect(metadata.releaseId).toBe('v1.1.0');
-    expect(metadata.releaseNotesPath.endsWith('/docs/releases/v1.1.0.md')).toBe(true);
+    expect(metadata.version).toBe('2.0.0');
+    expect(metadata.releaseId).toBe('v2.0.0');
+    expect(metadata.releaseNotesPath).toBe(releaseNotesPath);
   });
 });

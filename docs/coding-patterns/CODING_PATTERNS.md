@@ -4170,6 +4170,48 @@ rg -n "Pool \\$\\{match\\.groupId\\}|All Pools|Sort: Pool" src/features/public/v
 
 ---
 
+### CP-083: Release Verification Tests Must Not Depend on Live Repo Version Files
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | `release:deploy` failed after bumping to `2.0.0` because a unit test expected the repo to still be on `1.1.0` with matching checked-in release notes |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const metadata = verifyReleaseNotes({ enforceVersionBump: false });
+
+expect(metadata.version).toBe('1.1.0');
+expect(metadata.releaseId).toBe('v1.1.0');
+```
+
+**Correct Pattern (✅):**
+```typescript
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'courtmastr-release-notes-current-'));
+const packageJsonPath = writePackageJson(tempDir, '2.0.0');
+const releaseNotesPath = writeReleaseNotes(tempDir, '2.0.0');
+
+const metadata = verifyReleaseNotes({
+  packageJsonPath,
+  releasesDir: path.join(tempDir, 'docs/releases'),
+  enforceVersionBump: false,
+});
+
+expect(metadata.version).toBe('2.0.0');
+expect(metadata.releaseNotesPath).toBe(releaseNotesPath);
+```
+
+**Rule:** Any test covering release/version utilities must provide its own temporary `package.json` and release-note fixtures. Do not bind assertions to the repository's current semantic version or checked-in release files, because `release:deploy` intentionally mutates those during verification.
+
+**Detection:**
+```bash
+rg -n "verifyReleaseNotes\\(\\{ enforceVersionBump: false \\}\\)|expect\\(metadata\\.version\\)\\.toBe\\('1\\.1\\.0'\\)" tests/unit --glob "*.test.ts"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
