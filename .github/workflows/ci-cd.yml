@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: ci-cd-${{ github.ref }}
@@ -59,13 +60,18 @@ jobs:
         run: npm run build
 
   deploy:
-    name: Deploy to Firebase
+    name: Release and Deploy to Firebase
     needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !contains(github.event.head_commit.message, '[skip release]')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -95,10 +101,31 @@ jobs:
       - name: Install Firebase CLI
         run: npm install --global firebase-tools
 
-      - name: Build
-        run: npm run build
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: courtmaster-v2
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
 
-      - name: Deploy
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        run: firebase deploy --project production --non-interactive --token "$FIREBASE_TOKEN"
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Preview release plan
+        run: npm run release:plan
+
+      - name: Release and deploy
+        run: npm run release:deploy
+
+      - name: Commit release metadata
+        run: |
+          if git diff --quiet; then
+            echo "No release metadata changes to commit."
+            exit 0
+          fi
+
+          git add package.json package-lock.json docs/releases docs/deployment/LAST_DEPLOY.md docs/testing/TEST_CATALOG.md docs/testing/TEST_CATALOG.html docs/testing/test-run-summary.json
+          git commit -m "chore: record release metadata [skip release]"
+          git push origin HEAD:master

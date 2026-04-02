@@ -1,0 +1,11 @@
+project_id                  = "courtmaster-v2"
+region                      = "us-central1"
+firestore_location          = "nam5"
+default_storage_bucket_name = "courtmaster-v2.appspot.com"
+web_app_display_name        = "CourtMastr Web"
+create_web_app              = true
+secret_ids = [
+  "GITHUB_TOKEN",
+  "VOLUNTEER_PIN_SECRET",
+  "VOLUNTEER_SESSION_SECRET",
+]

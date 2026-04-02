@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!.*/terraform.tfvars.example
+gha-creds-*.json
 
 # Editor directories and files
 .vscode/*

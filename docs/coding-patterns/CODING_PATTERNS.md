@@ -4431,6 +4431,94 @@ node -e "const fs=require('fs');const data=JSON.parse(fs.readFileSync('firestore
 
 ---
 
+### CP-089: Production Deploy Scripts Must Pin the Firebase Project Alias
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Local release and deploy commands relied on the operator's previously selected Firebase project, making production deploys depend on shell state instead of repo state |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```json
+{
+  "scripts": {
+    "deploy": "npm run build && firebase deploy",
+    "deploy:log": "node scripts/run-and-log.mjs --shell \"npm run build && firebase deploy\""
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```json
+{
+  "scripts": {
+    "deploy": "npm run build && firebase deploy --project production",
+    "deploy:log": "node scripts/run-and-log.mjs --shell \"npm run build && firebase deploy --project production\""
+  }
+}
+```
+
+**Rule:** Any production deploy or release script must pass the intended Firebase project alias explicitly. Never rely on `firebase use` state or whichever project the caller last selected in their shell.
+
+**Detection:**
+```bash
+rg -n "\"deploy(?::log|:hosting)?\": \".*firebase deploy(?!.*--project production)\"" package.json -P
+```
+
+---
+
+### CP-090: Terraform Must Filter Single-Field Firestore Index Specs Out of Composite Index Management
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Platform IaC treated every entry in `firestore.indexes.json` as a `google_firestore_index`, causing `terraform apply` to fail when Firestore rejected single-field indexes as “not necessary” |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```hcl
+locals {
+  composite_indexes = try(local.firestore_index_spec.indexes, [])
+}
+
+resource "google_firestore_index" "composite" {
+  for_each = {
+    for index in local.composite_indexes :
+    "${index.collectionGroup}-${index.queryScope}-..." => index
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```hcl
+locals {
+  composite_indexes = [
+    for index in try(local.firestore_index_spec.indexes, []) :
+    index
+    if length(try(index.fields, [])) > 1
+  ]
+}
+
+resource "google_firestore_index" "composite" {
+  for_each = {
+    for index in local.composite_indexes :
+    "${index.collectionGroup}-${index.queryScope}-..." => index
+  }
+}
+```
+
+**Rule:** `google_firestore_index` must only manage true composite indexes. If `firestore.indexes.json` contains single-field entries, filter them out before building the Terraform `for_each`, because Firestore manages those through single-field index controls instead of composite index resources.
+
+**Detection:**
+```bash
+rg -n "composite_indexes\\s*=\\s*try\\(local\\.firestore_index_spec\\.indexes, \\[\\]\\)" infra/terraform/platform/main.tf
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

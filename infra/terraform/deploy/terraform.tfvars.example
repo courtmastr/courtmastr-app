@@ -1,0 +1,12 @@
+project_id                 = "courtmaster-v2"
+region                     = "us-central1"
+deploy_service_account_id  = "firebase-deploy"
+github_owner               = "Ramc4685"
+github_repo                = "courtmaster-v2"
+github_branch              = "master"
+workload_identity_pool_id  = "github-actions"
+workload_identity_pool_provider_id = "courtmastr-github"
+enable_required_services   = true
+local_deployer_principals  = [
+  "user:deploy-operator@example.com",
+]
