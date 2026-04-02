@@ -25,7 +25,6 @@ import { useAuditStore } from '@/stores/audit';
 import { useAuthStore } from '@/stores/auth';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import { usePlayersStore } from '@/stores/players';
-import { PLAYER_IDENTITY_V2 } from '@/config/featureFlags';
 
 type VolunteerCheckInAction = 'check_in' | 'undo_check_in' | 'assign_bib';
 
@@ -206,20 +205,37 @@ export const useRegistrationStore = defineStore('registrations', () => {
   // Add a player — creates global player record then writes tournament mirror
   async function addPlayer(
     tournamentId: string,
-    playerData: Omit<Player, 'id' | 'createdAt' | 'updatedAt'>
+    playerData: Omit<Player, 'id' | 'createdAt' | 'updatedAt'>,
+    chosenPlayerId?: string | null,
   ): Promise<string> {
     try {
-      const playersStore = usePlayersStore();
       const email = playerData.email?.trim() || '';
-      if (!email && !PLAYER_IDENTITY_V2) throw new Error('Player email is required');
+      const { PLAYER_IDENTITY_V2 } = await import('@/config/featureFlags');
+      let globalPlayerId: string;
 
-      // Step 1: Find or create global player (atomic via runTransaction)
-      const globalPlayerId = await playersStore.findOrCreateByEmail(email, {
-        firstName: playerData.firstName,
-        lastName: playerData.lastName,
-        phone: playerData.phone ?? undefined,
-        skillLevel: playerData.skillLevel ?? undefined,
-      });
+      if (PLAYER_IDENTITY_V2) {
+        const { linkOrCreatePlayer } = await import('@/services/playerIdentityService');
+        globalPlayerId = await linkOrCreatePlayer(
+          {
+            firstName: playerData.firstName,
+            lastName: playerData.lastName,
+            email: playerData.email?.trim() || null,
+            phone: playerData.phone?.trim() || null,
+            userId: playerData.userId ?? null,
+          },
+          chosenPlayerId ?? null,
+        );
+      } else {
+        const playersStore = usePlayersStore();
+        if (!email) throw new Error('Player email is required');
+
+        globalPlayerId = await playersStore.findOrCreateByEmail(email, {
+          firstName: playerData.firstName,
+          lastName: playerData.lastName,
+          phone: playerData.phone ?? undefined,
+          skillLevel: playerData.skillLevel ?? undefined,
+        });
+      }
 
       // Step 2: Write tournament mirror using setDoc — ID must match global player ID
       await setDoc(
@@ -228,7 +244,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
           ...playerData,
           id: globalPlayerId,
           globalPlayerId,
-          emailNormalized: email.toLowerCase().trim(),
+          emailNormalized: email ? email.toLowerCase().trim() : null,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }
