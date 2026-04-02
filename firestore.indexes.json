@@ -80,13 +80,6 @@
       "collectionGroup": "players",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "emailNormalized", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "players",
-      "queryScope": "COLLECTION",
-      "fields": [
         { "fieldPath": "isActive", "order": "ASCENDING" },
         { "fieldPath": "lastName", "order": "ASCENDING" }
       ]
@@ -114,13 +107,6 @@
         { "fieldPath": "orgId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "startDate", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "activities",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }
   ],

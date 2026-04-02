@@ -4390,6 +4390,47 @@ rg -n "async function updateTournament|await updateDoc\\(doc\\(db, 'tournaments'
 
 ---
 
+### CP-088: Do Not Declare Single-Field Firestore Indexes as Composite Indexes
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Production deploy failed because `firestore.indexes.json` declared single-field indexes like `players.emailNormalized` and `activities.createdAt` as composite indexes, and Firestore rejected them as definitions that should be handled through single-field controls instead |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```json
+{
+  "collectionGroup": "players",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "emailNormalized", "order": "ASCENDING" }
+  ]
+}
+```
+
+**Correct Pattern (✅):**
+```json
+{
+  "collectionGroup": "players",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "isActive", "order": "ASCENDING" },
+    { "fieldPath": "lastName", "order": "ASCENDING" }
+  ]
+}
+```
+
+**Rule:** `firestore.indexes.json` should contain only true composite indexes. If an index uses just one explicit field plus the implicit `__name__`, remove it from the composite index list and manage any needed behavior through Firestore single-field index controls instead.
+
+**Detection:**
+```bash
+node -e "const fs=require('fs');const data=JSON.parse(fs.readFileSync('firestore.indexes.json','utf8'));console.log(data.indexes.filter((index)=>index.fields.length===1));"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
