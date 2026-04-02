@@ -4,13 +4,13 @@ Updated: 2026-04-02 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-02 01:03 CDT
-- Release ID: `v2.0.0`
-- Package version: `2.0.0`
+- Date: 2026-04-02 08:48 CDT
+- Release ID: `v2.0.1`
+- Package version: `2.0.1`
 - Deployed branch: `master`
-- Deployed commit: `835f652` (`hotfix: unblock compute default function deploys`)
+- Deployed commit: `151df76` (`fix(ci): harden CI/CD pipeline for production safety`)
 - Release notes:
-  - [docs/releases/v2.0.0.md](docs/releases/v2.0.0.md)
+  - [docs/releases/v2.0.1.md](docs/releases/v2.0.1.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -21,7 +21,7 @@ Updated: 2026-04-02 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-02-06-00-59.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-02-13-46-51.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -36,6 +36,12 @@ Updated: 2026-04-02 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.0.0`
+  - Date: 2026-04-02 01:03 CDT
+  - Package version: `2.0.0`
+  - Deployed commit: `835f652`
+  - Release notes:
+    - [docs/releases/v2.0.0.md](docs/releases/v2.0.0.md)
 - `v1.1.0+deploy.2`
   - Date: 2026-03-15 08:33 CDT
   - Package version: `1.1.0`
@@ -57,7 +63,7 @@ Updated: 2026-04-02 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-02 01:03 CDT
-- Commit: `835f65204cbd8f2c25c1842565b37bdb3da8eada`
-- Message: `hotfix: unblock compute default function deploys`
+- Date: 2026-04-02 08:48 CDT
+- Commit: `151df762d94e12d383b3ac78c71e29db2ac4ec39`
+- Message: `fix(ci): harden CI/CD pipeline for production safety`
 - Note: deployed via `npm run release:deploy` on 2026-04-02.
