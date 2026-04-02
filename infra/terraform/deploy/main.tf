@@ -20,6 +20,7 @@ locals {
     "roles/cloudfunctions.admin",
     "roles/firebase.admin",
     "roles/run.admin",
+    "roles/serviceusage.serviceUsageConsumer",
     "roles/storage.admin",
     "roles/viewer",
   ])

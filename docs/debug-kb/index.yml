@@ -1,3 +1,17 @@
+- id: c856d0f2
+  title: Firebase deploy failed because Cloud Billing API was disabled on the project
+  status: "✅ fixed"
+  date: "2026-04-02"
+  fingerprint: "c856d0f2"
+  command: "npm run release:deploy"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-02-05-33-55.npm-run-build-firebase-deploy-project-production.log"
+- id: 177716d4
+  title: GitHub OIDC deploy identity lacked Service Usage Consumer for Firebase deploy
+  status: "✅ fixed"
+  date: "2026-04-02"
+  fingerprint: "177716d4"
+  command: "npm run release:deploy"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-02-05-21-32.npm-run-build-firebase-deploy-project-production.log"
 - id: f4debf35
   title: lint:log fails on existing repository-wide ESLint baseline violations during release automation verification
   status: "🟡 workaround"

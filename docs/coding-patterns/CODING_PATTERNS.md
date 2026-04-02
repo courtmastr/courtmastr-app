@@ -4556,6 +4556,84 @@ node -e "const pkg=require('./package.json');const entries=Object.entries({...pk
 
 ---
 
+### CP-092: Firebase Deploy Identities Must Have Service Usage Consumer
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | GitHub Actions reached `firebase deploy` but failed with `serviceusage.services.use` denied while enabling Storage-backed deploy steps |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```hcl
+locals {
+  deploy_roles = toset([
+    "roles/firebase.admin",
+    "roles/storage.admin"
+  ])
+}
+```
+
+**Correct Pattern (✅):**
+```hcl
+locals {
+  deploy_roles = toset([
+    "roles/firebase.admin",
+    "roles/serviceusage.serviceUsageConsumer",
+    "roles/storage.admin"
+  ])
+}
+```
+
+**Rule:** Any service account that runs `firebase deploy` must have project-level `roles/serviceusage.serviceUsageConsumer` in addition to the obvious Firebase and storage roles. Firebase deploy shells out to Service Usage protected APIs during hosting/functions/storage rollout.
+
+**Detection:**
+```bash
+rg -n 'roles/serviceusage\\.serviceUsageConsumer' infra/terraform/deploy/main.tf
+```
+
+---
+
+### CP-093: Bootstrap Must Enable Cloud Billing API Before Firebase Deploy Automation
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | GitHub Actions release got through Functions/Firestore prep but failed when Firebase CLI requested `cloudbilling.googleapis.com` and the project had never enabled it |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```hcl
+locals {
+  required_services = toset([
+    "cloudbuild.googleapis.com",
+    "cloudfunctions.googleapis.com"
+  ])
+}
+```
+
+**Correct Pattern (✅):**
+```hcl
+locals {
+  required_services = toset([
+    "cloudbilling.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "cloudfunctions.googleapis.com"
+  ])
+}
+```
+
+**Rule:** The bootstrap Terraform layer must enable `cloudbilling.googleapis.com` for any Firebase production project. Firebase CLI checks project billing status during deploys even when billing is already attached, so leaving the API disabled breaks release automation late in the pipeline.
+
+**Detection:**
+```bash
+rg -n 'cloudbilling\\.googleapis\\.com' infra/terraform/bootstrap/main.tf
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
