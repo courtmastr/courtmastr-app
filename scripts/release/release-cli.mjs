@@ -10,15 +10,13 @@ import {
   buildReleasePlan,
   formatCentralDateTime,
   getCurrentGitState,
+  markReleaseNotesDeployed,
   parseLatestProductionDeploy,
   readCurrentVersion,
   restorePreReleaseGeneratedFiles,
   rollbackReleaseWorktree,
   updateLastDeployRecord,
 } from './release-utils.mjs';
-
-const RELEASE_NOTE_STATUS_LINE = /^- Status: .*/m;
-const RELEASE_NOTE_DATE_LINE = /^- Release date: .*/m;
 
 const runCommand = (command) => {
   try {
@@ -58,9 +56,7 @@ const readLastDeploy = () => {
 
 const updateReleaseNoteForDeploy = (releaseNotesPath, deployedAt) => {
   const content = fs.readFileSync(releaseNotesPath, 'utf8');
-  const updated = content
-    .replace(RELEASE_NOTE_STATUS_LINE, '- Status: deployed')
-    .replace(RELEASE_NOTE_DATE_LINE, `- Release date: ${deployedAt}`);
+  const updated = markReleaseNotesDeployed(content, deployedAt);
 
   fs.writeFileSync(releaseNotesPath, updated, 'utf8');
 };

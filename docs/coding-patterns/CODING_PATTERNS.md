@@ -4430,6 +4430,180 @@ rg -n "composite_indexes\\s*=\\s*try\\(local\\.firestore_index_spec\\.indexes, \
 
 ---
 
+### CP-089: Firebase Deploy Identities Must Have Service Usage Consumer
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | GitHub Actions reached `firebase deploy` but failed with `serviceusage.services.use` denied while enabling Storage-backed deploy steps |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```hcl
+locals {
+  deploy_roles = toset([
+    "roles/firebase.admin",
+    "roles/storage.admin"
+  ])
+}
+```
+
+**Correct Pattern (✅):**
+```hcl
+locals {
+  deploy_roles = toset([
+    "roles/firebase.admin",
+    "roles/serviceusage.serviceUsageConsumer",
+    "roles/storage.admin"
+  ])
+}
+```
+
+**Rule:** Any service account that runs `firebase deploy` must have project-level `roles/serviceusage.serviceUsageConsumer` in addition to the obvious Firebase and storage roles. Firebase deploy shells out to Service Usage protected APIs during hosting/functions/storage rollout.
+
+**Detection:**
+```bash
+rg -n 'roles/serviceusage\\.serviceUsageConsumer' infra/terraform/deploy/main.tf
+```
+
+---
+
+### CP-090: Bootstrap Must Enable Cloud Billing API Before Firebase Deploy Automation
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | GitHub Actions release got through Functions/Firestore prep but failed when Firebase CLI requested `cloudbilling.googleapis.com` and the project had never enabled it |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```hcl
+locals {
+  required_services = toset([
+    "cloudbuild.googleapis.com",
+    "cloudfunctions.googleapis.com"
+  ])
+}
+```
+
+**Correct Pattern (✅):**
+```hcl
+locals {
+  required_services = toset([
+    "cloudbilling.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "cloudfunctions.googleapis.com"
+  ])
+}
+```
+
+**Rule:** The bootstrap Terraform layer must enable `cloudbilling.googleapis.com` for any Firebase production project. Firebase CLI checks project billing status during deploys even when billing is already attached, so leaving the API disabled breaks release automation late in the pipeline.
+
+**Detection:**
+```bash
+rg -n 'cloudbilling\\.googleapis\\.com' infra/terraform/bootstrap/main.tf
+```
+
+---
+
+### CP-094: Firebase Functions Deploy Identities Must Also Act As the Compute Default Service Account
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | GitHub Actions release failed with fingerprint `8189453e` after Firebase deploy reached Cloud Functions v2 updates |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```hcl
+locals {
+  app_engine_default_service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+}
+
+resource "google_service_account_iam_member" "appspot_act_as" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${local.app_engine_default_service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.firebase_deploy.email}"
+}
+```
+
+**Correct Pattern (✅):**
+```hcl
+data "google_project" "current" {
+  project_id = var.project_id
+}
+
+locals {
+  app_engine_default_service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  compute_default_service_account_email    = "${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_service_account_iam_member" "appspot_act_as" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${local.app_engine_default_service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.firebase_deploy.email}"
+}
+
+resource "google_service_account_iam_member" "compute_default_act_as" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${local.compute_default_service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.firebase_deploy.email}"
+}
+```
+
+**Rule:** A Firebase deploy identity that updates Cloud Functions 2nd Gen must have `roles/iam.serviceAccountUser` on both `${project_id}@appspot.gserviceaccount.com` and `${project_number}-compute@developer.gserviceaccount.com`. Granting only the App Engine default service account is insufficient.
+
+**Detection:**
+```bash
+rg -n "compute_default_service_account_email|compute_default_act_as" infra/terraform/deploy/main.tf
+```
+
+---
+
+### CP-095: Release Metadata Must Store Repo-Relative Artifact Paths and Fully Mark Deployed Notes
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | CI release metadata recorded `/home/runner/...` paths in `LAST_DEPLOY.md`, and `docs/releases/v2.0.0.md` still showed `Status: planned` in the deployment section after a successful deploy |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```js
+const updated = content
+  .replace(/^- Status: .*/m, '- Status: deployed')
+  .replace(/^- Release date: .*/m, `- Release date: ${deployedAt}`);
+
+- [docs/releases/${path.basename(newDeploy.releaseNotesPath)}](${newDeploy.releaseNotesPath})
+- \`${newDeploy.deployLogPath}\`
+```
+
+**Correct Pattern (✅):**
+```js
+export const normalizeRepoArtifactPath = (artifactPath) => {
+  const docsMatch = artifactPath?.replace(/\\\\/g, '/').match(/(?:^|\\/)(docs\\/.+)$/);
+  return docsMatch?.[1] ?? artifactPath ?? null;
+};
+
+export const markReleaseNotesDeployed = (content, deployedAt) =>
+  content
+    .replace(/^- Status: .*/gm, '- Status: deployed')
+    .replace(/^- Release date: .*/m, `- Release date: ${deployedAt}`);
+```
+
+**Rule:** Release automation must write repo-relative artifact paths like `docs/releases/v2.0.0.md` and `docs/debug-kb/_artifacts/...`, never runner-local absolute paths. When a release is marked deployed, both the release header status and the `## Deployment` status must flip to `deployed`.
+
+**Detection:**
+```bash
+rg -n "/home/runner/work|markReleaseNotesDeployed|normalizeRepoArtifactPath" scripts/release docs/deployment/LAST_DEPLOY.md docs/releases
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

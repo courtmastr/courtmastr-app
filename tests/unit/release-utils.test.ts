@@ -95,6 +95,78 @@ Updated: 2026-03-28 (America/Chicago)
     expect(markdown).toContain('Commit range: `1234567..abcdef1`');
   });
 
+  it('normalizes release artifact paths and marks deployed notes consistently', async () => {
+    const {
+      markReleaseNotesDeployed,
+      normalizeRepoArtifactPath,
+      updateLastDeployRecord,
+    } = await import('../../scripts/release/release-utils.mjs');
+
+    const repoPath = '/Users/ramc/Documents/Code/courtmaster-v2';
+    const originalCwd = process.cwd();
+    process.chdir(repoPath);
+
+    try {
+      expect(normalizeRepoArtifactPath('/home/runner/work/courtmaster-v2/courtmaster-v2/docs/releases/v2.0.0.md')).toBe('docs/releases/v2.0.0.md');
+      expect(normalizeRepoArtifactPath('/Users/ramc/Documents/Code/courtmaster-v2/docs/debug-kb/_artifacts/deploy.log')).toBe('docs/debug-kb/_artifacts/deploy.log');
+
+      const deployedMarkdown = markReleaseNotesDeployed(`# Release v2.0.0
+
+- Status: planned
+- Release date: pending
+
+## Deployment
+
+- Status: planned
+- Firebase project: \`courtmaster-v2\`
+`, '2026-04-02 01:03 CDT');
+
+      expect(deployedMarkdown.match(/- Status: deployed/g)).toHaveLength(2);
+      expect(deployedMarkdown).toContain('- Release date: 2026-04-02 01:03 CDT');
+
+      const updatedRecord = updateLastDeployRecord(`# Last Deploy Record
+
+Updated: 2026-03-28 (America/Chicago)
+
+## Latest Production Deploy
+
+- Date: 2026-03-15 08:33 CDT
+- Release ID: \`v1.1.0+deploy.2\`
+- Package version: \`1.1.0\`
+- Deployed branch: \`master\`
+- Deployed commit: \`96ead60\` (\`merge: finalize horizon 2 foundation polish\`)
+- Release notes:
+  - [docs/releases/v1.1.0+deploy.2.md](/Users/ramc/Documents/Code/courtmaster-v2/docs/releases/v1.1.0+deploy.2.md)
+
+## Last Confirmed Firebase Deploy
+
+placeholder
+
+## Previous Versioned Production Releases
+
+## Latest Production Merge Milestone
+
+placeholder
+`, {
+        date: '2026-04-02 01:03 CDT',
+        releaseId: 'v2.0.0',
+        packageVersion: '2.0.0',
+        branch: 'master',
+        commit: '835f65204cbd8f2c25c1842565b37bdb3da8eada',
+        commitShort: '835f652',
+        commitMessage: 'hotfix: unblock compute default function deploys',
+        releaseNotesPath: '/home/runner/work/courtmaster-v2/courtmaster-v2/docs/releases/v2.0.0.md',
+        deployLogPath: '/home/runner/work/courtmaster-v2/courtmaster-v2/docs/debug-kb/_artifacts/deploy.log',
+      });
+
+      expect(updatedRecord).toContain('[docs/releases/v2.0.0.md](docs/releases/v2.0.0.md)');
+      expect(updatedRecord).toContain('`docs/debug-kb/_artifacts/deploy.log`');
+      expect(updatedRecord).not.toContain('/home/runner/work/courtmaster-v2/courtmaster-v2');
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   it('formats dirty worktree guidance for release deploy failures', async () => {
     const {
       formatDirtyWorktreeMessage,

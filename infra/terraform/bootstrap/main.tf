@@ -4,6 +4,7 @@ locals {
   required_services = toset([
     "appengine.googleapis.com",
     "artifactregistry.googleapis.com",
+    "cloudbilling.googleapis.com",
     "cloudbuild.googleapis.com",
     "cloudfunctions.googleapis.com",
     "firebase.googleapis.com",
