@@ -58,6 +58,8 @@ jobs:
 
   ci:
     name: Lint, Test, Build
+    needs: [deploy-changes]
+    if: github.event_name == 'pull_request' || needs.deploy-changes.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -100,7 +102,13 @@ jobs:
   deploy:
     name: Release and Deploy to Firebase
     needs: [deploy-changes, ci]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !contains(github.event.head_commit.message, '[skip release]') && needs.deploy-changes.outputs.should_deploy == 'true'
+    if: >-
+      always() &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      !contains(github.event.head_commit.message, '[skip release]') &&
+      needs.deploy-changes.outputs.should_deploy == 'true' &&
+      needs.ci.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
