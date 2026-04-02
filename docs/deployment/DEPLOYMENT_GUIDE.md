@@ -2,10 +2,42 @@
 
 ## Release Governance
 
-Before any future production deploy:
+Primary production release path:
 
-1. run `npm run release:plan`
-2. run `npm run release:deploy`
+1. push code
+2. merge to `master`
+3. let GitHub Actions run the release pipeline in `.github/workflows/ci-cd.yml`
+
+The CI release job now owns the production release path. Local `npm run release:deploy` remains a fallback for operators, not the default path.
+
+### CI Release Pipeline
+
+On every push to `master` that is not a release-metadata bot commit, GitHub Actions runs:
+
+1. `ci` job
+   - `npm ci`
+   - `npm ci --prefix functions`
+   - writes `.env.production` from GitHub secrets
+   - `npm run lint`
+   - `npm run test -- --run`
+   - `npm run build`
+2. `deploy` job
+   - checks out full git history
+   - installs Firebase CLI
+   - authenticates with Google OIDC using:
+     - `GCP_DEPLOY_SERVICE_ACCOUNT`
+     - `GCP_WORKLOAD_IDENTITY_PROVIDER`
+   - runs `npm run release:plan`
+   - runs `npm run release:deploy`
+     - bumps semver
+     - writes versioned release notes
+     - runs release verification
+     - runs build and deploy logging
+     - deploys to Firebase production
+     - updates `docs/deployment/LAST_DEPLOY.md`
+   - commits release metadata back to `master` with:
+     - `chore: record release metadata [skip release]`
+   - pushes that metadata commit without retriggering the release loop
 
 `release:deploy` will:
 - classify the release as patch, minor, or major
@@ -86,12 +118,18 @@ Run Terraform again only when infrastructure changes, for example:
 
 ### Repeat For Every App Release
 
-For normal code releases, do not rerun Terraform. Use:
+For normal code releases, do not rerun Terraform. Use CI by default:
+
+1. push your app change
+2. merge to `master`
+3. watch the `CI-CD` workflow complete
+
+Use local release commands only as a fallback operator path:
 
 1. `npm run release:plan`
 2. `npm run release:deploy`
 
-That remains the release path for Hosting assets, Functions code, rules/index pushes, versioning, release notes, and deploy records.
+The CI path is the primary release path for Hosting assets, Functions code, rules/index pushes, versioning, release notes, and deploy records.
 
 ## ✅ Pre-Deployment Tasks Completed
 
