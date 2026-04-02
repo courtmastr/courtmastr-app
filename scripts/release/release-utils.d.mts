@@ -45,6 +45,7 @@ export const RELEASES_DIR: string;
 export const PRE_RELEASE_AUTORESTORE_PATHS: string[];
 
 export function parseLatestProductionDeploy(content: string): LatestProductionDeploy;
+export function normalizeRepoArtifactPath(artifactPath: string | null | undefined): string | null;
 export function incrementVersion(version: string, releaseType: 'patch' | 'minor' | 'major'): string;
 export function getChangedFiles(fromCommit: string, toCommit?: string): string[];
 export function getCommitSubjects(fromCommit: string, toCommit?: string): string[];
@@ -135,3 +136,4 @@ export function buildReleasePlan(args: {
   currentVersion: string;
   gitState: GitState;
 }): ReleasePlan;
+export function markReleaseNotesDeployed(content: string, deployedAt: string): string;
