@@ -25,6 +25,7 @@ import { useAuditStore } from '@/stores/audit';
 import { useAuthStore } from '@/stores/auth';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import { usePlayersStore } from '@/stores/players';
+import { PLAYER_IDENTITY_V2 } from '@/config/featureFlags';
 
 type VolunteerCheckInAction = 'check_in' | 'undo_check_in' | 'assign_bib';
 
@@ -210,7 +211,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
     try {
       const playersStore = usePlayersStore();
       const email = playerData.email?.trim() || '';
-      if (!email) throw new Error('Player email is required');
+      if (!email && !PLAYER_IDENTITY_V2) throw new Error('Player email is required');
 
       // Step 1: Find or create global player (atomic via runTransaction)
       const globalPlayerId = await playersStore.findOrCreateByEmail(email, {

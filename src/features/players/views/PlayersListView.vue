@@ -34,7 +34,7 @@ const filteredPlayers = computed((): GlobalPlayer[] => {
     (p) =>
       p.firstName.toLowerCase().includes(q) ||
       p.lastName.toLowerCase().includes(q) ||
-      p.email.toLowerCase().includes(q)
+      (p.email ?? '').toLowerCase().includes(q)
   );
 });
 

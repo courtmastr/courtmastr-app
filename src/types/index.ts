@@ -643,17 +643,21 @@ export interface PlayerSportStats {
   [categoryType: string]: PlayerStats; // 'singles' | 'doubles' | 'mixed'
 }
 
+export type PlayerIdentityStatus = 'active' | 'merged' | 'pending_merge';
+
 export interface GlobalPlayer {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
-  emailNormalized: string;
+  email?: string | null;
+  emailNormalized?: string | null;
   phone?: string | null;
   skillLevel?: number | null;
   userId?: string | null;
   isActive: boolean;
   isVerified: boolean;
+  identityStatus: PlayerIdentityStatus;
+  mergedIntoPlayerId?: string | null;
   createdAt: Date;
   updatedAt: Date;
   stats: {
