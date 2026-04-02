@@ -4730,6 +4730,38 @@ rg -n "/home/runner/work|markReleaseNotesDeployed|normalizeRepoArtifactPath" scr
 
 ---
 
+### CP-096: Release Utility Tests Must Not Hardcode Local Repo Paths
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | Metadata-only `master` CI run failed because `tests/unit/release-utils.test.ts` tried to `chdir` into a laptop-specific path that does not exist on GitHub runners |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+const repoPath = '/Users/ramc/Documents/Code/courtmaster-v2';
+const originalCwd = process.cwd();
+process.chdir(repoPath);
+```
+
+**Correct Pattern (✅):**
+```ts
+const repoPath = process.cwd().replace(/\\/g, '/');
+expect(normalizeRepoArtifactPath(`${repoPath}/docs/debug-kb/_artifacts/deploy.log`))
+  .toBe('docs/debug-kb/_artifacts/deploy.log');
+```
+
+**Rule:** Cross-environment tests for release tooling must derive paths from `process.cwd()` or fixture strings, never from developer-machine absolute paths.
+
+**Detection:**
+```bash
+rg -n "/Users/|process\\.chdir\\(" tests/unit/release-utils.test.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

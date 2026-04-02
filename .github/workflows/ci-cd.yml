@@ -18,6 +18,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  deploy-changes:
+    name: Detect deploy-affecting changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.detect.outputs.should_deploy }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect deploy-affecting paths
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" != "push" || "${GITHUB_REF}" != "refs/heads/master" ]]; then
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          base_sha="${{ github.event.before }}"
+          head_sha="${{ github.sha }}"
+
+          if [[ -z "$base_sha" || "$base_sha" == "0000000000000000000000000000000000000000" ]]; then
+            base_sha="$(git rev-list --max-parents=0 "$head_sha" | tail -n 1)"
+          fi
+
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+          printf 'Changed files for deploy gate:\n%s\n' "$changed_files"
+
+          if printf '%s\n' "$changed_files" | rg -q '^(src/|functions/|public/|index\.html$|vite\.config\..*$|vitest\.config\..*$|tsconfig.*\.json$|package\.json$|package-lock\.json$|firebase\.json$|\.firebaserc$|firestore\.rules$|firestore\.indexes\.json$|storage\.rules$)'; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
   ci:
     name: Lint, Test, Build
     runs-on: ubuntu-latest
@@ -61,8 +99,8 @@ jobs:
 
   deploy:
     name: Release and Deploy to Firebase
-    needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !contains(github.event.head_commit.message, '[skip release]')
+    needs: [deploy-changes, ci]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !contains(github.event.head_commit.message, '[skip release]') && needs.deploy-changes.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
