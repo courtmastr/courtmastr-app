@@ -1,3 +1,10 @@
+- id: 8189453e
+  title: GitHub OIDC deploy identity lacked actAs on the Compute Engine default service account
+  status: "✅ fixed"
+  date: "2026-04-02"
+  fingerprint: "8189453e"
+  command: "npm run release:deploy"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-02-05-46-42.npm-run-build-firebase-deploy-project-production.log"
 - id: c856d0f2
   title: Firebase deploy failed because Cloud Billing API was disabled on the project
   status: "✅ fixed"

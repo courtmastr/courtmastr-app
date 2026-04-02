@@ -4634,6 +4634,61 @@ rg -n 'cloudbilling\\.googleapis\\.com' infra/terraform/bootstrap/main.tf
 
 ---
 
+### CP-094: Firebase Functions Deploy Identities Must Also Act As the Compute Default Service Account
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | GitHub Actions release failed with fingerprint `8189453e` after Firebase deploy reached Cloud Functions v2 updates |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```hcl
+locals {
+  app_engine_default_service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+}
+
+resource "google_service_account_iam_member" "appspot_act_as" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${local.app_engine_default_service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.firebase_deploy.email}"
+}
+```
+
+**Correct Pattern (✅):**
+```hcl
+data "google_project" "current" {
+  project_id = var.project_id
+}
+
+locals {
+  app_engine_default_service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  compute_default_service_account_email    = "${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_service_account_iam_member" "appspot_act_as" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${local.app_engine_default_service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.firebase_deploy.email}"
+}
+
+resource "google_service_account_iam_member" "compute_default_act_as" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${local.compute_default_service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.firebase_deploy.email}"
+}
+```
+
+**Rule:** A Firebase deploy identity that updates Cloud Functions 2nd Gen must have `roles/iam.serviceAccountUser` on both `${project_id}@appspot.gserviceaccount.com` and `${project_number}-compute@developer.gserviceaccount.com`. Granting only the App Engine default service account is insufficient.
+
+**Detection:**
+```bash
+rg -n "compute_default_service_account_email|compute_default_act_as" infra/terraform/deploy/main.tf
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

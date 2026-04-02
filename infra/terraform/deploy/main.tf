@@ -1,5 +1,6 @@
 locals {
   app_engine_default_service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+  compute_default_service_account_email    = "${data.google_project.current.number}-compute@developer.gserviceaccount.com"
 
   required_services = toset([
     "artifactregistry.googleapis.com",
@@ -28,6 +29,10 @@ locals {
   github_repository = "${var.github_owner}/${var.github_repo}"
 }
 
+data "google_project" "current" {
+  project_id = var.project_id
+}
+
 resource "google_project_service" "required" {
   for_each = var.enable_required_services ? local.required_services : []
 
@@ -53,6 +58,12 @@ resource "google_project_iam_member" "deploy_roles" {
 
 resource "google_service_account_iam_member" "appspot_act_as" {
   service_account_id = "projects/${var.project_id}/serviceAccounts/${local.app_engine_default_service_account_email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.firebase_deploy.email}"
+}
+
+resource "google_service_account_iam_member" "compute_default_act_as" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${local.compute_default_service_account_email}"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.firebase_deploy.email}"
 }
