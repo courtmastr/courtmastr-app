@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Courtmaster - Full Tournament Automated Test Suite
  * 
@@ -203,7 +204,7 @@ class TournamentTester {
         
         // Get tournament ID from URL
         const url = this.page.url();
-        const match = url.match(/tournaments\/([^\/]+)/);
+        const match = url.match(/tournaments\/([^/]+)/);
         this.tournamentId = match ? match[1] : null;
         
         this.log(`Tournament ID: ${this.tournamentId}`, 'success');

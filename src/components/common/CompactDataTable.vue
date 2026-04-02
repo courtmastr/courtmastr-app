@@ -80,6 +80,10 @@ function getSortIcon(column: Column): string {
   if (sortKey.value !== column.key) return 'mdi-sort';
   return sortDirection.value === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending';
 }
+
+function getItemKey<T extends Record<string, unknown>>(item: T): string | number {
+  return item.id as string | number;
+}
 </script>
 
 <template>
@@ -131,7 +135,7 @@ function getSortIcon(column: Column): string {
     <div class="compact-data-table__body">
       <expandable-row
         v-for="item in paginatedItems"
-        :key="item.id as string | number"
+        :key="getItemKey(item)"
         :item="item"
         :is-expanded="isExpanded(item)"
         @toggle="toggleExpand(item)"

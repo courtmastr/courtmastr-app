@@ -114,7 +114,7 @@ const mountView = () => shallowMount(FrontDeskCheckInView, {
     stubs: {
       'v-container': true,
       'v-toolbar': {
-        template: '<div class=\"v-toolbar-stub\"><slot /></div>',
+        template: "<div class='v-toolbar-stub'><slot /></div>",
       },
       'v-btn': true,
       'v-toolbar-title': true,

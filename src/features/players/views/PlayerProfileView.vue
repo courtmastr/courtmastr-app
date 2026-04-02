@@ -264,7 +264,9 @@ onMounted(load);
       <!-- Match History section -->
       <div class="mt-6">
         <div class="d-flex align-center ga-2 mb-3">
-          <v-icon color="primary">mdi-history</v-icon>
+          <v-icon color="primary">
+            mdi-history
+          </v-icon>
           <span style="font-size:16px;font-weight:700;">Match History</span>
         </div>
 
@@ -346,7 +348,9 @@ onMounted(load);
 
                 <!-- Opponent + partner -->
                 <div style="flex:1;">
-                  <div style="font-weight:500;font-size:14px;">vs {{ match.opponentName }}</div>
+                  <div style="font-weight:500;font-size:14px;">
+                    vs {{ match.opponentName }}
+                  </div>
                   <div
                     v-if="match.partnerName"
                     style="font-size:12px;color:#64748b;"

@@ -86,7 +86,7 @@ async function cleanupExisting() {
   const processNames = ['node', 'java', 'firebase'];
   for (const name of processNames) {
     try {
-      await execAsync(`pkill -f "${name}.*emulator\|${name}.*vite\|${name}.*firebase" 2>/dev/null || true`);
+      await execAsync(`pkill -f "${name}.*emulator|${name}.*vite|${name}.*firebase" 2>/dev/null || true`);
     } catch (e) {
       // Ignore errors
     }
@@ -274,7 +274,7 @@ async function runWithoutTmux(logFiles) {
   log('View emulator logs:  tail -f logs/dev-session-*/emulators.log', 'yellow');
   log('View site logs:      tail -f logs/dev-session-*/site.log', 'yellow');
   log('View all logs:       tail -f logs/dev-session-*/*.log', 'yellow');
-  log('Stop everything:     pkill -f "firebase\|vite"', 'yellow');
+  log('Stop everything:     pkill -f "firebase|vite"', 'yellow');
   
   // Keep script running
   log('\n💡 Press Ctrl+C to stop all processes\n', 'bright');
@@ -284,10 +284,14 @@ async function runWithoutTmux(logFiles) {
     log('\n\n🛑 Shutting down...', 'yellow');
     try {
       process.kill(-emulators.pid, 'SIGTERM');
-    } catch (e) {}
+    } catch {
+      // Ignore shutdown race if process is already gone.
+    }
     try {
       process.kill(-site.pid, 'SIGTERM');
-    } catch (e) {}
+    } catch {
+      // Ignore shutdown race if process is already gone.
+    }
     emulatorsLog.end();
     siteLog.end();
     log('✓ All processes stopped', 'green');
