@@ -4689,6 +4689,47 @@ rg -n "compute_default_service_account_email|compute_default_act_as" infra/terra
 
 ---
 
+### CP-095: Release Metadata Must Store Repo-Relative Artifact Paths and Fully Mark Deployed Notes
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | CI release metadata recorded `/home/runner/...` paths in `LAST_DEPLOY.md`, and `docs/releases/v2.0.0.md` still showed `Status: planned` in the deployment section after a successful deploy |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```js
+const updated = content
+  .replace(/^- Status: .*/m, '- Status: deployed')
+  .replace(/^- Release date: .*/m, `- Release date: ${deployedAt}`);
+
+- [docs/releases/${path.basename(newDeploy.releaseNotesPath)}](${newDeploy.releaseNotesPath})
+- \`${newDeploy.deployLogPath}\`
+```
+
+**Correct Pattern (✅):**
+```js
+export const normalizeRepoArtifactPath = (artifactPath) => {
+  const docsMatch = artifactPath?.replace(/\\\\/g, '/').match(/(?:^|\\/)(docs\\/.+)$/);
+  return docsMatch?.[1] ?? artifactPath ?? null;
+};
+
+export const markReleaseNotesDeployed = (content, deployedAt) =>
+  content
+    .replace(/^- Status: .*/gm, '- Status: deployed')
+    .replace(/^- Release date: .*/m, `- Release date: ${deployedAt}`);
+```
+
+**Rule:** Release automation must write repo-relative artifact paths like `docs/releases/v2.0.0.md` and `docs/debug-kb/_artifacts/...`, never runner-local absolute paths. When a release is marked deployed, both the release header status and the `## Deployment` status must flip to `deployed`.
+
+**Detection:**
+```bash
+rg -n "/home/runner/work|markReleaseNotesDeployed|normalizeRepoArtifactPath" scripts/release docs/deployment/LAST_DEPLOY.md docs/releases
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

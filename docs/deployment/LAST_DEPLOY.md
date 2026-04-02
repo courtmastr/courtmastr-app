@@ -10,7 +10,7 @@ Updated: 2026-04-02 (America/Chicago)
 - Deployed branch: `master`
 - Deployed commit: `835f652` (`hotfix: unblock compute default function deploys`)
 - Release notes:
-  - [docs/releases/v2.0.0.md](/home/runner/work/courtmaster-v2/courtmaster-v2/docs/releases/v2.0.0.md)
+  - [docs/releases/v2.0.0.md](docs/releases/v2.0.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -21,7 +21,7 @@ Updated: 2026-04-02 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `/home/runner/work/courtmaster-v2/courtmaster-v2/docs/debug-kb/_artifacts/2026-04-02-06-00-59.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-02-06-00-59.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 

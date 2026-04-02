@@ -32,6 +32,26 @@ export const parseLatestProductionDeploy = (content) => {
   };
 };
 
+export const normalizeRepoArtifactPath = (artifactPath) => {
+  if (!artifactPath) {
+    return null;
+  }
+
+  const normalized = artifactPath.replace(/\\/g, '/');
+  const cwdPrefix = `${process.cwd().replace(/\\/g, '/')}/`;
+
+  if (normalized.startsWith(cwdPrefix)) {
+    return normalized.slice(cwdPrefix.length);
+  }
+
+  const docsMatch = normalized.match(/(?:^|\/)(docs\/.+)$/);
+  if (docsMatch?.[1]) {
+    return docsMatch[1];
+  }
+
+  return normalized;
+};
+
 export const incrementVersion = (version, releaseType) => {
   const [major, minor, patch] = version.split('.').map(Number);
 
@@ -377,10 +397,12 @@ export const buildPreviousReleaseBullet = (deploy) => `- \`${deploy.releaseId}\`
   - Package version: \`${deploy.packageVersion}\`
   - Deployed commit: \`${deploy.commitShort}\`
   - Release notes:
-    - [docs/releases/${path.basename(deploy.releaseNotesPath)}](${deploy.releaseNotesPath})`;
+    - [docs/releases/${path.basename(deploy.releaseNotesPath)}](${normalizeRepoArtifactPath(deploy.releaseNotesPath)})`;
 
 export const updateLastDeployRecord = (content, newDeploy) => {
   const previousLatest = parseLatestProductionDeploy(content);
+  const normalizedReleaseNotesPath = normalizeRepoArtifactPath(newDeploy.releaseNotesPath);
+  const normalizedDeployLogPath = normalizeRepoArtifactPath(newDeploy.deployLogPath);
   const latestSection = `## Latest Production Deploy
 
 - Date: ${newDeploy.date}
@@ -389,7 +411,7 @@ export const updateLastDeployRecord = (content, newDeploy) => {
 - Deployed branch: \`${newDeploy.branch}\`
 - Deployed commit: \`${newDeploy.commitShort}\` (\`${newDeploy.commitMessage}\`)
 - Release notes:
-  - [docs/releases/${path.basename(newDeploy.releaseNotesPath)}](${newDeploy.releaseNotesPath})
+  - [docs/releases/${path.basename(newDeploy.releaseNotesPath)}](${normalizedReleaseNotesPath})
 - Commands:
   - \`npm run release:deploy\`
   - \`npm run deploy\`
@@ -400,7 +422,7 @@ export const updateLastDeployRecord = (content, newDeploy) => {
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - \`${newDeploy.deployLogPath ?? 'not captured'}\``;
+  - \`${normalizedDeployLogPath ?? 'not captured'}\``;
 
   let updated = content.replace(/^Updated: .*$/m, `Updated: ${formatCentralDate(new Date())} (America/Chicago)`);
   updated = updated.replace(/## Latest Production Deploy[\s\S]*?\n## Last Confirmed Firebase Deploy/, `${latestSection}
@@ -488,3 +510,8 @@ export const buildReleasePlan = ({ lastDeploy, currentVersion, gitState }) => {
     gitState,
   };
 };
+
+export const markReleaseNotesDeployed = (content, deployedAt) =>
+  content
+    .replace(/^- Status: .*/gm, '- Status: deployed')
+    .replace(/^- Release date: .*/m, `- Release date: ${deployedAt}`);
