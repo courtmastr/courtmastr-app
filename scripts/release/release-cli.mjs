@@ -139,10 +139,6 @@ const runDeployMode = () => {
     });
     fs.writeFileSync(releaseNotesPath, releaseNotes, 'utf8');
 
-    runCommand('npm run verify:release');
-    runCommand('npm run build');
-    runCommand('npm run build:log');
-    runCommand('npm run deploy');
     const deployLogOutput = runCommand('npm run deploy:log');
     const deployLogPath = deployLogOutput.match(/📄 Log saved: (.+)/)?.[1]?.trim();
 

@@ -4342,6 +4342,44 @@ rg -n "const [A-Za-z0-9_]+ = \\[\\];" tests/unit --glob "*.test.ts"
 
 ---
 
+### CP-087: Production Deploy Scripts Must Pin the Firebase Project Alias
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Local release and deploy commands relied on the operator's previously selected Firebase project, making production deploys depend on shell state instead of repo state |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```json
+{
+  "scripts": {
+    "deploy": "npm run build && firebase deploy",
+    "deploy:log": "node scripts/run-and-log.mjs --shell \"npm run build && firebase deploy\""
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```json
+{
+  "scripts": {
+    "deploy": "npm run build && firebase deploy --project production",
+    "deploy:log": "node scripts/run-and-log.mjs --shell \"npm run build && firebase deploy --project production\""
+  }
+}
+```
+
+**Rule:** Any production deploy or release script must pass the intended Firebase project alias explicitly. Never rely on `firebase use` state or whichever project the caller last selected in their shell.
+
+**Detection:**
+```bash
+rg -n "\"deploy(?::log|:hosting)?\": \".*firebase deploy(?!.*--project production)\"" package.json -P
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

@@ -17,6 +17,82 @@ Before any future production deploy:
 
 Historical release notes live in [docs/releases/README.md](/Users/ramc/Documents/Code/courtmaster-v2/docs/releases/README.md).
 
+## Terraform Layers
+
+CourtMastr infrastructure is now intended to be split across:
+
+- [infra/terraform/README.md](/Users/ramc/Documents/Code/courtmaster-v2/infra/terraform/README.md)
+- [infra/terraform/bootstrap/README.md](/Users/ramc/Documents/Code/courtmaster-v2/infra/terraform/bootstrap/README.md)
+- [infra/terraform/platform/README.md](/Users/ramc/Documents/Code/courtmaster-v2/infra/terraform/platform/README.md)
+- [infra/terraform/deploy/README.md](/Users/ramc/Documents/Code/courtmaster-v2/infra/terraform/deploy/README.md)
+
+The intended order is:
+
+1. `bootstrap`
+2. `platform`
+3. `deploy`
+
+The split is deliberate:
+
+- Terraform manages infrastructure state
+- `npm run release:deploy` and GitHub Actions still manage application rollout
+
+### Bootstrap
+
+The first apply still requires a project Owner or IAM admin. Terraform does not remove the bootstrap step; it makes steady-state deploy access reproducible after that.
+
+### GitHub repository variables
+
+After Terraform apply, set:
+
+- `GCP_DEPLOY_SERVICE_ACCOUNT`
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+
+The existing Firebase web config secrets remain required for the build step.
+Secret Manager secret values also still need to be populated after Terraform creates their containers.
+
+### Local release operators
+
+If the Terraform variable `local_deployer_principals` is populated, approved operators can run local production releases by impersonating the deploy service account with short-lived credentials instead of relying on direct project-wide human IAM. The exact commands are documented in:
+
+- [infra/terraform/deploy/README.md](/Users/ramc/Documents/Code/courtmaster-v2/infra/terraform/deploy/README.md)
+
+The production deploy npm scripts now call `firebase deploy --project production`, so local release runs no longer depend on the caller's previously selected Firebase project.
+
+### One-Time Environment Setup
+
+Do this once per environment:
+
+1. apply Terraform layers in order:
+   - `infra/terraform/bootstrap`
+   - `infra/terraform/platform`
+   - `infra/terraform/deploy`
+2. import existing production resources before the first apply where needed
+3. set GitHub repository variables from Terraform outputs:
+   - `GCP_DEPLOY_SERVICE_ACCOUNT`
+   - `GCP_WORKLOAD_IDENTITY_PROVIDER`
+4. populate Firebase web config secrets for the build
+5. populate Secret Manager secret values after Terraform creates the secret containers
+
+### Repeat When Infrastructure Changes
+
+Run Terraform again only when infrastructure changes, for example:
+
+- new IAM roles or deploy identities
+- new secret containers
+- new Firebase web app registration
+- Firestore/index/rules/storage-rule infrastructure changes
+- new environments
+
+### Repeat For Every App Release
+
+For normal code releases, do not rerun Terraform. Use:
+
+1. `npm run release:plan`
+2. `npm run release:deploy`
+
+That remains the release path for Hosting assets, Functions code, rules/index pushes, versioning, release notes, and deploy records.
+
 ## ✅ Pre-Deployment Tasks Completed
 
 The following preparation tasks have been completed:
@@ -209,7 +285,7 @@ firebase login
 ```
 This will open a browser for authentication. Sign in with your Google account.
 
-#### Step 2: Switch to Production Project
+#### Step 2: Confirm Production Project Alias
 ```bash
 firebase use production
 ```
@@ -241,10 +317,10 @@ cd ..
 **Stage 1: Deploy Firestore Rules and Indexes**
 ```bash
 # Deploy security rules
-firebase deploy --only firestore:rules
+firebase deploy --only firestore:rules --project production
 
 # Deploy indexes
-firebase deploy --only firestore:indexes
+firebase deploy --only firestore:indexes --project production
 
 # Wait 2-3 minutes for indexes to build
 firebase firestore:indexes
@@ -253,7 +329,7 @@ firebase firestore:indexes
 
 **Stage 2: Deploy Cloud Functions**
 ```bash
-firebase deploy --only functions
+firebase deploy --only functions --project production
 ```
 
 This will deploy 5 functions:
@@ -272,7 +348,7 @@ i  functions: preparing codebase for deployment
 
 **Stage 3: Deploy Hosting**
 ```bash
-firebase deploy --only hosting
+firebase deploy --only hosting --project production
 ```
 
 **Expected output:**
@@ -285,7 +361,7 @@ Hosting URL: https://your-project-id.web.app
 After testing the staged approach, you can use:
 ```bash
 npm run deploy
-# This runs: npm run build && firebase deploy
+# This runs: npm run build && firebase deploy --project production
 ```
 
 ---
@@ -463,7 +539,6 @@ npm run emulators
 npx vite build
 
 # 4. Deploy
-firebase use production
 npm run deploy
 
 # 5. Verify deployment
