@@ -4519,6 +4519,43 @@ rg -n "composite_indexes\\s*=\\s*try\\(local\\.firestore_index_spec\\.indexes, \
 
 ---
 
+### CP-091: Root App Dependencies Must Stay Cross-Platform
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | GitHub Actions failed at `npm ci` because the root app dependencies included `oh-my-opencode-darwin-arm64`, a package that only installs on macOS arm64 |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```json
+{
+  "dependencies": {
+    "firebase": "^12.8.0",
+    "oh-my-opencode-darwin-arm64": "^3.11.2"
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```json
+{
+  "dependencies": {
+    "firebase": "^12.8.0"
+  }
+}
+```
+
+**Rule:** The root `package.json` must not include OS-specific binary packages unless they are truly optional and CI-safe across Linux runners. Platform-specific local tooling belongs outside the app dependency graph.
+
+**Detection:**
+```bash
+node -e "const pkg=require('./package.json');const entries=Object.entries({...pkg.dependencies,...pkg.devDependencies,...pkg.optionalDependencies});const bad=entries.filter(([name])=>/(darwin|linux|win32).*(arm64|x64)|.*-(darwin|linux|win32)-.*/i.test(name));console.log(bad)"
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
