@@ -4342,7 +4342,96 @@ rg -n "const [A-Za-z0-9_]+ = \\[\\];" tests/unit --glob "*.test.ts"
 
 ---
 
-### CP-087: Production Deploy Scripts Must Pin the Firebase Project Alias
+### CP-087: Optimistic Store Writes Must Refresh Local Source of Truth
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Tournament settings saves reverted visible form values because `updateTournament()` wrote to Firestore but left `currentTournament` stale until a later snapshot, and a category watcher repopulated the form from that stale store state |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+await updateDoc(doc(db, 'tournaments', tournamentId), updateData);
+```
+
+**Correct Pattern (✅):**
+```typescript
+await updateDoc(doc(db, 'tournaments', tournamentId), updateData);
+
+const optimisticUpdates: Partial<Tournament> = {
+  ...updates,
+  updatedAt: new Date(),
+};
+
+tournaments.value = tournaments.value.map((tournament) => {
+  if (tournament.id !== tournamentId) return tournament;
+  return {
+    ...tournament,
+    ...optimisticUpdates,
+  };
+});
+
+if (currentTournament.value?.id === tournamentId) {
+  currentTournament.value = {
+    ...currentTournament.value,
+    ...optimisticUpdates,
+  };
+}
+```
+
+**Rule:** Any store action that writes the current entity to Firestore and is also used as the UI's immediate source of truth must update the local store copy after a successful write. Do not rely on a later snapshot when the view can be repopulated from local store state in the same interaction.
+
+**Detection:**
+```bash
+rg -n "async function updateTournament|await updateDoc\\(doc\\(db, 'tournaments', tournamentId\\), updateData\\);" src/stores/tournaments.ts
+```
+
+---
+
+### CP-088: Do Not Declare Single-Field Firestore Indexes as Composite Indexes
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Production deploy failed because `firestore.indexes.json` declared single-field indexes like `players.emailNormalized` and `activities.createdAt` as composite indexes, and Firestore rejected them as definitions that should be handled through single-field controls instead |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```json
+{
+  "collectionGroup": "players",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "emailNormalized", "order": "ASCENDING" }
+  ]
+}
+```
+
+**Correct Pattern (✅):**
+```json
+{
+  "collectionGroup": "players",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "isActive", "order": "ASCENDING" },
+    { "fieldPath": "lastName", "order": "ASCENDING" }
+  ]
+}
+```
+
+**Rule:** `firestore.indexes.json` should contain only true composite indexes. If an index uses just one explicit field plus the implicit `__name__`, remove it from the composite index list and manage any needed behavior through Firestore single-field index controls instead.
+
+**Detection:**
+```bash
+node -e "const fs=require('fs');const data=JSON.parse(fs.readFileSync('firestore.indexes.json','utf8'));console.log(data.indexes.filter((index)=>index.fields.length===1));"
+```
+
+---
+
+### CP-089: Production Deploy Scripts Must Pin the Firebase Project Alias
 
 | Field | Value |
 |-------|-------|
@@ -4380,7 +4469,7 @@ rg -n "\"deploy(?::log|:hosting)?\": \".*firebase deploy(?!.*--project productio
 
 ---
 
-### CP-088: Terraform Must Filter Single-Field Firestore Index Specs Out of Composite Index Management
+### CP-090: Terraform Must Filter Single-Field Firestore Index Specs Out of Composite Index Management
 
 | Field | Value |
 |-------|-------|
@@ -4430,7 +4519,44 @@ rg -n "composite_indexes\\s*=\\s*try\\(local\\.firestore_index_spec\\.indexes, \
 
 ---
 
-### CP-089: Firebase Deploy Identities Must Have Service Usage Consumer
+### CP-091: Root App Dependencies Must Stay Cross-Platform
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | GitHub Actions failed at `npm ci` because the root app dependencies included `oh-my-opencode-darwin-arm64`, a package that only installs on macOS arm64 |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```json
+{
+  "dependencies": {
+    "firebase": "^12.8.0",
+    "oh-my-opencode-darwin-arm64": "^3.11.2"
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```json
+{
+  "dependencies": {
+    "firebase": "^12.8.0"
+  }
+}
+```
+
+**Rule:** The root `package.json` must not include OS-specific binary packages unless they are truly optional and CI-safe across Linux runners. Platform-specific local tooling belongs outside the app dependency graph.
+
+**Detection:**
+```bash
+node -e "const pkg=require('./package.json');const entries=Object.entries({...pkg.dependencies,...pkg.devDependencies,...pkg.optionalDependencies});const bad=entries.filter(([name])=>/(darwin|linux|win32).*(arm64|x64)|.*-(darwin|linux|win32)-.*/i.test(name));console.log(bad)"
+```
+
+---
+
+### CP-092: Firebase Deploy Identities Must Have Service Usage Consumer
 
 | Field | Value |
 |-------|-------|
@@ -4469,7 +4595,7 @@ rg -n 'roles/serviceusage\\.serviceUsageConsumer' infra/terraform/deploy/main.tf
 
 ---
 
-### CP-090: Bootstrap Must Enable Cloud Billing API Before Firebase Deploy Automation
+### CP-093: Bootstrap Must Enable Cloud Billing API Before Firebase Deploy Automation
 
 | Field | Value |
 |-------|-------|
@@ -4600,6 +4726,38 @@ export const markReleaseNotesDeployed = (content, deployedAt) =>
 **Detection:**
 ```bash
 rg -n "/home/runner/work|markReleaseNotesDeployed|normalizeRepoArtifactPath" scripts/release docs/deployment/LAST_DEPLOY.md docs/releases
+```
+
+---
+
+### CP-096: Release Utility Tests Must Not Hardcode Local Repo Paths
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | Metadata-only `master` CI run failed because `tests/unit/release-utils.test.ts` tried to `chdir` into a laptop-specific path that does not exist on GitHub runners |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+const repoPath = '/Users/ramc/Documents/Code/courtmaster-v2';
+const originalCwd = process.cwd();
+process.chdir(repoPath);
+```
+
+**Correct Pattern (✅):**
+```ts
+const repoPath = process.cwd().replace(/\\/g, '/');
+expect(normalizeRepoArtifactPath(`${repoPath}/docs/debug-kb/_artifacts/deploy.log`))
+  .toBe('docs/debug-kb/_artifacts/deploy.log');
+```
+
+**Rule:** Cross-environment tests for release tooling must derive paths from `process.cwd()` or fixture strings, never from developer-machine absolute paths.
+
+**Detection:**
+```bash
+rg -n "/Users/|process\\.chdir\\(" tests/unit/release-utils.test.ts
 ```
 
 ---

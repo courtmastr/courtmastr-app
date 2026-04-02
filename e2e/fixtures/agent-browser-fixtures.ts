@@ -7,7 +7,7 @@ export interface TestFixtures {
 }
 
 export const test = base.extend<TestFixtures>({
-  agentBrowser: async ({}, use) => {
+  agentBrowser: async (_context: object, use) => {
     const browser = new AgentBrowser({
       session: 'playwright-test',
       profile: process.env.AGENT_BROWSER_PROFILE,

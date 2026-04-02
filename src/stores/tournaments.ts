@@ -317,6 +317,26 @@ export const useTournamentStore = defineStore('tournaments', () => {
       }
 
       await updateDoc(doc(db, 'tournaments', tournamentId), updateData);
+
+      const optimisticUpdates: Partial<Tournament> = {
+        ...updates,
+        updatedAt: new Date(),
+      };
+
+      tournaments.value = tournaments.value.map((tournament) => {
+        if (tournament.id !== tournamentId) return tournament;
+        return {
+          ...tournament,
+          ...optimisticUpdates,
+        };
+      });
+
+      if (currentTournament.value?.id === tournamentId) {
+        currentTournament.value = {
+          ...currentTournament.value,
+          ...optimisticUpdates,
+        };
+      }
     } catch (err) {
       console.error('Error updating tournament:', err);
       error.value = 'Failed to update tournament';

@@ -1,10 +1,12 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Comprehensive Automated Tournament Testing
  * Uses Playwright with headless mode and direct JS injection
  */
 
 const { chromium } = require('playwright');
+const fs = require('fs');
 
 const BASE_URL = 'http://localhost:3000';
 const TOURNAMENT_ID = 'K9ZDFjTn91krb85nGTO4';
@@ -339,7 +341,6 @@ async function runFullTournamentTest() {
     await browser.close();
     
     // Write bug report
-    const fs = require('fs');
     fs.writeFileSync('AUTOMATED-TEST-RESULTS.json', JSON.stringify({
       timestamp: new Date().toISOString(),
       bugs: BUGS,

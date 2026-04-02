@@ -45,6 +45,11 @@ const thirdPlaceMatch = computed({
   }
 });
 
+const dialogModel = computed({
+  get: () => props.modelValue,
+  set: (value: boolean) => emit('update:modelValue', value),
+});
+
 // Computed
 const courts = computed(() => tournamentStore.courts.filter(c => c.status !== 'maintenance'));
 
@@ -108,7 +113,7 @@ function close() {
 
 <template>
   <BaseDialog
-    v-model="modelValue"
+    v-model="dialogModel"
     :title="`Generate Bracket - ${categoryName}`"
     max-width="600"
     persistent

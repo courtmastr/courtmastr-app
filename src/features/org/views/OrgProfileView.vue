@@ -527,7 +527,7 @@ onMounted(loadOrg);
                   label="Founded Year"
                   type="number"
                   placeholder="e.g. 2018"
-                  hint='Shows "Est. YEAR" and "X Years Active" stat on the public page'
+                  hint="Shows &quot;Est. YEAR&quot; and &quot;X Years Active&quot; stat on the public page"
                   persistent-hint
                 />
               </v-col>

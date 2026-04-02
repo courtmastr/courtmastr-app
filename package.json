@@ -1,7 +1,7 @@
 {
   "name": "courtmaster-v2",
   "private": true,
-  "version": "1.1.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -64,7 +64,6 @@
     "date-fns": "^4.1.0",
     "firebase": "^12.8.0",
     "html2canvas": "^1.4.1",
-    "oh-my-opencode-darwin-arm64": "^3.11.2",
     "pinia": "^3.0.4",
     "qrcode": "^1.5.4",
     "vue": "^3.5.24",

@@ -1414,24 +1414,44 @@ async function confirmCompleteTournament(): Promise<void> {
     <!-- Stat bar -->
     <div class="mc-stat-bar">
       <div class="mc-stat-bar__cell">
-        <div class="mc-stat-bar__num">{{ stats.totalCourts }}</div>
-        <div class="mc-stat-bar__label">Courts</div>
+        <div class="mc-stat-bar__num">
+          {{ stats.totalCourts }}
+        </div>
+        <div class="mc-stat-bar__label">
+          Courts
+        </div>
       </div>
       <div class="mc-stat-bar__cell mc-stat-bar__cell--orange">
-        <div class="mc-stat-bar__num">{{ stats.inProgress }}</div>
-        <div class="mc-stat-bar__label">Live Now</div>
+        <div class="mc-stat-bar__num">
+          {{ stats.inProgress }}
+        </div>
+        <div class="mc-stat-bar__label">
+          Live Now
+        </div>
       </div>
       <div class="mc-stat-bar__cell mc-stat-bar__cell--green">
-        <div class="mc-stat-bar__num">{{ availableCourts.length }}</div>
-        <div class="mc-stat-bar__label">Free Courts</div>
+        <div class="mc-stat-bar__num">
+          {{ availableCourts.length }}
+        </div>
+        <div class="mc-stat-bar__label">
+          Free Courts
+        </div>
       </div>
       <div class="mc-stat-bar__cell mc-stat-bar__cell--blue">
-        <div class="mc-stat-bar__num">{{ pendingMatches.length }}</div>
-        <div class="mc-stat-bar__label">In Queue</div>
+        <div class="mc-stat-bar__num">
+          {{ pendingMatches.length }}
+        </div>
+        <div class="mc-stat-bar__label">
+          In Queue
+        </div>
       </div>
       <div class="mc-stat-bar__cell mc-stat-bar__cell--slate">
-        <div class="mc-stat-bar__num">{{ completionPercent }}<span class="mc-stat-bar__unit">%</span></div>
-        <div class="mc-stat-bar__label">Complete</div>
+        <div class="mc-stat-bar__num">
+          {{ completionPercent }}<span class="mc-stat-bar__unit">%</span>
+        </div>
+        <div class="mc-stat-bar__label">
+          Complete
+        </div>
       </div>
     </div>
 

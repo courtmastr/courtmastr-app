@@ -29,7 +29,11 @@ function toggleNav(): void {
   if (display.smAndDown.value) {
     drawer.value = !drawer.value;
   } else {
-    rail.value ? expandFromRail() : collapseToRail();
+    if (rail.value) {
+      expandFromRail();
+    } else {
+      collapseToRail();
+    }
   }
 }
 

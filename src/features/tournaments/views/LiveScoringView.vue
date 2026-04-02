@@ -242,7 +242,9 @@ onUnmounted(() => {
           color="medium-emphasis"
           class="mb-4"
         />
-        <p class="text-body-1 text-medium-emphasis">No live matches right now</p>
+        <p class="text-body-1 text-medium-emphasis">
+          No live matches right now
+        </p>
         <p class="text-body-2 text-disabled mt-1">
           Matches will appear here once they are started
         </p>
@@ -282,7 +284,9 @@ onUnmounted(() => {
                 <div class="text-body-2 font-weight-medium">
                   {{ getParticipant1Name(match) }}
                 </div>
-                <div class="text-caption text-medium-emphasis my-1">vs</div>
+                <div class="text-caption text-medium-emphasis my-1">
+                  vs
+                </div>
                 <div class="text-body-2 font-weight-medium">
                   {{ getParticipant2Name(match) }}
                 </div>

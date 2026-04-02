@@ -770,7 +770,9 @@ onUnmounted(() => {
             class="display-live-card"
           >
             <div class="display-live-card__meta">
-              {{ item.categoryLabel }}<template v-if="item.scopeLabel"> · {{ item.scopeLabel }}</template> · {{ item.roundLabel }}
+              {{ item.categoryLabel }}<template v-if="item.scopeLabel">
+                · {{ item.scopeLabel }}
+              </template> · {{ item.roundLabel }}
             </div>
             <h2 class="display-live-card__matchup">
               {{ item.matchup }}
@@ -802,7 +804,9 @@ onUnmounted(() => {
                 {{ item.matchup }}
               </v-list-item-title>
               <v-list-item-subtitle class="text-caption">
-                {{ formatTime(item.match.plannedStartAt) }} · {{ item.categoryLabel }}<template v-if="item.scopeLabel"> · {{ item.scopeLabel }}</template>
+                {{ formatTime(item.match.plannedStartAt) }} · {{ item.categoryLabel }}<template v-if="item.scopeLabel">
+                  · {{ item.scopeLabel }}
+                </template>
               </v-list-item-subtitle>
               <template #append>
                 <v-chip
@@ -1145,7 +1149,9 @@ onUnmounted(() => {
                 {{ item.participant2.displayName }}
               </div>
               <div class="text-caption text-medium-emphasis mt-2">
-                {{ item.categoryLabel }}<template v-if="item.scopeLabel"> · {{ item.scopeLabel }}</template> · {{ item.roundLabel }}
+                {{ item.categoryLabel }}<template v-if="item.scopeLabel">
+                  · {{ item.scopeLabel }}
+                </template> · {{ item.roundLabel }}
               </div>
             </v-card-text>
           </v-card>
