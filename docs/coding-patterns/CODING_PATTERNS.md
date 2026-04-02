@@ -4380,6 +4380,56 @@ rg -n "\"deploy(?::log|:hosting)?\": \".*firebase deploy(?!.*--project productio
 
 ---
 
+### CP-088: Terraform Must Filter Single-Field Firestore Index Specs Out of Composite Index Management
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-01 |
+| **Source Bug** | Platform IaC treated every entry in `firestore.indexes.json` as a `google_firestore_index`, causing `terraform apply` to fail when Firestore rejected single-field indexes as “not necessary” |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```hcl
+locals {
+  composite_indexes = try(local.firestore_index_spec.indexes, [])
+}
+
+resource "google_firestore_index" "composite" {
+  for_each = {
+    for index in local.composite_indexes :
+    "${index.collectionGroup}-${index.queryScope}-..." => index
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```hcl
+locals {
+  composite_indexes = [
+    for index in try(local.firestore_index_spec.indexes, []) :
+    index
+    if length(try(index.fields, [])) > 1
+  ]
+}
+
+resource "google_firestore_index" "composite" {
+  for_each = {
+    for index in local.composite_indexes :
+    "${index.collectionGroup}-${index.queryScope}-..." => index
+  }
+}
+```
+
+**Rule:** `google_firestore_index` must only manage true composite indexes. If `firestore.indexes.json` contains single-field entries, filter them out before building the Terraform `for_each`, because Firestore manages those through single-field index controls instead of composite index resources.
+
+**Detection:**
+```bash
+rg -n "composite_indexes\\s*=\\s*try\\(local\\.firestore_index_spec\\.indexes, \\[\\]\\)" infra/terraform/platform/main.tf
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

@@ -1,7 +1,11 @@
 locals {
   default_storage_bucket_name = coalesce(var.default_storage_bucket_name, "${var.project_id}.appspot.com")
   firestore_index_spec        = jsondecode(file("${path.module}/../../../firestore.indexes.json"))
-  composite_indexes           = try(local.firestore_index_spec.indexes, [])
+  composite_indexes = [
+    for index in try(local.firestore_index_spec.indexes, []) :
+    index
+    if length(try(index.fields, [])) > 1
+  ]
 
   composite_indexes_by_key = {
     for index in local.composite_indexes :
