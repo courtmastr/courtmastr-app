@@ -1,28 +1,27 @@
 # Last Deploy Record
 
-Updated: 2026-03-28 (America/Chicago)
+Updated: 2026-04-02 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-03-15 08:33 CDT
-- Release ID: `v1.1.0+deploy.2`
-- Package version: `1.1.0`
+- Date: 2026-04-02 01:03 CDT
+- Release ID: `v2.0.0`
+- Package version: `2.0.0`
 - Deployed branch: `master`
-- Deployed commit: `96ead60` (`merge: finalize horizon 2 foundation polish`)
+- Deployed commit: `835f652` (`hotfix: unblock compute default function deploys`)
 - Release notes:
-  - [docs/releases/v1.1.0+deploy.2.md](/Users/ramc/Documents/Code/courtmaster-v2/docs/releases/v1.1.0+deploy.2.md)
+  - [docs/releases/v2.0.0.md](/home/runner/work/courtmaster-v2/courtmaster-v2/docs/releases/v2.0.0.md)
 - Commands:
+  - `npm run release:deploy`
   - `npm run deploy`
   - `npm run deploy:log`
 - Firebase project: `courtmaster-v2`
 - Hosting URL: `https://courtmaster-v2.web.app`
 - Deploy result:
-  - Hosting: released successfully
-  - Functions: unchanged/skipped on both deploy runs
-- Build log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-03-15-13-32-26.npm-run-build.log`
-- Function URL evidence:
-  - `healthCheck(us-central1)`: `https://healthcheck-s3armjwzja-uc.a.run.app`
+  - Release automation completed all guardrails before Firebase deploy
+  - See deploy-log artifact for full Firebase output
+- Deploy log artifact from deploy-log run:
+  - `/home/runner/work/courtmaster-v2/courtmaster-v2/docs/debug-kb/_artifacts/2026-04-02-06-00-59.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -37,6 +36,12 @@ Updated: 2026-03-28 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v1.1.0+deploy.2`
+  - Date: 2026-03-15 08:33 CDT
+  - Package version: `1.1.0`
+  - Deployed commit: `96ead60`
+  - Release notes:
+    - [docs/releases/v1.1.0+deploy.2.md](/Users/ramc/Documents/Code/courtmaster-v2/docs/releases/v1.1.0+deploy.2.md)
 - `v1.1.0`
   - Date: 2026-03-15 08:18 CDT
   - Package version: `1.1.0`
@@ -52,7 +57,7 @@ Updated: 2026-03-28 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-03-15 08:31:00 -0500
-- Commit: `96ead606cacd08b283e7998f3aa932581ee5e89d`
-- Message: `merge: finalize horizon 2 foundation polish`
-- Note: deployed via `npm run deploy` and `npm run deploy:log` on 2026-03-15.
+- Date: 2026-04-02 01:03 CDT
+- Commit: `835f65204cbd8f2c25c1842565b37bdb3da8eada`
+- Message: `hotfix: unblock compute default function deploys`
+- Note: deployed via `npm run release:deploy` on 2026-04-02.
