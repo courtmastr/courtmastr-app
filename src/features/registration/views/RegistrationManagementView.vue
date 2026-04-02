@@ -5,8 +5,11 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import { PLAYER_IDENTITY_V2 } from '@/config/featureFlags';
+import { usePlayerCandidatePicker } from '@/composables/usePlayerCandidatePicker';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import FilterBar from '@/components/common/FilterBar.vue';
+import PlayerCandidateSuggestions from '@/components/players/PlayerCandidateSuggestions.vue';
 
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { FORMAT_LABELS, type Category } from '@/types';
@@ -115,6 +118,15 @@ const newPlayer = ref({
   phone: '',
   skillLevel: 5,
 });
+const {
+  candidates,
+  selectedCandidate,
+  isLoading: candidatesLoading,
+  search: searchCandidates,
+  selectExisting,
+  selectCreateNew,
+  reset: resetCandidates,
+} = usePlayerCandidatePicker();
 
 // New registration form
 const newRegistration = ref({
@@ -267,6 +279,12 @@ watch(filterCategory, (newVal) => {
   });
 });
 
+watch(showAddPlayerDialog, (isOpen) => {
+  if (!isOpen) {
+    resetCandidates();
+  }
+});
+
 function getPlayerDisplayName(player: PlayerNameSource | undefined): string {
   if (!player) return 'Unknown';
 
@@ -318,7 +336,7 @@ async function addPlayer() {
       email: newPlayer.value.email,
       phone: newPlayer.value.phone,
       skillLevel: newPlayer.value.skillLevel,
-    });
+    }, PLAYER_IDENTITY_V2 ? selectedCandidate.value : undefined);
     notificationStore.showToast('success', 'Player added successfully');
     showAddPlayerDialog.value = false;
     resetPlayerForm();
@@ -326,6 +344,27 @@ async function addPlayer() {
     const message = error instanceof Error ? error.message : 'Failed to add player';
     notificationStore.showToast('error', message);
   }
+}
+
+async function searchNewPlayerCandidates(): Promise<void> {
+  if (!PLAYER_IDENTITY_V2) return;
+
+  const firstName = newPlayer.value.firstName.trim();
+  const lastName = newPlayer.value.lastName.trim();
+  const email = newPlayer.value.email.trim();
+  const phone = newPlayer.value.phone.trim();
+
+  if (!firstName || !lastName || (!email && !phone)) {
+    resetCandidates();
+    return;
+  }
+
+  await searchCandidates({
+    firstName,
+    lastName,
+    email: email || null,
+    phone: phone || null,
+  });
 }
 
 async function addRegistration() {
@@ -487,6 +526,7 @@ function resetPlayerForm() {
     phone: '',
     skillLevel: 5,
   };
+  resetCandidates();
 }
 
 function resetRegistrationForm() {
@@ -1663,10 +1703,21 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
         v-model="newPlayer.email"
         label="Email"
         type="email"
+        @blur="searchNewPlayerCandidates"
       />
       <v-text-field
         v-model="newPlayer.phone"
         label="Phone"
+        @blur="searchNewPlayerCandidates"
+      />
+      <PlayerCandidateSuggestions
+        v-if="PLAYER_IDENTITY_V2 && (candidatesLoading || candidates.length > 0)"
+        :candidates="candidates"
+        :selected-player-id="selectedCandidate"
+        :is-loading="candidatesLoading"
+        class="mb-4"
+        @select-existing="selectExisting"
+        @create-new="selectCreateNew"
       />
       <v-slider
         v-model="newPlayer.skillLevel"

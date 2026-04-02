@@ -3,6 +3,30 @@ import { shallowMount } from '@vue/test-utils';
 import SelfRegistrationView from '@/features/registration/views/SelfRegistrationView.vue';
 import type { Category } from '@/types';
 
+const pickerRuntime = vi.hoisted(() => ({
+  callCount: 0,
+  primary: {
+    candidates: { value: [] as unknown[] },
+    selectedCandidate: { value: null as string | null },
+    isLoading: { value: false },
+    error: { value: null as string | null },
+    search: vi.fn(),
+    selectExisting: vi.fn(),
+    selectCreateNew: vi.fn(),
+    reset: vi.fn(),
+  },
+  partner: {
+    candidates: { value: [] as unknown[] },
+    selectedCandidate: { value: null as string | null },
+    isLoading: { value: false },
+    error: { value: null as string | null },
+    search: vi.fn(),
+    selectExisting: vi.fn(),
+    selectCreateNew: vi.fn(),
+    reset: vi.fn(),
+  },
+}));
+
 const mockDeps = vi.hoisted(() => ({
   fetchTournament: vi.fn(),
   addPlayer: vi.fn(),
@@ -92,6 +116,18 @@ vi.mock('@/stores/notifications', () => ({
   }),
 }));
 
+vi.mock('@/config/featureFlags', () => ({
+  PLAYER_IDENTITY_V2: true,
+}));
+
+vi.mock('@/composables/usePlayerCandidatePicker', () => ({
+  usePlayerCandidatePicker: () => {
+    const picker = pickerRuntime.callCount === 0 ? pickerRuntime.primary : pickerRuntime.partner;
+    pickerRuntime.callCount += 1;
+    return picker;
+  },
+}));
+
 vi.mock('@/composables/useAsyncOperation', () => ({
   useAsyncOperation: () => ({
     loading: { value: false },
@@ -117,6 +153,7 @@ const mountView = () => shallowMount(SelfRegistrationView, {
       'v-text-field',
       'v-checkbox',
       'v-divider',
+      'PlayerCandidateSuggestions',
     ],
   },
 });
@@ -135,12 +172,29 @@ interface SelfRegistrationVm {
 describe('SelfRegistrationView', () => {
   beforeEach(() => {
     requireApproval = true;
+    pickerRuntime.callCount = 0;
     mockDeps.fetchTournament.mockReset().mockResolvedValue(undefined);
     mockDeps.addPlayer.mockReset()
       .mockResolvedValueOnce('player-1')
       .mockResolvedValueOnce('partner-1');
     mockDeps.createRegistration.mockReset().mockResolvedValue('reg-1');
     mockDeps.showToast.mockReset();
+    pickerRuntime.primary.candidates.value = [];
+    pickerRuntime.primary.selectedCandidate.value = null;
+    pickerRuntime.primary.isLoading.value = false;
+    pickerRuntime.primary.error.value = null;
+    pickerRuntime.primary.search.mockReset();
+    pickerRuntime.primary.selectExisting.mockReset();
+    pickerRuntime.primary.selectCreateNew.mockReset();
+    pickerRuntime.primary.reset.mockReset();
+    pickerRuntime.partner.candidates.value = [];
+    pickerRuntime.partner.selectedCandidate.value = null;
+    pickerRuntime.partner.isLoading.value = false;
+    pickerRuntime.partner.error.value = null;
+    pickerRuntime.partner.search.mockReset();
+    pickerRuntime.partner.selectExisting.mockReset();
+    pickerRuntime.partner.selectCreateNew.mockReset();
+    pickerRuntime.partner.reset.mockReset();
   });
 
   it('creates partner registration for doubles and marks status pending when approval is required', async () => {
@@ -158,6 +212,26 @@ describe('SelfRegistrationView', () => {
     await vm.submitRegistration();
 
     expect(mockDeps.addPlayer).toHaveBeenCalledTimes(2);
+    expect(mockDeps.addPlayer).toHaveBeenNthCalledWith(
+      1,
+      't1',
+      expect.objectContaining({
+        firstName: 'Alice',
+        lastName: 'Anderson',
+        email: 'alice@example.com',
+      }),
+      null,
+    );
+    expect(mockDeps.addPlayer).toHaveBeenNthCalledWith(
+      2,
+      't1',
+      expect.objectContaining({
+        firstName: 'Bob',
+        lastName: 'Brown',
+        email: 'bob@example.com',
+      }),
+      null,
+    );
     expect(mockDeps.createRegistration).toHaveBeenCalledWith(
       't1',
       expect.objectContaining({
@@ -191,6 +265,15 @@ describe('SelfRegistrationView', () => {
     await vm.submitRegistration();
 
     expect(mockDeps.addPlayer).toHaveBeenCalledTimes(1);
+    expect(mockDeps.addPlayer).toHaveBeenCalledWith(
+      't1',
+      expect.objectContaining({
+        firstName: 'Chris',
+        lastName: 'Carter',
+        email: 'chris@example.com',
+      }),
+      null,
+    );
     expect(mockDeps.createRegistration).toHaveBeenCalledWith(
       't1',
       expect.objectContaining({
