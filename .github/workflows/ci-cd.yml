@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: ci-cd-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   deploy-changes:
@@ -50,7 +50,7 @@ jobs:
           changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
           printf 'Changed files for deploy gate:\n%s\n' "$changed_files"
 
-          if printf '%s\n' "$changed_files" | rg -q '^(src/|functions/|public/|index\.html$|vite\.config\..*$|vitest\.config\..*$|tsconfig.*\.json$|package\.json$|package-lock\.json$|firebase\.json$|\.firebaserc$|firestore\.rules$|firestore\.indexes\.json$|storage\.rules$)'; then
+          if printf '%s\n' "$changed_files" | grep -qE '^(src/|functions/|public/|index\.html$|vite\.config\..*$|vitest\.config\..*$|tsconfig.*\.json$|package\.json$|package-lock\.json$|firebase\.json$|\.firebaserc$|firestore\.rules$|firestore\.indexes\.json$|storage\.rules$)'; then
             echo "should_deploy=true" >> "$GITHUB_OUTPUT"
           else
             echo "should_deploy=false" >> "$GITHUB_OUTPUT"
@@ -89,7 +89,7 @@ jobs:
           EOF
 
       - name: Lint
-        run: npm run lint
+        run: npm run lint:check
 
       - name: Unit tests (CI mode)
         run: npm run test -- --run
