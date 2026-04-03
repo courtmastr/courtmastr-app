@@ -65,6 +65,9 @@ terraform plan
 terraform apply
 ```
 
+For the current production repo, `github_owner` and `github_repo` should be `courtmastr` and `courtmastr-app`.
+If the repository is ever renamed or transferred again, update those two fields and re-apply this Terraform root before expecting GitHub OIDC deploys to work.
+
 ## Outputs to copy into GitHub
 
 After apply, record:

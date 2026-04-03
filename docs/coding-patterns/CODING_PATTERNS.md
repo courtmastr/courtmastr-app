@@ -4872,6 +4872,89 @@ rg -n "organizerIds: \\[adminId\\]|organizerIds,?$" scripts/seed
 
 ---
 
+### CP-099: GitHub OIDC Deploy Trust Must Match The Live Repository Identity
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-03 |
+| **Source Bug** | `master` deploy rerun passed build but Google auth failed because the workload identity provider still trusted `Ramc4685/courtmaster-v2` after the repo moved to `courtmastr/courtmastr-app` |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```hcl
+github_owner = "Ramc4685"
+github_repo  = "courtmaster-v2"
+```
+
+**Correct Pattern (✅):**
+```hcl
+github_owner = "courtmastr"
+github_repo  = "courtmastr-app"
+```
+
+```bash
+cd infra/terraform/deploy
+terraform apply
+```
+
+**Rule:** The deploy layer's `github_owner` and `github_repo` inputs must always match the current GitHub remote that runs `.github/workflows/ci-cd.yml`. If the repository is renamed or transferred, update the Terraform inputs and re-apply before relying on GitHub OIDC deploys.
+
+**Detection:**
+```bash
+REMOTE_URL="$(git remote get-url origin)"
+EXPECTED_OWNER="$(printf '%s' "$REMOTE_URL" | sed -E 's#.*github.com[:/]([^/]+)/([^/.]+)(\\.git)?#\\1#')"
+EXPECTED_REPO="$(printf '%s' "$REMOTE_URL" | sed -E 's#.*github.com[:/]([^/]+)/([^/.]+)(\\.git)?#\\2#')"
+ACTUAL_OWNER="$(terraform -chdir=infra/terraform/deploy console <<< 'var.github_owner' | tr -d '\"[:space:]')"
+ACTUAL_REPO="$(terraform -chdir=infra/terraform/deploy console <<< 'var.github_repo' | tr -d '\"[:space:]')"
+test "$EXPECTED_OWNER" = "$ACTUAL_OWNER" && test "$EXPECTED_REPO" = "$ACTUAL_REPO"
+```
+
+---
+
+### CP-100: Release Metadata Automation Must Respect Protected `master` Branches
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-03 |
+| **Source Bug** | Release workflow deployed production successfully but still failed because it tried to `git push` release metadata directly to protected `master` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```yaml
+- name: Commit release metadata
+  run: |
+    git commit -m "chore: record release metadata [skip release]"
+    git push origin HEAD:master
+```
+
+**Correct Pattern (✅):**
+```yaml
+- name: Commit release metadata
+  env:
+    GH_TOKEN: ${{ github.token }}
+  run: |
+    git commit -m "chore: record release metadata [skip release]"
+    if git push origin HEAD:master; then
+      exit 0
+    fi
+
+    metadata_branch="release-metadata/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+    git push origin HEAD:"${metadata_branch}"
+    gh pr create --base master --head "${metadata_branch}" --title "chore: record release metadata [skip release]"
+```
+
+**Rule:** CI release jobs must not assume they can push directly to `master`. When branch protection requires pull requests, the workflow must fall back to a metadata branch plus PR so a successful deploy does not end in a failed run.
+
+**Detection:**
+```bash
+rg -n "git push origin HEAD:master" .github/workflows/ci-cd.yml
+rg -n "release-metadata/\\$\\{GITHUB_RUN_ID\\}-\\$\\{GITHUB_RUN_ATTEMPT\\}|gh pr create|pull-requests: write" .github/workflows/ci-cd.yml
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
