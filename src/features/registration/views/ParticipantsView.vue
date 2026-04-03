@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useNotificationStore } from '@/stores/notifications';
+import { PLAYER_IDENTITY_V2 } from '@/config/featureFlags';
+import { usePlayerCandidatePicker } from '@/composables/usePlayerCandidatePicker';
 import FilterBar from '@/components/common/FilterBar.vue';
+import PlayerCandidateSuggestions from '@/components/players/PlayerCandidateSuggestions.vue';
 
 import StateBanner from '@/features/tournaments/components/StateBanner.vue';
 import { normalizeTournamentState } from '@/guards/tournamentState';
@@ -53,6 +56,15 @@ const newPlayer = ref({
   phone: '',
   skillLevel: 5,
 });
+const {
+  candidates,
+  selectedCandidate,
+  isLoading: candidatesLoading,
+  search: searchCandidates,
+  selectExisting,
+  selectCreateNew,
+  reset: resetCandidates,
+} = usePlayerCandidatePicker();
 
 // Get approved/checked_in registrations (active participants)
 const activeRegistrations = computed(() => {
@@ -67,6 +79,16 @@ const activePlayerIds = computed(() => {
   activeRegistrations.value.forEach(reg => {
     if (reg.playerId) ids.add(reg.playerId);
     if (reg.partnerPlayerId) ids.add(reg.partnerPlayerId);
+  });
+  return ids;
+});
+
+const checkedInPlayerIds = computed(() => {
+  const ids = new Set<string>();
+  activeRegistrations.value.forEach((registration) => {
+    if (registration.status !== 'checked_in') return;
+    if (registration.playerId) ids.add(registration.playerId);
+    if (registration.partnerPlayerId) ids.add(registration.partnerPlayerId);
   });
   return ids;
 });
@@ -141,8 +163,8 @@ const filteredParticipants = computed(() => {
 // Stats
 const participantStats = computed(() => {
   return {
-    total: activeRegistrations.value.length,
-    checkedIn: activeRegistrations.value.filter(r => r.status === 'checked_in').length,
+    total: activePlayerIds.value.size,
+    checkedIn: checkedInPlayerIds.value.size,
     singles: activeRegistrations.value.filter(r => !r.partnerPlayerId).length,
     doubles: activeRegistrations.value.filter(r => r.partnerPlayerId).length,
   };
@@ -246,7 +268,7 @@ async function addPlayer() {
       email: newPlayer.value.email,
       phone: newPlayer.value.phone,
       skillLevel: newPlayer.value.skillLevel,
-    });
+    }, PLAYER_IDENTITY_V2 ? selectedCandidate.value : undefined);
     notificationStore.showToast('success', 'Player added successfully');
     showAddPlayerDialog.value = false;
     resetPlayerForm();
@@ -254,6 +276,27 @@ async function addPlayer() {
     const message = error instanceof Error ? error.message : 'Failed to add player';
     notificationStore.showToast('error', message);
   }
+}
+
+async function searchNewPlayerCandidates(): Promise<void> {
+  if (!PLAYER_IDENTITY_V2) return;
+
+  const firstName = newPlayer.value.firstName.trim();
+  const lastName = newPlayer.value.lastName.trim();
+  const email = newPlayer.value.email.trim();
+  const phone = newPlayer.value.phone.trim();
+
+  if (!firstName || !lastName || (!email && !phone)) {
+    resetCandidates();
+    return;
+  }
+
+  await searchCandidates({
+    firstName,
+    lastName,
+    email: email || null,
+    phone: phone || null,
+  });
 }
 
 function resetPlayerForm() {
@@ -264,7 +307,14 @@ function resetPlayerForm() {
     phone: '',
     skillLevel: 5,
   };
+  resetCandidates();
 }
+
+watch(showAddPlayerDialog, (isOpen) => {
+  if (!isOpen) {
+    resetCandidates();
+  }
+});
 
 function clearFilters() {
   searchQuery.value = '';
@@ -588,12 +638,23 @@ function clearFilters() {
             type="email"
             variant="outlined"
             prepend-inner-icon="mdi-email"
+            @blur="searchNewPlayerCandidates"
           />
           <v-text-field
             v-model="newPlayer.phone"
             label="Phone"
             variant="outlined"
             prepend-inner-icon="mdi-phone"
+            @blur="searchNewPlayerCandidates"
+          />
+          <PlayerCandidateSuggestions
+            v-if="PLAYER_IDENTITY_V2 && (candidatesLoading || candidates.length > 0)"
+            :candidates="candidates"
+            :selected-player-id="selectedCandidate"
+            :is-loading="candidatesLoading"
+            class="mb-4"
+            @select-existing="selectExisting"
+            @create-new="selectCreateNew"
           />
           <div class="mt-4">
             <div class="d-flex align-center justify-space-between mb-2">

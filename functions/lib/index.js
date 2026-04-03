@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.healthCheck = exports.advanceWinner = exports.generateSchedule = exports.generateBracket = exports.aggregatePlayerStats = exports.applyVolunteerCheckInAction = exports.issueVolunteerSession = exports.revealVolunteerPin = exports.setVolunteerPin = exports.submitSelfCheckIn = exports.searchSelfCheckInCandidates = exports.submitReview = exports.submitBugReport = exports.updateMatch = void 0;
+exports.healthCheck = exports.advanceWinner = exports.generateSchedule = exports.generateBracket = exports.executeMerge = exports.aggregatePlayerStats = exports.applyVolunteerCheckInAction = exports.issueVolunteerSession = exports.revealVolunteerPin = exports.setVolunteerPin = exports.submitSelfCheckIn = exports.searchSelfCheckInCandidates = exports.submitReview = exports.submitBugReport = exports.updateMatch = void 0;
 // Cloud Functions Entry Point
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
@@ -47,6 +47,7 @@ const selfCheckIn_1 = require("./selfCheckIn");
 const volunteerAccess_1 = require("./volunteerAccess");
 const firestore_adapter_1 = require("./storage/firestore-adapter");
 const playerStats_1 = require("./playerStats");
+const playerMerge_1 = require("./playerMerge");
 // Initialize Firebase Admin
 admin.initializeApp();
 const db = admin.firestore();
@@ -60,6 +61,7 @@ exports.revealVolunteerPin = volunteerAccess_1.revealVolunteerPin;
 exports.issueVolunteerSession = volunteerAccess_1.issueVolunteerSession;
 exports.applyVolunteerCheckInAction = volunteerAccess_1.applyVolunteerCheckInAction;
 exports.aggregatePlayerStats = playerStats_1.aggregatePlayerStats;
+exports.executeMerge = playerMerge_1.executeMerge;
 /**
  * Generate bracket for a tournament category
  */

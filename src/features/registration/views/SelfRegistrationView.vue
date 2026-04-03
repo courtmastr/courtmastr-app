@@ -5,9 +5,12 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import { PLAYER_IDENTITY_V2 } from '@/config/featureFlags';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
+import { usePlayerCandidatePicker } from '@/composables/usePlayerCandidatePicker';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import BrandIconBadge from '@/components/common/BrandIconBadge.vue';
+import PlayerCandidateSuggestions from '@/components/players/PlayerCandidateSuggestions.vue';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -47,6 +50,24 @@ const phone = ref('');
 const selectedCategories = ref<string[]>([]);
 const partnerName = ref('');
 const partnerEmail = ref('');
+const {
+  candidates,
+  selectedCandidate,
+  isLoading: candidatesLoading,
+  search: searchCandidates,
+  selectExisting,
+  selectCreateNew,
+  reset: resetCandidates,
+} = usePlayerCandidatePicker();
+const {
+  candidates: partnerCandidates,
+  selectedCandidate: partnerSelectedCandidate,
+  isLoading: partnerCandidatesLoading,
+  search: searchPartnerCandidates,
+  selectExisting: selectExistingPartner,
+  selectCreateNew: selectCreateNewPartner,
+  reset: resetPartnerCandidates,
+} = usePlayerCandidatePicker();
 
 const isRegistrationOpen = computed(() => {
   if (!tournament.value) return false;
@@ -66,6 +87,57 @@ onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
 });
 
+function parseFullName(value: string): { firstName: string; lastName: string } | null {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return null;
+
+  const [firstName, ...lastNameParts] = parts;
+  return {
+    firstName,
+    lastName: lastNameParts.join(' '),
+  };
+}
+
+async function searchPrimaryPlayerCandidates(): Promise<void> {
+  if (!PLAYER_IDENTITY_V2) return;
+
+  const normalizedFirstName = firstName.value.trim();
+  const normalizedLastName = lastName.value.trim();
+  const normalizedEmail = email.value.trim();
+  const normalizedPhone = phone.value.trim();
+
+  if (!normalizedFirstName || !normalizedLastName || (!normalizedEmail && !normalizedPhone)) {
+    resetCandidates();
+    return;
+  }
+
+  await searchCandidates({
+    firstName: normalizedFirstName,
+    lastName: normalizedLastName,
+    email: normalizedEmail || null,
+    phone: normalizedPhone || null,
+    userId: authStore.currentUser?.id ?? null,
+  });
+}
+
+async function searchPartnerPlayerCandidates(): Promise<void> {
+  if (!PLAYER_IDENTITY_V2 || !needsPartner.value) return;
+
+  const parsedName = parseFullName(partnerName.value);
+  const normalizedEmail = partnerEmail.value.trim();
+
+  if (!parsedName || !normalizedEmail) {
+    resetPartnerCandidates();
+    return;
+  }
+
+  await searchPartnerCandidates({
+    firstName: parsedName.firstName,
+    lastName: parsedName.lastName,
+    email: normalizedEmail,
+  });
+}
+
 async function submitRegistration() {
   await execute(
     async () => {
@@ -76,17 +148,19 @@ async function submitRegistration() {
         email: email.value,
         phone: phone.value,
         userId: authStore.currentUser?.id,
-      });
+      }, PLAYER_IDENTITY_V2 ? selectedCandidate.value : undefined);
 
       // Create partner if needed
       let partnerPlayerId: string | undefined;
       if (needsPartner.value && partnerName.value) {
-        const [pFirstName, ...pLastNameParts] = partnerName.value.split(' ');
+        const parsedPartnerName = parseFullName(partnerName.value);
+        const pFirstName = parsedPartnerName?.firstName ?? partnerName.value.trim();
+        const pLastName = parsedPartnerName?.lastName ?? '';
         partnerPlayerId = await registrationStore.addPlayer(tournamentId.value, {
           firstName: pFirstName,
-          lastName: pLastNameParts.join(' ') || '',
+          lastName: pLastName,
           email: partnerEmail.value,
-        });
+        }, PLAYER_IDENTITY_V2 ? partnerSelectedCandidate.value : undefined);
       }
 
       // Create registrations for each selected category
@@ -113,6 +187,8 @@ async function submitRegistration() {
       }
 
       submitted.value = true;
+      resetCandidates();
+      resetPartnerCandidates();
       notificationStore.showToast('success', 'Registration submitted successfully!');
     },
     {
@@ -267,11 +343,22 @@ function formatDate(date: Date): string {
                 label="Email"
                 type="email"
                 required
+                @blur="searchPrimaryPlayerCandidates"
               />
 
               <v-text-field
                 v-model="phone"
                 label="Phone (optional)"
+                @blur="searchPrimaryPlayerCandidates"
+              />
+              <PlayerCandidateSuggestions
+                v-if="PLAYER_IDENTITY_V2 && (candidatesLoading || candidates.length > 0)"
+                :candidates="candidates"
+                :selected-player-id="selectedCandidate"
+                :is-loading="candidatesLoading"
+                class="mb-4"
+                @select-existing="selectExisting"
+                @create-new="selectCreateNew"
               />
 
               <v-divider class="my-4" />
@@ -304,12 +391,23 @@ function formatDate(date: Date): string {
                   v-model="partnerName"
                   label="Partner's Full Name"
                   required
+                  @blur="searchPartnerPlayerCandidates"
                 />
 
                 <v-text-field
                   v-model="partnerEmail"
                   label="Partner's Email (optional)"
                   type="email"
+                  @blur="searchPartnerPlayerCandidates"
+                />
+                <PlayerCandidateSuggestions
+                  v-if="PLAYER_IDENTITY_V2 && (partnerCandidatesLoading || partnerCandidates.length > 0)"
+                  :candidates="partnerCandidates"
+                  :selected-player-id="partnerSelectedCandidate"
+                  :is-loading="partnerCandidatesLoading"
+                  class="mb-4"
+                  @select-existing="selectExistingPartner"
+                  @create-new="selectCreateNewPartner"
                 />
               </template>
 

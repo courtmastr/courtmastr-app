@@ -184,6 +184,23 @@ describe('router auth guards', () => {
     expect(result.name).toBe('dashboard');
   });
 
+  it('allows admins into player merge and redirects viewers', async () => {
+    const adminResult = await runGuard('/players/merge', {
+      isAuthenticated: true,
+      isAdmin: true,
+      role: 'admin',
+    });
+    expect(adminResult.type).toBe('allow');
+
+    const viewerResult = await runGuard('/players/merge', {
+      isAuthenticated: true,
+      isAdmin: false,
+      role: 'viewer',
+    });
+    expect(viewerResult.type).toBe('redirect');
+    expect(viewerResult.name).toBe('dashboard');
+  });
+
   it('allows scorekeepers into scoring routes and blocks viewers', async () => {
     const scorekeeper = await runGuard('/tournaments/t1/matches', {
       isAuthenticated: true,

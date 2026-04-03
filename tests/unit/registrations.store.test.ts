@@ -14,6 +14,7 @@ const mockDeps = vi.hoisted(() => {
   const volunteerCheckInCallable = vi.fn();
   const runTransaction = vi.fn();
   const findOrCreateByEmail = vi.fn();
+  const linkOrCreatePlayer = vi.fn();
 
   return {
     collection,
@@ -27,6 +28,7 @@ const mockDeps = vi.hoisted(() => {
     volunteerCheckInCallable,
     runTransaction,
     findOrCreateByEmail,
+    linkOrCreatePlayer,
   };
 });
 
@@ -83,6 +85,18 @@ vi.mock('@/stores/players', () => ({
   }),
 }));
 
+const loadRegistrationStore = async (playerIdentityV2: boolean) => {
+  vi.resetModules();
+  vi.doMock('@/config/featureFlags', () => ({
+    PLAYER_IDENTITY_V2: playerIdentityV2,
+  }));
+  vi.doMock('@/services/playerIdentityService', () => ({
+    linkOrCreatePlayer: mockDeps.linkOrCreatePlayer,
+  }));
+  const { useRegistrationStore } = await import('@/stores/registrations');
+  return useRegistrationStore();
+};
+
 const getBasePlayer = (): Omit<Player, 'id' | 'createdAt' | 'updatedAt'> => ({
   firstName: 'Aanya',
   lastName: 'Khan',
@@ -103,6 +117,7 @@ describe('registration store', () => {
     mockDeps.serverTimestamp.mockReset().mockReturnValue('SERVER_TS');
     mockDeps.runTransaction.mockReset().mockResolvedValue('global-player-1');
     mockDeps.findOrCreateByEmail.mockReset().mockResolvedValue('global-player-1');
+    mockDeps.linkOrCreatePlayer.mockReset().mockResolvedValue('global-player-v2');
     mockDeps.callableFactory.mockReset().mockImplementation((_functions: unknown, name: string) => {
       if (name === 'applyVolunteerCheckInAction') {
         return mockDeps.volunteerCheckInCallable;
@@ -115,8 +130,7 @@ describe('registration store', () => {
   });
 
   it('delegates to findOrCreateByEmail and writes tournament mirror via setDoc', async () => {
-    const { useRegistrationStore } = await import('@/stores/registrations');
-    const store = useRegistrationStore();
+    const store = await loadRegistrationStore(false);
 
     const id = await store.addPlayer('t1', getBasePlayer());
 
@@ -142,8 +156,7 @@ describe('registration store', () => {
   });
 
   it('throws when email is missing', async () => {
-    const { useRegistrationStore } = await import('@/stores/registrations');
-    const store = useRegistrationStore();
+    const store = await loadRegistrationStore(false);
 
     await expect(
       store.addPlayer('t1', { ...getBasePlayer(), email: '' })
@@ -153,9 +166,43 @@ describe('registration store', () => {
     expect(mockDeps.setDoc).not.toHaveBeenCalled();
   });
 
+  it('uses linkOrCreatePlayer when v2 is enabled and allows empty email', async () => {
+    const store = await loadRegistrationStore(true);
+
+    const id = await store.addPlayer(
+      't1',
+      {
+        ...getBasePlayer(),
+        email: '',
+        userId: 'user-1',
+      },
+      null,
+    );
+
+    expect(id).toBe('global-player-v2');
+    expect(mockDeps.linkOrCreatePlayer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        firstName: 'Aanya',
+        lastName: 'Khan',
+        email: null,
+        phone: '555-1000',
+        userId: 'user-1',
+      }),
+      null,
+    );
+    expect(mockDeps.findOrCreateByEmail).not.toHaveBeenCalled();
+    expect(mockDeps.setDoc).toHaveBeenCalledWith(
+      'registration-doc-ref',
+      expect.objectContaining({
+        id: 'global-player-v2',
+        globalPlayerId: 'global-player-v2',
+        emailNormalized: null,
+      }),
+    );
+  });
+
   it('stamps approved metadata when status transitions to approved', async () => {
-    const { useRegistrationStore } = await import('@/stores/registrations');
-    const store = useRegistrationStore();
+    const store = await loadRegistrationStore(false);
 
     await store.updateRegistrationStatus('t1', 'reg-1', 'approved', 'admin-1');
 
@@ -179,8 +226,7 @@ describe('registration store', () => {
       expiresAtMs: Date.now() + 60_000,
     };
 
-    const { useRegistrationStore } = await import('@/stores/registrations');
-    const store = useRegistrationStore();
+    const store = await loadRegistrationStore(false);
 
     await store.checkInRegistration('t1', 'reg-9');
 
@@ -202,8 +248,7 @@ describe('registration store', () => {
       expiresAtMs: Date.now() + 60_000,
     };
 
-    const { useRegistrationStore } = await import('@/stores/registrations');
-    const store = useRegistrationStore();
+    const store = await loadRegistrationStore(false);
 
     await store.assignBibNumber('t1', 'reg-9', 41);
 

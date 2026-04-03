@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { PLAYER_IDENTITY_V2 } from '@/config/featureFlags';
 import { usePlayersStore } from '@/stores/players';
 import { useOrganizationsStore } from '@/stores/organizations';
 import { useAuthStore } from '@/stores/auth';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
 import type { GlobalPlayer } from '@/types';
 
+const router = useRouter();
 const playersStore = usePlayersStore();
 const orgStore = useOrganizationsStore();
 const authStore = useAuthStore();
@@ -34,7 +37,7 @@ const filteredPlayers = computed((): GlobalPlayer[] => {
     (p) =>
       p.firstName.toLowerCase().includes(q) ||
       p.lastName.toLowerCase().includes(q) ||
-      p.email.toLowerCase().includes(q)
+      (p.email ?? '').toLowerCase().includes(q)
   );
 });
 
@@ -43,6 +46,26 @@ const winRate = (p: GlobalPlayer): string => {
   const total = wins + losses;
   if (total === 0) return '—';
   return `${Math.round((wins / total) * 100)}%`;
+};
+
+const getPlayerStatusLabel = (player: GlobalPlayer): string | null => {
+  if (player.identityStatus === 'merged') {
+    return 'Merged';
+  }
+
+  if (player.isActive === false) {
+    return 'Inactive';
+  }
+
+  return null;
+};
+
+const openProfile = (playerId: string): void => {
+  void router.push({ name: 'player-profile', params: { playerId } });
+};
+
+const openMergeWorkspace = (): void => {
+  void router.push({ name: 'player-merge' });
 };
 
 onMounted(load);
@@ -71,6 +94,19 @@ onMounted(load);
           Global player registry
         </div>
       </div>
+    </div>
+    <div
+      v-if="PLAYER_IDENTITY_V2 && authStore.isAdmin"
+      class="d-flex justify-end pb-4"
+    >
+      <v-btn
+        color="warning"
+        variant="flat"
+        data-testid="players-page-merge-link"
+        @click="openMergeWorkspace"
+      >
+        Merge Players
+      </v-btn>
     </div>
     <!-- Stats bar -->
     <div
@@ -134,7 +170,7 @@ onMounted(load);
         style="background:white;border-left:3px solid #1D4ED8;border-radius:0 8px 8px 0;
                padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;
                justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.05);cursor:pointer;"
-        @click="$router.push(`/players/${player.id}`)"
+        @click="openProfile(player.id)"
       >
         <div class="d-flex align-center ga-3">
           <div
@@ -154,9 +190,27 @@ onMounted(load);
               >
                 mdi-check-circle
               </v-icon>
+              <v-chip
+                v-if="getPlayerStatusLabel(player)"
+                size="x-small"
+                color="warning"
+                variant="tonal"
+                class="ml-2"
+              >
+                {{ getPlayerStatusLabel(player) }}
+              </v-chip>
             </div>
             <div style="font-size:12px;color:#64748b;">
               {{ player.email }}
+            </div>
+            <div style="font-size:11px;color:#94A3B8;">
+              Player ID: {{ player.id }}
+            </div>
+            <div
+              v-if="player.identityStatus === 'merged' && player.mergedIntoPlayerId"
+              style="font-size:11px;color:#b45309;"
+            >
+              Merged into: {{ player.mergedIntoPlayerId }}
             </div>
           </div>
         </div>

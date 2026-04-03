@@ -1,3 +1,24 @@
+- id: 2c2d7a81
+  title: player merge route test times out under default Vitest budget
+  status: "✅ fixed"
+  date: "2026-04-03"
+  fingerprint: "2c2d7a81"
+  command: "npm run test:log -- --run tests/unit/ParticipantsView.test.ts tests/unit/PlayerMergeView.test.ts tests/unit/PlayerProfileView.test.ts tests/unit/PlayersListView.test.ts tests/unit/mergeRequest.types.test.ts tests/unit/mergeRequests.store.test.ts tests/unit/playerMerge.function.test.ts tests/unit/playerMerge.route.test.ts tests/unit/router-guards-auth.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-03-06-36-21.vitest-run-tests-unit-ParticipantsView-test-ts-tes.log"
+- id: fdd064ce
+  title: targeted player merge tests failed after UX route refactor
+  status: "✅ fixed"
+  date: "2026-04-02"
+  fingerprint: "fdd064ce"
+  command: "npm run test:log -- --run tests/unit/PlayersListView.test.ts tests/unit/PlayerProfileView.test.ts tests/unit/PlayerMergeView.test.ts tests/unit/playerMerge.route.test.ts tests/unit/router-guards-auth.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-02-20-20-11.vitest-run-tests-unit-PlayersListView-test-ts-test.log"
+- id: a941f8d0
+  title: build:log fails when Vue router helper is typed as Promise<void>
+  status: "✅ fixed"
+  date: "2026-04-02"
+  fingerprint: "a941f8d0"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-02-19-55-56.npm-run-check-firebase-env-vue-tsc-b-vite-build.log"
 - id: 8189453e
   title: GitHub OIDC deploy identity lacked actAs on the Compute Engine default service account
   status: "✅ fixed"

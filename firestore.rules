@@ -308,7 +308,14 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (isOwner(resource.data.userId)
             && !request.resource.data.diff(resource.data).affectedKeys()
-                 .hasAny(['isVerified', 'stats']));
+                 .hasAny(['isVerified', 'stats', 'identityStatus', 'mergedIntoPlayerId']));
+      allow delete: if isAdmin();
+    }
+
+    match /mergeRequests/{requestId} {
+      allow read: if isAdmin() || isOrganizer();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() || isOrganizer();
       allow delete: if isAdmin();
     }
 

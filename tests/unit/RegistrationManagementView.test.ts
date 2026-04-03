@@ -3,6 +3,17 @@ import { shallowMount } from '@vue/test-utils';
 import RegistrationManagementView from '@/features/registration/views/RegistrationManagementView.vue';
 import type { Category, Player } from '@/types';
 
+const candidatePickerState = vi.hoisted(() => ({
+  candidates: { value: [] as unknown[] },
+  selectedCandidate: { value: null as string | null },
+  isLoading: { value: false },
+  error: { value: null as string | null },
+  search: vi.fn(),
+  selectExisting: vi.fn(),
+  selectCreateNew: vi.fn(),
+  reset: vi.fn(),
+}));
+
 const mockDeps = vi.hoisted(() => ({
   fetchTournament: vi.fn(),
   subscribeRegistrations: vi.fn(),
@@ -142,6 +153,14 @@ vi.mock('@/stores/notifications', () => ({
   }),
 }));
 
+vi.mock('@/config/featureFlags', () => ({
+  PLAYER_IDENTITY_V2: true,
+}));
+
+vi.mock('@/composables/usePlayerCandidatePicker', () => ({
+  usePlayerCandidatePicker: () => candidatePickerState,
+}));
+
 vi.mock('@/composables/useTournamentStateAdvance', () => ({
   useTournamentStateAdvance: () => ({
     advanceState: vi.fn(),
@@ -195,11 +214,20 @@ const mountView = () => shallowMount(RegistrationManagementView, {
       'FilterBar',
       'StateBanner',
       'BaseDialog',
+      'PlayerCandidateSuggestions',
     ],
   },
 });
 
 interface RegistrationManagementVm {
+  newPlayer: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    skillLevel: number;
+  };
+  addPlayer: () => Promise<void>;
   newRegistration: {
     playerId: string;
     categoryId: string;
@@ -217,8 +245,41 @@ describe('RegistrationManagementView', () => {
     mockDeps.createRegistration.mockReset().mockResolvedValue('reg-1');
     mockDeps.approveRegistration.mockReset().mockResolvedValue(undefined);
     mockDeps.rejectRegistration.mockReset().mockResolvedValue(undefined);
+    mockDeps.addPlayer.mockReset().mockResolvedValue('player-3');
     mockDeps.showToast.mockReset();
     mockDeps.routerReplace.mockReset().mockResolvedValue(undefined);
+    candidatePickerState.candidates.value = [];
+    candidatePickerState.selectedCandidate.value = null;
+    candidatePickerState.isLoading.value = false;
+    candidatePickerState.error.value = null;
+    candidatePickerState.search.mockReset();
+    candidatePickerState.selectExisting.mockReset();
+    candidatePickerState.selectCreateNew.mockReset();
+    candidatePickerState.reset.mockReset();
+  });
+
+  it('passes the selected candidate id into addPlayer when linking an existing player', async () => {
+    candidatePickerState.selectedCandidate.value = 'existing-player-9';
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as RegistrationManagementVm;
+
+    vm.newPlayer.firstName = 'Alice';
+    vm.newPlayer.lastName = 'Anderson';
+    vm.newPlayer.email = 'alice@example.com';
+    vm.newPlayer.phone = '555-1001';
+    vm.newPlayer.skillLevel = 7;
+
+    await vm.addPlayer();
+
+    expect(mockDeps.addPlayer).toHaveBeenCalledWith(
+      't1',
+      expect.objectContaining({
+        firstName: 'Alice',
+        lastName: 'Anderson',
+        email: 'alice@example.com',
+      }),
+      'existing-player-9',
+    );
   });
 
   it('requires partner selection for doubles registration', async () => {

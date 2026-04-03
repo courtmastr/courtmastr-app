@@ -16,6 +16,7 @@ import {
 } from './volunteerAccess';
 import { FirestoreStorage } from './storage/firestore-adapter';
 import { aggregatePlayerStats as aggregatePlayerStatsFn } from './playerStats';
+import { executeMerge as executeMergeFn } from './playerMerge';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -32,6 +33,7 @@ export const revealVolunteerPin = revealVolunteerPinFn;
 export const issueVolunteerSession = issueVolunteerSessionFn;
 export const applyVolunteerCheckInAction = applyVolunteerCheckInActionFn;
 export const aggregatePlayerStats = aggregatePlayerStatsFn;
+export const executeMerge = executeMergeFn;
 
 /**
  * Generate bracket for a tournament category
