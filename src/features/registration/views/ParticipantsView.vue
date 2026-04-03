@@ -83,6 +83,16 @@ const activePlayerIds = computed(() => {
   return ids;
 });
 
+const checkedInPlayerIds = computed(() => {
+  const ids = new Set<string>();
+  activeRegistrations.value.forEach((registration) => {
+    if (registration.status !== 'checked_in') return;
+    if (registration.playerId) ids.add(registration.playerId);
+    if (registration.partnerPlayerId) ids.add(registration.partnerPlayerId);
+  });
+  return ids;
+});
+
 const categoryFilterOptions = computed(() => [
   { title: 'All Categories', value: null },
   ...categories.value.map((category) => ({ title: category.name, value: category.id })),
@@ -153,8 +163,8 @@ const filteredParticipants = computed(() => {
 // Stats
 const participantStats = computed(() => {
   return {
-    total: activeRegistrations.value.length,
-    checkedIn: activeRegistrations.value.filter(r => r.status === 'checked_in').length,
+    total: activePlayerIds.value.size,
+    checkedIn: checkedInPlayerIds.value.size,
     singles: activeRegistrations.value.filter(r => !r.partnerPlayerId).length,
     doubles: activeRegistrations.value.filter(r => r.partnerPlayerId).length,
   };

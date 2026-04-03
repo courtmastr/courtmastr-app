@@ -80,14 +80,45 @@ export async function seedGlobalPlayer(
     const indexRef = doc(db, 'playerEmailIndex', emailNormalized);
     const indexSnap = await getDoc(indexRef);
     let globalPlayerId: string;
+    const now = serverTimestamp();
 
     if (indexSnap.exists()) {
         globalPlayerId = indexSnap.data().playerId as string;
+
+        const existingPlayerRef = doc(db, 'players', globalPlayerId);
+        const existingPlayerSnap = await getDoc(existingPlayerRef);
+        const existingPlayer = existingPlayerSnap.exists()
+            ? (existingPlayerSnap.data() as Record<string, unknown>)
+            : null;
+
+        await setDoc(
+            existingPlayerRef,
+            {
+                id: globalPlayerId,
+                identityStatus:
+                    typeof existingPlayer?.identityStatus === 'string'
+                        ? existingPlayer.identityStatus
+                        : 'active',
+                mergedIntoPlayerId:
+                    typeof existingPlayer?.mergedIntoPlayerId === 'string'
+                        ? existingPlayer.mergedIntoPlayerId
+                        : null,
+                isActive:
+                    typeof existingPlayer?.isActive === 'boolean'
+                        ? existingPlayer.isActive
+                        : true,
+                isVerified:
+                    typeof existingPlayer?.isVerified === 'boolean'
+                        ? existingPlayer.isVerified
+                        : false,
+                updatedAt: now,
+            },
+            { merge: true },
+        );
     } else {
         // Create global player document
         const playerRef = doc(collection(db, 'players'));
         globalPlayerId = playerRef.id;
-        const now = serverTimestamp();
 
         await setDoc(playerRef, {
             id: globalPlayerId,
@@ -100,6 +131,8 @@ export async function seedGlobalPlayer(
             userId: null,
             isActive: true,
             isVerified: false,
+            identityStatus: 'active',
+            mergedIntoPlayerId: null,
             createdAt: now,
             updatedAt: now,
             stats: {

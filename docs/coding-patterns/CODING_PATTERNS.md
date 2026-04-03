@@ -118,6 +118,35 @@ if rg -q "statusLabel" src/features/tournaments/components/CourtCard.vue && rg -
 fi
 ```
 
+### CP-074: Fire-and-Forget Router Helpers Must Return `void`, Not `Promise<void>`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | Player merge UI wiring broke app build because `router.push()` was narrowed to `Promise<void>` |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const openMerge = (playerId: string): Promise<void> =>
+  router.push({ name: 'player-merge', params: { playerId } });
+```
+
+**Correct Pattern (✅):**
+```typescript
+const openMerge = (playerId: string): void => {
+  void router.push({ name: 'player-merge', params: { playerId } });
+};
+```
+
+**Rule:** If a helper is only used from a click handler and does not need the navigation result, make it `void` and explicitly discard `router.push()` with `void`. Only expose/annotate the navigation promise when the caller actually awaits or inspects navigation failures.
+
+**Detection:**
+```bash
+rg -n "Promise<void>\\s*=>\\s*router\\.push|Promise<void>\\s*=\\s*\\([^)]*\\)\\s*=>\\s*router\\.push" src --glob "*.vue" --glob "*.ts"
+```
+
 ### CP-071: Queue, Alerts, and Auto-Assign Must Share the Same Assignment Gate
 
 | Field | Value |
@@ -4758,6 +4787,87 @@ expect(normalizeRepoArtifactPath(`${repoPath}/docs/debug-kb/_artifacts/deploy.lo
 **Detection:**
 ```bash
 rg -n "/Users/|process\\.chdir\\(" tests/unit/release-utils.test.ts
+```
+
+---
+
+### CP-097: Seed Helpers Must Hoist Shared Timestamps Above Conditional Branches
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | TNF 2026 local seed crashed when `seedGlobalPlayer()` hit an existing `playerEmailIndex` entry and referenced `now` before it was defined |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+if (indexSnap.exists()) {
+  await setDoc(existingPlayerRef, {
+    updatedAt: now,
+  }, { merge: true });
+} else {
+  const now = serverTimestamp();
+  await setDoc(playerRef, { createdAt: now, updatedAt: now });
+}
+```
+
+**Correct Pattern (✅):**
+```ts
+const now = serverTimestamp();
+
+if (indexSnap.exists()) {
+  await setDoc(existingPlayerRef, {
+    updatedAt: now,
+  }, { merge: true });
+} else {
+  await setDoc(playerRef, { createdAt: now, updatedAt: now });
+}
+```
+
+**Rule:** When both seed branches reuse the same timestamp token, define it before the branch. Do not declare `const now = serverTimestamp()` only inside the create path and then reference it from the reuse path.
+
+**Detection:**
+```bash
+rg -n "updatedAt: now|createdAt: now" scripts/seed
+```
+
+---
+
+### CP-098: Org-Scoped Tournament Seeds Must Include Real Organizer UIDs In `organizerIds`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-02 |
+| **Source Bug** | TNF organizer could open the tournament but hit `PERMISSION_DENIED` when updating categories because the local seed only stored the admin UID in `organizerIds` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+const tournamentRef = await addDoc(collection(db, 'tournaments'), {
+  orgId,
+  createdBy: adminId,
+  organizerIds: [adminId],
+});
+```
+
+**Correct Pattern (✅):**
+```ts
+const organizerIds = [...new Set([adminId, tnfOrganizerId])];
+
+const tournamentRef = await addDoc(collection(db, 'tournaments'), {
+  orgId,
+  createdBy: adminId,
+  organizerIds,
+});
+```
+
+**Rule:** If a seed creates an org-scoped tournament for a non-admin organizer login, that organizer must be present in `tournament.organizerIds`. Org membership alone is not enough for category/court/registration writes under the current Firestore rules.
+
+**Detection:**
+```bash
+rg -n "organizerIds: \\[adminId\\]|organizerIds,?$" scripts/seed
 ```
 
 ---

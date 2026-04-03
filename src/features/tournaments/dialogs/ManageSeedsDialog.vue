@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useNotificationStore } from '@/stores/notifications';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
@@ -20,6 +20,7 @@ const { getParticipantName } = useParticipantResolver();
 
 const savingSeed = ref(false);
 const seedingRegistrations = ref<Array<{ id: string; name: string; seed: number | null }>>([]);
+const pendingSeeds = reactive<Record<string, string | null>>({});
 
 const isOpen = computed({
   get: () => props.modelValue,
@@ -132,6 +133,23 @@ async function handleSeedInput(registrationId: string, newSeedVal: string | null
   }
 }
 
+async function commitSeed(registrationId: string): Promise<void> {
+  if (registrationId in pendingSeeds) {
+    const val = pendingSeeds[registrationId];
+    delete pendingSeeds[registrationId];
+    await handleSeedInput(registrationId, val ?? null);
+  }
+}
+
+function cancelSeed(registrationId: string): void {
+  delete pendingSeeds[registrationId];
+}
+
+async function handleDone(): Promise<void> {
+  await Promise.all(Object.keys(pendingSeeds).map(id => commitSeed(id)));
+  isOpen.value = false;
+}
+
 async function autoAssignSeeds(): Promise<void> {
   savingSeed.value = true;
   try {
@@ -156,6 +174,26 @@ async function autoAssignSeeds(): Promise<void> {
     }
     
     notificationStore.showToast('success', 'Auto-assigned top 4 seeds');
+  } catch (error) {
+    notificationStore.showToast('error', 'Failed to auto-assign seeds');
+  } finally {
+    savingSeed.value = false;
+  }
+}
+
+async function autoAssignAllSeeds(): Promise<void> {
+  savingSeed.value = true;
+  try {
+    const updates: { registrationId: string; seed: number | null }[] = [];
+    for (let i = 0; i < seedingRegistrations.value.length; i++) {
+      const registration = seedingRegistrations.value[i];
+      updates.push({ registrationId: registration.id, seed: i + 1 });
+      registration.seed = i + 1;
+    }
+    if (updates.length > 0) {
+      await registrationStore.batchUpdateSeeds(props.tournamentId, updates);
+    }
+    notificationStore.showToast('success', `Auto-assigned all ${updates.length} seeds`);
   } catch (error) {
     notificationStore.showToast('error', 'Failed to auto-assign seeds');
   } finally {
@@ -248,6 +286,17 @@ async function clearAllSeeds(): Promise<void> {
             </v-btn>
             <v-btn
               size="small"
+              variant="tonal"
+              color="primary"
+              prepend-icon="mdi-auto-fix"
+              :loading="savingSeed"
+              class="mr-2"
+              @click="autoAssignAllSeeds"
+            >
+              Auto-assign All
+            </v-btn>
+            <v-btn
+              size="small"
               variant="text"
               color="error"
               prepend-icon="mdi-eraser"
@@ -313,7 +362,7 @@ async function clearAllSeeds(): Promise<void> {
 
                 <template #append>
                   <v-text-field
-                    :model-value="reg.seed?.toString() || ''"
+                    :model-value="reg.id in pendingSeeds ? (pendingSeeds[reg.id] ?? '') : (reg.seed?.toString() || '')"
                     type="number"
                     variant="outlined"
                     density="compact"
@@ -325,7 +374,10 @@ async function clearAllSeeds(): Promise<void> {
                     :data-testid="`seed-input-${reg.id}`"
                     :min="1"
                     :max="seedingRegistrations.length"
-                    @update:model-value="(val: string | null) => handleSeedInput(reg.id, val)"
+                    @update:model-value="(val: string | null) => { pendingSeeds[reg.id] = val }"
+                    @blur="commitSeed(reg.id)"
+                    @keydown.enter="commitSeed(reg.id)"
+                    @keydown.esc="cancelSeed(reg.id)"
                   >
                     <template #prepend-inner>
                       <v-icon
@@ -361,7 +413,7 @@ async function clearAllSeeds(): Promise<void> {
           color="primary"
           size="large"
           data-testid="close-seeding-dialog-btn"
-          @click="isOpen = false"
+          @click="handleDone"
         >
           Done
         </v-btn>

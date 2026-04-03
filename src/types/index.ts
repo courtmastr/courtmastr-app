@@ -645,6 +645,9 @@ export interface PlayerSportStats {
 
 export type PlayerIdentityStatus = 'active' | 'merged' | 'pending_merge';
 
+export type MergeRequestStatus = 'pending' | 'approved' | 'rejected' | 'completed';
+export type MergeRequestRole = 'player' | 'organizer' | 'admin';
+
 export interface GlobalPlayer {
   id: string;
   firstName: string;
@@ -664,6 +667,23 @@ export interface GlobalPlayer {
     [sport: string]: PlayerSportStats | PlayerStats;
     overall: PlayerStats;
   };
+}
+
+export interface MergeRequest {
+  id: string;
+  sourcePlayerId: string;
+  targetPlayerId: string;
+  requestedBy: string;
+  requestedByRole: MergeRequestRole;
+  status: MergeRequestStatus;
+  reason?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: Date | null;
+  completedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  conflictingUserIds?: boolean;
+  conflictOverrideConfirmed?: boolean;
 }
 
 // ============================================

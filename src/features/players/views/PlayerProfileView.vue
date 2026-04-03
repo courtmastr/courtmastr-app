@@ -119,34 +119,57 @@ onMounted(load);
   <template v-else>
     <!-- Dark header -->
     <div style="background:#0F172A;padding:24px 24px 0;">
-      <div class="d-flex align-center ga-4 mb-4">
-        <div
-          style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#1D4ED8,#D97706);
-                 display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:white;flex-shrink:0;"
-        >
-          {{ initials }}
-        </div>
-        <div>
-          <div class="d-flex align-center ga-2">
-            <span style="font-size:20px;font-weight:800;color:white;">{{ player.firstName }} {{ player.lastName }}</span>
-            <v-icon
-              v-if="player.isVerified"
-              color="success"
-              size="18"
-            >
-              mdi-check-circle
-            </v-icon>
+      <div class="d-flex align-center justify-space-between ga-4 mb-4">
+        <div class="d-flex align-center ga-4">
+          <div
+            style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#1D4ED8,#D97706);
+                   display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:white;flex-shrink:0;"
+          >
+            {{ initials }}
           </div>
-          <div class="d-flex align-center ga-2 mt-1">
-            <v-chip
-              v-if="player.skillLevel"
-              size="x-small"
-              color="primary"
-              label
+          <div>
+            <div class="d-flex align-center ga-2">
+              <span style="font-size:20px;font-weight:800;color:white;">{{ player.firstName }} {{ player.lastName }}</span>
+              <v-icon
+                v-if="player.isVerified"
+                color="success"
+                size="18"
+              >
+                mdi-check-circle
+              </v-icon>
+            </div>
+            <div class="d-flex align-center ga-2 mt-1">
+              <v-chip
+                v-if="player.skillLevel"
+                size="x-small"
+                color="primary"
+                label
+              >
+                Level {{ player.skillLevel }}
+              </v-chip>
+              <span style="font-size:12px;color:#64748b;">Member since {{ player.createdAt?.toLocaleDateString?.() ?? '—' }}</span>
+            </div>
+            <div
+              style="font-size:12px;color:#94A3B8;"
+              class="mt-1"
             >
-              Level {{ player.skillLevel }}
-            </v-chip>
-            <span style="font-size:12px;color:#64748b;">Member since {{ player.createdAt?.toLocaleDateString?.() ?? '—' }}</span>
+              Player ID: {{ player.id }}
+            </div>
+            <div
+              v-if="player.identityStatus === 'merged' && player.mergedIntoPlayerId"
+              class="d-flex align-center ga-2 mt-2"
+            >
+              <v-chip
+                size="x-small"
+                color="warning"
+                variant="tonal"
+              >
+                Merged
+              </v-chip>
+              <span style="font-size:12px;color:#fbbf24;">
+                Merged into {{ player.mergedIntoPlayerId }}
+              </span>
+            </div>
           </div>
         </div>
       </div>

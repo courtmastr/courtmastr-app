@@ -39,6 +39,7 @@ const OrgDashboard = () => import('@/features/dashboard/views/OrgDashboardView.v
 // Player views
 const PlayersListView = () => import('@/features/players/views/PlayersListView.vue');
 const PlayerProfileView = () => import('@/features/players/views/PlayerProfileView.vue');
+const PlayerMergeView = () => import('@/features/players/views/PlayerMergeView.vue');
 
 // Scoring views
 const ScoringInterface = () => import('@/features/scoring/views/ScoringInterfaceView.vue');
@@ -474,6 +475,22 @@ const routes: RouteRecordRaw[] = [
     name: 'player-profile',
     component: PlayerProfileView,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/players/merge',
+    name: 'player-merge',
+    component: PlayerMergeView,
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/players/:playerId/merge',
+    redirect: to => ({
+      path: '/players/merge',
+      query: {
+        source: String(to.params.playerId ?? ''),
+      },
+    }),
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
 
   {

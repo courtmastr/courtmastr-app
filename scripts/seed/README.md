@@ -14,8 +14,13 @@ scripts/seed/
   tnf2025-data.ts            TNF 2025 raw registration data
   tnf2025-local.ts           TNF 2025 for local emulators
   tnf2025-prod.ts            TNF 2025 for production
+  tnf2026-core.ts            TNF 2026 workbook-driven tournament logic (shared)
+  tnf2026-local.ts           TNF 2026 for local emulators
+  tnf2026-prod.ts            TNF 2026 for production
   spring2025-local.ts        Spring Classic 2025 for local emulators
   spring2025-prod.ts         Spring Classic 2025 for production
+  player-identity-core.ts    Player identity v2 merge-test logic (shared local data model)
+  player-identity-local.ts   Player identity v2 merge-test seed for local emulators
   mcia2026-core.ts           MCIA 2026 tournament logic (shared)
   mcia2026-local.ts          MCIA 2026 for local emulators
   migrate-organizer-ids.ts   One-time migration: backfill organizerIds field
@@ -66,6 +71,19 @@ A second tournament for testing multi-tournament scenarios.
 | Men's Doubles | Doubles | Draft (ready for registration) |
 | Women's Doubles | Doubles | Draft (ready for registration) |
 | Mixed Doubles | Mixed Doubles | Draft (ready for registration) |
+
+### 4. Player Identity Merge Lab
+
+Targeted local-only dataset for player identity v2 manual testing.
+
+What it creates:
+- One tournament: `Player Identity Merge Lab`
+- A primary-registration merge success case
+- A partner-registration merge success case
+- A same-team merge rejection case
+- An inactive-target rejection case
+
+The script prints the exact source/target player IDs and merge-route URLs after seeding.
 
 ---
 
@@ -129,6 +147,32 @@ npm run emulators
 npm run seed:mcia2026:local
 ```
 
+### TNF 2026 Seed (Local - emulators)
+
+```bash
+# Start emulators first
+npm run emulators
+
+# In another terminal
+npm run seed:tnf2026:local
+```
+
+### TNF 2026 Seed (Production)
+
+```bash
+npm run seed:tnf2026:prod
+```
+
+### Player Identity Merge Lab (Local - emulators)
+
+```bash
+# Start emulators first
+npm run emulators
+
+# In another terminal
+npm run seed:player-identity:local
+```
+
 ### MCIA 2026 Pool Results Updater (Local - emulators)
 
 ```bash
@@ -150,6 +194,10 @@ npm run results:mcia2026:local -- --tournament <tournamentId> --category <catego
 ### For TNF 2025 Seeds
 
 There are no external file dependencies. The data is statically tracked in `tnf2025-data.ts`.
+
+### For TNF 2026 Seeds
+
+The workbook `TNF USA - Central Illinois Chapter Badminton Tournament 2026.xlsx` must exist in the project root.
 
 ### For All Seeds
 
@@ -175,8 +223,14 @@ Production seeds have no prerequisites — admin user is created automatically o
 ### Default Seed
 Edit `core.ts` — `CATEGORY_CONFIGS` for categories, the `buildRoster` calls in `createPlayersAndRegistrations` for player counts.
 
+### Player Identity Merge Lab
+Edit `player-identity-core.ts` — named merge cases, tournament scaffold, and guard scenarios.
+
 ### TNF 2025 Seed
 Edit `tnf2025-core.ts` — the category configs and player creation logic.
+
+### TNF 2026 Seed
+Edit `tnf2026-core.ts` — the workbook parsing, category configs, and player import logic.
 
 ### Spring Classic 2025 Seed
 Edit `spring2025-local.ts` or `spring2025-prod.ts` directly (keep both in sync — they don't share a core file as they're simpler tournament scaffolds).

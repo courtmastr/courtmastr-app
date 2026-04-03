@@ -8,13 +8,12 @@
 import {
   addDoc,
   collection,
-  doc,
   serverTimestamp,
-  setDoc,
   Timestamp,
   type Firestore,
 } from "firebase/firestore";
 import { tnf2025Data } from './tnf2025-data';
+import { seedGlobalPlayer } from './helpers';
 
 // Data Mapping from Excel columns
 const COL = {
@@ -227,6 +226,7 @@ export async function runTNF2025Seed(config: TNF2025SeedConfig): Promise<string>
 
   // We cache players by email or by name to avoid duplicates
   const playerIdCache = new Map<string, string>();
+  const emailIdCache = new Map<string, string>();
 
   const getOrCreatePlayer = async (
     name: string,
@@ -255,21 +255,21 @@ export async function runTNF2025Seed(config: TNF2025SeedConfig): Promise<string>
       else if (levelStr.toLowerCase().includes("advanced")) level = 8;
     }
 
-    const pRef = await addDoc(
-      collection(db, "tournaments", tournamentId, "players"),
+    const globalPlayerId = await seedGlobalPlayer(
+      db,
+      tournamentId,
       {
         firstName: first,
         lastName: last,
-        email: email,
+        email,
         phone: phone ? String(phone) : "555-0000",
-        gender: "male", // default, update if needed
+        gender: "male",
         skillLevel: level,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       },
+      emailIdCache,
     );
-    playerIdCache.set(cacheKey, pRef.id);
-    return pRef.id;
+    playerIdCache.set(cacheKey, globalPlayerId);
+    return globalPlayerId;
   };
 
   let totalRegistrations = 0;
