@@ -5,10 +5,10 @@
 Primary production release path:
 
 1. push code
-2. merge to `master`
+2. open and merge a PR to `master`
 3. let GitHub Actions run the release pipeline in `.github/workflows/ci-cd.yml`
 
-The CI release job now owns the production release path. Local `npm run release:deploy` remains a fallback for operators, not the default path.
+The CI release job now owns the production release path. Production infrastructure is Terraform-managed, and production application rollout is CI-owned. Do not perform manual production deploys from a local shell.
 
 ### CI Release Pipeline
 
@@ -67,7 +67,7 @@ The intended order is:
 The split is deliberate:
 
 - Terraform manages infrastructure state
-- `npm run release:deploy` and GitHub Actions still manage application rollout
+- GitHub Actions on `master` manages application rollout
 
 ### Bootstrap
 
@@ -83,13 +83,9 @@ After Terraform apply, set:
 The existing Firebase web config secrets remain required for the build step.
 Secret Manager secret values also still need to be populated after Terraform creates their containers.
 
-### Local release operators
+### Local Operator Rule
 
-If the Terraform variable `local_deployer_principals` is populated, approved operators can run local production releases by impersonating the deploy service account with short-lived credentials instead of relying on direct project-wide human IAM. The exact commands are documented in:
-
-- [infra/terraform/deploy/README.md](/Users/ramc/Documents/Code/courtmaster-v2/infra/terraform/deploy/README.md)
-
-The production deploy npm scripts now call `firebase deploy --project production`, so local release runs no longer depend on the caller's previously selected Firebase project.
+Terraform may provision deploy identities and GitHub variables, but those identities exist for CI automation and infrastructure workflows. They are not a standing invitation to run local production deploys. Production rollout should occur only through the `master` GitHub Actions workflow unless the deployment strategy is explicitly changed and documented first.
 
 ### One-Time Environment Setup
 
@@ -121,13 +117,8 @@ Run Terraform again only when infrastructure changes, for example:
 For normal code releases, do not rerun Terraform. Use CI by default:
 
 1. push your app change
-2. merge to `master`
+2. merge a PR to `master`
 3. watch the `CI-CD` workflow complete
-
-Use local release commands only as a fallback operator path:
-
-1. `npm run release:plan`
-2. `npm run release:deploy`
 
 The CI path is the primary release path for Hosting assets, Functions code, rules/index pushes, versioning, release notes, and deploy records.
 

@@ -38,11 +38,11 @@ npm run seed:simple      # Seed emulator with test data
 # Build & Deploy
 npm run hooks:enable      # One-time: enable repo git hooks (includes post-checkout env check)
 npm run check:firebase-env # Validate required Firebase web env before production build/deploy
-npm run release:plan      # Dry-run next semantic release, notes, and guardrails
-npm run release:deploy    # Auto-bump version, generate notes, run guardrails, and deploy
+npm run release:plan      # Dry-run next semantic release metadata only; useful for CI/release debugging
+npm run release:deploy    # CI-owned release command; do not run manually for production rollout
 npm run build            # Type-check + build for production
 npm run preview          # Preview production build locally
-npm run deploy           # Build + deploy to Firebase
+npm run deploy           # Underlying deploy command used by CI; not a manual production path
 
 # Testing
 npm run test             # Run tests in watch mode
@@ -144,10 +144,13 @@ Run build verification whenever a change can affect build output.
 - Run build verification for any build-affecting change (see §2.2): `npm run build` then `npm run build:log`.
 - Run relevant `:log` commands after changes.
 - Run `npm run check:firebase-env` before production deploys (especially in new checkouts/worktrees).
-- Use `npm run release:plan` before local production releases to preview the computed version and release note.
-- Use `npm run release:deploy` as the default local production deploy path so versioning, release notes, tests, and deploy guardrails stay aligned.
+- Merge production-bound changes through a PR into `master`; do not treat direct local deploy as the default path.
+- Treat `master` CI/CD as the primary production release path after merge.
+- Treat Terraform IaC as the source of truth for production infrastructure; do not bypass it with ad hoc manual infra changes.
+- Use `npm run release:plan` only to inspect the upcoming release or debug CI release behavior.
+- Do not run `npm run release:deploy` or `npm run deploy` manually for production rollout unless the deployment strategy is explicitly changed and documented first.
 - Enable repo hooks once per clone/worktree set: `npm run hooks:enable`.
-- Update `docs/deployment/LAST_DEPLOY.md` after any production deploy.
+- Update `docs/deployment/LAST_DEPLOY.md` only through the CI-owned release flow or by documented post-incident follow-up on already completed deploys.
 - Follow Debug KB Protocol on failures.
 
 **MUST NOT:**

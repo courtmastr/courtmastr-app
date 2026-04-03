@@ -31,20 +31,24 @@ This repository uses a short-lived branch model with `master` as the production 
    - `npm run build`
    - `npm run build:log`
    - target tests + `npm run test:log -- --run <files>`
-5. Open PR or merge with review evidence attached.
-6. Deploy from merged `master`.
+5. Open a PR with review evidence attached.
+6. Prefer merging via PR into `master` using the repository's merge policy.
+7. Let the `master` CI/CD workflow handle production deployment automatically.
+8. Do not run manual production deploy commands from feature branches or from local `master`.
 
 ## Merge Policy
 
 1. Keep PR scope narrow (single feature/fix theme).
 2. Avoid stacking unrelated work in one branch.
-3. Prefer merge commits for grouped milestones and traceability.
-4. If urgent production issue exists, use `hotfix/<scope>` flow only.
+3. Prefer PR merges into `master` for grouped milestones, review traceability, and release automation.
+4. Production rollout happens after the PR merge via the `master` workflow, not from a local shell.
+5. If urgent production issue exists, use `hotfix/<scope>` flow only.
 
 ## Hotfix Flow
 
 1. Branch `hotfix/<scope>` from current `master`.
 2. Implement minimal patch.
 3. Run full release gates.
-4. Merge to `master` and deploy immediately.
-5. Back-merge hotfix branch into active feature branches when needed.
+4. Merge to `master` via PR when feasible; if time-critical, use the approved emergency path.
+5. Allow the `master` auto-deploy workflow to release the merged hotfix.
+6. Back-merge hotfix branch into active feature branches when needed.

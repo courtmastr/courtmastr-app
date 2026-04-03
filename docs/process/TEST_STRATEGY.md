@@ -37,9 +37,10 @@ For release/deploy:
 
 1. Confirm `master` contains merged changes.
 2. Enable checkout guard once (per local repo): `npm run hooks:enable`.
-3. Run `npm run release:plan` to preview the computed release size, next semantic version, and draft release-note path.
-4. Run `npm run release:deploy` from a clean `master` context.
-5. `release:deploy` is responsible for:
+3. Prefer PR merge into `master`; the CI/CD workflow on `master` is the default production release path.
+4. If needed, run `npm run release:plan` locally only to inspect release metadata or debug CI behavior.
+5. Do not run `npm run release:deploy` or `npm run deploy` manually for production rollout; those commands are CI implementation details behind the `master` workflow.
+6. The CI-owned `release:deploy` step is responsible for:
    - auto-bumping the semantic version
    - generating `docs/releases/v<version>.md`
    - running `npm run verify:release`
