@@ -1,5 +1,7 @@
 # Last Deploy Record
 
+Current policy note: production infrastructure is Terraform-managed and production application rollout is expected to happen through the `master` CI/CD workflow. Older entries below may reference the previous local release command path because they are historical records.
+
 Updated: 2026-04-02 (America/Chicago)
 
 ## Latest Production Deploy

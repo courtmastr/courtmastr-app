@@ -30,11 +30,11 @@ This directory is the repo-native source of truth for automated test coverage re
 
 - `npm run release:plan`
   - preview the next semantic version and release-note path without changing files
+  - use for release inspection/debugging only; CI owns production rollout
 
 - `npm run release:deploy`
-  - auto-bump the version
-  - generate the release note
-  - run release verification, build gates, and deploy commands
+  - CI-owned command used by the `master` workflow
+  - do not use as a manual production deploy path
 
 ## Adding a New Test Case
 
@@ -66,4 +66,4 @@ If you want to know whether all E2E passed before deploy:
 2. check `docs/testing/test-run-summary.json`
 3. open `docs/testing/TEST_CATALOG.html`
 4. open `docs/releases/v<version>.md` for the human release summary
-5. for the full local release path, use `npm run release:plan` then `npm run release:deploy`
+5. confirm the PR merged to `master` and inspect the `CI-CD` workflow run for the actual deploy result
