@@ -1,26 +1,31 @@
 /**
- * Production seed — targets the real Firebase project.
- *
- * Test data is defined in core.ts (shared with local.ts).
- * Only Firebase connection and auth setup live here.
+ * Production seed — TNF 2026 only.
  *
  * Run: npm run seed:prod
  *
- * Users (admin + scorekeeper) are created automatically on first run
- * if they don't already exist.
+ * This now mirrors the TNF-specific production seed path:
+ * - creates or reuses admin and TNF organizer users
+ * - creates or reuses the TNF organization
+ * - seeds the TNF workbook-backed tournament into production
  */
 
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 import {
+  doc,
   getFirestore,
+  serverTimestamp,
+  setDoc,
 } from 'firebase/firestore';
-import { createOrSignIn } from './helpers';
-import { runSeed } from './core';
+import { createOrSignIn, createSeedOrg } from './helpers';
+import {
+  runTNF2026Seed,
+  TNF_2026_ORG_NAME,
+  TNF_2026_ORG_SLUG,
+} from './tnf2026-core';
 
 const app = initializeApp({
   apiKey: 'AIzaSyAiCLrYmiFZyM_fNVxVvf34AaVHn_bPWOY',
@@ -36,10 +41,10 @@ const db = getFirestore(app);
 
 
 async function main(): Promise<void> {
-  console.log('\n' + '='.repeat(64));
-  console.log('  Seed: Production Firebase');
+  console.log(`\n${'='.repeat(64)}`);
+  console.log('  Seed: TNF 2026 Tournament (Production)');
   console.log('='.repeat(64));
-  console.log('\n  WARNING: writing to the REAL database.');
+  console.log('\n  WARNING: Writing to the REAL production database.');
   console.log('  Press Ctrl+C within 5 seconds to abort...\n');
   await new Promise((resolve) => setTimeout(resolve, 5000));
 
@@ -51,18 +56,58 @@ async function main(): Promise<void> {
       displayName: 'Tournament Admin',
       role: 'admin',
     });
-    await createOrSignIn(auth, db, {
-      email: 'scorekeeper@courtmastr.com',
-      password: 'score123',
-      displayName: 'Court Scorekeeper',
-      role: 'scorekeeper',
+    const tnfOrganizerId = await createOrSignIn(auth, db, {
+      email: 'tnf-organizer@courtmastr.com',
+      password: 'tnf123',
+      displayName: 'TNF Organizer',
+      role: 'organizer',
     });
 
-    // Re-authenticate as admin — createOrSignIn leaves auth as the last signed-in
-    // user (scorekeeper), but runSeed must write as admin to satisfy Firestore rules.
     await signInWithEmailAndPassword(auth, 'admin@courtmastr.com', 'admin123');
 
-    await runSeed(db, adminId);
+    console.log('\n[2] Setting up TNF org...');
+    const tnfOrgId = await createSeedOrg(db, adminId, {
+      name: TNF_2026_ORG_NAME,
+      slug: TNF_2026_ORG_SLUG,
+    });
+    await setDoc(
+      doc(db, 'organizations', tnfOrgId, 'members', tnfOrganizerId),
+      {
+        uid: tnfOrganizerId,
+        role: 'organizer',
+        joinedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    await setDoc(
+      doc(db, 'users', tnfOrganizerId),
+      {
+        activeOrgId: tnfOrgId,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    console.log(`  TNF org: ${tnfOrgId}  (/${TNF_2026_ORG_SLUG})`);
+
+    console.log('\n[3] Seeding TNF 2026 tournament...');
+    const tournamentId = await runTNF2026Seed({
+      db,
+      adminId,
+      orgId: tnfOrgId,
+      organizerIds: [tnfOrganizerId],
+      startDateOffset: 11,
+    });
+
+    console.log(`\n${'='.repeat(64)}`);
+    console.log('  TNF 2026 seed completed successfully!');
+    console.log('='.repeat(64));
+    console.log(`\n  TNF Org ID:    ${tnfOrgId}  (/${TNF_2026_ORG_SLUG})`);
+    console.log(`  Tournament ID: ${tournamentId}`);
+    console.log("  Categories: Men's Singles, Men's Doubles, Women's Doubles, Mixed Doubles, Youth Doubles, Kids Doubles");
+    console.log('  Login: tnf-organizer@courtmastr.com / tnf123  → TNF only');
+    console.log('  Login: admin@courtmastr.com / admin123        → all tournaments');
+    console.log('');
+
     process.exit(0);
   } catch (error) {
     console.error('\nSeed failed:', error);

@@ -593,7 +593,6 @@ const healthTooltip = computed(() => {
 onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
   tournamentStore.subscribeTournament(tournamentId.value);
-  matchStore.subscribeAllMatches(tournamentId.value);
   registrationStore.subscribeRegistrations(tournamentId.value);
   registrationStore.subscribePlayers(tournamentId.value);
   activityStore.subscribeActivities(tournamentId.value);
@@ -603,9 +602,29 @@ onMounted(async () => {
 
 onUnmounted(() => {
   tournamentStore.unsubscribeAll();
+  if (selectedCategory.value !== 'all') matchStore.unsubscribeCategoryMatches(selectedCategory.value);
   matchStore.unsubscribeAll();
   activityStore.unsubscribe();
 });
+
+watch(
+  selectedCategory,
+  (newVal, oldVal) => {
+    if (!tournamentId.value) return;
+    if (oldVal && oldVal !== 'all') {
+      matchStore.unsubscribeCategoryMatches(oldVal);
+    } else if (oldVal === 'all') {
+      matchStore.unsubscribeAll();
+    }
+
+    if (newVal === 'all') {
+      matchStore.subscribeAllMatches(tournamentId.value);
+    } else if (newVal) {
+      matchStore.subscribeCategoryMatches(tournamentId.value, newVal);
+    }
+  },
+  { immediate: true }
+);
 
 watch(
   matches,

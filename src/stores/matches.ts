@@ -165,6 +165,7 @@ export const useMatchStore = defineStore('matches', () => {
 
   let matchesUnsubscribe: (() => void) | null = null;
   let currentMatchUnsubscribe: (() => void) | null = null;
+  let scopedCategorySubscriptions: Map<string, { match: () => void; scores: () => void }> = new Map();
 
   // --- Path helpers ---
 
@@ -1573,6 +1574,47 @@ export const useMatchStore = defineStore('matches', () => {
 
   // --- Lifecycle & cleanup ---
 
+  function subscribeCategoryMatches(tournamentId: string, categoryId: string): void {
+    if (scopedCategorySubscriptions.has(categoryId)) return;
+
+    void fetchMatches(tournamentId, categoryId);
+
+    const unsubMatch = onSnapshot(
+      collection(db, getMatchPath(tournamentId, categoryId)),
+      (snapshot) => {
+        if (snapshot.docChanges().length > 0) {
+          void fetchMatches(tournamentId, categoryId);
+        }
+      }
+    );
+
+    const unsubScores = onSnapshot(
+      collection(db, getMatchScoresPath(tournamentId, categoryId)),
+      (snapshot) => {
+        const changes = snapshot.docChanges().map((change) => ({
+          type: change.type,
+          id: change.doc.id,
+          data: change.type === 'removed' ? undefined : change.doc.data() as Record<string, unknown>,
+        }));
+        const { requiresRefresh } = applyScoreChangesToLocalState(changes, categoryId);
+        if (requiresRefresh) {
+          void fetchMatches(tournamentId, categoryId);
+        }
+      }
+    );
+
+    scopedCategorySubscriptions.set(categoryId, { match: unsubMatch, scores: unsubScores });
+  }
+
+  function unsubscribeCategoryMatches(categoryId: string): void {
+    const subs = scopedCategorySubscriptions.get(categoryId);
+    if (!subs) return;
+    subs.match();
+    subs.scores();
+    scopedCategorySubscriptions.delete(categoryId);
+    matches.value = matches.value.filter((m) => m.categoryId !== categoryId);
+  }
+
   function unsubscribeAll(): void {
     if (matchesUnsubscribe) {
       matchesUnsubscribe();
@@ -1582,6 +1624,8 @@ export const useMatchStore = defineStore('matches', () => {
       currentMatchUnsubscribe();
       currentMatchUnsubscribe = null;
     }
+    scopedCategorySubscriptions.forEach((subs) => { subs.match(); subs.scores(); });
+    scopedCategorySubscriptions.clear();
   }
 
   function cleanup(): void {
@@ -1980,6 +2024,8 @@ export const useMatchStore = defineStore('matches', () => {
     fetchMatches,
     subscribeMatches,
     subscribeAllMatches,
+    subscribeCategoryMatches,
+    unsubscribeCategoryMatches,
     fetchMatch,
     subscribeMatch,
     startMatch,

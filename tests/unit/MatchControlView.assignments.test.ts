@@ -71,6 +71,8 @@ vi.mock('@/stores/matches', () => ({
   useMatchStore: () => ({
     matches: runtimeState.matches,
     subscribeAllMatches: mockDeps.subscribeAllMatches,
+    subscribeCategoryMatches: vi.fn(),
+    unsubscribeCategoryMatches: vi.fn(),
     unsubscribeAll: mockDeps.unsubscribeMatches,
     checkAndFixConsistency: mockDeps.checkAndFixConsistency,
     saveManualPlannedTime: vi.fn(),
