@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useAuthStore } from '@/stores/auth';
@@ -19,6 +19,10 @@ const isAdmin = computed(() => authStore.isAdmin);
 onMounted(() => {
   tournamentStore.clearCurrentTournament();
   tournamentStore.subscribeTournaments();
+});
+
+onUnmounted(() => {
+  tournamentStore.unsubscribeAll();
 });
 
 function getStatusColor(status: string): string {
