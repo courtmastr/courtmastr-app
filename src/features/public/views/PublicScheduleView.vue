@@ -315,10 +315,15 @@ const hasDraftMatches = computed(
   () => scheduledMatches.value.length > publishedMatches.value.length
 );
 
-const hasAnySchedule = computed(() => scheduledMatches.value.length > 0);
+// Only published matches are shown publicly; draft matches are hidden
+const displayableMatches = computed(() =>
+  scheduledMatches.value.filter((match) => isMatchPublished(match))
+);
+
+const hasAnySchedule = computed(() => displayableMatches.value.length > 0);
 
 const categoryScopedItems = computed<PublicScheduleItem[]>(() =>
-  scheduledMatches.value
+  displayableMatches.value
     .filter((match) => selectedCategoryId.value === 'all' || match.categoryId === selectedCategoryId.value)
     .map(createScheduleItem)
 );
@@ -507,6 +512,7 @@ const upNextItems = computed<PublicScheduleItem[]>(() =>
 
 const fallbackQueueItems = computed<PublicScheduleItem[]>(() =>
   [...matchStore.matches]
+    .filter((match) => isMatchPublished(match))
     .filter((match) => selectedCategoryId.value === 'all' || match.categoryId === selectedCategoryId.value)
     .filter((match) => match.status === 'ready' || match.status === 'scheduled')
     .map(createScheduleItem)
@@ -527,7 +533,7 @@ const categoryPulseItems = computed<CategoryPulseItem[]>(() => {
   const items: CategoryPulseItem[] = [];
 
   for (const category of categories.value) {
-    const categoryMatches = matchStore.matches.filter((match) => match.categoryId === category.id);
+    const categoryMatches = matchStore.matches.filter((match) => match.categoryId === category.id && isMatchPublished(match));
     if (categoryMatches.length === 0) continue;
 
     const liveCount = categoryMatches.filter((match) => match.status === 'in_progress').length;
@@ -1021,37 +1027,29 @@ onUnmounted(() => {
 
       <!-- ─── Category filter chips & Sort/Filter ────────────────── -->
       <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-5">
-        <v-chip-group
+        <div
           v-if="categories.length > 1"
-          :model-value="selectedCategoryId"
-          mandatory
-          @update:model-value="updateCategoryFilter"
+          class="d-flex flex-wrap ga-2"
         >
           <v-chip
             value="all"
-            variant="outlined"
+            :variant="selectedCategoryId === 'all' ? 'flat' : 'outlined'"
             size="small"
+            @click="updateCategoryFilter(null)"
           >
             All
           </v-chip>
           <v-chip
             v-for="cat in categories"
             :key="cat.id"
-            :value="cat.id"
-            variant="outlined"
+            :color="getCategoryColor(cat.id)"
+            :variant="selectedCategoryId === cat.id ? 'flat' : 'tonal'"
             size="small"
+            @click="updateCategoryFilter(cat.id)"
           >
-            <v-icon
-              size="10"
-              left
-              :color="getCategoryColor(cat.id)"
-              class="mr-1"
-            >
-              mdi-circle
-            </v-icon>
             {{ cat.name }}
           </v-chip>
-        </v-chip-group>
+        </div>
 
         <!-- Sort and Filter -->
         <div class="d-flex align-center gap-2 sort-filter-group ml-auto">
@@ -1316,7 +1314,7 @@ onUnmounted(() => {
             >
               mdi-calendar-blank
             </v-icon>
-            No matches scheduled yet.
+            Schedule not yet available.
             <div class="text-caption mt-1">
               Check back soon.
             </div>

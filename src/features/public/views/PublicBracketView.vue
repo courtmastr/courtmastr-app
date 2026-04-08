@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
+import { useMatchStore } from '@/stores/matches';
 import { usePwaInstallPrompt } from '@/composables/usePwaInstallPrompt';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { BRAND_INSTALL_PROMPT_TITLE } from '@/constants/branding';
@@ -11,6 +12,7 @@ import type { LevelDefinition } from '@/types';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
+const matchStore = useMatchStore();
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -27,6 +29,12 @@ const canonicalPath = computed(() => `/tournaments/${tournamentId.value}/bracket
 
 const selectedCategoryLevels = computed(() =>
   selectedCategory.value ? categoryLevels.value[selectedCategory.value] || [] : []
+);
+
+const hasPublishedSchedule = computed(() =>
+  matchStore.matches.some(
+    (match) => match.scheduleStatus === 'published' || Boolean(match.publishedAt)
+  )
 );
 
 const handleInstallApp = async (): Promise<void> => {
@@ -58,10 +66,16 @@ onMounted(async () => {
     return;
   }
   tournamentStore.subscribeTournament(tournamentId.value);
+  matchStore.subscribeAllMatches(tournamentId.value);
 
   if (categories.value.length > 0) {
     selectedCategory.value = categories.value[0].id;
   }
+});
+
+onUnmounted(() => {
+  matchStore.unsubscribeAll();
+  tournamentStore.unsubscribeAll();
 });
 
 watch(selectedCategory, async (categoryId) => {
@@ -186,14 +200,8 @@ watch(selectedCategory, async (categoryId) => {
         </v-card-text>
       </v-card>
 
-      <BracketsManagerViewer
-        v-if="selectedCategory"
-        :tournament-id="tournamentId"
-        :category-id="selectedCategory"
-        :level-id="selectedLevelId || undefined"
-      />
       <v-card
-        v-else
+        v-if="!hasPublishedSchedule"
         class="bracket-surface-card text-center pa-12"
         elevation="0"
       >
@@ -205,9 +213,37 @@ watch(selectedCategory, async (categoryId) => {
           mdi-tournament
         </v-icon>
         <div class="text-h6 text-grey">
-          Select a category to view the bracket
+          Bracket not yet available.
+        </div>
+        <div class="text-body-2 text-grey mt-2">
+          Check back soon.
         </div>
       </v-card>
+
+      <template v-else>
+        <BracketsManagerViewer
+          v-if="selectedCategory"
+          :tournament-id="tournamentId"
+          :category-id="selectedCategory"
+          :level-id="selectedLevelId || undefined"
+        />
+        <v-card
+          v-else
+          class="bracket-surface-card text-center pa-12"
+          elevation="0"
+        >
+          <v-icon
+            size="64"
+            color="grey-lighten-2"
+            class="mb-4"
+          >
+            mdi-tournament
+          </v-icon>
+          <div class="text-h6 text-grey">
+            Select a category to view the bracket
+          </div>
+        </v-card>
+      </template>
     </template>
   </TournamentPublicShell>
 </template>
