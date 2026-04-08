@@ -9,7 +9,7 @@ scripts/seed/
   helpers.ts                 Shared auth utility (createOrSignIn)
   core.ts                    All test data and business logic (default seed)
   local.ts                   Entry point for local emulators (default seed)
-  production.ts              Entry point for real Firebase (default seed)
+  production.ts              Entry point for real Firebase (TNF 2026 only)
   tnf2025-core.ts            TNF 2025 tournament logic (shared)
   tnf2025-data.ts            TNF 2025 raw registration data
   tnf2025-local.ts           TNF 2025 for local emulators
@@ -99,11 +99,13 @@ npm run emulators
 npm run seed:local
 ```
 
-### Default Seed (Production)
+### Production Seed
 
 ```bash
 npm run seed:prod
 ```
+
+`seed:prod` now runs the TNF 2026 production seed only.
 
 ### TNF 2025 Seed (Local - emulators)
 
@@ -197,7 +199,7 @@ There are no external file dependencies. The data is statically tracked in `tnf2
 
 ### For TNF 2026 Seeds
 
-The workbook `TNF USA - Central Illinois Chapter Badminton Tournament 2026.xlsx` must exist in the project root.
+The workbook `TNF_Final_List_2026.xlsx` must exist in the project root.
 
 ### For All Seeds
 
@@ -214,7 +216,8 @@ Production seeds have no prerequisites — admin user is created automatically o
 | Role | Email | Password | Created by |
 |---|---|---|---|
 | Admin | `admin@courtmastr.com` | `admin123` | All seeds |
-| Scorekeeper | `scorekeeper@courtmastr.com` | `score123` | `local.ts` / `production.ts` only |
+| TNF Organizer | `tnf-organizer@courtmastr.com` | `tnf123` | `tnf2026-local.ts`, `tnf2026-prod.ts`, `production.ts` |
+| Scorekeeper | `scorekeeper@courtmastr.com` | `score123` | `local.ts` only |
 
 ---
 
@@ -241,18 +244,20 @@ All environments pick up changes on the next run automatically.
 
 ## Production Deployment Checklist
 
-When seeding production with 2 tournaments:
+For the current TNF 2026 import flow:
 
-1. **Seed TNF 2025:**
+1. **Validate locally first:**
    ```bash
-   npm run seed:tnf2025:prod
+   npm run emulators
+   npm run seed:tnf2026:local
    ```
 
-2. **Seed Spring Classic 2025:**
+2. **Seed production TNF only after local sign-off:**
    ```bash
-   npm run seed:spring2025:prod
+   npm run seed:prod
    ```
 
-This ensures production has:
-- 2025_Tnf tournament (from static TS data, 5 categories, LIVE status)
-- Spring Classic 2025 tournament (5 categories, draft status for registration testing)
+This ensures production gets:
+- organization `Tamilnadu Foundation (TNF)` with slug `/tnf`
+- organizer `tnf-organizer@courtmastr.com`
+- tournament `TNF Badminton - 2026` imported from `TNF_Final_List_2026.xlsx`

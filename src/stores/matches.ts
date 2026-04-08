@@ -1624,6 +1624,8 @@ export const useMatchStore = defineStore('matches', () => {
       currentMatchUnsubscribe();
       currentMatchUnsubscribe = null;
     }
+    scopedCategorySubscriptions.forEach((subs) => { subs.match(); subs.scores(); });
+    scopedCategorySubscriptions.clear();
   }
 
   function cleanup(): void {

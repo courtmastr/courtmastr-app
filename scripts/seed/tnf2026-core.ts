@@ -71,6 +71,11 @@ export interface TNF2026SeedConfig {
   startDateOffset?: number;
 }
 
+export const TNF_2026_ORG_NAME = 'Tamilnadu Foundation (TNF)';
+export const TNF_2026_ORG_SLUG = 'tnf';
+export const TNF_2026_TOURNAMENT_NAME = 'TNF Badminton - 2026';
+export const TNF_2026_WORKBOOK_FILENAME = 'TNF_Final_List_2026.xlsx';
+
 const CATEGORY_CONFIGS: readonly CategorySeedConfig[] = [
   {
     key: 'MS',
@@ -313,11 +318,9 @@ const playerGenderForCategory = (
 
 export async function runTNF2026Seed(config: TNF2026SeedConfig): Promise<string> {
   const { db, adminId, orgId } = config;
-  const tournamentName =
-    config.tournamentName ?? 'TNF USA - Central Illinois Chapter Badminton Tournament 2026';
+  const tournamentName = config.tournamentName ?? TNF_2026_TOURNAMENT_NAME;
   const startDateOffset = config.startDateOffset ?? 14;
-  const workbookPath =
-    config.workbookPath ?? path.resolve(process.cwd(), 'TNF USA - Central Illinois Chapter Badminton Tournament 2026.xlsx');
+  const workbookPath = config.workbookPath ?? path.resolve(process.cwd(), TNF_2026_WORKBOOK_FILENAME);
   const organizerIds = [...new Set([adminId, ...(config.organizerIds ?? [])])];
 
   const existingTournamentSnapshot = await getDocs(
@@ -367,7 +370,7 @@ export async function runTNF2026Seed(config: TNF2026SeedConfig): Promise<string>
     state: 'REG_OPEN',
     location: 'Central Illinois',
     startDate: Timestamp.fromDate(startDate),
-    endDate: Timestamp.fromDate(new Date(startDate.getTime() + 8 * 60 * 60 * 1000)),
+    endDate: Timestamp.fromDate(new Date(startDate.getTime() + 32 * 60 * 60 * 1000)),
     registrationDeadline: Timestamp.fromDate(new Date()),
     maxParticipants: 250,
     settings: {

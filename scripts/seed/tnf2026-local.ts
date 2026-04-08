@@ -10,7 +10,11 @@ import { initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { connectFirestoreEmulator, doc, getFirestore, serverTimestamp, setDoc } from 'firebase/firestore';
 import { createOrSignIn, createSeedOrg } from './helpers';
-import { runTNF2026Seed } from './tnf2026-core';
+import {
+  runTNF2026Seed,
+  TNF_2026_ORG_NAME,
+  TNF_2026_ORG_SLUG,
+} from './tnf2026-core';
 
 const app = initializeApp({
   apiKey: 'demo-api-key',
@@ -48,8 +52,8 @@ async function main(): Promise<void> {
 
     console.log('\n[2] Setting up TNF org...');
     const tnfOrgId = await createSeedOrg(db, adminId, {
-      name: 'Tamilnadu Foundation (TNF)',
-      slug: 'tnf',
+      name: TNF_2026_ORG_NAME,
+      slug: TNF_2026_ORG_SLUG,
     });
     await setDoc(
       doc(db, 'organizations', tnfOrgId, 'members', tnfOrganizerId),
@@ -76,7 +80,6 @@ async function main(): Promise<void> {
       adminId,
       orgId: tnfOrgId,
       organizerIds: [tnfOrganizerId],
-      tournamentName: 'TNF USA - Central Illinois Chapter Badminton Tournament 2026',
       startDateOffset: 14,
     });
 

@@ -610,6 +610,7 @@ onUnmounted(() => {
 watch(
   selectedCategory,
   (newVal, oldVal) => {
+    if (!tournamentId.value) return;
     if (oldVal && oldVal !== 'all') {
       matchStore.unsubscribeCategoryMatches(oldVal);
     } else if (oldVal === 'all') {
