@@ -81,7 +81,7 @@ export const TNF_2026_ORG_SLUG = 'tnf';
 export const TNF_2026_TOURNAMENT_NAME = 'TNF Badminton - 2026';
 export const TNF_2026_WORKBOOK_FILENAME = 'TNF_Final_List_2026.xlsx';
 
-const TNF_2026_WOMENS_DOUBLES_CORRECTIONS: readonly Array<{
+const TNF_2026_WOMENS_DOUBLES_CORRECTIONS: ReadonlyArray<{
   participants: [RawParticipant, RawParticipant];
   seed: number;
 }> = [
@@ -372,7 +372,7 @@ const TNF_2026_WOMENS_DOUBLES_CORRECTIONS: readonly Array<{
   },
 ] as const;
 
-const TNF_2026_MENS_DOUBLES_CORRECTIONS: readonly Array<{
+const TNF_2026_MENS_DOUBLES_CORRECTIONS: ReadonlyArray<{
   participants: [RawParticipant, RawParticipant];
   seed: number;
 }> = [
@@ -653,7 +653,7 @@ const TNF_2026_MENS_DOUBLES_CORRECTIONS: readonly Array<{
 
 // Mixed Doubles: participants[0] = male, participants[1] = female (matches playerGenderForCategory).
 // Rows where the female was listed first in the source data have been swapped here.
-const TNF_2026_MIXED_DOUBLES_CORRECTIONS: readonly Array<{
+const TNF_2026_MIXED_DOUBLES_CORRECTIONS: ReadonlyArray<{
   participants: [RawParticipant, RawParticipant];
   seed: number;
 }> = [
