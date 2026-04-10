@@ -13,6 +13,8 @@ const mockDeps = vi.hoisted(() => ({
   fetchTournament: vi.fn(),
   subscribeTournament: vi.fn(),
   fetchCategoryLevels: vi.fn(),
+  subscribeAllMatches: vi.fn(),
+  unsubscribeMatches: vi.fn(),
   installApp: vi.fn(),
   dismissInstallPrompt: vi.fn(),
 }));
@@ -34,6 +36,14 @@ vi.mock('@/stores/tournaments', () => ({
     fetchTournament: mockDeps.fetchTournament,
     subscribeTournament: mockDeps.subscribeTournament,
     fetchCategoryLevels: mockDeps.fetchCategoryLevels,
+  }),
+}));
+
+vi.mock('@/stores/matches', () => ({
+  useMatchStore: () => ({
+    matches: [],
+    subscribeAllMatches: mockDeps.subscribeAllMatches,
+    unsubscribeAll: mockDeps.unsubscribeMatches,
   }),
 }));
 
@@ -82,6 +92,8 @@ describe('PublicBracketView', () => {
     mockDeps.fetchTournament.mockReset().mockResolvedValue(undefined);
     mockDeps.subscribeTournament.mockReset();
     mockDeps.fetchCategoryLevels.mockReset().mockResolvedValue([]);
+    mockDeps.subscribeAllMatches.mockReset();
+    mockDeps.unsubscribeMatches.mockReset();
     mockDeps.installApp.mockReset().mockResolvedValue(true);
     mockDeps.dismissInstallPrompt.mockReset();
   });

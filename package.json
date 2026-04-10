@@ -20,6 +20,7 @@
     "verify:release": "node scripts/testing/verify-release.mjs",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
     "lint:check": "ESLINT_USE_FLAT_CONFIG=false eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --ignore-path .gitignore",
+    "pre-pr": "npm run lint:check && npm run test -- --run && npm run build",
     "lint:log": "ESLINT_USE_FLAT_CONFIG=false node scripts/run-and-log.mjs eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
     "type-check": "vue-tsc --noEmit",
     "emulators": "npm run build --prefix functions && firebase emulators:start --project demo-courtmaster",

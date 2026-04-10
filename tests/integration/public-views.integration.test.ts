@@ -218,7 +218,7 @@ describe('public views integration', () => {
     expect(mockDeps.fetchTournament).toHaveBeenCalledTimes(3);
     expect(mockDeps.subscribeTournament).toHaveBeenCalledTimes(3);
     expect(mockDeps.fetchCategoryLevels).toHaveBeenCalledWith('t1', 'cat-1');
-    expect(mockDeps.subscribeAllMatches).toHaveBeenCalledTimes(2);
+    expect(mockDeps.subscribeAllMatches).toHaveBeenCalledTimes(3);
     expect(mockDeps.fetchRegistrations).toHaveBeenCalledWith('t1');
     expect(mockDeps.fetchPlayers).toHaveBeenCalledWith('t1');
     expect(mockDeps.subscribeRegistrations).toHaveBeenCalledWith('t1');
