@@ -14,6 +14,7 @@ import {
   writeBatch,
   query,
   where,
+  or,
   orderBy,
   limit,
   onSnapshot,
@@ -97,11 +98,15 @@ export const useTournamentStore = defineStore('tournaments', () => {
       }
       return query(collection(db, 'tournaments'), orderBy('createdAt', 'desc'));
     }
-    // Org members see all tournaments belonging to their active org
+    // Org members see all tournaments belonging to their active org,
+    // plus any tournament they are explicitly listed as a co-organizer on.
     if (activeOrgId) {
       return query(
         collection(db, 'tournaments'),
-        where('orgId', '==', activeOrgId),
+        or(
+          where('orgId', '==', activeOrgId),
+          where('organizerIds', 'array-contains', uid),
+        ),
         orderBy('createdAt', 'desc')
       );
     }

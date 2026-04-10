@@ -88,6 +88,7 @@ export {
   getCountFromServer,
   query,
   where,
+  or,
   orderBy,
   limit,
   onSnapshot,
