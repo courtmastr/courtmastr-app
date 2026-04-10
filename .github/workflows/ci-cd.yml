@@ -199,3 +199,8 @@ jobs:
             --head "${metadata_branch}" \
             --title "chore: record release metadata [skip release]" \
             --body "${pr_body}"
+
+          gh pr merge \
+            --auto \
+            --squash \
+            "${metadata_branch}"
