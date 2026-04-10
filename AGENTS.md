@@ -144,6 +144,7 @@ Run build verification whenever a change can affect build output.
 - Run build verification for any build-affecting change (see §2.2): `npm run build` then `npm run build:log`.
 - Run relevant `:log` commands after changes.
 - Run `npm run check:firebase-env` before production deploys (especially in new checkouts/worktrees).
+- **Run `npm run pre-pr` before creating any PR.** This mirrors CI exactly: lint → tests → build. Fix all failures before pushing. CI gate will block the merge otherwise.
 - Merge production-bound changes through a PR into `master`; do not treat direct local deploy as the default path.
 - Treat `master` CI/CD as the primary production release path after merge.
 - Treat Terraform IaC as the source of truth for production infrastructure; do not bypass it with ad hoc manual infra changes.

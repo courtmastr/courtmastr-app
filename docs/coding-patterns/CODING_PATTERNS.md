@@ -208,6 +208,63 @@ rg -n "<ready-queue|:matches=\"pendingMatches\"|:can-assign-match|assignment-gat
 
 ## Category: Data Integrity
 
+### CP-075: Workbook Seed Imports Must Apply Authoritative Corrections Before Dedupe And Persist Registration Seeds
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-10 |
+| **Source Bug** | TNF 2026 Women's Doubles imported 14 teams, dropped corrected roster entries, and lost manual seeds |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const rawRegistrations = extractRawRegistrations(rows.slice(1));
+
+const parsedRegistration: ParsedRegistration = {
+  categoryKey: registration.categoryKey,
+  participants,
+  entryId: registration.entryId,
+};
+
+await addDoc(collection(db, 'tournaments', tournamentId, 'registrations'), {
+  teamName,
+  playerId,
+  partnerPlayerId,
+  status: 'approved',
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+const rawRegistrations = [
+  ...workbookRegistrations.filter((registration) => registration.categoryKey !== 'WD'),
+  ...buildAuthoritativeWomenDoublesRegistrations(),
+];
+
+const parsedRegistration: ParsedRegistration = {
+  categoryKey: registration.categoryKey,
+  participants,
+  entryId: registration.entryId,
+  seed: registration.seed,
+};
+
+await addDoc(collection(db, 'tournaments', tournamentId, 'registrations'), {
+  teamName,
+  playerId,
+  partnerPlayerId,
+  status: 'approved',
+  seed: registration.seed,
+});
+```
+
+**Rule:** If a workbook-backed import has known bad or incomplete category rows, replace that category with an authoritative corrected dataset before deduping player identities. When the source includes manual seeding, carry `seed` through parsing and persist it on the registration document.
+
+**Detection:**
+```bash
+rg -n "buildAuthoritativeWomenDoublesRegistrations|seed: registration.seed|seed: registration.seed,|seed: null" scripts/seed/tnf2026-core.ts
+```
+
 ### CP-067: Mock or Provide Vuetify Display in AppLayout Unit Tests
 
 | Field | Value |

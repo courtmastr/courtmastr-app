@@ -165,7 +165,7 @@ export const useMatchStore = defineStore('matches', () => {
 
   let matchesUnsubscribe: (() => void) | null = null;
   let currentMatchUnsubscribe: (() => void) | null = null;
-  let scopedCategorySubscriptions: Map<string, { match: () => void; scores: () => void }> = new Map();
+  const scopedCategorySubscriptions: Map<string, { match: () => void; scores: () => void }> = new Map();
 
   // --- Path helpers ---
 
