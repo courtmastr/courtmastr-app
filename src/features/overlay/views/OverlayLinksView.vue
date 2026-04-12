@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
@@ -34,6 +34,27 @@ const courtOverlayLinks = computed<CourtOverlayLink[]>(() =>
     courtName: court.name,
     url: `${origin.value}/overlay/${tournamentId.value}/court/${court.id}`,
   }))
+);
+
+const selectedEmbedCategory = ref<string | null>(null);
+
+watch(
+  () => tournamentStore.categories,
+  (cats) => {
+    if (!selectedEmbedCategory.value && cats.length > 0) {
+      selectedEmbedCategory.value = cats[0].id;
+    }
+  },
+  { immediate: true }
+);
+
+const bracketEmbedUrl = computed(() => {
+  const base = `${origin.value}/tournaments/${tournamentId.value}/bracket?embed=true`;
+  return selectedEmbedCategory.value ? `${base}&category=${selectedEmbedCategory.value}` : base;
+});
+
+const bracketIframeSnippet = computed(() =>
+  `<iframe src="${bracketEmbedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`
 );
 
 const getLiveMatchOnCourt = (courtId: string): Match | null =>
@@ -230,6 +251,59 @@ onUnmounted(() => {
                 </tr>
               </tbody>
             </v-table>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12">
+        <v-card>
+          <v-card-title class="text-h6">
+            Bracket Embed Code
+          </v-card-title>
+          <v-card-text>
+            <p class="text-body-2 text-medium-emphasis mb-4">
+              Paste this snippet into any website to embed the live bracket. A "Powered by CourtMastr" watermark is always shown.
+            </p>
+            <v-select
+              v-model="selectedEmbedCategory"
+              :items="tournamentStore.categories"
+              item-title="name"
+              item-value="id"
+              label="Category"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              class="mb-4"
+              style="max-width: 280px"
+            />
+            <v-textarea
+              :model-value="bracketIframeSnippet"
+              label="iframe embed code"
+              variant="outlined"
+              readonly
+              rows="3"
+              hide-details
+              class="mb-3"
+              style="font-family: monospace; font-size: 0.82rem"
+            />
+            <div class="d-flex ga-2">
+              <v-btn
+                size="small"
+                variant="tonal"
+                prepend-icon="mdi-content-copy"
+                @click="copyUrl(bracketIframeSnippet)"
+              >
+                Copy Snippet
+              </v-btn>
+              <v-btn
+                size="small"
+                variant="text"
+                prepend-icon="mdi-open-in-new"
+                @click="previewUrl(bracketEmbedUrl)"
+              >
+                Preview
+              </v-btn>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
