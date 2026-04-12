@@ -13,6 +13,7 @@ import {
   serverTimestamp,
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
+import { logger } from '@/utils/logger';
 
 export type ActivityType =
   | 'match_completed'
@@ -90,7 +91,7 @@ export const useActivityStore = defineStore('activities', () => {
         ...convertTimestamps(doc.data()),
       })) as TournamentActivity[];
     } catch (err) {
-      console.error('Error fetching activities:', err);
+      logger.error('Error fetching activities:', err);
       error.value = 'Failed to load activities';
     } finally {
       loading.value = false;
@@ -116,7 +117,7 @@ export const useActivityStore = defineStore('activities', () => {
         })) as TournamentActivity[];
       },
       (err) => {
-        console.error('Error in activities subscription:', err);
+        logger.error('Error in activities subscription:', err);
         error.value = 'Lost connection to activities';
       }
     );
@@ -142,7 +143,7 @@ export const useActivityStore = defineStore('activities', () => {
       );
       return docRef.id;
     } catch (err) {
-      console.error('Error logging activity:', err);
+      logger.error('Error logging activity:', err);
       throw err;
     }
   }

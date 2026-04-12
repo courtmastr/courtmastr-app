@@ -46,6 +46,7 @@ import type {
   LevelEliminationFormat,
   LevelingMode,
 } from '@/types';
+import { logger } from '@/utils/logger';
 
 export const useTournamentStore = defineStore('tournaments', () => {
   // State
@@ -132,7 +133,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         ...convertTimestamps(doc.data()),
       })) as Tournament[];
     } catch (err) {
-      console.error('Error fetching tournaments:', err);
+      logger.error('Error fetching tournaments:', err);
       error.value = 'Failed to load tournaments';
     } finally {
       loading.value = false;
@@ -151,7 +152,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         ...convertTimestamps(doc.data()),
       })) as Tournament[];
     }, (err) => {
-      console.error('Error in tournaments subscription:', err);
+      logger.error('Error in tournaments subscription:', err);
       error.value = 'Lost connection to tournaments';
     });
   }
@@ -192,7 +193,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
       })) as Court[];
 
     } catch (err) {
-      console.error('Error fetching tournament:', err);
+      logger.error('Error fetching tournament:', err);
       error.value = 'Failed to load tournament';
       throw err;
     } finally {
@@ -248,7 +249,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
     loading.value = true;
     error.value = null;
 
-    console.log('[tournamentStore.createTournament] db is:', db ? 'defined' : 'UNDEFINED');
+    logger.debug('[tournamentStore.createTournament] db is:', db ? 'defined' : 'UNDEFINED');
     if (!db) {
       throw new Error('Firestore db is not initialized');
     }
@@ -288,7 +289,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
       return docRef.id;
     } catch (err) {
-      console.error('Error creating tournament:', err);
+      logger.error('Error creating tournament:', err);
       error.value = 'Failed to create tournament';
       throw err;
     } finally {
@@ -343,7 +344,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         };
       }
     } catch (err) {
-      console.error('Error updating tournament:', err);
+      logger.error('Error updating tournament:', err);
       error.value = 'Failed to update tournament';
       throw err;
     } finally {
@@ -380,7 +381,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         currentTournament.value = null;
       }
     } catch (err) {
-      console.error('Error deleting tournament:', err);
+      logger.error('Error deleting tournament:', err);
       error.value = 'Failed to delete tournament';
       throw err;
     } finally {
@@ -405,7 +406,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         }
       }
     } catch (err) {
-      console.error('Error adding organizer:', err);
+      logger.error('Error adding organizer:', err);
       throw err;
     }
   }
@@ -423,7 +424,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         };
       }
     } catch (err) {
-      console.error('Error removing organizer:', err);
+      logger.error('Error removing organizer:', err);
       throw err;
     }
   }
@@ -463,7 +464,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
       return docRef.id;
     } catch (err) {
-      console.error('Error adding category:', err);
+      logger.error('Error adding category:', err);
       throw err;
     }
   }
@@ -491,7 +492,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         };
       });
     } catch (err) {
-      console.error('Error updating category:', err);
+      logger.error('Error updating category:', err);
       throw err;
     }
   }
@@ -504,7 +505,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
       await auditStore.logCategoryDeleted(tournamentId, categoryId, category?.name || categoryId);
       categories.value = categories.value.filter((c) => c.id !== categoryId);
     } catch (err) {
-      console.error('Error deleting category:', err);
+      logger.error('Error deleting category:', err);
       throw err;
     }
   }
@@ -534,7 +535,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         if (!open) cat.checkInClosedAt = new Date();
       }
     } catch (err) {
-      console.error('Error toggling category check-in:', err);
+      logger.error('Error toggling category check-in:', err);
       throw err;
     }
   }
@@ -575,7 +576,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
       return docRef.id;
     } catch (err) {
-      console.error('Error adding court:', err);
+      logger.error('Error adding court:', err);
       throw err;
     }
   }
@@ -603,7 +604,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         };
       });
     } catch (err) {
-      console.error('Error updating court:', err);
+      logger.error('Error updating court:', err);
       throw err;
     }
   }
@@ -719,7 +720,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
       return { reassignedMatches };
     } catch (err) {
-      console.error('Error setting court to maintenance:', err);
+      logger.error('Error setting court to maintenance:', err);
       throw err;
     }
   }
@@ -749,7 +750,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         };
       });
     } catch (err) {
-      console.error('Error restoring court from maintenance:', err);
+      logger.error('Error restoring court from maintenance:', err);
       throw err;
     }
   }
@@ -1013,7 +1014,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
       return { resetCount, skippedCount, releasedCourts };
     } catch (err) {
-      console.error('Error resetting schedule for category:', err);
+      logger.error('Error resetting schedule for category:', err);
       throw err;
     }
   }
@@ -1026,7 +1027,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
       await auditStore.logCourtDeleted(tournamentId, courtId, court?.name || courtId);
       courts.value = courts.value.filter((c) => c.id !== courtId);
     } catch (err) {
-      console.error('Error deleting court:', err);
+      logger.error('Error deleting court:', err);
       throw err;
     }
   }
@@ -1059,7 +1060,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         return result;
       }
     } catch (err) {
-      console.error('Error executing bracket operation:', err);
+      logger.error('Error executing bracket operation:', err);
       error.value = err instanceof Error ? err.message : 'Failed to execute bracket operation';
       throw err;
     } finally {
@@ -1106,7 +1107,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
       );
       return result;
     } catch (err) {
-      console.error('Error generating elimination from pool:', err);
+      logger.error('Error generating elimination from pool:', err);
       error.value = err instanceof Error ? err.message : 'Failed to generate elimination stage';
       throw err;
     } finally {
@@ -1340,7 +1341,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
 
       return { success: true, levelsGenerated: levelDocs.length };
     } catch (err) {
-      console.error('Error generating category levels:', err);
+      logger.error('Error generating category levels:', err);
       error.value = err instanceof Error ? err.message : 'Failed to generate levels';
       throw err;
     } finally {
@@ -1413,7 +1414,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
       );
       return result;
     } catch (err) {
-      console.error('Error regenerating pools:', err);
+      logger.error('Error regenerating pools:', err);
       error.value = err instanceof Error ? err.message : 'Failed to regenerate pools';
       throw err;
     } finally {
@@ -1449,7 +1450,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         await generateScheduleFn({ tournamentId, ...options });
         return { scheduled: 0, unscheduled: 0 };
       } catch (err) {
-        console.error('Error generating schedule:', err);
+        logger.error('Error generating schedule:', err);
         error.value = err instanceof Error ? err.message : 'Failed to generate schedule';
         throw err;
       } finally {
@@ -1472,7 +1473,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
           stats: result.stats,
         };
       } catch (err) {
-        console.error('Error generating schedule:', err);
+        logger.error('Error generating schedule:', err);
         error.value = scheduler.error.value || 'Failed to generate schedule';
         throw err;
       }
@@ -1508,7 +1509,7 @@ export const useTournamentStore = defineStore('tournaments', () => {
         { merge: true }
       );
     } catch (err) {
-      console.error('Error updating match schedule:', err);
+      logger.error('Error updating match schedule:', err);
       throw err;
     }
   }

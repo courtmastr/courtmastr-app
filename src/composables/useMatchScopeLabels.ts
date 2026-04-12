@@ -1,6 +1,7 @@
 import { computed, ref, toValue, watch, type MaybeRefOrGetter } from 'vue';
 import { useTournamentStore } from '@/stores/tournaments';
 import type { LevelDefinition, Match } from '@/types';
+import { logger } from '@/utils/logger';
 
 type LevelDefinitionsByCategory = Record<string, LevelDefinition[]>;
 
@@ -62,7 +63,7 @@ export function useMatchScopeLabels(
         [categoryId]: levels,
       };
     } catch (error) {
-      console.error('Failed to fetch category levels for match scope labels:', error);
+      logger.error('Failed to fetch category levels for match scope labels:', error);
     } finally {
       loadingCategoryIds.delete(categoryId);
     }

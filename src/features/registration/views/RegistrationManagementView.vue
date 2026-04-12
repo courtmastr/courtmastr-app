@@ -20,6 +20,7 @@ import {
   buildPlayerNameKey,
   type ImportPreviewRow,
 } from '@/features/registration/utils/csvParser';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -408,7 +409,7 @@ async function addRegistration() {
     showAddRegistrationDialog.value = false;
     resetRegistrationForm();
   } catch (error) {
-    console.error('Error adding registration:', error);
+    logger.error('Error adding registration:', error);
     const message = error instanceof Error ? error.message : 'Failed to add registration';
     notificationStore.showToast('error', message);
   }
@@ -833,7 +834,7 @@ async function executeImport() {
 
         processedRowCount++;
       } catch (err) {
-        console.error('Error importing row:', row, err);
+        logger.error('Error importing row:', row, err);
         errorCount++;
       }
     }

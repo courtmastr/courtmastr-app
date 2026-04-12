@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useNotificationStore } from '@/stores/notifications';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -126,7 +127,7 @@ async function handleSeedInput(registrationId: string, newSeedVal: string | null
     });
 
   } catch (error) {
-    console.error('Failed to update seed:', error);
+    logger.error('Failed to update seed:', error);
     notificationStore.showToast('error', 'Failed to update seed');
   } finally {
     savingSeed.value = false;

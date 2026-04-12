@@ -18,6 +18,7 @@ import {
 } from '@/services/firebase';
 import type { QueryConstraint } from 'firebase/firestore';
 import { convertTimestamps } from '@/utils/firestore';
+import { logger } from '@/utils/logger';
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
 export type AlertCategory = 'court' | 'match' | 'schedule' | 'registration' | 'system';
@@ -133,7 +134,7 @@ export const useAlertsStore = defineStore('alerts', () => {
         toLiveOpsAlert(alertDoc.id, alertDoc.data())
       );
     } catch (err) {
-      console.error('Error fetching alerts:', err);
+      logger.error('Error fetching alerts:', err);
       error.value = 'Failed to load alerts';
     } finally {
       loading.value = false;
@@ -159,7 +160,7 @@ export const useAlertsStore = defineStore('alerts', () => {
         );
       },
       (err) => {
-        console.error('Error in alerts subscription:', err);
+        logger.error('Error in alerts subscription:', err);
         error.value = 'Lost connection to alerts';
         isSubscribed.value = false;
       }
@@ -182,7 +183,7 @@ export const useAlertsStore = defineStore('alerts', () => {
       );
       return docRef.id;
     } catch (err) {
-      console.error('Error creating alert:', err);
+      logger.error('Error creating alert:', err);
       throw err;
     }
   }
@@ -203,7 +204,7 @@ export const useAlertsStore = defineStore('alerts', () => {
         }
       );
     } catch (err) {
-      console.error('Error acknowledging alert:', err);
+      logger.error('Error acknowledging alert:', err);
       throw err;
     }
   }
@@ -224,7 +225,7 @@ export const useAlertsStore = defineStore('alerts', () => {
         }
       );
     } catch (err) {
-      console.error('Error resolving alert:', err);
+      logger.error('Error resolving alert:', err);
       throw err;
     }
   }
@@ -234,7 +235,7 @@ export const useAlertsStore = defineStore('alerts', () => {
     try {
       await deleteDoc(doc(db, `tournaments/${tournamentId}/alerts`, alertId));
     } catch (err) {
-      console.error('Error deleting alert:', err);
+      logger.error('Error deleting alert:', err);
       throw err;
     }
   }

@@ -13,6 +13,7 @@ import {
   orderBy,
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
+import { logger } from '@/utils/logger';
 
 export interface Announcement {
   id: string;
@@ -53,7 +54,7 @@ export function useAnnouncements() {
         ...convertTimestamps(docSnap.data()),
       })) as Announcement[];
     } catch (err) {
-      console.error('Error fetching announcements:', err);
+      logger.error('Error fetching announcements:', err);
       error.value = 'Failed to load announcements';
     } finally {
       loading.value = false;
@@ -77,7 +78,7 @@ export function useAnnouncements() {
         })) as Announcement[];
       },
       (err) => {
-        console.error('Error in announcements subscription:', err);
+        logger.error('Error in announcements subscription:', err);
         error.value = 'Lost connection to announcements';
       }
     );
@@ -117,7 +118,7 @@ export function useAnnouncements() {
       
       return docRef.id;
     } catch (err) {
-      console.error('Error adding announcement:', err);
+      logger.error('Error adding announcement:', err);
       error.value = 'Failed to add announcement';
       throw err;
     } finally {
@@ -142,7 +143,7 @@ export function useAnnouncements() {
         }
       );
     } catch (err) {
-      console.error('Error updating announcement:', err);
+      logger.error('Error updating announcement:', err);
       error.value = 'Failed to update announcement';
       throw err;
     } finally {
@@ -165,7 +166,7 @@ export function useAnnouncements() {
         (a) => a.id !== announcementId
       );
     } catch (err) {
-      console.error('Error deleting announcement:', err);
+      logger.error('Error deleting announcement:', err);
       error.value = 'Failed to delete announcement';
       throw err;
     } finally {
@@ -193,7 +194,7 @@ export function useAnnouncements() {
       
       await Promise.all(updates);
     } catch (err) {
-      console.error('Error reordering announcements:', err);
+      logger.error('Error reordering announcements:', err);
       error.value = 'Failed to reorder announcements';
       throw err;
     } finally {

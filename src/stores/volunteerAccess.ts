@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { functions, httpsCallable } from '@/services/firebase';
 import type { VolunteerRole, VolunteerSession } from '@/types';
+import { logger } from '@/utils/logger';
 
 const STORAGE_KEY = 'courtmaster_volunteer_session';
 
@@ -65,7 +66,7 @@ const readStoredSession = (): VolunteerSession | null => {
 
     return parsed;
   } catch (error) {
-    console.error('Error parsing stored volunteer session:', error);
+    logger.error('Error parsing stored volunteer session:', error);
     storage?.removeItem(STORAGE_KEY);
     return null;
   }

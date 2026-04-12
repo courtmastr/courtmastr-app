@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator, type Functions } from 'firebase/functions';
 import { getStorage, connectStorageEmulator, type FirebaseStorage } from 'firebase/storage';
+import { logger } from '@/utils/logger';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -49,7 +50,7 @@ export function initializeFirebase(): { app: FirebaseApp; auth: Auth; db: Firest
       connectFunctionsEmulator(functions, emulatorHost, 5001);
       connectStorageEmulator(storage, emulatorHost, 9199);
 
-      console.log('🔧 Connected to Firebase Emulators');
+      logger.debug('🔧 Connected to Firebase Emulators');
     }
   }
 

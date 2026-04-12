@@ -6,6 +6,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useNotificationStore } from '@/stores/notifications';
 import DurationMetrics from '@/features/reports/components/DurationMetrics.vue';
+import { logger } from '@/utils/logger';
 
 
 const route = useRoute();
@@ -133,7 +134,7 @@ watch(
   () => durationStats.value.excludedCount,
   (excludedCount) => {
     if (excludedCount > 0) {
-      console.warn(
+      logger.warn(
         `[TournamentSummaryView] Excluded ${excludedCount} completed match(es) from duration metrics due to missing/invalid timestamps`
       );
     }

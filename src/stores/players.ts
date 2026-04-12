@@ -16,6 +16,7 @@ import {
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
 import type { GlobalPlayer } from '@/types';
+import { logger } from '@/utils/logger';
 
 export const usePlayersStore = defineStore('players', () => {
   const players = ref<GlobalPlayer[]>([]);
@@ -85,7 +86,7 @@ export const usePlayersStore = defineStore('players', () => {
       );
     } catch (err) {
       error.value = 'Failed to fetch players';
-      console.error('Error fetching players:', err);
+      logger.error('Error fetching players:', err);
     } finally {
       loading.value = false;
     }
@@ -111,7 +112,7 @@ export const usePlayersStore = defineStore('players', () => {
         updatedAt: serverTimestamp(),
       });
     } catch (err) {
-      console.error('Error updating player:', err);
+      logger.error('Error updating player:', err);
       throw err;
     }
   };
@@ -122,7 +123,7 @@ export const usePlayersStore = defineStore('players', () => {
       if (!snap.exists()) return null;
       return convertTimestamps({ id: snap.id, ...snap.data() }) as GlobalPlayer;
     } catch (err) {
-      console.error('Error fetching player:', err);
+      logger.error('Error fetching player:', err);
       throw err;
     }
   };
@@ -161,7 +162,7 @@ export const usePlayersStore = defineStore('players', () => {
         .map((d) => convertTimestamps({ id: d.id, ...d.data() }) as GlobalPlayer);
     } catch (err) {
       error.value = 'Failed to fetch org players';
-      console.error('Error fetching org players:', err);
+      logger.error('Error fetching org players:', err);
     } finally {
       loading.value = false;
     }

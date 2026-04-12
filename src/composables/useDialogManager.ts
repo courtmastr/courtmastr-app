@@ -1,4 +1,5 @@
 import { ref, type Ref } from 'vue';
+import { logger } from '@/utils/logger';
 
 export interface DialogManager {
   dialogs: Ref<Record<string, boolean>>;
@@ -32,7 +33,7 @@ export function useDialogManager(dialogNames?: string[]): DialogManager {
     if (name in dialogs.value) {
       dialogs.value[name] = true;
     } else {
-      console.warn(`[useDialogManager] Dialog "${name}" not initialized`);
+      logger.warn(`[useDialogManager] Dialog "${name}" not initialized`);
     }
   }
 

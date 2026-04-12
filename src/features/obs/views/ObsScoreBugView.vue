@@ -8,6 +8,7 @@ import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import BrandLogo from '@/components/common/BrandLogo.vue';
 import type { Match } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const matchStore = useMatchStore();
@@ -96,7 +97,7 @@ onMounted(async () => {
     registrationStore.subscribeRegistrations(tournamentId.value);
     registrationStore.subscribePlayers(tournamentId.value);
   } catch (err) {
-    console.error('Error loading OBS score bug:', err);
+    logger.error('Error loading OBS score bug:', err);
     error.value = 'Failed to load match';
   } finally {
     loading.value = false;

@@ -59,6 +59,7 @@ import {
 } from '@/features/leaderboard/rankingPresets';
 import type { RankingPresetDefinition } from '@/features/leaderboard/rankingPresets';
 import { resolveEffectiveRankingConfig } from '@/features/leaderboard/effectiveRankingConfig';
+import { logger } from '@/utils/logger';
 
 // ============================================
 // Pure Functions (exported for unit testing)
@@ -98,7 +99,7 @@ export function matchesToResolvedMatches(matches: Match[]): ResolvedMatch[] {
     }));
 
   if (droppedCount > 0) {
-    console.log(`[matchesToResolvedMatches] Processed ${matches.length} matches: ${resolved.length} completed, ${droppedCount} dropped (incomplete/not ready)`);
+    logger.debug(`[matchesToResolvedMatches] Processed ${matches.length} matches: ${resolved.length} completed, ${droppedCount} dropped (incomplete/not ready)`);
   }
 
   return resolved;
@@ -194,7 +195,7 @@ export function resolveMatches(
       participantMap.get(String(match.opponent2?.id));
 
     if (!p1Id || !p2Id) {
-      console.warn(
+      logger.warn(
         `[leaderboard] Cannot resolve participants for match ${match.id} in category ${categoryId}`
       );
       continue;
@@ -264,7 +265,7 @@ export function aggregateStats(
     const p2 = statsMap.get(match.participant2Id);
 
     if (!p1 || !p2) {
-      console.warn(
+      logger.warn(
         `[leaderboard] No registration entry for participants in match ${match.id}`
       );
       continue;
@@ -283,7 +284,7 @@ export function aggregateStats(
     for (const game of match.scores) {
       const matchDecided = p1GamesWonInMatch >= gamesNeeded || p2GamesWonInMatch >= gamesNeeded;
       if (matchDecided) {
-        console.warn(
+        logger.warn(
           `[leaderboard] Ignoring post-clinch game ${game.gameNumber} in match ${match.id}`
         );
         continue;

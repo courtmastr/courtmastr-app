@@ -17,6 +17,7 @@ import type {
 } from '@/types';
 import type { ResolvedMatch } from '@/types/leaderboard';
 import { aggregateStats, sortWithBWFTiebreaker } from '@/composables/useLeaderboard';
+import { logger } from '@/utils/logger';
 
 interface StoredStage {
   id: number | string;
@@ -602,7 +603,7 @@ export function usePoolLeveling() {
       preview.value = nextPreview;
       return nextPreview;
     } catch (err) {
-      console.error('Error generating pool-level preview:', err);
+      logger.error('Error generating pool-level preview:', err);
       error.value = err instanceof Error ? err.message : 'Failed to build level preview';
       throw err;
     } finally {

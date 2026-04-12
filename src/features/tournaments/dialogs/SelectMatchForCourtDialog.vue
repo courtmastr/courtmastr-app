@@ -5,6 +5,7 @@ import { useNotificationStore } from '@/stores/notifications';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import type { Match } from '@/types';
 import { buildGlobalMatchKey } from '@/features/tournaments/utils/matchDisplayIdentity';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -68,7 +69,7 @@ async function assignMatch(): Promise<void> {
     emit('assigned');
     emit('update:modelValue', false);
   } catch (err: unknown) {
-    console.error('Error assigning match:', err);
+    logger.error('Error assigning match:', err);
     const message = err instanceof Error ? err.message : 'Failed to assign match';
     notificationStore.showToast('error', message);
   } finally {

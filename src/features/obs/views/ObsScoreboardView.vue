@@ -8,6 +8,7 @@ import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import BrandLogo from '@/components/common/BrandLogo.vue';
 import type { Match, GameScore } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const matchStore = useMatchStore();
@@ -88,7 +89,7 @@ onMounted(async () => {
     registrationStore.subscribeRegistrations(tournamentId.value);
     registrationStore.subscribePlayers(tournamentId.value);
   } catch (err) {
-    console.error('Error loading OBS scoreboard:', err);
+    logger.error('Error loading OBS scoreboard:', err);
   } finally {
     loading.value = false;
   }

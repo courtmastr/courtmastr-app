@@ -17,6 +17,7 @@ import CategoryRegistrationStats from '../components/CategoryRegistrationStats.v
 import CreateLevelsDialog from '../components/CreateLevelsDialog.vue';
 import ManageSeedsDialog from '../dialogs/ManageSeedsDialog.vue';
 import type { Category, LevelDefinition, Match } from '@/types';
+import { logger } from '@/utils/logger';
 
 interface CategoryManagementExposed {
   openAddDialog: () => void;
@@ -54,7 +55,7 @@ async function loadCategoriesContext(): Promise<void> {
     matchStore.unsubscribeAll();
     matchStore.subscribeAllMatches(tournamentId.value);
   } catch (error) {
-    console.error('Failed to load categories context:', error);
+    logger.error('Failed to load categories context:', error);
     notificationStore.showToast('error', 'Failed to load categories');
   }
 }
@@ -190,7 +191,7 @@ async function regenerateBracket(): Promise<void> {
     showRegenerateBracketDialog.value = false;
     await refreshCategoryLevels(regenerateCategoryId.value);
   } catch (error) {
-    console.error('Failed to regenerate bracket:', error);
+    logger.error('Failed to regenerate bracket:', error);
     notificationStore.showToast('error', 'Failed to regenerate bracket');
   } finally {
     regenerateInProgress.value = false;
@@ -218,7 +219,7 @@ async function regeneratePools(): Promise<void> {
     showRegeneratePoolsDialog.value = false;
     router.push({ name: 'smart-bracket-view', params: { tournamentId: tournamentId.value, categoryId } });
   } catch (error) {
-    console.error('Failed to regenerate pools:', error);
+    logger.error('Failed to regenerate pools:', error);
     notificationStore.showToast('error', 'Failed to regenerate pools');
   } finally {
     regeneratePoolsInProgress.value = false;
@@ -234,7 +235,7 @@ async function refreshCategoryLevels(categoryId: string): Promise<void> {
       selectedLevelId.value = levels[0].id;
     }
   } catch (error) {
-    console.error('Failed to fetch category levels:', error);
+    logger.error('Failed to fetch category levels:', error);
   }
 }
 
@@ -341,7 +342,7 @@ async function publishCategorySchedule(category: Category, force = false): Promi
 
     notificationStore.showToast('success', `${actionLabel} schedule (${publishedCount} matches)`);
   } catch (error) {
-    console.error('Failed to publish schedule:', error);
+    logger.error('Failed to publish schedule:', error);
     notificationStore.showToast('error', 'Failed to publish schedule');
   }
 }
@@ -371,7 +372,7 @@ async function unpublishCategorySchedule(category: Category): Promise<void> {
 
     notificationStore.showToast('success', `Unpublished schedule (${unpublishedCount} matches)`);
   } catch (error) {
-    console.error('Failed to unpublish schedule:', error);
+    logger.error('Failed to unpublish schedule:', error);
     notificationStore.showToast('error', 'Failed to unpublish schedule');
   }
 }

@@ -21,6 +21,7 @@ import type {
   SubmitReviewResponse,
 } from '@/types';
 import { convertTimestamps } from '@/utils/firestore';
+import { logger } from '@/utils/logger';
 
 interface ReviewSubscriptionOptions {
   tournamentId?: string;
@@ -108,7 +109,7 @@ export const useReviewStore = defineStore('reviews', () => {
         loading.value = false;
       },
       (err) => {
-        console.error('Error subscribing approved reviews:', err);
+        logger.error('Error subscribing approved reviews:', err);
         error.value = 'Unable to load approved reviews.';
         loading.value = false;
       }
@@ -131,7 +132,7 @@ export const useReviewStore = defineStore('reviews', () => {
         );
       },
       (err) => {
-        console.error('Error subscribing pending reviews:', err);
+        logger.error('Error subscribing pending reviews:', err);
         error.value = 'Unable to load pending reviews.';
       }
     );
@@ -148,7 +149,7 @@ export const useReviewStore = defineStore('reviews', () => {
         );
       },
       (err) => {
-        console.error('Error subscribing rejected reviews:', err);
+        logger.error('Error subscribing rejected reviews:', err);
         error.value = 'Unable to load rejected reviews.';
       }
     );
@@ -162,7 +163,7 @@ export const useReviewStore = defineStore('reviews', () => {
     try {
       return await submitReviewCallable(payload);
     } catch (err) {
-      console.error('Error submitting review:', err);
+      logger.error('Error submitting review:', err);
       error.value = 'Failed to submit review.';
       throw err;
     } finally {

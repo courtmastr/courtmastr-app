@@ -11,6 +11,7 @@ import { usePlayerCandidatePicker } from '@/composables/usePlayerCandidatePicker
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import BrandIconBadge from '@/components/common/BrandIconBadge.vue';
 import PlayerCandidateSuggestions from '@/components/players/PlayerCandidateSuggestions.vue';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -193,7 +194,7 @@ async function submitRegistration() {
     },
     {
       onError: (err) => {
-        console.error('Error submitting registration:', err);
+        logger.error('Error submitting registration:', err);
         notificationStore.showToast('error', 'Failed to submit registration');
       }
     },
