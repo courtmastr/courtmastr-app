@@ -166,38 +166,28 @@ onUnmounted(() => {
         </span>
       </div>
 
-      <!-- Main Score Area -->
+      <!-- Score rows: one per player -->
       <div class="broadcast-body">
-        <!-- Player 1 Section -->
-        <div class="broadcast-player-section player-left">
-          <div class="broadcast-player-name">
-            {{ participant1Name }}
+        <div class="broadcast-match-row">
+          <span class="broadcast-player-name">{{ participant1Name }}</span>
+          <div class="broadcast-score-cell">
+            <span class="broadcast-main-score">{{ currentGame.score1 }}</span>
+            <span class="broadcast-score-sep">|</span>
+            <span class="broadcast-sets-score">{{ gamesWon.participant1Games }}</span>
           </div>
         </div>
-
-        <!-- Score Section -->
-        <div class="broadcast-score-section">
-          <div class="broadcast-games-row">
-            <span class="broadcast-game">{{ gamesWon.participant1Games }}</span>
-            <span class="broadcast-divider">-</span>
-            <span class="broadcast-game">{{ gamesWon.participant2Games }}</span>
-          </div>
-          <div class="broadcast-points-row">
-            <span class="broadcast-point">{{ currentGame.score1 }}</span>
-            <span class="broadcast-divider">:</span>
-            <span class="broadcast-point">{{ currentGame.score2 }}</span>
-          </div>
-        </div>
-
-        <!-- Player 2 Section -->
-        <div class="broadcast-player-section player-right">
-          <div class="broadcast-player-name">
-            {{ participant2Name }}
+        <div class="broadcast-row-divider" />
+        <div class="broadcast-match-row">
+          <span class="broadcast-player-name">{{ participant2Name }}</span>
+          <div class="broadcast-score-cell">
+            <span class="broadcast-main-score">{{ currentGame.score2 }}</span>
+            <span class="broadcast-score-sep">|</span>
+            <span class="broadcast-sets-score">{{ gamesWon.participant2Games }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Bottom Bar with Game Info -->
+      <!-- Footer -->
       <div class="broadcast-footer">
         <span class="broadcast-game-info">GAME {{ currentGame.gameNumber || 1 }}</span>
       </div>
@@ -307,8 +297,8 @@ onUnmounted(() => {
   border-radius: 8px;
   box-shadow: 0 3px 15px rgba(0, 0, 0, 0.12), 0 1px 6px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  width: 660px;
-  height: 200px;
+  width: 520px;
+  height: 160px;
   display: flex;
   flex-direction: column;
 }
@@ -428,94 +418,73 @@ onUnmounted(() => {
   }
 }
 
-/* Body */
+/* Live body — two rows, one per player */
 .broadcast-body {
   flex: 1;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
-  padding: 10px 20px;
-  gap: 16px;
+  padding: 6px 16px;
+  gap: 0;
 }
 
-/* Player Sections */
-.broadcast-player-section {
-  flex: 1;
-  min-width: 0;
+.broadcast-match-row {
   display: flex;
   align-items: center;
-  overflow: hidden;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
 }
 
-.broadcast-player-section.player-left {
-  justify-content: flex-end;
-}
-
-.broadcast-player-section.player-right {
-  justify-content: flex-start;
+.broadcast-row-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 0 2px;
 }
 
 .broadcast-player-name {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  color: #616161;
+  color: #424242;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-  max-width: 100%;
+  flex: 1;
 }
 
-/* Score Section — hero element */
-.broadcast-score-section {
+.broadcast-score-cell {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%);
-  padding: 8px 20px;
-  border-radius: 6px;
-  border: 2px solid #e0e0e0;
+  gap: 6px;
   flex-shrink: 0;
-  width: 180px;
 }
 
-.broadcast-games-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #616161;
-}
-
-.broadcast-game {
-  font-variant-numeric: tabular-nums;
-  min-width: 20px;
-  text-align: center;
-}
-
-.broadcast-divider {
-  color: #9e9e9e;
-  font-weight: 500;
-}
-
-.broadcast-points-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 2.6rem;
+.broadcast-main-score {
+  font-size: 1.8rem;
   font-weight: 900;
   color: #1a237e;
-}
-
-.broadcast-point {
   font-variant-numeric: tabular-nums;
-  min-width: 44px;
+  min-width: 34px;
   text-align: center;
   line-height: 1;
+}
+
+.broadcast-score-sep {
+  color: #bdbdbd;
+  font-size: 0.9rem;
+  font-weight: 300;
+}
+
+.broadcast-sets-score {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #9e9e9e;
+  font-variant-numeric: tabular-nums;
+  min-width: 16px;
+  text-align: center;
 }
 
 /* Footer */
