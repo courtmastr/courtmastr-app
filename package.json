@@ -30,6 +30,8 @@
     "logs:tail": "tail -f logs/emulators-*.log 2>/dev/null || echo 'No log files found. Run emulators:capture first.'",
     "seed:local": "npx tsx scripts/seed/local.ts",
     "seed:prod": "npx tsx scripts/seed/production.ts",
+    "seed:demo:local": "npx tsx scripts/seed/demo-local.ts",
+    "seed:demo:prod": "npx tsx scripts/seed/demo-prod.ts",
     "seed:tnf2025:local": "npx tsx scripts/seed/tnf2025-local.ts",
     "seed:tnf2025:prod": "npx tsx scripts/seed/tnf2025-prod.ts",
     "seed:tnf2026:local": "npx tsx scripts/seed/tnf2026-local.ts",

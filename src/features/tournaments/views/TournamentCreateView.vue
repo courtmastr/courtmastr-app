@@ -9,6 +9,7 @@ import {
   DEFAULT_RANKING_PRESET,
   DEFAULT_RANKING_PROGRESSION,
 } from '@/features/leaderboard/rankingPresets';
+import { logger } from '@/utils/logger';
 
 const categoryTypeItems = Object.entries(CATEGORY_TYPE_LABELS).map(([value, title]) => ({ value, title }));
 const categoryGenderItems = Object.entries(CATEGORY_GENDER_LABELS).map(([value, title]) => ({ value, title }));
@@ -170,17 +171,17 @@ function removeCustomCategory(index: number) {
 
 async function createTournament() {
   if (!authStore.currentUser) {
-    console.log('[createTournament] No current user, aborting');
+    logger.debug('[createTournament] No current user, aborting');
     return;
   }
 
   if (loading.value) {
-    console.log('[createTournament] Already loading, aborting');
+    logger.debug('[createTournament] Already loading, aborting');
     return;
   }
 
   // Validate required fields
-  console.log('[createTournament] Validating fields:', { 
+  logger.debug('[createTournament] Validating fields:', {
     name: name.value, 
     startDate: startDate.value, 
     endDate: endDate.value,
@@ -189,7 +190,7 @@ async function createTournament() {
   });
   
   if (!name.value || !startDate.value || !endDate.value) {
-    console.log('[createTournament] Missing required fields');
+    logger.debug('[createTournament] Missing required fields');
     notificationStore.showToast('error', 'Please fill in all required fields');
     loading.value = false;
     return;
@@ -197,7 +198,7 @@ async function createTournament() {
 
   // Validate that at least one category is selected
   if (selectedCategories.value.length === 0 && customCategories.value.filter(c => c.name).length === 0) {
-    console.log('[createTournament] No categories selected');
+    logger.debug('[createTournament] No categories selected');
     notificationStore.showToast('error', 'Please select at least one category');
     loading.value = false;
     return;
@@ -207,17 +208,17 @@ async function createTournament() {
 
   // Set a timeout to prevent infinite hanging
   const timeoutId = setTimeout(() => {
-    console.error('[createTournament] TIMEOUT: Tournament creation taking too long');
+    logger.error('[createTournament] TIMEOUT: Tournament creation taking too long');
     loading.value = false;
     notificationStore.showToast('error', 'Tournament creation timed out. Please try again.');
   }, 15000);
 
   try {
-    console.log('[createTournament] Starting tournament creation...');
+    logger.debug('[createTournament] Starting tournament creation...');
 
     // Create tournament
-    console.log('[createTournament] About to call tournamentStore.createTournament...');
-    console.log('[createTournament] Data:', {
+    logger.debug('[createTournament] About to call tournamentStore.createTournament...');
+    logger.debug('[createTournament] Data:', {
       name: name.value,
       sport: 'badminton',
       format: DEFAULT_TOURNAMENT_FORMAT,
@@ -259,22 +260,22 @@ async function createTournament() {
       tournamentData.registrationDeadline = new Date(registrationDeadline.value);
     }
 
-    console.log('[createTournament] About to call store...');
+    logger.debug('[createTournament] About to call store...');
     const startTime = Date.now();
     const tournamentId = await tournamentStore.createTournament(tournamentData);
-    console.log(`[createTournament] Store call completed in ${Date.now() - startTime}ms`);
-    console.log('[createTournament] Tournament created:', tournamentId);
+    logger.debug(`[createTournament] Store call completed in ${Date.now() - startTime}ms`);
+    logger.debug('[createTournament] Tournament created:', tournamentId);
 
     // Add selected predefined categories
-    console.log('[createTournament] Adding categories... selectedCategories:', selectedCategories.value);
+    logger.debug('[createTournament] Adding categories... selectedCategories:', selectedCategories.value);
     if (selectedCategories.value.length === 0) {
-      console.log('[createTournament] WARNING: No categories selected!');
+      logger.debug('[createTournament] WARNING: No categories selected!');
     }
 
     // Process categories in batches to avoid hanging
     const categoryPromises = selectedCategories.value.map(async (index) => {
       const template = CATEGORY_TEMPLATES[parseInt(index)];
-      console.log('[createTournament] Adding category:', template.name);
+      logger.debug('[createTournament] Adding category:', template.name);
       return tournamentStore.addCategory(tournamentId, {
         ...template,
         status: 'setup',
@@ -297,10 +298,10 @@ async function createTournament() {
       });
 
     await Promise.all([...categoryPromises, ...customCategoryPromises]);
-    console.log('[createTournament] Categories added');
+    logger.debug('[createTournament] Categories added');
 
     // Add courts
-    console.log('[createTournament] Adding courts...');
+    logger.debug('[createTournament] Adding courts...');
     const courtPromises = courts.value.map(async (court) => {
       return tournamentStore.addCourt(tournamentId, {
         name: court.name,
@@ -310,20 +311,20 @@ async function createTournament() {
     });
 
     await Promise.all(courtPromises);
-    console.log('[createTournament] Courts added');
+    logger.debug('[createTournament] Courts added');
 
-    console.log('[createTournament] Showing success toast and navigating...');
+    logger.debug('[createTournament] Showing success toast and navigating...');
     notificationStore.showToast('success', 'Tournament created successfully!');
     await router.push(`/tournaments/${tournamentId}`);
-    console.log('[createTournament] Navigation complete');
+    logger.debug('[createTournament] Navigation complete');
     clearTimeout(timeoutId);
   } catch (error: any) {
-    console.error('[createTournament] Error creating tournament:', error);
+    logger.error('[createTournament] Error creating tournament:', error);
     clearTimeout(timeoutId);
     const errorMessage = error?.message || error?.toString() || 'Unknown error';
     notificationStore.showToast('error', `Failed to create tournament: ${errorMessage}`);
   } finally {
-    console.log('[createTournament] Finally block - setting loading to false');
+    logger.debug('[createTournament] Finally block - setting loading to false');
     loading.value = false;
   }
 }
@@ -341,28 +342,28 @@ function prevStep() {
 }
 
 async function handleSubmit() {
-  console.log(`[handleSubmit] Called, currentStep: ${currentStep.value}, steps.length: ${steps.length}, loading: ${loading.value}`);
+  logger.debug(`[handleSubmit] Called, currentStep: ${currentStep.value}, steps.length: ${steps.length}, loading: ${loading.value}`);
   
   // Prevent double submission
   if (loading.value) {
-    console.log('[handleSubmit] Already loading, ignoring duplicate submit');
+    logger.debug('[handleSubmit] Already loading, ignoring duplicate submit');
     return;
   }
 
   if (currentStep.value < steps.length) {
-    console.log('[handleSubmit] Advancing to next step');
+    logger.debug('[handleSubmit] Advancing to next step');
     nextStep();
     return;
   }
 
-  console.log('[handleSubmit] On final step, calling createTournament');
+  logger.debug('[handleSubmit] On final step, calling createTournament');
   try {
     await createTournament();
-    console.log('[handleSubmit] createTournament completed');
+    logger.debug('[handleSubmit] createTournament completed');
   } catch (err) {
-    console.error('[handleSubmit] Failed to create tournament:', err);
+    logger.error('[handleSubmit] Failed to create tournament:', err);
   }
-  console.log('[handleSubmit] Finished');
+  logger.debug('[handleSubmit] Finished');
 }
 </script>
 

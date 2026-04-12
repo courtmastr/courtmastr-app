@@ -6,6 +6,7 @@ import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import type { VolunteerRole } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -83,7 +84,7 @@ const submitPin = async (): Promise<void> => {
       });
     }
   } catch (sessionError) {
-    console.error('Error starting volunteer session:', sessionError);
+    logger.error('Error starting volunteer session:', sessionError);
     error.value = sessionError instanceof Error
       ? sessionError.message
       : 'Failed to start volunteer session';

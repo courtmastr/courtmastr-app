@@ -13,6 +13,7 @@ import {
   Timestamp,
 } from '@/services/firebase';
 import type { User, UserRole } from '@/types';
+import { logger } from '@/utils/logger';
 
 export const useUserStore = defineStore('users', () => {
   const users = ref<User[]>([]);
@@ -41,7 +42,7 @@ export const useUserStore = defineStore('users', () => {
       const snapshot = await getDocs(usersQuery);
       users.value = snapshot.docs.map((userDoc) => convertUserData(userDoc.id, userDoc.data()));
     } catch (err) {
-      console.error('Error fetching users:', err);
+      logger.error('Error fetching users:', err);
       error.value = 'Failed to fetch users';
     } finally {
       loading.value = false;
@@ -58,7 +59,7 @@ export const useUserStore = defineStore('users', () => {
         users.value = snapshot.docs.map((userDoc) => convertUserData(userDoc.id, userDoc.data()));
       },
       (err) => {
-        console.error('Error subscribing to users:', err);
+        logger.error('Error subscribing to users:', err);
         error.value = 'Lost connection to users';
       }
     );

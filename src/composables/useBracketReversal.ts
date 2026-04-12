@@ -12,6 +12,7 @@ import {
   writeBatch,
   serverTimestamp,
 } from '@/services/firebase';
+import { logger } from '@/utils/logger';
 
 export function useBracketReversal() {
 
@@ -25,7 +26,7 @@ export function useBracketReversal() {
     winnerRegistrationId: string,
     categoryId?: string
   ): Promise<void> {
-    console.log('[reverseWinnerAdvancement] Starting reversal:', {
+    logger.debug('[reverseWinnerAdvancement] Starting reversal:', {
       tournamentId,
       sourceMatchId,
       winnerRegistrationId,
@@ -44,7 +45,7 @@ export function useBracketReversal() {
     const participantSnap = await getDocs(participantQuery);
     
     if (participantSnap.empty) {
-      console.warn('[reverseWinnerAdvancement] No participant found for registration:', winnerRegistrationId);
+      logger.warn('[reverseWinnerAdvancement] No participant found for registration:', winnerRegistrationId);
       return;
     }
 
@@ -69,11 +70,11 @@ export function useBracketReversal() {
     const allMatches = [...matchesSnap1.docs, ...matchesSnap2.docs];
     
     if (allMatches.length === 0) {
-      console.log('[reverseWinnerAdvancement] No subsequent matches found');
+      logger.debug('[reverseWinnerAdvancement] No subsequent matches found');
       return;
     }
 
-    console.log(`[reverseWinnerAdvancement] Found ${allMatches.length} matches to clean up`);
+    logger.debug(`[reverseWinnerAdvancement] Found ${allMatches.length} matches to clean up`);
 
     const batch = writeBatch(db);
     const matchesToReset: string[] = [];
@@ -117,7 +118,7 @@ export function useBracketReversal() {
 
     await batch.commit();
 
-    console.log(`[reverseWinnerAdvancement] Cleared ${allMatches.length} matches, ${matchesToReset.length} need recursive reset`);
+    logger.debug(`[reverseWinnerAdvancement] Cleared ${allMatches.length} matches, ${matchesToReset.length} need recursive reset`);
 
     // Recursively reset downstream matches
     for (const matchId of matchesToReset) {
@@ -147,7 +148,7 @@ export function useBracketReversal() {
     newWinnerId: string | undefined,
     categoryId?: string
   ): Promise<void> {
-    console.log('[handleWinnerChange] Processing winner change:', {
+    logger.debug('[handleWinnerChange] Processing winner change:', {
       tournamentId,
       matchId,
       oldWinnerId,
@@ -167,7 +168,7 @@ export function useBracketReversal() {
       await advancer.advanceWinner(tournamentId, categoryId || '', matchId, newWinnerId);
     }
 
-    console.log('[handleWinnerChange] Winner change complete');
+    logger.debug('[handleWinnerChange] Winner change complete');
   }
 
   return {

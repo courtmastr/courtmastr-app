@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { functions, httpsCallable } from '@/services/firebase';
+import { logger } from '@/utils/logger';
 
 export interface SelfCheckInCandidate {
   registrationId: string;
@@ -54,7 +55,7 @@ export const useSelfCheckIn = (tournamentId: string) => {
       const data = response.data as SearchSelfCheckInCandidatesResponse;
       candidates.value = data.candidates ?? [];
     } catch (err) {
-      console.error('Self check-in search failed:', err);
+      logger.error('Self check-in search failed:', err);
       error.value = 'Unable to search participants right now.';
       throw err;
     } finally {
@@ -76,7 +77,7 @@ export const useSelfCheckIn = (tournamentId: string) => {
       lastResult.value = result;
       return result;
     } catch (err) {
-      console.error('Self check-in submit failed:', err);
+      logger.error('Self check-in submit failed:', err);
       error.value = 'Unable to complete check-in right now.';
       throw err;
     } finally {

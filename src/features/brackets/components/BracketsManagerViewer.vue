@@ -7,6 +7,7 @@ import { query, where, getDocs } from 'firebase/firestore';
 import type { Stage, Match, MatchGame, Participant } from 'brackets-model';
 
 import 'brackets-viewer/dist/brackets-viewer.min.css';
+import { logger } from '@/utils/logger';
 
 let bracketsViewerLoaded = false;
 
@@ -118,7 +119,7 @@ async function fetchRegistrationNames(): Promise<Map<string, string>> {
       }
     }
   } catch (err) {
-    console.error('Error fetching registration names:', err);
+    logger.error('Error fetching registration names:', err);
   }
   
   return namesMap;
@@ -129,7 +130,7 @@ async function fetchBracketData() {
     loading.value = true;
     error.value = null;
 
-    console.log('🔍 Fetching bracket data for:', props.tournamentId, props.categoryId);
+    logger.debug('🔍 Fetching bracket data for:', props.tournamentId, props.categoryId);
 
     const categoryPath = props.levelId
       ? `tournaments/${props.tournamentId}/categories/${props.categoryId}/levels/${props.levelId}`
@@ -139,7 +140,7 @@ async function fetchBracketData() {
     const stageData = await storage.select('stage') as Stage[] | null;
     
     if (!stageData || stageData.length === 0) {
-      console.log('⚠️ No bracket generated yet');
+      logger.debug('⚠️ No bracket generated yet');
       stages.value = [];
       matches.value = [];
       matchGames.value = [];
@@ -165,11 +166,11 @@ async function fetchBracketData() {
         }
       }
     } catch (stageResolveError) {
-      console.warn('Unable to resolve preferred stageId for category:', stageResolveError);
+      logger.warn('Unable to resolve preferred stageId for category:', stageResolveError);
     }
 
     stages.value = [stage];
-    console.log('📊 Found stage:', stage);
+    logger.debug('📊 Found stage:', stage);
 
     const [matchesData, participantsData, matchGamesData] = await Promise.all([
       storage.select('match', { stage_id: stage.id }) as Promise<Match[] | null>,
@@ -181,7 +182,7 @@ async function fetchBracketData() {
     matchGames.value = matchGamesData || [];
 
     const rawParticipants = participantsData || [];
-    console.log(`📊 Loaded ${matches.value.length} matches, ${matchGames.value.length} match games, ${rawParticipants.length} participants`);
+    logger.debug(`📊 Loaded ${matches.value.length} matches, ${matchGames.value.length} match games, ${rawParticipants.length} participants`);
 
     const namesMap = await fetchRegistrationNames();
     
@@ -201,7 +202,7 @@ async function fetchBracketData() {
     renderBracket();
 
   } catch (err: any) {
-    console.error('❌ Error fetching bracket data:', err);
+    logger.error('❌ Error fetching bracket data:', err);
     error.value = err.message || 'Failed to load bracket';
     loading.value = false;
   }
@@ -209,7 +210,7 @@ async function fetchBracketData() {
 
 function setupRealtimeListeners() {
   cleanupRealtimeListeners();
-  console.log(`🔄 [BracketsViewer] Setting up real-time listeners for category ${props.categoryId}`);
+  logger.debug(`🔄 [BracketsViewer] Setting up real-time listeners for category ${props.categoryId}`);
 
   const basePath = props.levelId
     ? `tournaments/${props.tournamentId}/categories/${props.categoryId}/levels/${props.levelId}`
@@ -221,10 +222,10 @@ function setupRealtimeListeners() {
     const unsubMatch = onSnapshot(
       collection(db, matchPath),
       () => {
-        console.log('   🔄 Match collection changed');
+        logger.debug('   🔄 Match collection changed');
         debouncedFetchBracketData();
       },
-      (error) => console.error('   ❌ Error listening to matches:', error)
+      (error) => logger.error('   ❌ Error listening to matches:', error)
     );
   unsubscribers.push(unsubMatch);
 
@@ -233,10 +234,10 @@ function setupRealtimeListeners() {
     const unsubGame = onSnapshot(
       collection(db, matchGamesPath),
       () => {
-        console.log('   🔄 Match_game collection changed');
+        logger.debug('   🔄 Match_game collection changed');
         debouncedFetchBracketData();
       },
-      (error) => console.error('   ❌ Error listening to match_games:', error)
+      (error) => logger.error('   ❌ Error listening to match_games:', error)
     );
   unsubscribers.push(unsubGame);
 
@@ -245,10 +246,10 @@ function setupRealtimeListeners() {
     const unsubScores = onSnapshot(
       collection(db, matchScoresPath),
       () => {
-        console.log('   🔄 Match_scores collection changed');
+        logger.debug('   🔄 Match_scores collection changed');
         debouncedFetchBracketData();
       },
-      (error) => console.error('   ❌ Error listening to match_scores:', error)
+      (error) => logger.error('   ❌ Error listening to match_scores:', error)
     );
   unsubscribers.push(unsubScores);
 
@@ -258,11 +259,11 @@ function setupRealtimeListeners() {
   matchGameUnsubscribe = combinedUnsubscribe;
   matchScoresUnsubscribe = combinedUnsubscribe;
 
-  console.log('✅ [BracketsViewer] Real-time listeners active');
+  logger.debug('✅ [BracketsViewer] Real-time listeners active');
 }
 
 function cleanupRealtimeListeners() {
-  console.log('🧹 [BracketsViewer] Cleaning up real-time listeners');
+  logger.debug('🧹 [BracketsViewer] Cleaning up real-time listeners');
   const unsubscribe = matchUnsubscribe || matchGameUnsubscribe || matchScoresUnsubscribe;
   if (unsubscribe) {
     unsubscribe();
@@ -279,16 +280,16 @@ function cleanupRealtimeListeners() {
 
 function renderBracket() {
   if (!bracketContainer.value) {
-    console.error('❌ Bracket container not found');
+    logger.error('❌ Bracket container not found');
     return;
   }
   
   if (stages.value.length === 0) {
-    console.log('⚠️ No stages to render');
+    logger.debug('⚠️ No stages to render');
     return;
   }
 
-  console.log('🎨 Rendering bracket:', {
+  logger.debug('🎨 Rendering bracket:', {
     stages: stages.value.length,
     matches: matches.value.length,
     matchGames: matchGames.value.length,
@@ -323,10 +324,10 @@ function renderBracket() {
       highlightParticipantOnHover: true,
     });
 
-    console.log('✅ Bracket rendered successfully');
+    logger.debug('✅ Bracket rendered successfully');
 
   } catch (err: any) {
-    console.error('❌ Error rendering bracket:', err);
+    logger.error('❌ Error rendering bracket:', err);
     error.value = err.message || 'Failed to render bracket';
   }
 }

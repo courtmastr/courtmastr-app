@@ -1,4 +1,5 @@
 import { ref, type Ref } from 'vue';
+import { logger } from '@/utils/logger';
 
 /**
  * State interface for async operations
@@ -36,8 +37,8 @@ export interface AsyncOperationCallbacks<T> {
  * await execute(
  *   () => fetchTournament(tournamentId),
  *   {
- *     onSuccess: (tournament) => console.log('Loaded:', tournament),
- *     onError: (err) => console.error('Failed:', err)
+ *     onSuccess: (tournament) => logger.debug('Loaded:', tournament),
+ *     onError: (err) => logger.error('Failed:', err)
  *   },
  *   'Failed to load tournament'
  * );
@@ -76,7 +77,7 @@ export function useAsyncOperation<T>() {
       const errorMsg = err instanceof Error ? err.message : String(err);
       error.value = errorMessage || errorMsg;
       
-      console.error(`[useAsyncOperation] ${error.value}:`, err);
+      logger.error(`[useAsyncOperation] ${error.value}:`, err);
       
       if (callbacks?.onError && err instanceof Error) {
         callbacks.onError(err);

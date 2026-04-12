@@ -20,6 +20,7 @@ import { convertTimestamps } from '@/utils/firestore';
 import type { Organization, OrganizationMember, OrgSponsor, Tournament } from '@/types';
 import { useAuthStore } from '@/stores/auth';
 import { uploadOrgSponsorLogo, deleteOrgBrandingAsset } from '@/services/orgBrandingStorage';
+import { logger } from '@/utils/logger';
 
 export const useOrganizationsStore = defineStore('organizations', () => {
   const myOrgs = ref<Organization[]>([]);
@@ -55,7 +56,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
         .filter((d) => d.exists())
         .map((d) => convertTimestamps({ id: d.id, ...d.data() }) as Organization);
     } catch (err) {
-      console.error('Error fetching orgs:', err);
+      logger.error('Error fetching orgs:', err);
       error.value = 'Failed to fetch organizations';
     } finally {
       loading.value = false;
@@ -70,7 +71,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
       currentOrg.value = org;
       return org;
     } catch (err) {
-      console.error('Error fetching org:', err);
+      logger.error('Error fetching org:', err);
       throw err;
     }
   };
@@ -82,7 +83,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
       const { orgId } = indexSnap.data() as { orgId: string };
       return fetchOrgById(orgId);
     } catch (err) {
-      console.error('Error fetching org by slug:', err);
+      logger.error('Error fetching org by slug:', err);
       throw err;
     }
   };
@@ -136,7 +137,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
         currentOrg.value = { ...currentOrg.value, ...updates } as Organization;
       }
     } catch (err) {
-      console.error('Error updating org:', err);
+      logger.error('Error updating org:', err);
       throw err;
     }
   };
@@ -150,7 +151,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
         updatedAt: serverTimestamp(),
       });
     } catch (err) {
-      console.error('Error setting active org:', err);
+      logger.error('Error setting active org:', err);
       throw err;
     }
   };
@@ -167,7 +168,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
         convertTimestamps({ id: d.id, ...d.data() }) as Tournament
       );
     } catch (err) {
-      console.error('Error fetching org tournaments:', err);
+      logger.error('Error fetching org tournaments:', err);
       throw err;
     }
   };
@@ -179,7 +180,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
         convertTimestamps({ ...d.data() }) as OrganizationMember
       );
     } catch (err) {
-      console.error('Error fetching org members:', err);
+      logger.error('Error fetching org members:', err);
       throw err;
     }
   };
@@ -242,7 +243,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
         joinedAt: serverTimestamp(),
       });
     } catch (err) {
-      console.error('Error adding org member:', err);
+      logger.error('Error adding org member:', err);
       throw err;
     }
   };

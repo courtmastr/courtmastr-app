@@ -43,9 +43,7 @@ function getGithubConfig() {
     return { token, repoOwner, repoName };
 }
 exports.submitBugReport = functions.https.onCall(async (request) => {
-    if (!request.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to submit bug reports');
-    }
+    var _a, _b, _c;
     const { description, pageUrl, browserInfo, screenshotUrl } = request.data;
     if (!description || typeof description !== 'string' || description.trim().length === 0) {
         throw new functions.https.HttpsError('invalid-argument', 'Bug description is required');
@@ -55,10 +53,14 @@ exports.submitBugReport = functions.https.onCall(async (request) => {
     }
     try {
         const db = admin.firestore();
-        const userDoc = await db.collection('users').doc(request.auth.uid).get();
-        const userData = userDoc.data();
-        const userEmail = (userData === null || userData === void 0 ? void 0 : userData.email) || 'unknown';
-        const userName = (userData === null || userData === void 0 ? void 0 : userData.displayName) || 'Anonymous';
+        let userEmail = 'anonymous';
+        let userName = 'Anonymous';
+        if ((_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid) {
+            const userDoc = await db.collection('users').doc(request.auth.uid).get();
+            const userData = userDoc.data();
+            userEmail = (userData === null || userData === void 0 ? void 0 : userData.email) || 'unknown';
+            userName = (userData === null || userData === void 0 ? void 0 : userData.displayName) || 'Anonymous';
+        }
         const { token, repoOwner, repoName } = getGithubConfig();
         if (!token || !repoOwner || !repoName) {
             console.error('GitHub configuration missing');
@@ -71,7 +73,7 @@ exports.submitBugReport = functions.https.onCall(async (request) => {
 ${description}
 
 **Reporter:** ${userName} (${userEmail})
-**User ID:** ${request.auth.uid}
+**User ID:** ${((_b = request.auth) === null || _b === void 0 ? void 0 : _b.uid) || 'anonymous'}
 **Page URL:** ${pageUrl || 'Not provided'}
 **Browser:** ${browserInfo || 'Not provided'}
 **Reported At:** ${new Date().toISOString()}
@@ -114,7 +116,7 @@ ${description}
             pageUrl: pageUrl || null,
             browserInfo: browserInfo || null,
             screenshotUrl: screenshotUrl || null,
-            userId: request.auth.uid,
+            userId: ((_c = request.auth) === null || _c === void 0 ? void 0 : _c.uid) || null,
             userEmail,
             userName,
             githubIssueNumber: issueNumber,

@@ -18,6 +18,7 @@ import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue
 import LiveBadge from '@/components/common/LiveBadge.vue';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import type { Match } from '@/types';
+import { logger } from '@/utils/logger';
 
 type PublicMatchStatus = 'on_court' | 'upcoming' | 'delayed' | 'finished' | 'cancelled';
 
@@ -628,7 +629,7 @@ const handleInstallApp = async (): Promise<void> => {
   try {
     await installApp();
   } catch (error) {
-    console.error('Failed to trigger app install prompt:', error);
+    logger.error('Failed to trigger app install prompt:', error);
   }
 };
 
@@ -658,7 +659,7 @@ onMounted(async () => {
     matchStore.subscribeAllMatches(tournamentId.value);
     activityStore.subscribeActivities(tournamentId.value, 40);
   } catch (error) {
-    console.error('Failed to load public schedule:', error);
+    logger.error('Failed to load public schedule:', error);
     notFound.value = true;
   }
 });

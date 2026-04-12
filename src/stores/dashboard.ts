@@ -12,6 +12,7 @@ import {
   limit,
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
+import { logger } from '@/utils/logger';
 
 export interface ActivityItem {
   id: string;
@@ -38,7 +39,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
       pendingRegistrationCount.value = pendingSnap.size;
       totalPlayerCount.value = playersSnap.size;
     } catch (err) {
-      console.error('Error fetching dashboard counts:', err);
+      logger.error('Error fetching dashboard counts:', err);
     } finally {
       loading.value = false;
     }
@@ -56,7 +57,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         convertTimestamps({ id: d.id, ...d.data() }) as ActivityItem
       );
     } catch (err) {
-      console.error('Error fetching recent activity:', err);
+      logger.error('Error fetching recent activity:', err);
     }
   };
 

@@ -24,6 +24,16 @@ import { ClientFirestoreStorage } from '../../src/services/brackets-storage';
 
 export type CategoryFormat = 'single_elimination' | 'double_elimination' | 'pool_to_elimination';
 export type CategoryType = 'singles' | 'doubles' | 'mixed_doubles';
+type SeedOrdering =
+  | 'natural'
+  | 'reverse'
+  | 'half_shift'
+  | 'reverse_half_shift'
+  | 'pair_flip'
+  | 'inner_outer'
+  | 'groups.effort_balanced'
+  | 'groups.seed_optimized'
+  | 'groups.bracket_optimized';
 
 export interface CategorySeedConfig {
   key: 'mens_singles' | 'mens_doubles' | 'mixed_doubles';
@@ -44,6 +54,10 @@ interface RegistrationSeed {
   seed: number | null;
   playerId?: string;
   partnerPlayerId?: string;
+}
+
+export interface SeedDataOptions {
+  playerEmailDomain?: string;
 }
 
 interface PlayerName {
@@ -160,8 +174,12 @@ function formatTeamName(p1: PlayerName, p2: PlayerName): string {
   return `${formatFullName(p1)} / ${formatFullName(p2)}`;
 }
 
-function toEmail(first: string, last: string): string {
-  return `${first.toLowerCase()}.${last.toLowerCase()}@seed.local`;
+function toEmail(first: string, last: string, domain = 'seed.local'): string {
+  const localPart = `${first}.${last}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.+|\.+$/g, '');
+  return `${localPart}@${domain}`;
 }
 
 function toPhone(index: number): string {
@@ -277,7 +295,8 @@ export async function createPlayersAndRegistrations(
   db: Firestore,
   tournamentId: string,
   adminId: string,
-  categories: CategoryRef[]
+  categories: CategoryRef[],
+  options: SeedDataOptions = {}
 ): Promise<Map<string, RegistrationSeed[]>> {
   const registrationByCategoryId = new Map<string, RegistrationSeed[]>();
   const playerIdByName = new Map<string, string>();
@@ -297,7 +316,7 @@ export async function createPlayersAndRegistrations(
     const globalPlayerId = await seedGlobalPlayer(db, tournamentId, {
       firstName: name.first,
       lastName: name.last,
-      email: toEmail(name.first, name.last),
+      email: toEmail(name.first, name.last, options.playerEmailDomain),
       phone: toPhone(playerCounter),
       gender,
       skillLevel,
@@ -442,7 +461,7 @@ export async function generateCategoryBracket(
 
   let stageType: 'single_elimination' | 'double_elimination' | 'round_robin';
   let seedingIds: (number | null)[];
-  const settings: { seedOrdering?: string[]; groupCount?: number; grandFinal?: 'simple' | 'double' | 'none' } = {};
+  const settings: { seedOrdering?: SeedOrdering[]; groupCount?: number; grandFinal?: 'simple' | 'double' | 'none' } = {};
 
   if (category.config.format === 'pool_to_elimination') {
     stageType = 'round_robin';

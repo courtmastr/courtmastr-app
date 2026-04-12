@@ -20,6 +20,7 @@ import {
 import { BracketsManager } from 'brackets-manager';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
 import type { Registration, Category, LevelEliminationFormat, MatchStatus, PoolSeedingMethod } from '@/types';
+import { logger } from '@/utils/logger';
 
 // ============================================
 // Types
@@ -185,10 +186,10 @@ export function useBracketGenerator() {
         const { ordered, seedOrdering } = orderRegistrationsForPool(baseSorted, method, numPools);
         finalOrdered = ordered;
         poolSeedOverride = seedOrdering;
-        console.log(`🎯 Pool seeding: method=${method}, numPools=${numPools}, teamsPerPool=${teamsPerPool}`);
+        logger.debug(`🎯 Pool seeding: method=${method}, numPools=${numPools}, teamsPerPool=${teamsPerPool}`);
       }
 
-      console.log(`📊 Generating ${category.format} bracket for ${finalOrdered.length} participants`);
+      logger.debug(`📊 Generating ${category.format} bracket for ${finalOrdered.length} participants`);
 
       progress.value = 30;
 
@@ -198,7 +199,7 @@ export function useBracketGenerator() {
       const storage = new ClientFirestoreStorage(db, categoryPath);
       const manager = new BracketsManager(storage);
 
-      console.log(`💾 Using FirestoreStorage with path: ${categoryPath}`);
+      logger.debug(`💾 Using FirestoreStorage with path: ${categoryPath}`);
 
       const participantsData: StoredParticipant[] = finalOrdered.map((reg, index) => ({
         id: index + 1,
@@ -207,19 +208,19 @@ export function useBracketGenerator() {
       }));
 
       await storage.insert('participant', participantsData);
-      console.log(`✅ Created ${participantsData.length} participants`);
+      logger.debug(`✅ Created ${participantsData.length} participants`);
 
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      console.log('🔍 Verifying participants in storage...');
+      logger.debug('🔍 Verifying participants in storage...');
       const verifyParticipants = await storage.select('participant') as any[];
-      console.log(`   Found ${verifyParticipants?.length || 0} participants`);
+      logger.debug(`   Found ${verifyParticipants?.length || 0} participants`);
 
       if (verifyParticipants && verifyParticipants.length > 0) {
-        console.log('   First participant:', verifyParticipants[0]);
+        logger.debug('   First participant:', verifyParticipants[0]);
 
         const testSelect = await storage.select('participant', 1);
-        console.log('   Select by ID 1:', testSelect ? 'FOUND' : 'NOT FOUND');
+        logger.debug('   Select by ID 1:', testSelect ? 'FOUND' : 'NOT FOUND');
       }
 
       progress.value = 40;
@@ -287,12 +288,12 @@ export function useBracketGenerator() {
         );
       }
 
-      console.log(`✅ Bracket generated and saved to ${categoryPath}:`, result);
+      logger.debug(`✅ Bracket generated and saved to ${categoryPath}:`, result);
       progress.value = 100;
       return result;
 
     } catch (err) {
-      console.error('Error generating bracket:', err);
+      logger.error('Error generating bracket:', err);
       error.value = err instanceof Error ? err.message : 'Failed to generate bracket';
       throw err;
     } finally {
@@ -447,7 +448,7 @@ export function useBracketGenerator() {
       progress.value = 100;
       return result;
     } catch (err) {
-      console.error('Error generating elimination from pool:', err);
+      logger.error('Error generating elimination from pool:', err);
       error.value = err instanceof Error ? err.message : 'Failed to generate elimination stage';
       throw err;
     } finally {
@@ -534,7 +535,7 @@ export function useBracketGenerator() {
       progress.value = 100;
       return result;
     } catch (err) {
-      console.error('Error generating level bracket:', err);
+      logger.error('Error generating level bracket:', err);
       error.value = err instanceof Error ? err.message : 'Failed to generate level bracket';
       throw err;
     } finally {
@@ -595,7 +596,7 @@ export function useBracketGenerator() {
       { merge: true }
     );
 
-    console.log(`✅ Deleted bracket from ${categoryPath}`);
+    logger.debug(`✅ Deleted bracket from ${categoryPath}`);
   }
 
   return {
@@ -682,8 +683,8 @@ function createSeedingArray(participantCount: number): (number | null)[] {
     seeding.push(null);
   }
 
-  console.log('🎯 Seeding array:', seeding.map((s, i) => s ? `Pos${i}:P${s}` : `Pos${i}:BYE`).join(', '));
-  console.log(`   ${count} participants -> ${bracketSize}-slot bracket (${bracketSize - count} BYEs)`);
+  logger.debug('🎯 Seeding array:', seeding.map((s, i) => s ? `Pos${i}:P${s}` : `Pos${i}:BYE`).join(', '));
+  logger.debug(`   ${count} participants -> ${bracketSize}-slot bracket (${bracketSize - count} BYEs)`);
 
   return seeding;
 }
@@ -1160,7 +1161,7 @@ async function initializeByeWalkovers(
   );
 
   if (byeMatches.length === 0) {
-    console.log('ℹ️ No BYE matches found — skipping walkover initialisation');
+    logger.debug('ℹ️ No BYE matches found — skipping walkover initialisation');
     return;
   }
 
@@ -1201,7 +1202,7 @@ async function initializeByeWalkovers(
   }
 
   await batch.commit();
-  console.log(`✅ Wrote ${byeMatches.length} walkover match_scores for BYE matches in stage ${stageId}`);
+  logger.debug(`✅ Wrote ${byeMatches.length} walkover match_scores for BYE matches in stage ${stageId}`);
 }
 
 async function deleteMatchScoresByIds(

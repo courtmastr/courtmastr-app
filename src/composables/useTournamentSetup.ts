@@ -6,6 +6,7 @@
 import { ref } from 'vue';
 import { useBracketGenerator } from './useBracketGenerator';
 import { useMatchScheduler } from './useMatchScheduler';
+import { logger } from '@/utils/logger';
 
 export interface SetupOptions {
   tournamentId: string;
@@ -60,9 +61,9 @@ export function useTournamentSetup() {
 
     try {
       // Step 1: Generate Bracket
-      console.log(`🎾 Setting up category ${options.categoryId}...`);
-      console.log(`   Format: ${options.format || 'from category'}`);
-      console.log(`   Auto-schedule: ${options.autoSchedule !== false}`);
+      logger.debug(`🎾 Setting up category ${options.categoryId}...`);
+      logger.debug(`   Format: ${options.format || 'from category'}`);
+      logger.debug(`   Auto-schedule: ${options.autoSchedule !== false}`);
 
       const bracketResult = await bracketGen.generateBracket(
         options.tournamentId,
@@ -76,7 +77,7 @@ export function useTournamentSetup() {
       result.bracket.matchCount = bracketResult.matchCount;
       progress.value = 50;
 
-      console.log(`✅ Bracket generated: ${bracketResult.matchCount} matches`);
+      logger.debug(`✅ Bracket generated: ${bracketResult.matchCount} matches`);
 
       // Step 2: Schedule matches (if enabled)
       if (options.autoSchedule !== false && bracketResult.matchCount > 0) {
@@ -97,11 +98,11 @@ export function useTournamentSetup() {
         result.schedule.estimatedDuration = scheduleResult.stats.estimatedDuration;
         result.schedule.courtUtilization = scheduleResult.stats.courtUtilization;
 
-        console.log(`✅ Schedule created:`);
-        console.log(`   - Scheduled: ${result.schedule.scheduled} matches`);
-        console.log(`   - Unscheduled: ${result.schedule.unscheduled} matches`);
-        console.log(`   - Duration: ${result.schedule.estimatedDuration} minutes`);
-        console.log(`   - Court utilization: ${result.schedule.courtUtilization}%`);
+        logger.debug(`✅ Schedule created:`);
+        logger.debug(`   - Scheduled: ${result.schedule.scheduled} matches`);
+        logger.debug(`   - Unscheduled: ${result.schedule.unscheduled} matches`);
+        logger.debug(`   - Duration: ${result.schedule.estimatedDuration} minutes`);
+        logger.debug(`   - Court utilization: ${result.schedule.courtUtilization}%`);
       }
 
       step.value = 'complete';
@@ -111,7 +112,7 @@ export function useTournamentSetup() {
       return result;
 
     } catch (err) {
-      console.error('Setup failed:', err);
+      logger.error('Setup failed:', err);
       error.value = bracketGen.error.value || scheduler.error.value || 'Setup failed';
       throw err;
     } finally {
@@ -133,9 +134,9 @@ export function useTournamentSetup() {
       // Delete bracket
       await bracketGen.deleteBracket(tournamentId, categoryId);
       
-      console.log(`🗑️ Category ${categoryId} reset complete`);
+      logger.debug(`🗑️ Category ${categoryId} reset complete`);
     } catch (err) {
-      console.error('Reset failed:', err);
+      logger.error('Reset failed:', err);
       error.value = 'Failed to reset category';
       throw err;
     } finally {

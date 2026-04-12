@@ -2,6 +2,7 @@ import { CrudInterface, Table, OmitId, DataTypes } from 'brackets-manager';
 import { Firestore } from 'firebase/firestore';
 import { collection, doc, getDocs, setDoc, query, where, writeBatch, Query, DocumentData } from 'firebase/firestore';
 import { normalizeReferences, removeUndefinedDeep } from './brackets-storage-utils';
+import { logger } from '@/utils/logger';
 
 /**
  * ADAPTER CONSISTENCY:
@@ -48,7 +49,7 @@ export class ClientFirestoreStorage implements CrudInterface {
     const colRef = this.getCollectionRef(table);
 
     if (Array.isArray(value)) {
-      console.log(`📦 [ClientFirestoreStorage] Batch inserting ${value.length} items to ${table}`);
+      logger.debug(`📦 [ClientFirestoreStorage] Batch inserting ${value.length} items to ${table}`);
       if (value.length === 0) return true;
 
       const BATCH_SIZE = 500;
@@ -73,7 +74,7 @@ export class ClientFirestoreStorage implements CrudInterface {
 
         await batch.commit();
       }
-      console.log(`   ✅ [ClientFirestoreStorage] Batch insert complete`);
+      logger.debug(`   ✅ [ClientFirestoreStorage] Batch insert complete`);
       return true;
     }
 
@@ -91,7 +92,7 @@ export class ClientFirestoreStorage implements CrudInterface {
       id: idToStore,
     }));
 
-    console.log(`📝 [ClientFirestoreStorage] Inserting ${table} with id:`, idToStore);
+    logger.debug(`📝 [ClientFirestoreStorage] Inserting ${table} with id:`, idToStore);
     await setDoc(docRef, data);
 
     // Return the numeric id (brackets-manager uses this)
