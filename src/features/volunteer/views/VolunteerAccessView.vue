@@ -70,7 +70,7 @@ const submitPin = async (): Promise<void> => {
       pin: pin.value.trim(),
     });
 
-    const redirectPath = route.query.redirect as string | undefined;
+    const redirectPath = route.query?.redirect as string | undefined;
     const isSafeRedirect = (path: string): boolean =>
       path.startsWith('/') && !path.startsWith('//');
 
