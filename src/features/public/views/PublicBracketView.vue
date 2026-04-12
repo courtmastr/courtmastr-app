@@ -9,6 +9,7 @@ import { BRAND_INSTALL_PROMPT_TITLE } from '@/constants/branding';
 import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import type { LevelDefinition } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -18,6 +19,10 @@ const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const loading = computed(() => tournamentStore.loading);
+
+const isEmbedMode = computed(() => route.query?.embed === 'true');
+const queryCategory = computed(() => route.query?.category as string | undefined);
+const queryLevel = computed(() => route.query?.level as string | undefined);
 
 const selectedCategory = ref<string | null>(null);
 const categoryLevels = ref<Record<string, LevelDefinition[]>>({});
@@ -41,7 +46,7 @@ const handleInstallApp = async (): Promise<void> => {
   try {
     await installApp();
   } catch (error) {
-    console.error('Failed to trigger app install prompt:', error);
+    logger.error('Failed to trigger app install prompt:', error);
   }
 };
 
@@ -69,7 +74,7 @@ onMounted(async () => {
   matchStore.subscribeAllMatches(tournamentId.value);
 
   if (categories.value.length > 0) {
-    selectedCategory.value = categories.value[0].id;
+    selectedCategory.value = queryCategory.value ?? categories.value[0].id;
   }
 });
 
@@ -84,14 +89,46 @@ watch(selectedCategory, async (categoryId) => {
   try {
     const levels = await tournamentStore.fetchCategoryLevels(tournamentId.value, categoryId);
     categoryLevels.value = { ...categoryLevels.value, [categoryId]: levels };
+    if (queryLevel.value && levels.some((l) => l.id === queryLevel.value)) {
+      selectedLevelId.value = queryLevel.value;
+    }
   } catch (error) {
-    console.error('Failed to fetch category levels:', error);
+    logger.error('Failed to fetch category levels:', error);
   }
 });
 </script>
 
 <template>
+  <!-- EMBED MODE: bare bracket + watermark, no shell -->
+  <div
+    v-if="isEmbedMode"
+    class="embed-root"
+  >
+    <BracketsManagerViewer
+      v-if="selectedCategory && hasPublishedSchedule"
+      :tournament-id="tournamentId"
+      :category-id="selectedCategory"
+      :level-id="selectedLevelId || undefined"
+    />
+    <div
+      v-else-if="!selectedCategory || !hasPublishedSchedule"
+      class="embed-placeholder"
+    >
+      <span>Bracket not yet available.</span>
+    </div>
+    <a
+      href="https://courtmastr.com"
+      target="_blank"
+      rel="noopener"
+      class="embed-watermark"
+    >
+      Powered by CourtMastr
+    </a>
+  </div>
+
+  <!-- NORMAL MODE: full-page layout inside TournamentPublicShell -->
   <TournamentPublicShell
+    v-else
     :tournament="tournament"
     eyebrow="Bracket View"
     page-title="Live Tournament Bracket"
@@ -329,5 +366,44 @@ watch(selectedCategory, async (categoryId) => {
 /* Match containers */
 :deep(.brackets-viewer .match) {
   border-radius: 6px;
+}
+
+/* Embed mode */
+.embed-root {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+  background: #fff;
+  overflow: auto;
+}
+
+.embed-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.embed-watermark {
+  position: fixed;
+  bottom: 10px;
+  right: 12px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.35);
+  text-decoration: none;
+  pointer-events: all;
+  z-index: 9999;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.embed-watermark:hover {
+  color: rgba(0, 0, 0, 0.6);
 }
 </style>

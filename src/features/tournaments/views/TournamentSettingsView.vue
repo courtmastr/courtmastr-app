@@ -40,6 +40,7 @@ import {
   RANKING_PRESETS,
 } from '@/features/leaderboard/rankingPresets';
 import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -631,7 +632,7 @@ async function saveSettings() {
     );
     deleteResults.forEach((result, index) => {
       if (result.status === 'rejected') {
-        console.error('Error deleting old branding asset:', deleteTargets[index], result.reason);
+        logger.error('Error deleting old branding asset:', deleteTargets[index], result.reason);
       }
     });
 

@@ -6,6 +6,7 @@ import { useNotificationStore } from '@/stores/notifications';
 import GameScoreEditor from './GameScoreEditor.vue';
 import { getGamesNeeded, validateCompletedGameScore } from '../utils/validation';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
+import { logger } from '@/utils/logger';
 
 interface Props {
   modelValue: boolean;
@@ -179,7 +180,7 @@ async function submitCorrection() {
     emit('corrected');
     showDialog.value = false;
   } catch (err) {
-    console.error('Error correcting score:', err);
+    logger.error('Error correcting score:', err);
     notificationStore.showToast('error', 'Failed to correct score');
   } finally {
     isSubmitting.value = false;

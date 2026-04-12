@@ -25,6 +25,7 @@ import { useAuditStore } from '@/stores/audit';
 import { useAuthStore } from '@/stores/auth';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import { usePlayersStore } from '@/stores/players';
+import { logger } from '@/utils/logger';
 
 type VolunteerCheckInAction = 'check_in' | 'undo_check_in' | 'assign_bib';
 
@@ -123,7 +124,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
         ...convertTimestamps(doc.data()),
       })) as Registration[];
     } catch (err) {
-      console.error('Error fetching registrations:', err);
+      logger.error('Error fetching registrations:', err);
       error.value = 'Failed to load registrations';
     } finally {
       loading.value = false;
@@ -154,7 +155,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
         ...convertTimestamps(doc.data()),
       })) as Registration[];
     }, (err) => {
-      console.error('Error in registrations subscription:', err);
+      logger.error('Error in registrations subscription:', err);
       error.value = 'Lost connection to registrations';
     });
   }
@@ -177,7 +178,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
         ...convertTimestamps(doc.data()),
       })) as Player[];
     } catch (err) {
-      console.error('Error fetching players:', err);
+      logger.error('Error fetching players:', err);
       error.value = 'Failed to load players';
     } finally {
       loading.value = false;
@@ -252,7 +253,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
 
       return globalPlayerId;
     } catch (err) {
-      console.error('Error adding player:', err);
+      logger.error('Error adding player:', err);
       throw err;
     }
   }
@@ -274,7 +275,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
         }
       );
     } catch (err) {
-      console.error('Error updating player:', err);
+      logger.error('Error updating player:', err);
       throw err;
     }
   }
@@ -285,7 +286,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
       await deleteDoc(doc(db, `tournaments/${tournamentId}/players`, playerId));
       players.value = players.value.filter((p) => p.id !== playerId);
     } catch (err) {
-      console.error('Error deleting player:', err);
+      logger.error('Error deleting player:', err);
       throw err;
     }
   }
@@ -302,7 +303,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
         const id = await addPlayer(tournamentId, playerData);
         playerIds.push(id);
       } catch (err) {
-        console.error('Error importing player:', playerData, err);
+        logger.error('Error importing player:', playerData, err);
       }
     }
 
@@ -332,7 +333,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
       );
       return docRef.id;
     } catch (err) {
-      console.error('Error creating registration:', err);
+      logger.error('Error creating registration:', err);
       throw err;
     }
   }
@@ -360,7 +361,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
         updates
       );
     } catch (err) {
-      console.error('Error updating registration status:', err);
+      logger.error('Error updating registration status:', err);
       throw err;
     }
   }
@@ -533,7 +534,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
         }
       );
     } catch (err) {
-      console.error('Error assigning bib number:', err);
+      logger.error('Error assigning bib number:', err);
       throw err;
     }
   }
@@ -553,7 +554,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
         }
       );
     } catch (err) {
-      console.error('Error setting seed:', err);
+      logger.error('Error setting seed:', err);
       throw err;
     }
   }
@@ -573,7 +574,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
         }
       );
     } catch (err) {
-      console.error('Error updating seed:', err);
+      logger.error('Error updating seed:', err);
       throw err;
     }
   }
@@ -598,7 +599,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
 
       // We do not need to manually update local state since we use onSnapshot for registrations.
     } catch (err) {
-      console.error('Error batch updating seeds:', err);
+      logger.error('Error batch updating seeds:', err);
       throw err;
     }
   }
@@ -623,7 +624,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
         updates
       );
     } catch (err) {
-      console.error('Error updating payment status:', err);
+      logger.error('Error updating payment status:', err);
       throw err;
     }
   }
@@ -637,7 +638,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
       await deleteDoc(doc(db, `tournaments/${tournamentId}/registrations`, registrationId));
       registrations.value = registrations.value.filter((r) => r.id !== registrationId);
     } catch (err) {
-      console.error('Error deleting registration:', err);
+      logger.error('Error deleting registration:', err);
       throw err;
     }
   }

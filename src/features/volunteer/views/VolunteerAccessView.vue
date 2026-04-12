@@ -6,6 +6,7 @@ import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import type { VolunteerRole } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -70,12 +71,20 @@ const submitPin = async (): Promise<void> => {
       pin: pin.value.trim(),
     });
 
-    await router.push({
-      name: kioskRouteName.value,
-      params: { tournamentId: tournamentId.value },
-    });
+    const redirectPath = route.query?.redirect as string | undefined;
+    const isSafeRedirect = (path: string): boolean =>
+      path.startsWith('/') && !path.startsWith('//');
+
+    if (redirectPath && isSafeRedirect(redirectPath)) {
+      await router.push(redirectPath);
+    } else {
+      await router.push({
+        name: kioskRouteName.value,
+        params: { tournamentId: tournamentId.value },
+      });
+    }
   } catch (sessionError) {
-    console.error('Error starting volunteer session:', sessionError);
+    logger.error('Error starting volunteer session:', sessionError);
     error.value = sessionError instanceof Error
       ? sessionError.message
       : 'Failed to start volunteer session';

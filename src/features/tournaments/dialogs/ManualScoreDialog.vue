@@ -12,6 +12,7 @@ import {
   validateCompletedGameScore,
 } from '@/features/scoring/utils/validation';
 import type { Match, Tournament, Category, ScoringConfig } from '@/types';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -132,7 +133,7 @@ async function submitScores() {
         games.map(g => `${g.score1}-${g.score2}`).join(', '),
         'Manual Entry', // Court name not available in this context easily
         props.categories.find(c => c.id === match.categoryId)?.name || 'Unknown'
-      ).catch(console.warn);
+      ).catch(logger.warn);
     }
 
     notificationStore.showToast('success', 'Scores saved');

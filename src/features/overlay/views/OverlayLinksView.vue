@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
 import type { Match } from '@/types';
+import { logger } from '@/utils/logger';
 
 interface CourtOverlayLink {
+  courtId: string;
+  courtName: string;
+  url: string;
+}
+
+interface CourtScorerLink {
   courtId: string;
   courtName: string;
   url: string;
@@ -33,6 +40,35 @@ const courtOverlayLinks = computed<CourtOverlayLink[]>(() =>
     courtId: court.id,
     courtName: court.name,
     url: `${origin.value}/overlay/${tournamentId.value}/court/${court.id}`,
+  }))
+);
+
+const selectedEmbedCategory = ref<string | null>(null);
+
+watch(
+  () => tournamentStore.categories,
+  (cats) => {
+    if (!selectedEmbedCategory.value && cats.length > 0) {
+      selectedEmbedCategory.value = cats[0].id;
+    }
+  },
+  { immediate: true }
+);
+
+const bracketEmbedUrl = computed(() => {
+  const base = `${origin.value}/tournaments/${tournamentId.value}/bracket?embed=true`;
+  return selectedEmbedCategory.value ? `${base}&category=${selectedEmbedCategory.value}` : base;
+});
+
+const bracketIframeSnippet = computed(() =>
+  `<iframe src="${bracketEmbedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`
+);
+
+const courtScorerLinks = computed<CourtScorerLink[]>(() =>
+  tournamentStore.courts.map((court) => ({
+    courtId: court.id,
+    courtName: court.name,
+    url: `${origin.value}/tournaments/${tournamentId.value}/scoring-kiosk/court/${court.id}`,
   }))
 );
 
@@ -63,7 +99,7 @@ const copyUrl = async (url: string): Promise<void> => {
     await navigator.clipboard.writeText(url);
     notificationStore.showToast('success', 'Link copied!');
   } catch (err) {
-    console.error('Error copying overlay link:', err);
+    logger.error('Error copying overlay link:', err);
     notificationStore.showToast('error', 'Failed to copy link');
   }
 };
@@ -225,6 +261,107 @@ onUnmounted(() => {
                       @click="previewUrl(link.url)"
                     >
                       Preview
+                    </v-btn>
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12">
+        <v-card>
+          <v-card-title class="text-h6">
+            Bracket Embed Code
+          </v-card-title>
+          <v-card-text>
+            <p class="text-body-2 text-medium-emphasis mb-4">
+              Paste this snippet into any website to embed the live bracket. A "Powered by CourtMastr" watermark is always shown.
+            </p>
+            <v-select
+              v-model="selectedEmbedCategory"
+              :items="tournamentStore.categories"
+              item-title="name"
+              item-value="id"
+              label="Category"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              class="mb-4"
+              style="max-width: 280px"
+            />
+            <v-textarea
+              :model-value="bracketIframeSnippet"
+              label="iframe embed code"
+              variant="outlined"
+              readonly
+              rows="3"
+              hide-details
+              class="mb-3"
+              style="font-family: monospace; font-size: 0.82rem"
+            />
+            <div class="d-flex ga-2">
+              <v-btn
+                size="small"
+                variant="tonal"
+                prepend-icon="mdi-content-copy"
+                @click="copyUrl(bracketIframeSnippet)"
+              >
+                Copy Snippet
+              </v-btn>
+              <v-btn
+                size="small"
+                variant="text"
+                prepend-icon="mdi-open-in-new"
+                @click="previewUrl(bracketEmbedUrl)"
+              >
+                Preview
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12">
+        <v-card>
+          <v-card-title class="text-h6">
+            Court Scorer Links
+          </v-card-title>
+          <v-card-text>
+            <p class="text-body-2 text-medium-emphasis mb-4">
+              Share these links with scorekeepers. Each link shows whatever match is live on that court and updates automatically when the assignment changes.
+            </p>
+            <v-table density="comfortable">
+              <thead>
+                <tr>
+                  <th class="text-left">
+                    Court
+                  </th>
+                  <th class="text-left">
+                    URL
+                  </th>
+                  <th class="text-right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="link in courtScorerLinks"
+                  :key="link.courtId"
+                >
+                  <td>{{ link.courtName }}</td>
+                  <td class="overlay-url-cell">
+                    {{ link.url }}
+                  </td>
+                  <td class="text-right">
+                    <v-btn
+                      size="small"
+                      variant="text"
+                      @click="copyUrl(link.url)"
+                    >
+                      Copy
                     </v-btn>
                   </td>
                 </tr>

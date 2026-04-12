@@ -8,6 +8,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import type { LevelDefinition } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -63,7 +64,7 @@ watch(categoriesRequiringLevels, async (nextCategoryIds) => {
       const levels = await tournamentStore.fetchCategoryLevels(tournamentId.value, categoryId);
       return [categoryId, levels] as const;
     } catch (error) {
-      console.error('Failed to fetch category levels:', error);
+      logger.error('Failed to fetch category levels:', error);
       return [categoryId, []] as const;
     }
   }));

@@ -8,6 +8,7 @@
 
 import type { Match, MatchStatus } from '@/types';
 import type { Registration } from '@/types';
+import { logger } from '@/utils/logger';
 
 export interface Participant {
   id: string;
@@ -116,7 +117,7 @@ export function adaptBracketsMatchToLegacyMatch(
 
     // Only log first few matches to avoid console spam
     if (Math.random() < 0.1) {  // Log ~10% of matches
-        console.log('[adaptBracketsMatch] Converting match:', bracketsMatch.id,
+        logger.debug('[adaptBracketsMatch] Converting match:', bracketsMatch.id,
             '| brackets status:', bracketsMatch.status,
             '→ legacy status:', status,
             '| round:', roundNumber,
@@ -133,14 +134,14 @@ export function adaptBracketsMatchToLegacyMatch(
 
     // Debug logging for missing participants
     if (!participant1 && bracketsMatch.opponent1?.id) {
-      console.warn(`[adaptBracketsMatch] Participant1 not found for match ${bracketsMatch.id}:`, {
+      logger.warn(`[adaptBracketsMatch] Participant1 not found for match ${bracketsMatch.id}:`, {
         opponent1Id: bracketsMatch.opponent1?.id,
         availableParticipants: participants?.map(p => p.id),
         categoryId
       });
     }
     if (!participant2 && bracketsMatch.opponent2?.id) {
-      console.warn(`[adaptBracketsMatch] Participant2 not found for match ${bracketsMatch.id}:`, {
+      logger.warn(`[adaptBracketsMatch] Participant2 not found for match ${bracketsMatch.id}:`, {
         opponent2Id: bracketsMatch.opponent2?.id,
         availableParticipants: participants?.map(p => p.id),
         categoryId

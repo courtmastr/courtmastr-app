@@ -11,6 +11,7 @@ import {
   Timestamp,
 } from '@/services/firebase';
 import { useMatchStore } from '@/stores/matches';
+import { logger } from '@/utils/logger';
 
 interface QueueCandidate {
   matchId: string;
@@ -155,7 +156,7 @@ export function useAutoAssignment(tournamentId: string) {
         }
       }
     } catch (error) {
-      console.error('Error assigning match to court:', error);
+      logger.error('Error assigning match to court:', error);
     } finally {
       processing.value = false;
     }

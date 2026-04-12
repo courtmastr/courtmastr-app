@@ -13,6 +13,7 @@ import { buildGlobalMatchKey } from '@/features/tournaments/utils/matchDisplayId
 import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import LiveBadge from '@/components/common/LiveBadge.vue';
 import type { Match } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -98,7 +99,7 @@ const handleInstallApp = async (): Promise<void> => {
   try {
     await installApp();
   } catch (error) {
-    console.error('Failed to trigger app install prompt:', error);
+    logger.error('Failed to trigger app install prompt:', error);
   }
 };
 
@@ -176,7 +177,7 @@ async function addPoint(participant: 'participant1' | 'participant2') {
       selectedMatch.value.levelId
     );
   } catch (error) {
-    console.error('Failed to update score:', error);
+    logger.error('Failed to update score:', error);
   } finally {
     isUpdatingScore.value = false;
   }
@@ -195,7 +196,7 @@ async function removePoint(participant: 'participant1' | 'participant2') {
       selectedMatch.value.levelId
     );
   } catch (error) {
-    console.error('Failed to update score:', error);
+    logger.error('Failed to update score:', error);
   } finally {
     isUpdatingScore.value = false;
   }

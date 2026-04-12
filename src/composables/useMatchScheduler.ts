@@ -28,6 +28,7 @@ import {
 import { useMatchSlotState } from '@/composables/useMatchSlotState';
 import { computeEpochs, scheduleTimes, saveTimedSchedule, type TimeScheduleConfig } from './useTimeScheduler';
 import { SCHEDULE_DEFAULTS, SCHEDULE_STATUS, SCHEDULE_FIELDS } from '@/scheduling/scheduleRules';
+import { logger } from '@/utils/logger';
 
 // ============================================
 // Types
@@ -157,7 +158,7 @@ export function useMatchScheduler() {
       const roundPath = `${basePath}/round`;
       const groupPath = `${basePath}/group`;
 
-      console.log('[scheduleMatches] Querying matches from:', {
+      logger.debug('[scheduleMatches] Querying matches from:', {
         matchPath,
         tournamentId,
         categoryId: options.categoryId
@@ -176,7 +177,7 @@ export function useMatchScheduler() {
           getDocs(collection(db, groupPath)),
         ]);
 
-        console.log('[scheduleMatches] Raw query results:', {
+        logger.debug('[scheduleMatches] Raw query results:', {
           matches: matchSnap.size,
           registrations: registrationSnap.size,
           participants: participantSnap.size,
@@ -184,12 +185,12 @@ export function useMatchScheduler() {
         });
 
         if (matchSnap.size === 0) {
-          console.warn('[scheduleMatches] No matches found in Firestore at path:', matchPath);
+          logger.warn('[scheduleMatches] No matches found in Firestore at path:', matchPath);
         }
 
         const bracketsMatches = matchSnap.docs.map(d => {
           const data = d.data();
-          console.log('[scheduleMatches] Sample match data:', { id: d.id, status: data.status, stage_id: data.stage_id });
+          logger.debug('[scheduleMatches] Sample match data:', { id: d.id, status: data.status, stage_id: data.stage_id });
           return { ...data, id: d.id };
         }) as BracketsMatch[];
         const registrations = registrationSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Registration[];
@@ -199,7 +200,7 @@ export function useMatchScheduler() {
         const groups = groupSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const structureMaps = buildMatchStructureMaps(rounds, groups);
 
-        console.log('[scheduleMatches] Starting adaptation of', bracketsMatches.length, 'matches');
+        logger.debug('[scheduleMatches] Starting adaptation of', bracketsMatches.length, 'matches');
 
         // Adapt brackets-manager matches to legacy format.
         // includeTBD=true so we get placeholder matches for future bracket rounds.
@@ -225,7 +226,7 @@ export function useMatchScheduler() {
               const bracketCompleted = bMatch.status === 4;
               if (scoreData.status) {
                 if (bracketCompleted && scoreData.status !== 'completed' && scoreData.status !== 'walkover') {
-                  console.warn(`[scheduleMatches] ⚠️ Ignoring stale match_scores status "${scoreData.status}" for completed bracket match ${adapted.id}`);
+                  logger.warn(`[scheduleMatches] ⚠️ Ignoring stale match_scores status "${scoreData.status}" for completed bracket match ${adapted.id}`);
                 } else {
                   adapted.status = scoreData.status as any;
                 }
@@ -237,9 +238,9 @@ export function useMatchScheduler() {
           }
         }
 
-        console.log('[scheduleMatches] Adapted matches:', adaptedMatches.length);
+        logger.debug('[scheduleMatches] Adapted matches:', adaptedMatches.length);
         if (adaptedMatches.length > 0) {
-          console.log('[scheduleMatches] First adapted match:', {
+          logger.debug('[scheduleMatches] First adapted match:', {
             id: adaptedMatches[0].id,
             status: adaptedMatches[0].status,
             round: adaptedMatches[0].round,
@@ -263,7 +264,7 @@ export function useMatchScheduler() {
 
           if (!isSchedulableMatch(m)) {
             if (isByeMatch(m)) {
-              console.log('[scheduleMatches] Skipping BYE match (not schedulable):', {
+              logger.debug('[scheduleMatches] Skipping BYE match (not schedulable):', {
                 matchId: m.id,
                 categoryId: options.categoryId,
                 levelId: options.levelId,
@@ -292,14 +293,14 @@ export function useMatchScheduler() {
           return true;
         });
 
-        console.log(`[scheduleMatches] Found ${matches.length} schedulable matches out of ${adaptedMatches.length} adapted`);
+        logger.debug(`[scheduleMatches] Found ${matches.length} schedulable matches out of ${adaptedMatches.length} adapted`);
       } catch (queryError) {
-        console.error('[scheduleMatches] Error querying matches:', queryError);
+        logger.error('[scheduleMatches] Error querying matches:', queryError);
         throw queryError;
       }
 
       if (matches.length === 0) {
-        console.log('[scheduleMatches] No schedulable matches found');
+        logger.debug('[scheduleMatches] No schedulable matches found');
         return {
           scheduled: [],
           unscheduled: [],
@@ -333,7 +334,7 @@ export function useMatchScheduler() {
         minRestTimeMinutes: settings.minRestTimeMinutes ?? SCHEDULE_DEFAULTS.minRestTimeMinutes,
       };
 
-      console.log('[scheduleMatches] Time-first scheduling configuration:', {
+      logger.debug('[scheduleMatches] Time-first scheduling configuration:', {
         categoryId: options.categoryId,
         matchCount: matches.length,
         concurrency,
@@ -387,7 +388,7 @@ export function useMatchScheduler() {
       return schedule;
 
     } catch (err) {
-      console.error('Error scheduling matches:', err);
+      logger.error('Error scheduling matches:', err);
       error.value = err instanceof Error ? err.message : 'Failed to schedule matches';
       throw err;
     } finally {

@@ -8,6 +8,7 @@ import { useNotificationStore } from '@/stores/notifications';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import CheckInList from '@/features/checkin/components/CheckInList.vue';
 import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -260,7 +261,7 @@ async function bulkCheckIn(): Promise<void> {
       );
       successCount++;
     } catch (error) {
-      console.error('Bulk check-in failed:', error);
+      logger.error('Bulk check-in failed:', error);
     }
   }
 

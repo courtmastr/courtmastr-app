@@ -6,6 +6,7 @@ import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import type { VolunteerRole } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -34,7 +35,7 @@ watch(
     try {
       await tournamentStore.fetchTournament(routeTournamentId);
     } catch (error) {
-      console.error('Error loading tournament branding for volunteer layout:', error);
+      logger.error('Error loading tournament branding for volunteer layout:', error);
     }
   },
   { immediate: true }

@@ -9,6 +9,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import BrandLogo from '@/components/common/BrandLogo.vue';
 import { BRAND_NAME } from '@/constants/branding';
 import { usePublicPageMetadata } from '@/composables/usePublicPageMetadata';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -199,7 +200,7 @@ onMounted(async () => {
     await tournamentStore.fetchTournament(tournamentId.value);
     tournamentStore.subscribeTournament(tournamentId.value);
   } catch (err) {
-    console.error('Error loading tournament for self check-in header:', err);
+    logger.error('Error loading tournament for self check-in header:', err);
   }
 });
 

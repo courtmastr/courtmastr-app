@@ -6,6 +6,7 @@ import { functions, httpsCallable } from '@/services/firebase';
 import { useNotificationStore } from '@/stores/notifications';
 import { usePlayersStore } from '@/stores/players';
 import type { GlobalPlayer } from '@/types';
+import { logger } from '@/utils/logger';
 
 interface ExecuteMergePayload {
   sourcePlayerId: string;
@@ -76,7 +77,7 @@ const loadPlayers = async (): Promise<void> => {
   try {
     await playersStore.fetchPlayers();
   } catch (err) {
-    console.error('Error loading players for merge:', err);
+    logger.error('Error loading players for merge:', err);
     notificationStore.showToast('error', 'Failed to load players');
   } finally {
     isLoadingPlayers.value = false;
@@ -110,7 +111,7 @@ const executeMerge = async (): Promise<void> => {
     notificationStore.showToast('success', 'Players merged successfully');
     await router.push({ name: 'players-list' });
   } catch (err) {
-    console.error('Error executing player merge:', err);
+    logger.error('Error executing player merge:', err);
     const message = err instanceof Error ? err.message : 'Failed to merge players';
     notificationStore.showToast('error', `Merge failed: ${message}`);
   } finally {

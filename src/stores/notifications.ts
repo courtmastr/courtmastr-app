@@ -18,6 +18,7 @@ import {
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
 import type { Notification, NotificationType } from '@/types';
+import { logger } from '@/utils/logger';
 
 export const useNotificationStore = defineStore('notifications', () => {
   // State
@@ -66,7 +67,7 @@ export const useNotificationStore = defineStore('notifications', () => {
         ...convertTimestamps(doc.data()),
       })) as Notification[];
     } catch (err) {
-      console.error('Error fetching notifications:', err);
+      logger.error('Error fetching notifications:', err);
       error.value = 'Failed to load notifications';
     } finally {
       loading.value = false;
@@ -108,7 +109,7 @@ export const useNotificationStore = defineStore('notifications', () => {
         ...convertTimestamps(doc.data()),
       })) as Notification[];
     }, (err) => {
-      console.error('Error in notifications subscription:', err);
+      logger.error('Error in notifications subscription:', err);
       error.value = 'Lost connection to notifications';
     });
   }
@@ -133,7 +134,7 @@ export const useNotificationStore = defineStore('notifications', () => {
       });
       return docRef.id;
     } catch (err) {
-      console.error('Error creating notification:', err);
+      logger.error('Error creating notification:', err);
       throw err;
     }
   }
@@ -151,7 +152,7 @@ export const useNotificationStore = defineStore('notifications', () => {
         notification.read = true;
       }
     } catch (err) {
-      console.error('Error marking notification as read:', err);
+      logger.error('Error marking notification as read:', err);
       throw err;
     }
   }
@@ -174,7 +175,7 @@ export const useNotificationStore = defineStore('notifications', () => {
         }
       });
     } catch (err) {
-      console.error('Error marking all notifications as read:', err);
+      logger.error('Error marking all notifications as read:', err);
       throw err;
     }
   }
@@ -185,7 +186,7 @@ export const useNotificationStore = defineStore('notifications', () => {
       await deleteDoc(doc(db, 'notifications', notificationId));
       notifications.value = notifications.value.filter((n) => n.id !== notificationId);
     } catch (err) {
-      console.error('Error deleting notification:', err);
+      logger.error('Error deleting notification:', err);
       throw err;
     }
   }
@@ -201,7 +202,7 @@ export const useNotificationStore = defineStore('notifications', () => {
 
       notifications.value = notifications.value.filter((n) => n.userId !== userId);
     } catch (err) {
-      console.error('Error clearing notifications:', err);
+      logger.error('Error clearing notifications:', err);
       throw err;
     }
   }

@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
+import { logger } from '@/utils/logger';
 
 export interface FeaturedTournamentMetrics {
   tournamentName: string;
@@ -65,7 +66,7 @@ export const useFeaturedTournamentMetrics = () => {
     } catch (error) {
       metrics.value = null;
       errorMessage.value = 'Live featured tournament metrics are temporarily unavailable.';
-      console.error('Error loading featured tournament metrics:', {
+      logger.error('Error loading featured tournament metrics:', {
         featuredTournamentId: featuredTournamentId.value,
         error,
       });

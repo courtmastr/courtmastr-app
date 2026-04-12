@@ -44,6 +44,7 @@ import {
   publishMatchSchedule as publishMatchScheduleOp,
 } from '@/scheduling/useScheduleStore';
 import type { ScoreCorrectionRecord } from '@/types/scoring';
+import { logger } from '@/utils/logger';
 
 const USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER = false;
 type VolunteerMatchUpdateStatus = 'in_progress' | 'completed' | 'walkover';
@@ -322,19 +323,19 @@ export const useMatchStore = defineStore('matches', () => {
     // In-memory: currentMatch
     const inMemory = currentMatch.value;
     if (inMemory?.id === matchId && inMemory?.courtId) {
-      console.log('[resolveCourtId] Using fallback from currentMatch:', inMemory.courtId);
+      logger.debug('[resolveCourtId] Using fallback from currentMatch:', inMemory.courtId);
       return inMemory.courtId;
     }
 
     // In-memory: matches array
     const arrayMatch = matches.value.find(m => m.id === matchId);
     if (arrayMatch?.courtId) {
-      console.log('[resolveCourtId] Using fallback from matches array:', arrayMatch.courtId);
+      logger.debug('[resolveCourtId] Using fallback from matches array:', arrayMatch.courtId);
       return arrayMatch.courtId;
     }
 
     // Firestore query: find court by currentMatchId (handles "zombie" courts)
-    console.log('[resolveCourtId] Searching courts for currentMatchId:', matchId);
+    logger.debug('[resolveCourtId] Searching courts for currentMatchId:', matchId);
     const q = query(
       collection(db, courtsPath(tournamentId)),
       where('currentMatchId', '==', matchId)
@@ -342,11 +343,11 @@ export const useMatchStore = defineStore('matches', () => {
     const snapshot = await getDocs(q);
     if (!snapshot.empty) {
       const courtId = snapshot.docs[0].id;
-      console.log('[resolveCourtId] Found court via query:', courtId);
+      logger.debug('[resolveCourtId] Found court via query:', courtId);
       return courtId;
     }
 
-    console.warn('[resolveCourtId] No courtId found anywhere for match', matchId);
+    logger.warn('[resolveCourtId] No courtId found anywhere for match', matchId);
     return undefined;
   }
 
@@ -375,7 +376,7 @@ export const useMatchStore = defineStore('matches', () => {
         categoryData
       );
     } catch (err) {
-      console.error('Error resolving scoring config:', err);
+      logger.error('Error resolving scoring config:', err);
       return BADMINTON_CONFIG;
     }
   }
@@ -689,12 +690,12 @@ export const useMatchStore = defineStore('matches', () => {
       const targetScopes = await resolveTargetScopes(tournamentId, categoryId, levelId);
 
       if (targetScopes.length === 0) {
-        console.warn('[fetchMatches] No categories found for tournament.');
+        logger.warn('[fetchMatches] No categories found for tournament.');
         matches.value = [];
         return;
       }
 
-      console.log(`[fetchMatches] Fetching matches for ${targetScopes.length} scope(s):`, targetScopes);
+      logger.debug(`[fetchMatches] Fetching matches for ${targetScopes.length} scope(s):`, targetScopes);
 
       // Fetch global registrations (once)
       const registrationSnap = await getDocs(collection(db, `tournaments/${tournamentId}/registrations`));
@@ -760,7 +761,7 @@ export const useMatchStore = defineStore('matches', () => {
         matches.value = sortedMatches;
       }
     } catch (err) {
-      console.error('Error fetching matches:', err);
+      logger.error('Error fetching matches:', err);
       error.value = 'Failed to load matches';
     } finally {
       loading.value = false;
@@ -912,7 +913,7 @@ export const useMatchStore = defineStore('matches', () => {
           }
         },
         (err) => {
-          console.error(`Error in levels subscription for category ${catId}:`, err);
+          logger.error(`Error in levels subscription for category ${catId}:`, err);
         }
       );
 
@@ -956,7 +957,7 @@ export const useMatchStore = defineStore('matches', () => {
         }
       },
       (err) => {
-        console.error('Error in categories subscription:', err);
+        logger.error('Error in categories subscription:', err);
         error.value = 'Lost connection to tournament data';
       }
     );
@@ -1025,7 +1026,7 @@ export const useMatchStore = defineStore('matches', () => {
 
       currentMatch.value = adapted;
     } catch (err) {
-      console.error('Error fetching match:', err);
+      logger.error('Error fetching match:', err);
       error.value = 'Failed to load match';
     } finally {
       loading.value = false;
@@ -1046,7 +1047,7 @@ export const useMatchStore = defineStore('matches', () => {
       doc(db, matchPath, matchId),
       () => refresh(),
       (err) => {
-        console.error('Error in match subscription:', err);
+        logger.error('Error in match subscription:', err);
         error.value = 'Lost connection to match';
       }
     );
@@ -1054,7 +1055,7 @@ export const useMatchStore = defineStore('matches', () => {
     const unsubScores = onSnapshot(
       doc(db, matchScoresPath, matchId),
       () => refresh(),
-      (err) => console.error('Error in match_scores subscription:', err)
+      (err) => logger.error('Error in match_scores subscription:', err)
     );
 
     currentMatchUnsubscribe = () => {
@@ -1322,15 +1323,15 @@ export const useMatchStore = defineStore('matches', () => {
     if (courtId) {
       await releaseCourt(tournamentId, courtId);
     } else {
-      console.warn('[completeMatch] No court to release for match', matchId);
+      logger.warn('[completeMatch] No court to release for match', matchId);
     }
 
     // 4. Advance bracket
     try {
       await advanceBracket(tournamentId, matchId, winnerId, scores, categoryId, levelId);
-      console.log('[completeMatch] Bracket advanced successfully');
+      logger.debug('[completeMatch] Bracket advanced successfully');
     } catch (err) {
-      console.error('[completeMatch] Bracket advancement failed:', err);
+      logger.error('[completeMatch] Bracket advancement failed:', err);
     }
   }
 
@@ -1392,9 +1393,9 @@ export const useMatchStore = defineStore('matches', () => {
 
     try {
       await advanceBracket(tournamentId, matchId, winnerId, walkoverScores, categoryId, levelId);
-      console.log('[recordWalkover] Bracket advanced successfully');
+      logger.debug('[recordWalkover] Bracket advanced successfully');
     } catch (err) {
-      console.error('[recordWalkover] Bracket advancement failed:', err);
+      logger.error('[recordWalkover] Bracket advancement failed:', err);
     }
   }
 
@@ -1894,7 +1895,7 @@ export const useMatchStore = defineStore('matches', () => {
 
       await fetchMatch(tournamentId, matchId, categoryId, levelId);
     } catch (err) {
-      console.error('Error correcting match score:', err);
+      logger.error('Error correcting match score:', err);
       error.value = 'Failed to correct match score';
       throw err;
     } finally {
@@ -1929,7 +1930,7 @@ export const useMatchStore = defineStore('matches', () => {
         } as ScoreCorrectionRecord;
       });
     } catch (err) {
-      console.error('Error fetching correction history:', err);
+      logger.error('Error fetching correction history:', err);
       correctionHistory.value = [];
     }
   }
@@ -1937,7 +1938,7 @@ export const useMatchStore = defineStore('matches', () => {
   // --- Consistency checks ---
 
   async function checkAndFixConsistency(tournamentId: string): Promise<void> {
-    console.log('[checkAndFixConsistency] Starting consistency check for tournament:', tournamentId);
+    logger.debug('[checkAndFixConsistency] Starting consistency check for tournament:', tournamentId);
 
     const courtsSnap = await getDocs(collection(db, courtsPath(tournamentId)));
     const courts = courtsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1954,7 +1955,7 @@ export const useMatchStore = defineStore('matches', () => {
         match.id === currentMatchId && match.courtId === court.id
       ) ?? matches.value.find((match) => match.id === currentMatchId);
       if (matchScore?.status === 'completed' || matchScore?.status === 'walkover') {
-        console.log(`[checkAndFixConsistency] Found zombie court: ${court.id} has completed match ${currentMatchId}`);
+        logger.debug(`[checkAndFixConsistency] Found zombie court: ${court.id} has completed match ${currentMatchId}`);
         await updateDoc(doc(db, courtsPath(tournamentId), court.id), {
           status: 'available',
           currentMatchId: null,
@@ -1964,7 +1965,7 @@ export const useMatchStore = defineStore('matches', () => {
       }
     }
 
-    console.log(`[checkAndFixConsistency] Completed. Applied ${fixesApplied} fixes.`);
+    logger.debug(`[checkAndFixConsistency] Completed. Applied ${fixesApplied} fixes.`);
   }
 
   // --- Schedule management ---

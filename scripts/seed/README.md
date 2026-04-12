@@ -8,6 +8,9 @@ Populates tournaments with realistic test data — identical in both local and p
 scripts/seed/
   helpers.ts                 Shared auth utility (createOrSignIn)
   core.ts                    All test data and business logic (default seed)
+  demo-core.ts               Production-safe CourtMastr demo seed logic
+  demo-local.ts              CourtMastr demo seed for local emulators
+  demo-prod.ts               CourtMastr demo seed for production
   local.ts                   Entry point for local emulators (default seed)
   production.ts              Entry point for real Firebase (TNF 2026 only)
   tnf2025-core.ts            TNF 2025 tournament logic (shared)
@@ -85,6 +88,20 @@ What it creates:
 
 The script prints the exact source/target player IDs and merge-route URLs after seeding.
 
+### 5. CourtMastr Production Demo
+
+A production-safe demo organization and tournament for external feature trials.
+
+| Resource | Value |
+|---|---|
+| Organization | CourtMastr Demo Club |
+| Public slug | `/demo` |
+| Tournament | CourtMastr Feature Demo |
+| Organizer login | `demo-organizer@courtmastr.com` |
+| Player email domain | `demo.courtmastr.local` |
+
+The demo seed reuses the default seed coverage: categories, courts, registrations, generated brackets, completed pool scores, and sample scheduled/ready/in-progress score overlays. Production runs require operator credentials from environment variables and only write demo-scoped records.
+
 ---
 
 ## Commands
@@ -98,6 +115,43 @@ npm run emulators
 # In another terminal
 npm run seed:local
 ```
+
+### CourtMastr Demo Seed (Local - emulators)
+
+```bash
+# Start emulators first
+npm run emulators
+
+# In another terminal
+npm run seed:demo:local
+```
+
+Local credentials:
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@courtmastr.com` | `admin123` |
+| Demo Organizer | `demo-organizer@courtmastr.com` | `demo123` |
+| Check-in PIN | n/a | `1111` |
+| Scoring PIN | n/a | `2222` |
+ 
+### CourtMastr Demo Seed (Production)
+
+```bash
+COURTMASTR_SEED_OPERATOR_EMAIL="<admin email>" \
+COURTMASTR_SEED_OPERATOR_PASSWORD="<admin password>" \
+COURTMASTR_DEMO_ORGANIZER_PASSWORD="<shared demo password>" \
+COURTMASTR_DEMO_CHECKIN_PIN="<optional 4-8 digit PIN>" \
+COURTMASTR_DEMO_SCOREKEEPER_PIN="<optional 4-8 digit PIN>" \
+npm run seed:demo:prod
+```
+
+Production safety rules:
+- The seed operator must already exist with role `admin`.
+- The script only creates/reuses `orgSlugIndex/demo` and the matching `CourtMastr Demo Club` org.
+- The script only creates/reuses `CourtMastr Feature Demo` under that demo org.
+- If `/demo` already points at a different organization name, the script aborts before writing demo data.
+- `npm run seed:prod` remains TNF-only and is not used for the demo.
 
 ### Production Seed
 
@@ -216,6 +270,7 @@ Production seeds have no prerequisites — admin user is created automatically o
 | Role | Email | Password | Created by |
 |---|---|---|---|
 | Admin | `admin@courtmastr.com` | `admin123` | All seeds |
+| Demo Organizer | `demo-organizer@courtmastr.com` | env/local seed | `seed:demo:local`, `seed:demo:prod` |
 | TNF Organizer | `tnf-organizer@courtmastr.com` | `tnf123` | `tnf2026-local.ts`, `tnf2026-prod.ts`, `production.ts` |
 | Scorekeeper | `scorekeeper@courtmastr.com` | `score123` | `local.ts` only |
 
@@ -225,6 +280,9 @@ Production seeds have no prerequisites — admin user is created automatically o
 
 ### Default Seed
 Edit `core.ts` — `CATEGORY_CONFIGS` for categories, the `buildRoster` calls in `createPlayersAndRegistrations` for player counts.
+
+### CourtMastr Demo Seed
+Edit `demo-core.ts` for demo-specific production safety, tournament metadata, operational match samples, and volunteer PIN setup. It intentionally imports default seed helpers from `core.ts` instead of duplicating bracket and registration logic.
 
 ### Player Identity Merge Lab
 Edit `player-identity-core.ts` — named merge cases, tournament scaffold, and guard scenarios.

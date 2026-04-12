@@ -5,6 +5,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import SmartBracketView from '@/features/brackets/components/SmartBracketView.vue';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import type { LevelDefinition } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -46,7 +47,7 @@ onMounted(async () => {
     }
     tournamentStore.subscribeTournament(tournamentId.value);
   } catch (error) {
-    console.error('Failed to initialize brackets view:', error);
+    logger.error('Failed to initialize brackets view:', error);
   }
 });
 
@@ -61,7 +62,7 @@ watch(selectedCategory, async (categoryId) => {
     const levels = await tournamentStore.fetchCategoryLevels(tournamentId.value, categoryId);
     categoryLevels.value = { ...categoryLevels.value, [categoryId]: levels };
   } catch (error) {
-    console.error('Failed to fetch category levels:', error);
+    logger.error('Failed to fetch category levels:', error);
   }
 });
 </script>

@@ -5012,6 +5012,41 @@ rg -n "release-metadata/\\$\\{GITHUB_RUN_ID\\}-\\$\\{GITHUB_RUN_ATTEMPT\\}|gh pr
 
 ---
 
+### CP-101: Frontend Trace Logs Must Use The Shared Logger
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-12 |
+| **Source Bug** | Production DevTools showed app-owned debug traces such as `[fetchMatches]` and `[adaptBracketsMatch]` alongside real errors |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+console.log('[fetchMatches] Fetching matches:', scopes);
+console.log('[adaptBracketsMatch] Converting match:', match);
+console.error('[fetchMatches] Failed to fetch matches:', err);
+```
+
+**Correct Pattern (✅):**
+```ts
+import { logger } from '@/utils/logger';
+
+logger.debug('[fetchMatches] Fetching matches:', scopes);
+logger.debug('[adaptBracketsMatch] Converting match:', match);
+logger.error('[fetchMatches] Failed to fetch matches:', err);
+```
+
+**Rule:** Frontend app code must not call `console.*` directly outside `src/utils/logger.ts`. Use `logger.debug()` for local-only tracing, `logger.info()` only for explicitly enabled informational logs, `logger.warn()` for meaningful recoverable issues, and `logger.error()` for real failures that must remain visible in production.
+
+**Detection:**
+```bash
+rg -n "console\\.(log|debug|info|warn|error)" src --glob "*.ts" --glob "*.vue" --glob "!src/utils/logger.ts"
+rg -n "logger\\.debug.*\\[fetchMatches\\]|logger\\.debug.*\\[adaptBracketsMatch\\]" src/stores/matches.ts src/stores/bracketMatchAdapter.ts
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
