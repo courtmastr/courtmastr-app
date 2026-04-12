@@ -43,6 +43,7 @@ const PlayerMergeView = () => import('@/features/players/views/PlayerMergeView.v
 
 // Scoring views
 const ScoringInterface = () => import('@/features/scoring/views/ScoringInterfaceView.vue');
+const CourtScorerView = () => import('@/features/scoring/views/CourtScorerView.vue');
 const MatchList = () => import('@/features/scoring/views/MatchListView.vue');
 const MatchControl = () => import('@/features/tournaments/views/MatchControlView.vue');
 
@@ -169,6 +170,16 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: false,
       requiresVolunteerSession: true,
+      volunteerLayout: true,
+      volunteerRole: 'scorekeeper',
+    },
+  },
+  {
+    path: '/tournaments/:tournamentId/scoring-kiosk/court/:courtId/:matchId?',
+    name: 'volunteer-court-scorer',
+    component: CourtScorerView,
+    meta: {
+      requiresAuth: false,
       volunteerLayout: true,
       volunteerRole: 'scorekeeper',
     },
