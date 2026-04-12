@@ -83,7 +83,7 @@ Updated: 2026-04-12 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-12 11:54 CDT
-- Commit: `a1f8ea3f70d732dcf3f3ce7e8dc259e267de4548`
-- Message: `refactor: structured logger utility + seed scripts + bugReport updates (#14)`
-- Note: deployed via `npm run release:deploy` on 2026-04-12.
+- Date: 2026-04-11 19:05 CDT
+- Commit: `713c8e565e0f418fdac17a39229d8e47e42e20d3`
+- Message: `perf: reduce login-to-tournaments latency`
+- Note: deployed via `npm run release:deploy` on 2026-04-11.
