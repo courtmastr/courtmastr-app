@@ -180,6 +180,7 @@ const routes: RouteRecordRaw[] = [
     component: CourtScorerView,
     meta: {
       requiresAuth: false,
+      requiresVolunteerSession: true,
       volunteerLayout: true,
       volunteerRole: 'scorekeeper',
     },
@@ -577,6 +578,7 @@ router.beforeEach(async (to, _from, next) => {
       next({
         name: getVolunteerAccessRouteName(volunteerRole),
         params: { tournamentId },
+        query: { redirect: to.fullPath },
       });
       return;
     }

@@ -70,10 +70,18 @@ const submitPin = async (): Promise<void> => {
       pin: pin.value.trim(),
     });
 
-    await router.push({
-      name: kioskRouteName.value,
-      params: { tournamentId: tournamentId.value },
-    });
+    const redirectPath = route.query.redirect as string | undefined;
+    const isSafeRedirect = (path: string): boolean =>
+      path.startsWith('/') && !path.startsWith('//');
+
+    if (redirectPath && isSafeRedirect(redirectPath)) {
+      await router.push(redirectPath);
+    } else {
+      await router.push({
+        name: kioskRouteName.value,
+        params: { tournamentId: tournamentId.value },
+      });
+    }
   } catch (sessionError) {
     console.error('Error starting volunteer session:', sessionError);
     error.value = sessionError instanceof Error
