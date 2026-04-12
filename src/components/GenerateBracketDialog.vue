@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useTournamentSetup } from '@/composables/useTournamentSetup';
 import { useTournamentStore } from '@/stores/tournaments';
 import BaseDialog from '@/components/common/BaseDialog.vue';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -92,7 +93,7 @@ async function onSubmit() {
     close();
   } catch (err) {
     // Error is already handled by the composable
-    console.error('Failed to setup bracket:', err);
+    logger.error('Failed to setup bracket:', err);
   }
 }
 

@@ -18,6 +18,7 @@ import {
   serverTimestamp,
 } from '@/services/firebase';
 import type { User, UserRole } from '@/types';
+import { logger } from '@/utils/logger';
 
 export const useAuthStore = defineStore('auth', () => {
   // Memoized init promise — prevents duplicate onAuthStateChanged listeners
@@ -86,13 +87,13 @@ export const useAuthStore = defineStore('auth', () => {
                 await createUserProfile(user, 'viewer');
                 error.value = null;
               } catch (profileError) {
-                console.error('Error creating user profile during auth init:', profileError);
+                logger.error('Error creating user profile during auth init:', profileError);
                 currentUser.value = buildFallbackUser(user, 'viewer');
                 error.value = 'Signed in with limited access. Profile setup failed.';
               }
             }
           } catch (err) {
-            console.error('Error fetching user profile:', err);
+            logger.error('Error fetching user profile:', err);
             currentUser.value = buildFallbackUser(user, 'viewer');
             error.value = 'Signed in with limited access. Failed to load user profile.';
           }
@@ -169,7 +170,7 @@ export const useAuthStore = defineStore('auth', () => {
       try {
         await createUserProfile(user, role);
       } catch (profileError) {
-        console.error('Error creating user profile during registration:', profileError);
+        logger.error('Error creating user profile during registration:', profileError);
         currentUser.value = buildFallbackUser(user, 'viewer');
         error.value = 'Account created, but profile setup failed. Signed in with limited access.';
       }
@@ -240,7 +241,7 @@ export const useAuthStore = defineStore('auth', () => {
         updatedAt: serverTimestamp(),
       }, { merge: true });
     } catch (err) {
-      console.error('Error updating user role:', err);
+      logger.error('Error updating user role:', err);
       throw err;
     }
   }

@@ -170,6 +170,7 @@ function getRoleBadgeColor(role: string): string {
 
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { logger } from '@/utils/logger';
 
 const showBugDialog = ref(false);
 const bugDescription = ref('');
@@ -260,7 +261,7 @@ async function submitBugReport() {
     bugDescription.value = '';
     removeScreenshot();
   } catch (error) {
-    console.error('Error submitting bug report:', error);
+    logger.error('Error submitting bug report:', error);
     notificationStore.showToast(
       'error',
       error instanceof Error ? error.message : 'Failed to submit bug report. Please try again.'

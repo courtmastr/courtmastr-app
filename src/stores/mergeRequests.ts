@@ -13,6 +13,7 @@ import {
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
 import type { MergeRequest, MergeRequestRole } from '@/types';
+import { logger } from '@/utils/logger';
 
 interface RequestMergeInput {
   sourcePlayerId: string;
@@ -50,7 +51,7 @@ export const useMergeRequestsStore = defineStore('mergeRequests', () => {
       return docRef.id;
     } catch (err) {
       error.value = 'Failed to create merge request';
-      console.error('Error creating merge request:', err);
+      logger.error('Error creating merge request:', err);
       throw err;
     }
   };
@@ -69,7 +70,7 @@ export const useMergeRequestsStore = defineStore('mergeRequests', () => {
       });
     } catch (err) {
       error.value = 'Failed to review merge request';
-      console.error('Error reviewing merge request:', err);
+      logger.error('Error reviewing merge request:', err);
       throw err;
     }
   };
@@ -86,7 +87,7 @@ export const useMergeRequestsStore = defineStore('mergeRequests', () => {
       );
     } catch (err) {
       error.value = 'Failed to fetch merge requests';
-      console.error('Error fetching pending merge requests:', err);
+      logger.error('Error fetching pending merge requests:', err);
       throw err;
     } finally {
       loading.value = false;

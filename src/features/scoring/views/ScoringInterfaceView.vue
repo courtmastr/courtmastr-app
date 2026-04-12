@@ -14,6 +14,7 @@ import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import { BADMINTON_CONFIG } from '@/types';
 import { validateCompletedGameScore } from '../utils/validation';
 import ScoreCorrectionDialog from '../components/ScoreCorrectionDialog.vue';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -175,7 +176,7 @@ watch(
         scoreString,
         courtName.value,
         categoryName.value
-      ).catch((err) => console.warn('Activity logging failed:', err));
+      ).catch((err) => logger.warn('Activity logging failed:', err));
     }
   }
 );
@@ -213,7 +214,7 @@ async function startMatch() {
       participant2Name.value,
       courtName.value,
       categoryName.value
-    ).catch((err) => console.warn('Activity logging failed:', err));
+    ).catch((err) => logger.warn('Activity logging failed:', err));
   } catch (error) {
     notificationStore.showToast('error', 'Failed to start match');
   } finally {

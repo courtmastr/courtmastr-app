@@ -1,6 +1,7 @@
 import { ref, type Ref } from 'vue';
 import { PLAYER_IDENTITY_V2 } from '@/config/featureFlags';
 import { findPlayerCandidates, type CandidateMatch, type PlayerInput } from '@/services/playerIdentityService';
+import { logger } from '@/utils/logger';
 
 export interface PlayerCandidatePickerState {
   candidates: Ref<CandidateMatch[]>;
@@ -42,7 +43,7 @@ export const usePlayerCandidatePicker = (): PlayerCandidatePickerState => {
       candidates.value = await findPlayerCandidates(normalizeInput(input));
     } catch (err) {
       error.value = 'Could not load player suggestions';
-      console.error('Error loading player candidates:', err);
+      logger.error('Error loading player candidates:', err);
       candidates.value = [];
     } finally {
       isLoading.value = false;

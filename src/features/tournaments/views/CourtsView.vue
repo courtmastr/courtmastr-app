@@ -10,6 +10,7 @@ import { useRoute } from 'vue-router';
 import { useNotificationStore } from '@/stores/notifications';
 import { useTournamentStore } from '@/stores/tournaments';
 import CourtManagement from '../components/CourtManagement.vue';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -20,7 +21,7 @@ const loadCourtsContext = async (): Promise<void> => {
   try {
     await tournamentStore.fetchTournament(tournamentId.value);
   } catch (error) {
-    console.error('Failed to load courts context:', error);
+    logger.error('Failed to load courts context:', error);
     notificationStore.showToast('error', 'Failed to load courts');
   }
 };

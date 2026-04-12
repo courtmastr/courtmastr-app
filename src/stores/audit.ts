@@ -16,6 +16,7 @@ import {
 import type { QueryConstraint } from 'firebase/firestore';
 import { convertTimestamps } from '@/utils/firestore';
 import { useAuthStore } from '@/stores/auth';
+import { logger } from '@/utils/logger';
 
 export type AuditActionType =
   | 'tournament_created'
@@ -140,7 +141,7 @@ export const useAuditStore = defineStore('audit', () => {
         toAuditRecord(auditDoc.id, auditDoc.data())
       );
     } catch (err) {
-      console.error('Error fetching audit logs:', err);
+      logger.error('Error fetching audit logs:', err);
       error.value = 'Failed to load audit logs';
     } finally {
       loading.value = false;
@@ -165,7 +166,7 @@ export const useAuditStore = defineStore('audit', () => {
         );
       },
       (err) => {
-        console.error('Error in audit logs subscription:', err);
+        logger.error('Error in audit logs subscription:', err);
         error.value = 'Lost connection to audit logs';
       }
     );
@@ -189,7 +190,7 @@ export const useAuditStore = defineStore('audit', () => {
     const firebaseUser = authStore.firebaseUser;
 
     if (!actor || !firebaseUser) {
-      console.warn('Cannot log audit: no authenticated user');
+      logger.warn('Cannot log audit: no authenticated user');
       return '';
     }
 
@@ -215,7 +216,7 @@ export const useAuditStore = defineStore('audit', () => {
       );
       return docRef.id;
     } catch (err) {
-      console.error('Error logging audit record:', err);
+      logger.error('Error logging audit record:', err);
       // Don't throw - audit logging should not break user operations
       return '';
     }

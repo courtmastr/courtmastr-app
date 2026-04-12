@@ -7,6 +7,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useDialogManager } from '@/composables/useDialogManager';
 import type { Court, CourtStatus } from '@/types';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   tournamentId: string;
@@ -118,7 +119,7 @@ async function toggleCourtStatus(court: Court) {
 
       // Log maintenance activity (non-blocking - don't fail if logging fails)
       activityStore.logCourtMaintenance(props.tournamentId, court.id, court.name)
-        .catch((err) => console.warn('Activity logging failed:', err));
+        .catch((err) => logger.warn('Activity logging failed:', err));
 
       // Log any reassigned matches (non-blocking)
       for (const reassigned of result.reassignedMatches) {
@@ -134,7 +135,7 @@ async function toggleCourtStatus(court: Court) {
             court.name,
             reassigned.newCourtName,
             'Court under maintenance'
-          ).catch((err) => console.warn('Activity logging failed:', err));
+          ).catch((err) => logger.warn('Activity logging failed:', err));
         }
       }
 
@@ -151,7 +152,7 @@ async function toggleCourtStatus(court: Court) {
       await tournamentStore.restoreCourtFromMaintenance(props.tournamentId, court.id);
       // Log activity (non-blocking)
       activityStore.logCourtAvailable(props.tournamentId, court.id, court.name)
-        .catch((err) => console.warn('Activity logging failed:', err));
+        .catch((err) => logger.warn('Activity logging failed:', err));
       notificationStore.showToast('success', `${court.name} is now available`);
     }
   } catch (error) {

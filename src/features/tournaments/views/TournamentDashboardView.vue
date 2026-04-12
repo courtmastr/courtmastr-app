@@ -16,6 +16,7 @@ import ReadyQueue from '../components/ReadyQueue.vue';
 import ScoringQrDialog from '../components/ScoringQrDialog.vue';
 import TournamentAnnouncementCardDialog from '../components/TournamentAnnouncementCardDialog.vue';
 import CategoryProgressPanel from '../components/CategoryProgressPanel.vue';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -186,7 +187,7 @@ onMounted(async () => {
       registrationStore.fetchRegistrations(tournamentId.value),
     ]);
   } catch (error) {
-    console.error('Error loading initial dashboard stats:', error);
+    logger.error('Error loading initial dashboard stats:', error);
   } finally {
     statsLoaded.value = true;
   }

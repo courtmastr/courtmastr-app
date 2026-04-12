@@ -7,6 +7,7 @@ import { useMatchSlotState } from '@/composables/useMatchSlotState';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import type { Match } from '@/types';
 import html2canvas from 'html2canvas';
+import { logger } from '@/utils/logger';
 
 const props = defineProps<{
   tournamentId: string;
@@ -159,7 +160,7 @@ async function downloadBracket() {
     link.href = canvas.toDataURL('image/png');
     link.click();
   } catch (error) {
-    console.error('Failed to download bracket:', error);
+    logger.error('Failed to download bracket:', error);
   }
 }
 </script>

@@ -8,6 +8,7 @@ import { useMatchScopeLabels } from '@/composables/useMatchScopeLabels';
 import { buildGlobalMatchKey } from '@/features/tournaments/utils/matchDisplayIdentity';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import type { Court, Match, GameScore } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const matchStore = useMatchStore();
@@ -87,7 +88,7 @@ onMounted(async () => {
     registrationStore.subscribeRegistrations(tournamentId.value);
     registrationStore.subscribePlayers(tournamentId.value);
   } catch (err) {
-    console.error('Error loading live scoreboard:', err);
+    logger.error('Error loading live scoreboard:', err);
   } finally {
     loading.value = false;
   }

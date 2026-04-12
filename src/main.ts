@@ -12,6 +12,7 @@ import router from './router';
 import vuetify from './plugins/vuetify';
 import { useAuthStore } from './stores/auth';
 import { installI18n } from './i18n';
+import { logger } from '@/utils/logger';
 import './style.scss'; // Import global styles
 
 // Unregister service workers in development
@@ -19,7 +20,7 @@ if (import.meta.env.DEV && 'serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     for (const registration of registrations) {
       registration.unregister();
-      console.log('ServiceWorker unregistered in dev mode');
+      logger.debug('ServiceWorker unregistered in dev mode');
     }
   });
 }

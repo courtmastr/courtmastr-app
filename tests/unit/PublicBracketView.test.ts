@@ -22,6 +22,7 @@ const mockDeps = vi.hoisted(() => ({
 vi.mock('vue-router', () => ({
   useRoute: () => ({
     params: { tournamentId: 't1' },
+    query: {},
   }),
 }));
 

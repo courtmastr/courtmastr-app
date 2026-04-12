@@ -13,6 +13,12 @@ interface CourtOverlayLink {
   url: string;
 }
 
+interface CourtScorerLink {
+  courtId: string;
+  courtName: string;
+  url: string;
+}
+
 const route = useRoute();
 const matchStore = useMatchStore();
 const tournamentStore = useTournamentStore();
@@ -56,6 +62,14 @@ const bracketEmbedUrl = computed(() => {
 
 const bracketIframeSnippet = computed(() =>
   `<iframe src="${bracketEmbedUrl.value}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`
+);
+
+const courtScorerLinks = computed<CourtScorerLink[]>(() =>
+  tournamentStore.courts.map((court) => ({
+    courtId: court.id,
+    courtName: court.name,
+    url: `${origin.value}/tournaments/${tournamentId.value}/scoring-kiosk/court/${court.id}`,
+  }))
 );
 
 const getLiveMatchOnCourt = (courtId: string): Match | null =>
@@ -305,6 +319,54 @@ onUnmounted(() => {
                 Preview
               </v-btn>
             </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12">
+        <v-card>
+          <v-card-title class="text-h6">
+            Court Scorer Links
+          </v-card-title>
+          <v-card-text>
+            <p class="text-body-2 text-medium-emphasis mb-4">
+              Share these links with scorekeepers. Each link shows whatever match is live on that court and updates automatically when the assignment changes.
+            </p>
+            <v-table density="comfortable">
+              <thead>
+                <tr>
+                  <th class="text-left">
+                    Court
+                  </th>
+                  <th class="text-left">
+                    URL
+                  </th>
+                  <th class="text-right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="link in courtScorerLinks"
+                  :key="link.courtId"
+                >
+                  <td>{{ link.courtName }}</td>
+                  <td class="overlay-url-cell">
+                    {{ link.url }}
+                  </td>
+                  <td class="text-right">
+                    <v-btn
+                      size="small"
+                      variant="text"
+                      @click="copyUrl(link.url)"
+                    >
+                      Copy
+                    </v-btn>
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
           </v-card-text>
         </v-card>
       </v-col>

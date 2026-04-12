@@ -18,13 +18,6 @@ function getGithubConfig() {
 
 export const submitBugReport = functions.https.onCall(
   async (request: functions.https.CallableRequest<BugReportData>) => {
-    if (!request.auth) {
-      throw new functions.https.HttpsError(
-        'unauthenticated',
-        'User must be authenticated to submit bug reports'
-      );
-    }
-
     const { description, pageUrl, browserInfo, screenshotUrl } = request.data;
 
     if (!description || typeof description !== 'string' || description.trim().length === 0) {
@@ -43,10 +36,15 @@ export const submitBugReport = functions.https.onCall(
 
     try {
       const db = admin.firestore();
-      const userDoc = await db.collection('users').doc(request.auth.uid).get();
-      const userData = userDoc.data();
-      const userEmail = userData?.email || 'unknown';
-      const userName = userData?.displayName || 'Anonymous';
+      let userEmail = 'anonymous';
+      let userName = 'Anonymous';
+
+      if (request.auth?.uid) {
+        const userDoc = await db.collection('users').doc(request.auth.uid).get();
+        const userData = userDoc.data();
+        userEmail = userData?.email || 'unknown';
+        userName = userData?.displayName || 'Anonymous';
+      }
 
       const { token, repoOwner, repoName } = getGithubConfig();
 
@@ -66,7 +64,7 @@ export const submitBugReport = functions.https.onCall(
 ${description}
 
 **Reporter:** ${userName} (${userEmail})
-**User ID:** ${request.auth.uid}
+**User ID:** ${request.auth?.uid || 'anonymous'}
 **Page URL:** ${pageUrl || 'Not provided'}
 **Browser:** ${browserInfo || 'Not provided'}
 **Reported At:** ${new Date().toISOString()}
@@ -118,7 +116,7 @@ ${description}
         pageUrl: pageUrl || null,
         browserInfo: browserInfo || null,
         screenshotUrl: screenshotUrl || null,
-        userId: request.auth.uid,
+        userId: request.auth?.uid || null,
         userEmail,
         userName,
         githubIssueNumber: issueNumber,

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import html2canvas from 'html2canvas';
+import { logger } from '@/utils/logger';
 
 interface TournamentAnnouncementCardDialogProps {
   modelValue: boolean;
@@ -52,7 +53,7 @@ const handleDownload = async (): Promise<void> => {
     link.click();
     emit('downloaded');
   } catch (error) {
-    console.error('Failed to export tournament announcement card:', error);
+    logger.error('Failed to export tournament announcement card:', error);
   } finally {
     downloading.value = false;
   }

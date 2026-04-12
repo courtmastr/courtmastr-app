@@ -41,6 +41,7 @@ import {
   parseScheduleQueryPublicState,
 } from './matchControlScheduleQuery';
 import { saveDragReschedule } from '@/scheduling/useScheduleStore';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -672,7 +673,7 @@ async function refreshCategoryLevels(categoryId: string): Promise<void> {
       [categoryId]: levels,
     };
   } catch (error) {
-    console.error('Failed to fetch category levels for match control:', error);
+    logger.error('Failed to fetch category levels for match control:', error);
   }
 }
 
@@ -930,7 +931,7 @@ async function confirmSchedulePublishNow(): Promise<void> {
     showSchedulePublishNowDialog.value = false;
     schedulePublishMatch.value = null;
   } catch (error) {
-    console.error('Failed to schedule and publish match:', error);
+    logger.error('Failed to schedule and publish match:', error);
     notificationStore.showToast('error', 'Failed to schedule and publish match');
   } finally {
     schedulePublishLoading.value = false;
@@ -952,7 +953,7 @@ async function onDragReschedule(payload: {
     });
     notificationStore.showToast('success', 'Match rescheduled and locked');
   } catch (error) {
-    console.error('Failed to drag-reschedule match:', error);
+    logger.error('Failed to drag-reschedule match:', error);
     notificationStore.showToast('error', 'Failed to reschedule match');
   }
 }
@@ -1000,7 +1001,7 @@ async function confirmReleaseCourt() {
     notificationStore.showToast('success', 'Court released manually');
     releaseTargetMatch.value = null;
   } catch (error) {
-    console.error('Failed to release court:', error);
+    logger.error('Failed to release court:', error);
     notificationStore.showToast('error', 'Failed to release court');
   }
 }
@@ -1039,7 +1040,7 @@ function openScheduleDialog(match: Match) {
 function openScoreDialog(matchId: string): void {
   const match = matches.value.find(m => m.id === matchId);
   if (!match) {
-    console.error('[openScoreDialog] Match not found:', matchId);
+    logger.error('[openScoreDialog] Match not found:', matchId);
     notificationStore.showToast('error', 'Match not found');
     return;
   }
@@ -1051,7 +1052,7 @@ const openCompleteMatchDialog = openScoreDialog;
 
 function openManualScoreDialog(match: Match): void {
   if (!match.participant1Id || !match.participant2Id) {
-    console.error('[openManualScoreDialog] Match missing participants:', match.id);
+    logger.error('[openManualScoreDialog] Match missing participants:', match.id);
     notificationStore.showToast(
       'error',
       `Cannot score match: ${getMatchDisplayName(match)}. Both players must be assigned first.`
@@ -1088,7 +1089,7 @@ async function confirmResetSchedule(): Promise<void> {
       notificationStore.showToast('success', message);
     }
   } catch (error) {
-    console.error('Reset schedule error:', error);
+    logger.error('Reset schedule error:', error);
     notificationStore.showToast('error', 'Failed to reset schedule');
   } finally {
     resettingSchedule.value = false;
@@ -1191,7 +1192,7 @@ watch(
         `Auto-assigned: ${getMatchDisplayName(match)} → ${court.name} (${categoryName})`
       );
     } catch (error) {
-      console.error('[AutoAssign] Failed to assign match:', error);
+      logger.error('[AutoAssign] Failed to assign match:', error);
     }
   },
   { deep: true, immediate: true }
@@ -1208,7 +1209,7 @@ async function confirmConsistencyCheck() {
     await matchStore.checkAndFixConsistency(tournamentId.value);
     notificationStore.showToast('success', 'Data consistency check completed');
   } catch (error) {
-    console.error('Consistency check failed:', error);
+    logger.error('Consistency check failed:', error);
     notificationStore.showToast('error', 'Failed to run consistency check');
   }
 }
@@ -1245,7 +1246,7 @@ async function confirmUnschedule(): Promise<void> {
       `Unscheduled: ${getMatchParticipantLabel(match, 'participant1')} vs ${getMatchParticipantLabel(match, 'participant2')}`
     );
   } catch (error) {
-    console.error('Failed to unschedule:', error);
+    logger.error('Failed to unschedule:', error);
     notificationStore.showToast('error', 'Failed to unschedule match');
   }
 }

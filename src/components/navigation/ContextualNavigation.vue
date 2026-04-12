@@ -197,6 +197,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import { NAVIGATION_ICONS } from '@/constants/navigationIcons';
+import { logger } from '@/utils/logger';
 
 const router = useRouter();
 const tournamentStore = useTournamentStore();
@@ -257,7 +258,7 @@ onMounted(async () => {
   try {
     await tournamentStore.fetchTournament(tournamentId.value);
   } catch (error) {
-    console.error('Error loading tournament for contextual navigation:', error);
+    logger.error('Error loading tournament for contextual navigation:', error);
   }
 });
 
@@ -267,7 +268,7 @@ async function openRegistration() {
     await tournamentStore.updateTournamentStatus(tournamentId.value, 'registration');
     notificationStore.showToast('success', 'Registration opened');
   } catch (error) {
-    console.error('Failed to open registration:', error);
+    logger.error('Failed to open registration:', error);
     notificationStore.showToast('error', 'Failed to open registration');
   }
 }
@@ -289,7 +290,7 @@ async function startTournament() {
     await tournamentStore.updateTournamentStatus(tournamentId.value, 'active');
     notificationStore.showToast('success', 'Tournament started');
   } catch (error) {
-    console.error('Failed to start tournament:', error);
+    logger.error('Failed to start tournament:', error);
     notificationStore.showToast('error', 'Failed to start tournament');
   }
 }
