@@ -456,11 +456,11 @@ onUnmounted(() => {
 }
 
 .broadcast-player-name {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #212121;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #616161;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -468,32 +468,32 @@ onUnmounted(() => {
   max-width: 100%;
 }
 
-/* Score Section */
+/* Score Section — hero element */
 .broadcast-score-section {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%);
-  padding: 10px 18px;
+  padding: 8px 20px;
   border-radius: 6px;
   border: 2px solid #e0e0e0;
   flex-shrink: 0;
-  width: 140px;
+  width: 180px;
 }
 
 .broadcast-games-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: #424242;
+  color: #616161;
 }
 
 .broadcast-game {
   font-variant-numeric: tabular-nums;
-  min-width: 24px;
+  min-width: 20px;
   text-align: center;
 }
 
@@ -505,15 +505,15 @@ onUnmounted(() => {
 .broadcast-points-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 1.9rem;
+  gap: 10px;
+  font-size: 2.6rem;
   font-weight: 900;
   color: #1a237e;
 }
 
 .broadcast-point {
   font-variant-numeric: tabular-nums;
-  min-width: 36px;
+  min-width: 44px;
   text-align: center;
   line-height: 1;
 }
