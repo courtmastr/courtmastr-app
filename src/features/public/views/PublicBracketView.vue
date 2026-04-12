@@ -9,6 +9,7 @@ import { BRAND_INSTALL_PROMPT_TITLE } from '@/constants/branding';
 import TournamentPublicShell from '@/components/common/TournamentPublicShell.vue';
 import BracketsManagerViewer from '@/features/brackets/components/BracketsManagerViewer.vue';
 import type { LevelDefinition } from '@/types';
+import { logger } from '@/utils/logger';
 
 const route = useRoute();
 const tournamentStore = useTournamentStore();
@@ -45,7 +46,7 @@ const handleInstallApp = async (): Promise<void> => {
   try {
     await installApp();
   } catch (error) {
-    console.error('Failed to trigger app install prompt:', error);
+    logger.error('Failed to trigger app install prompt:', error);
   }
 };
 
@@ -92,7 +93,7 @@ watch(selectedCategory, async (categoryId) => {
       selectedLevelId.value = queryLevel.value;
     }
   } catch (error) {
-    console.error('Failed to fetch category levels:', error);
+    logger.error('Failed to fetch category levels:', error);
   }
 });
 </script>

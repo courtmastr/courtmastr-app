@@ -5,6 +5,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
 import type { Match } from '@/types';
+import { logger } from '@/utils/logger';
 
 interface CourtOverlayLink {
   courtId: string;
@@ -84,7 +85,7 @@ const copyUrl = async (url: string): Promise<void> => {
     await navigator.clipboard.writeText(url);
     notificationStore.showToast('success', 'Link copied!');
   } catch (err) {
-    console.error('Error copying overlay link:', err);
+    logger.error('Error copying overlay link:', err);
     notificationStore.showToast('error', 'Failed to copy link');
   }
 };
