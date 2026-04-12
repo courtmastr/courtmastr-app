@@ -34,8 +34,7 @@ app.use(router);
 app.use(vuetify);
 installI18n(app);
 
-// Initialize auth before mounting
+// Mount immediately — App.vue loading overlay handles the auth-pending state
 const authStore = useAuthStore();
-authStore.initAuth().then(() => {
-  app.mount('#app');
-});
+app.mount('#app');
+authStore.initAuth();

@@ -3,11 +3,13 @@ import { computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
+import { useTournamentStore } from '@/stores/tournaments';
 import AppLayout from '@/components/layout/AppLayout.vue';
 import VolunteerLayout from '@/components/layout/VolunteerLayout.vue';
 
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
+const tournamentStore = useTournamentStore();
 const route = useRoute();
 
 const usesVolunteerLayout = computed(() => route.meta.volunteerLayout === true);
@@ -24,6 +26,22 @@ watch(
       document.documentElement.classList.add('overlay-page');
     } else {
       document.documentElement.classList.remove('overlay-page');
+    }
+  },
+  { immediate: true }
+);
+
+// Start the tournament subscription as soon as the user is authenticated so
+// data is in-flight during router navigation rather than waiting for
+// TournamentListView to mount. The subscription itself guards against
+// double-setup, so the view's onMounted call is a safe no-op.
+watch(
+  () => authStore.currentUser,
+  (user) => {
+    if (user) {
+      tournamentStore.subscribeTournaments();
+    } else {
+      tournamentStore.unsubscribeTournaments();
     }
   },
   { immediate: true }

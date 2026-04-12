@@ -1,6 +1,6 @@
 // Auth Store - Pinia store for authentication state
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import {
   auth,
   signInWithEmailAndPassword,
@@ -20,6 +20,9 @@ import {
 import type { User, UserRole } from '@/types';
 
 export const useAuthStore = defineStore('auth', () => {
+  // Memoized init promise — prevents duplicate onAuthStateChanged listeners
+  let authInitPromise: Promise<void> | null = null;
+
   // State
   const currentUser = ref<User | null>(null);
   const firebaseUser = ref<FirebaseUser | null>(null);
@@ -63,9 +66,10 @@ export const useAuthStore = defineStore('auth', () => {
     };
   }
 
-  // Initialize auth state listener
+  // Initialize auth state listener — idempotent, safe to call multiple times
   function initAuth(): Promise<void> {
-    return new Promise((resolve) => {
+    if (authInitPromise) return authInitPromise;
+    authInitPromise = new Promise((resolve) => {
       onAuthStateChanged(auth, async (user) => {
         firebaseUser.value = user;
 
@@ -100,6 +104,7 @@ export const useAuthStore = defineStore('auth', () => {
         resolve();
       });
     });
+    return authInitPromise;
   }
 
   // Create user profile in Firestore
@@ -132,28 +137,19 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
 
-      // Wait for COMPLETE auth state initialization (currentUser + Firestore profile)
-      // The onAuthStateChanged listener in initAuth() fetches the Firestore profile
-      // and populates currentUser. We need to wait for that to complete before
-      // resolving, otherwise router guards will see isAuthenticated=false.
+      // Wait for onAuthStateChanged to fetch the Firestore profile and populate currentUser.
+      // Uses a reactive watch instead of polling so it resolves in the same tick the
+      // profile fetch completes, with a 10s safety timeout.
       await new Promise<void>((resolve) => {
-        const maxWaitTime = 10000; // 10 second timeout
-        const startTime = Date.now();
-
-        const checkAuth = () => {
-          if (currentUser.value) {
-            console.log('[signIn] ✅ currentUser populated, auth complete');
+        if (currentUser.value) { resolve(); return; }
+        const timeout = setTimeout(resolve, 10000);
+        const stop = watch(currentUser, (user) => {
+          if (user) {
+            clearTimeout(timeout);
+            stop();
             resolve();
-          } else if (Date.now() - startTime > maxWaitTime) {
-            // Timeout - resolve anyway to prevent infinite hang
-            console.warn('[signIn] ⚠️ Timeout waiting for currentUser, proceeding anyway');
-            resolve();
-          } else {
-            setTimeout(checkAuth, 50); // Poll every 50ms
           }
-        };
-
-        checkAuth();
+        });
       });
     } catch (err: unknown) {
       handleAuthError(err);
