@@ -365,7 +365,7 @@ onUnmounted(() => {
 }
 
 .broadcast-brand__fallback {
-  font-size: 0.42rem;
+  font-size: 0.55rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -379,9 +379,9 @@ onUnmounted(() => {
 }
 
 .broadcast-event {
-  font-size: 0.38rem;
+  font-size: 0.52rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.72);
   white-space: nowrap;
@@ -390,7 +390,7 @@ onUnmounted(() => {
 }
 
 .broadcast-court {
-  font-size: 0.52rem;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -398,7 +398,7 @@ onUnmounted(() => {
 }
 
 .broadcast-category {
-  font-size: 0.42rem;
+  font-size: 0.58rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
@@ -410,9 +410,9 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 0.42rem;
+  font-size: 0.58rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: #4caf50;
   text-transform: uppercase;
   white-space: nowrap;
@@ -456,11 +456,11 @@ onUnmounted(() => {
 }
 
 .broadcast-player-name {
-  font-size: 0.48rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #424242;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -471,32 +471,32 @@ onUnmounted(() => {
 .broadcast-score-cell {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-shrink: 0;
 }
 
 .broadcast-main-score {
-  font-size: 1rem;
+  font-size: 1.5rem;
   font-weight: 900;
   color: #1a237e;
   font-variant-numeric: tabular-nums;
-  min-width: 18px;
+  min-width: 24px;
   text-align: center;
   line-height: 1;
 }
 
 .broadcast-score-sep {
   color: #bdbdbd;
-  font-size: 0.5rem;
+  font-size: 0.7rem;
   font-weight: 300;
 }
 
 .broadcast-sets-score {
-  font-size: 0.5rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #9e9e9e;
   font-variant-numeric: tabular-nums;
-  min-width: 10px;
+  min-width: 14px;
   text-align: center;
 }
 
@@ -511,7 +511,7 @@ onUnmounted(() => {
 }
 
 .broadcast-game-info {
-  font-size: 0.42rem;
+  font-size: 0.55rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: #616161;
@@ -536,7 +536,7 @@ onUnmounted(() => {
 }
 
 .broadcast-up-next-name {
-  font-size: 0.75rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #212121;
   text-transform: uppercase;
@@ -546,7 +546,7 @@ onUnmounted(() => {
 }
 
 .broadcast-up-next-vs {
-  font-size: 0.65rem;
+  font-size: 0.85rem;
   font-weight: 800;
   color: #ff8f00;
   letter-spacing: 0.08em;
@@ -557,7 +557,7 @@ onUnmounted(() => {
   color: white;
   padding: 4px 14px;
   border-radius: 10px;
-  font-size: 0.52rem;
+  font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -576,7 +576,7 @@ onUnmounted(() => {
 }
 
 .broadcast-idle-text {
-  font-size: 1rem;
+  font-size: 1.4rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   color: #78909c;
@@ -584,7 +584,7 @@ onUnmounted(() => {
 }
 
 .broadcast-idle-subtext {
-  font-size: 0.5rem;
+  font-size: 0.65rem;
   color: #90a4ae;
   font-weight: 600;
 }
