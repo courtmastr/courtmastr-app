@@ -308,7 +308,7 @@ onUnmounted(() => {
   width: 1920px;
   height: 1080px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: flex-start;
   padding: 20px 40px;
   box-sizing: border-box;
@@ -333,7 +333,7 @@ onUnmounted(() => {
   min-width: 480px;
   max-width: 750px;
   transform: scale(0.85);
-  transform-origin: top center;
+  transform-origin: top left;
 }
 
 .broadcast-scoreboard.up-next {
