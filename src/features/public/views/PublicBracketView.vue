@@ -20,9 +20,9 @@ const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
 const loading = computed(() => tournamentStore.loading);
 
-const isEmbedMode = computed(() => route.query.embed === 'true');
-const queryCategory = computed(() => route.query.category as string | undefined);
-const queryLevel = computed(() => route.query.level as string | undefined);
+const isEmbedMode = computed(() => route.query?.embed === 'true');
+const queryCategory = computed(() => route.query?.category as string | undefined);
+const queryLevel = computed(() => route.query?.level as string | undefined);
 
 const selectedCategory = ref<string | null>(null);
 const categoryLevels = ref<Record<string, LevelDefinition[]>>({});
