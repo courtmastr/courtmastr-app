@@ -79,19 +79,6 @@ const participant2Name = computed(() =>
   getParticipantName(displayMatch.value?.participant2Id)
 );
 
-// Get player initials from name
-const getInitials = (name: string): string => {
-  if (!name || name === 'Unknown') return '?';
-  const parts = name.split(/[\s/]+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-  // For doubles: take first letter of first name and first letter of second name
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-};
-
-const player1Initials = computed(() => getInitials(participant1Name.value));
-const player2Initials = computed(() => getInitials(participant2Name.value));
-
 const currentGame = computed<GameScore>(() => {
   const match = liveMatch.value;
   if (!match || match.scores.length === 0) {
@@ -183,13 +170,8 @@ onUnmounted(() => {
       <div class="broadcast-body">
         <!-- Player 1 Section -->
         <div class="broadcast-player-section player-left">
-          <div class="broadcast-player-info">
-            <div class="broadcast-avatar">
-              {{ player1Initials }}
-            </div>
-            <div class="broadcast-player-name">
-              {{ participant1Name }}
-            </div>
+          <div class="broadcast-player-name">
+            {{ participant1Name }}
           </div>
         </div>
 
@@ -209,13 +191,8 @@ onUnmounted(() => {
 
         <!-- Player 2 Section -->
         <div class="broadcast-player-section player-right">
-          <div class="broadcast-player-info">
-            <div class="broadcast-player-name">
-              {{ participant2Name }}
-            </div>
-            <div class="broadcast-avatar">
-              {{ player2Initials }}
-            </div>
+          <div class="broadcast-player-name">
+            {{ participant2Name }}
           </div>
         </div>
       </div>
@@ -330,10 +307,10 @@ onUnmounted(() => {
   border-radius: 8px;
   box-shadow: 0 3px 15px rgba(0, 0, 0, 0.12), 0 1px 6px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  min-width: 480px;
-  max-width: 750px;
-  transform: scale(0.85);
-  transform-origin: top left;
+  width: 660px;
+  height: 200px;
+  display: flex;
+  flex-direction: column;
 }
 
 .broadcast-scoreboard.up-next {
@@ -453,18 +430,21 @@ onUnmounted(() => {
 
 /* Body */
 .broadcast-body {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 24px;
-  gap: 25px;
+  padding: 10px 20px;
+  gap: 16px;
 }
 
 /* Player Sections */
 .broadcast-player-section {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
+  overflow: hidden;
 }
 
 .broadcast-player-section.player-left {
@@ -475,38 +455,17 @@ onUnmounted(() => {
   justify-content: flex-start;
 }
 
-.broadcast-player-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.broadcast-avatar {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%);
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  flex-shrink: 0;
-}
-
 .broadcast-player-name {
   font-size: 1rem;
   font-weight: 700;
   color: #212121;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Score Section */
@@ -516,10 +475,11 @@ onUnmounted(() => {
   align-items: center;
   gap: 5px;
   background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%);
-  padding: 10px 30px;
+  padding: 10px 18px;
   border-radius: 6px;
   border: 2px solid #e0e0e0;
   flex-shrink: 0;
+  width: 140px;
 }
 
 .broadcast-games-row {
@@ -546,14 +506,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 2.2rem;
+  font-size: 1.9rem;
   font-weight: 900;
   color: #1a237e;
 }
 
 .broadcast-point {
   font-variant-numeric: tabular-nums;
-  min-width: 45px;
+  min-width: 36px;
   text-align: center;
   line-height: 1;
 }
@@ -578,11 +538,13 @@ onUnmounted(() => {
 
 /* UP NEXT STATE */
 .broadcast-up-next-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 30px 40px;
-  gap: 20px;
+  justify-content: center;
+  padding: 12px 30px;
+  gap: 14px;
 }
 
 .broadcast-up-next-players {
@@ -623,10 +585,12 @@ onUnmounted(() => {
 
 /* IDLE STATE */
 .broadcast-idle-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px;
+  justify-content: center;
+  padding: 20px 40px;
   gap: 10px;
 }
 
