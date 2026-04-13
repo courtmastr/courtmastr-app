@@ -79,18 +79,19 @@ const participant2Name = computed(() =>
   getParticipantName(displayMatch.value?.participant2Id)
 );
 
-// Get player initials from name
-const getInitials = (name: string): string => {
-  if (!name || name === 'Unknown') return '?';
-  const parts = name.split(/[\s/]+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-  // For doubles: take first letter of first name and first letter of second name
-  return (parts[0][0] + parts[1][0]).toUpperCase();
+// Convert "Matthew Parker / Thomas S." → "MP / TS"
+const toInitials = (name: string): string => {
+  if (!name || name === 'Unknown') return name;
+  return name
+    .split('/')
+    .map(person =>
+      person.trim().split(/\s+/).map(w => w[0]?.toUpperCase() ?? '').join('')
+    )
+    .join(' / ');
 };
 
-const player1Initials = computed(() => getInitials(participant1Name.value));
-const player2Initials = computed(() => getInitials(participant2Name.value));
+const participant1Short = computed(() => toInitials(participant1Name.value));
+const participant2Short = computed(() => toInitials(participant2Name.value));
 
 const currentGame = computed<GameScore>(() => {
   const match = liveMatch.value;
@@ -179,48 +180,28 @@ onUnmounted(() => {
         </span>
       </div>
 
-      <!-- Main Score Area -->
+      <!-- Score rows: one per player -->
       <div class="broadcast-body">
-        <!-- Player 1 Section -->
-        <div class="broadcast-player-section player-left">
-          <div class="broadcast-player-info">
-            <div class="broadcast-avatar">
-              {{ player1Initials }}
-            </div>
-            <div class="broadcast-player-name">
-              {{ participant1Name }}
-            </div>
+        <div class="broadcast-match-row">
+          <span class="broadcast-player-name">{{ participant1Short }}</span>
+          <div class="broadcast-score-cell">
+            <span class="broadcast-main-score">{{ currentGame.score1 }}</span>
+            <span class="broadcast-score-sep">|</span>
+            <span class="broadcast-sets-score">{{ gamesWon.participant1Games }}</span>
           </div>
         </div>
-
-        <!-- Score Section -->
-        <div class="broadcast-score-section">
-          <div class="broadcast-games-row">
-            <span class="broadcast-game">{{ gamesWon.participant1Games }}</span>
-            <span class="broadcast-divider">-</span>
-            <span class="broadcast-game">{{ gamesWon.participant2Games }}</span>
-          </div>
-          <div class="broadcast-points-row">
-            <span class="broadcast-point">{{ currentGame.score1 }}</span>
-            <span class="broadcast-divider">:</span>
-            <span class="broadcast-point">{{ currentGame.score2 }}</span>
-          </div>
-        </div>
-
-        <!-- Player 2 Section -->
-        <div class="broadcast-player-section player-right">
-          <div class="broadcast-player-info">
-            <div class="broadcast-player-name">
-              {{ participant2Name }}
-            </div>
-            <div class="broadcast-avatar">
-              {{ player2Initials }}
-            </div>
+        <div class="broadcast-row-divider" />
+        <div class="broadcast-match-row">
+          <span class="broadcast-player-name">{{ participant2Short }}</span>
+          <div class="broadcast-score-cell">
+            <span class="broadcast-main-score">{{ currentGame.score2 }}</span>
+            <span class="broadcast-score-sep">|</span>
+            <span class="broadcast-sets-score">{{ gamesWon.participant2Games }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Bottom Bar with Game Info -->
+      <!-- Footer -->
       <div class="broadcast-footer">
         <span class="broadcast-game-info">GAME {{ currentGame.gameNumber || 1 }}</span>
       </div>
@@ -256,9 +237,9 @@ onUnmounted(() => {
       </div>
       <div class="broadcast-up-next-body">
         <div class="broadcast-up-next-players">
-          <span class="broadcast-up-next-name">{{ participant1Name }}</span>
+          <span class="broadcast-up-next-name">{{ participant1Short }}</span>
           <span class="broadcast-up-next-vs">VS</span>
-          <span class="broadcast-up-next-name">{{ participant2Name }}</span>
+          <span class="broadcast-up-next-name">{{ participant2Short }}</span>
         </div>
         <div class="broadcast-up-next-badge">
           UP NEXT
@@ -324,16 +305,16 @@ onUnmounted(() => {
   }
 }
 
-/* BROADCAST STYLE SCOREBOARD */
+/* BROADCAST STYLE SCOREBOARD — 260×110px in 1920px canvas */
 .broadcast-scoreboard {
   background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
-  border-radius: 8px;
-  box-shadow: 0 3px 15px rgba(0, 0, 0, 0.12), 0 1px 6px rgba(0, 0, 0, 0.08);
+  border-radius: 5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  min-width: 480px;
-  max-width: 750px;
-  transform: scale(0.85);
-  transform-origin: top left;
+  width: 260px;
+  height: 115px;
+  display: flex;
+  flex-direction: column;
 }
 
 .broadcast-scoreboard.up-next {
@@ -350,8 +331,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 6px 16px;
+  gap: 6px;
+  padding: 3px 8px;
   background: linear-gradient(90deg, #1a237e 0%, #283593 100%);
   color: white;
 }
@@ -359,14 +340,14 @@ onUnmounted(() => {
 .broadcast-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 5px;
   min-width: 0;
 }
 
 .broadcast-brand__mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
   background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.2);
   overflow: hidden;
@@ -384,9 +365,9 @@ onUnmounted(() => {
 }
 
 .broadcast-brand__fallback {
-  font-size: 0.72rem;
+  font-size: 0.55rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #ffffff;
 }
@@ -398,164 +379,125 @@ onUnmounted(() => {
 }
 
 .broadcast-event {
-  font-size: 0.62rem;
+  font-size: 0.52rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .broadcast-court {
-  font-size: 0.85rem;
+  font-size: 0.7rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #7ed957;
 }
 
 .broadcast-category {
-  font-size: 0.75rem;
+  font-size: 0.58rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .broadcast-live-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
+  gap: 3px;
+  font-size: 0.58rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   color: #4caf50;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .broadcast-live-badge .live-dot {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
   background: #4caf50;
   border-radius: 50%;
   animation: live-pulse 1.2s ease-in-out infinite;
 }
 
 @keyframes live-pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(0.8);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
 }
 
-/* Body */
+/* Live body — two rows, one per player */
 .broadcast-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 24px;
-  gap: 25px;
-}
-
-/* Player Sections */
-.broadcast-player-section {
   flex: 1;
   display: flex;
-  align-items: center;
-}
-
-.broadcast-player-section.player-left {
-  justify-content: flex-end;
-}
-
-.broadcast-player-section.player-right {
-  justify-content: flex-start;
-}
-
-.broadcast-player-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.broadcast-avatar {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%);
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
-  font-size: 0.9rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  flex-shrink: 0;
+  padding: 3px 8px;
+  gap: 0;
+}
+
+.broadcast-match-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.broadcast-row-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 0 1px;
 }
 
 .broadcast-player-name {
-  font-size: 1rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #212121;
+  color: #424242;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-  max-width: 200px;
+  letter-spacing: 0.03em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 
-/* Score Section */
-.broadcast-score-section {
+.broadcast-score-cell {
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 5px;
-  background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%);
-  padding: 10px 30px;
-  border-radius: 6px;
-  border: 2px solid #e0e0e0;
   flex-shrink: 0;
 }
 
-.broadcast-games-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #424242;
-}
-
-.broadcast-game {
+.broadcast-main-score {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #1a237e;
   font-variant-numeric: tabular-nums;
   min-width: 24px;
   text-align: center;
-}
-
-.broadcast-divider {
-  color: #9e9e9e;
-  font-weight: 500;
-}
-
-.broadcast-points-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 2.2rem;
-  font-weight: 900;
-  color: #1a237e;
-}
-
-.broadcast-point {
-  font-variant-numeric: tabular-nums;
-  min-width: 45px;
-  text-align: center;
   line-height: 1;
+}
+
+.broadcast-score-sep {
+  color: #bdbdbd;
+  font-size: 0.7rem;
+  font-weight: 300;
+}
+
+.broadcast-sets-score {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #9e9e9e;
+  font-variant-numeric: tabular-nums;
+  min-width: 14px;
+  text-align: center;
 }
 
 /* Footer */
@@ -563,83 +505,86 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px 16px;
+  padding: 2px 8px;
   background: #fafafa;
   border-top: 1px solid #e0e0e0;
 }
 
 .broadcast-game-info {
-  font-size: 0.75rem;
+  font-size: 0.55rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: #616161;
   text-transform: uppercase;
 }
 
 /* UP NEXT STATE */
 .broadcast-up-next-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 30px 40px;
-  gap: 20px;
+  justify-content: center;
+  padding: 5px 12px;
+  gap: 5px;
 }
 
 .broadcast-up-next-players {
   display: flex;
   align-items: center;
-  gap: 25px;
+  gap: 10px;
 }
 
 .broadcast-up-next-name {
-  font-size: 1.5rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #212121;
   text-transform: uppercase;
-  max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .broadcast-up-next-vs {
-  font-size: 1.2rem;
+  font-size: 0.85rem;
   font-weight: 800;
   color: #ff8f00;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 
 .broadcast-up-next-badge {
   background: linear-gradient(90deg, #ff8f00 0%, #ff6f00 100%);
   color: white;
-  padding: 10px 30px;
-  border-radius: 20px;
-  font-size: 1rem;
+  padding: 4px 14px;
+  border-radius: 10px;
+  font-size: 0.65rem;
   font-weight: 800;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  box-shadow: 0 2px 8px rgba(255, 143, 0, 0.3);
+  box-shadow: 0 1px 4px rgba(255, 143, 0, 0.3);
 }
 
 /* IDLE STATE */
 .broadcast-idle-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px;
-  gap: 10px;
+  justify-content: center;
+  padding: 6px 16px;
+  gap: 4px;
 }
 
 .broadcast-idle-text {
-  font-size: 2rem;
+  font-size: 1.4rem;
   font-weight: 800;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
   color: #78909c;
   text-transform: uppercase;
 }
 
 .broadcast-idle-subtext {
-  font-size: 1rem;
+  font-size: 0.65rem;
   color: #90a4ae;
   font-weight: 600;
 }
