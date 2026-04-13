@@ -15,11 +15,13 @@ const footerLinks: PublicFooterLink[] = [
   { label: 'Home', to: '/', icon: 'mdi-home-outline' },
   { label: 'About', to: '/about', icon: 'mdi-information-outline' },
   { label: 'Pricing', to: '/pricing', icon: 'mdi-cash-multiple' },
+  { label: 'Help', to: '/help', icon: 'mdi-help-circle-outline' },
   { label: 'Privacy', to: '/privacy', icon: 'mdi-shield-check-outline' },
   { label: 'Terms', to: '/terms', icon: 'mdi-file-document-outline' },
 ];
 
-const isActiveLink = (path: string): boolean => route.path === path;
+const isActiveLink = (path: string): boolean =>
+  path === '/help' ? route.path.startsWith('/help') : route.path === path;
 </script>
 
 <template>

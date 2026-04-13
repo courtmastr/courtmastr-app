@@ -169,6 +169,47 @@ describe('AppLayout public footer', () => {
     expect(wrapper.find('v-btn-toggle-stub').exists()).toBe(true);
   });
 
+  it('treats the help center as a public marketing route', () => {
+    runtime.route = {
+      path: '/help',
+      name: 'help-center',
+      params: {},
+      meta: { requiresAuth: false, publicMarketingPage: true },
+    };
+
+    const wrapper = mountView();
+
+    expect(wrapper.find('public-website-footer-stub').exists()).toBe(true);
+    expect(wrapper.find('v-btn-toggle-stub').exists()).toBe(true);
+  });
+
+  it('exposes Help in the public header navigation', () => {
+    const wrapper = mountView();
+
+    expect(wrapper.text()).toContain('Home');
+    expect(wrapper.text()).toContain('About');
+    expect(wrapper.text()).toContain('Pricing');
+    expect(wrapper.text()).toContain('Help');
+  });
+
+  it('exposes Help Center in the authenticated user menu', () => {
+    runtime.route = {
+      path: '/tournaments',
+      name: 'tournament-list',
+      params: {},
+      meta: { requiresAuth: true },
+    };
+    runtime.isAuthenticated = true;
+    runtime.currentUserId = 'user-1';
+
+    const wrapper = mountView();
+    const menuItemTitles = wrapper.findAll('v-list-item-stub')
+      .map((item) => item.attributes('title'));
+
+    expect(menuItemTitles).toContain('My Tournaments');
+    expect(menuItemTitles).toContain('Help Center');
+  });
+
   it('hides public website footer for authenticated routes', () => {
     runtime.route.meta = { requiresAuth: true };
     const wrapper = mountView();

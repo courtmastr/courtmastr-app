@@ -145,6 +145,20 @@ describe('router auth guards', () => {
 
     const championsRoute = await runGuard('/tournaments/t1/champions', { isAuthenticated: false });
     expect(championsRoute.type).toBe('allow');
+
+    const helpRoute = await runGuard('/help', { isAuthenticated: false });
+    expect(helpRoute.type).toBe('allow');
+
+    const helpTopicRoute = await runGuard('/help/score-matches', { isAuthenticated: false });
+    expect(helpTopicRoute.type).toBe('allow');
+    expect(helpTopicRoute.name).toBe('help-topic');
+  }, ROUTER_GUARD_TEST_TIMEOUT_MS);
+
+  it('registers help routes before organization slug routes', async () => {
+    const result = await runGuard('/help/run-a-tournament', { isAuthenticated: false });
+
+    expect(result.type).toBe('allow');
+    expect(result.name).toBe('help-topic');
   }, ROUTER_GUARD_TEST_TIMEOUT_MS);
 
   it('blocks non-web-admin users from /admin/reviews and allows admin users', async () => {
