@@ -6,13 +6,13 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-13 01:55 CDT
-- Release ID: `v2.6.0`
-- Package version: `2.6.0`
+- Date: 2026-04-13 10:44 CDT
+- Release ID: `v2.6.1`
+- Package version: `2.6.1`
 - Deployed branch: `master`
-- Deployed commit: `8a0b909` (`feat: offline-safe volunteer scoring via Firestore queue (#23)`)
+- Deployed commit: `aabc396` (`fix: walkover awards match points only, score stays 0-0 (BYE behaviour) (#27)`)
 - Release notes:
-  - [docs/releases/v2.6.0.md](docs/releases/v2.6.0.md)
+  - [docs/releases/v2.6.1.md](docs/releases/v2.6.1.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-13 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-13-06-52-46.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-13-15-42-52.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.6.0`
+  - Date: 2026-04-13 01:55 CDT
+  - Package version: `2.6.0`
+  - Deployed commit: `8a0b909`
+  - Release notes:
+    - [docs/releases/v2.6.0.md](docs/releases/v2.6.0.md)
 - `v2.5.0`
   - Date: 2026-04-13 01:35 CDT
   - Package version: `2.5.0`
@@ -107,7 +113,7 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-13 01:55 CDT
-- Commit: `8a0b909bc4118f1f7fa03cd97cc89247a0a1a674`
-- Message: `feat: offline-safe volunteer scoring via Firestore queue (#23)`
+- Date: 2026-04-13 10:44 CDT
+- Commit: `aabc3961280fb894d8b01e74ee0600604a3ed942`
+- Message: `fix: walkover awards match points only, score stays 0-0 (BYE behaviour) (#27)`
 - Note: deployed via `npm run release:deploy` on 2026-04-13.
