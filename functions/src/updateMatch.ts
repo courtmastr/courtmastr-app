@@ -215,11 +215,13 @@ export const updateMatch = functions.https.onCall(async (request) => {
       const opponent2Id = matchData.opponent2?.id;
 
       if (opponent1Id == bracketWinnerId) {
-        updateData.opponent1 = { ...matchData.opponent1, result: 'win' };
-        updateData.opponent2 = { ...matchData.opponent2, result: 'loss' };
+        // Pass only id + result (no score) so BracketsManager's handleGivenStatus
+        // early-return path is taken and our explicit result is not overwritten.
+        updateData.opponent1 = { id: opponent1Id, result: 'win' };
+        updateData.opponent2 = { id: opponent2Id, result: 'loss' };
       } else if (opponent2Id == bracketWinnerId) {
-        updateData.opponent1 = { ...matchData.opponent1, result: 'loss' };
-        updateData.opponent2 = { ...matchData.opponent2, result: 'win' };
+        updateData.opponent1 = { id: opponent1Id, result: 'loss' };
+        updateData.opponent2 = { id: opponent2Id, result: 'win' };
       } else {
         throw new Error(
           `Winner participant ID ${bracketWinnerId} does not match either opponent in match ${matchId}`,

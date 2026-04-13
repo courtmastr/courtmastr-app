@@ -238,16 +238,23 @@ export const useMatchStore = defineStore('matches', () => {
       throw new Error('categoryId is required for volunteer scoring updates');
     }
 
-    const updateMatchFn = httpsCallable(functions, 'updateMatch');
-    await updateMatchFn({
+    // Write to Firestore queue collection instead of calling the Cloud Function directly.
+    // Firestore's offline cache queues this write in IndexedDB when the device has no
+    // network. When connectivity returns, the document syncs and the processScoreEvent
+    // Cloud Function trigger validates the session token and applies the score — the
+    // same validation as before, just deferred until the network is available.
+    const eventRef = doc(collection(db, `tournaments/${input.tournamentId}/pending_score_events`));
+    await setDoc(eventRef, {
       tournamentId: input.tournamentId,
       categoryId: scope.categoryId,
-      levelId: scope.levelId,
+      levelId: scope.levelId ?? null,
       matchId: input.matchId,
       status: input.status,
       scores: input.scores,
-      winnerId: input.winnerId,
+      winnerId: input.winnerId ?? null,
       sessionToken,
+      sequence: Date.now(),
+      createdAt: serverTimestamp(),
     });
     return true;
   };
