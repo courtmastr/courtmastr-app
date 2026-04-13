@@ -143,7 +143,11 @@ function getCurrentScore(match: Match): string {
 
           <!-- Duration -->
           <td>
-            <span :class="{'text-warning': getMatchDuration(match).isLong, 'text-caption': true}">
+            <span :class="{
+              'text-error': getMatchDuration(match).isStale,
+              'text-warning': getMatchDuration(match).isLong && !getMatchDuration(match).isStale,
+              'text-caption': true
+            }">
               {{ getMatchDuration(match).text }}
             </span>
           </td>

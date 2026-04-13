@@ -70,6 +70,7 @@ vi.mock('@/stores/tournaments', () => ({
 vi.mock('@/stores/matches', () => ({
   useMatchStore: () => ({
     matches: runtimeState.matches,
+    fetchMatches: vi.fn().mockResolvedValue(undefined),
     subscribeAllMatches: mockDeps.subscribeAllMatches,
     subscribeCategoryMatches: vi.fn(),
     unsubscribeCategoryMatches: vi.fn(),
