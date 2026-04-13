@@ -6,13 +6,13 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-13 10:44 CDT
-- Release ID: `v2.6.1`
-- Package version: `2.6.1`
+- Date: 2026-04-13 16:30 CDT
+- Release ID: `v2.7.0`
+- Package version: `2.7.0`
 - Deployed branch: `master`
-- Deployed commit: `aabc396` (`fix: walkover awards match points only, score stays 0-0 (BYE behaviour) (#27)`)
+- Deployed commit: `bdb1f71` (`feat: Pool Cut & Advance to Elimination (#29)`)
 - Release notes:
-  - [docs/releases/v2.6.1.md](docs/releases/v2.6.1.md)
+  - [docs/releases/v2.7.0.md](docs/releases/v2.7.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-13 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-13-15-42-52.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-13-21-29-17.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.6.1`
+  - Date: 2026-04-13 10:44 CDT
+  - Package version: `2.6.1`
+  - Deployed commit: `aabc396`
+  - Release notes:
+    - [docs/releases/v2.6.1.md](docs/releases/v2.6.1.md)
 - `v2.6.0`
   - Date: 2026-04-13 01:55 CDT
   - Package version: `2.6.0`
@@ -113,7 +119,7 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-13 10:44 CDT
-- Commit: `aabc3961280fb894d8b01e74ee0600604a3ed942`
-- Message: `fix: walkover awards match points only, score stays 0-0 (BYE behaviour) (#27)`
+- Date: 2026-04-13 16:30 CDT
+- Commit: `bdb1f71ce0291a98707f184189165de8924eba59`
+- Message: `feat: Pool Cut & Advance to Elimination (#29)`
 - Note: deployed via `npm run release:deploy` on 2026-04-13.
