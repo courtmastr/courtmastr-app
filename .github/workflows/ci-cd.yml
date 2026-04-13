@@ -223,8 +223,8 @@ jobs:
           RELEASE_BODY=$(awk '/^## Summary/{start=1} /^## Verification/{start=0} start' "${NOTES_FILE}")
           RELEASE_BODY="${RELEASE_BODY}
 
----
-Live at https://courtmaster-v2.web.app"
+          ---
+          Live at https://courtmastr.com/"
 
           # Create and push tag (idempotent)
           if git tag "${TAG}" 2>/dev/null; then
