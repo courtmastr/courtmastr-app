@@ -2,17 +2,17 @@
 
 Current policy note: production infrastructure is Terraform-managed and production application rollout is expected to happen through the `master` CI/CD workflow. Older entries below may reference the previous local release command path because they are historical records.
 
-Updated: 2026-04-12 (America/Chicago)
+Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-12 20:29 CDT
-- Release ID: `v2.3.1`
-- Package version: `2.3.1`
+- Date: 2026-04-13 00:42 CDT
+- Release ID: `v2.4.0`
+- Package version: `2.4.0`
 - Deployed branch: `master`
-- Deployed commit: `4a35e62` (`fix: overlay card fixed size, score hero layout, cache bust on index.html (#17)`)
+- Deployed commit: `d7644c8` (`fix: resolve P0 match control and scoring defects (DEFECT-001, 002, 003, 005) (#19)`)
 - Release notes:
-  - [docs/releases/v2.3.1.md](docs/releases/v2.3.1.md)
+  - [docs/releases/v2.4.0.md](docs/releases/v2.4.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-12 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-13-01-28-33.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-13-05-41-44.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-12 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.3.1`
+  - Date: 2026-04-12 20:29 CDT
+  - Package version: `2.3.1`
+  - Deployed commit: `4a35e62`
+  - Release notes:
+    - [docs/releases/v2.3.1.md](docs/releases/v2.3.1.md)
 - `v2.3.0`
   - Date: 2026-04-12 11:54 CDT
   - Package version: `2.3.0`
@@ -89,7 +95,7 @@ Updated: 2026-04-12 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-12 20:29 CDT
-- Commit: `4a35e62c5c60a26116b2672eb1b755da49e3b7ef`
-- Message: `fix: overlay card fixed size, score hero layout, cache bust on index.html (#17)`
-- Note: deployed via `npm run release:deploy` on 2026-04-12.
+- Date: 2026-04-13 00:42 CDT
+- Commit: `d7644c8b2d9160d079e17e21e933dba013404a98`
+- Message: `fix: resolve P0 match control and scoring defects (DEFECT-001, 002, 003, 005) (#19)`
+- Note: deployed via `npm run release:deploy` on 2026-04-13.
