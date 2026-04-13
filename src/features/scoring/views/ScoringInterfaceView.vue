@@ -119,17 +119,23 @@ const isMatchComplete = computed(() => {
 });
 
 // Can start match
+// Also handles in_progress + no scores: stale state from seeded data or a failed start call.
+// Showing Start Match lets the scorekeeper initialize the score doc and unblock scoring.
 const canStartMatch = computed(() => {
-  return match.value?.status === 'ready' && match.value.participant1Id && match.value.participant2Id;
+  if (!match.value?.participant1Id || !match.value.participant2Id) return false;
+  if (match.value.status === 'ready') return true;
+  if (match.value.status === 'in_progress' && match.value.scores.length === 0) return true;
+  return false;
 });
 
 onMounted(async () => {
   const categoryId = route.query.category as string | undefined;
+  const levelId = route.query.level as string | undefined;
 
   try {
     await tournamentStore.fetchTournament(tournamentId.value);
-    await matchStore.fetchMatch(tournamentId.value, matchId.value, categoryId);
-    matchStore.subscribeMatch(tournamentId.value, matchId.value, categoryId);
+    await matchStore.fetchMatch(tournamentId.value, matchId.value, categoryId, levelId);
+    matchStore.subscribeMatch(tournamentId.value, matchId.value, categoryId, levelId);
     registrationStore.subscribeRegistrations(tournamentId.value);
     registrationStore.subscribePlayers(tournamentId.value);
   } catch (error) {
