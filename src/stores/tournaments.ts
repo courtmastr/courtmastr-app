@@ -45,6 +45,7 @@ import type {
   LevelDefinition,
   LevelEliminationFormat,
   LevelingMode,
+  QualifierCutMode,
 } from '@/types';
 import { logger } from '@/utils/logger';
 
@@ -1090,6 +1091,14 @@ export const useTournamentStore = defineStore('tournaments', () => {
     categoryId: string,
     options: {
       consolationFinal?: boolean;
+      /** Pre-sorted advancing registration IDs from AdvanceToEliminationDialog. */
+      advancingRegistrationIds?: string[];
+      /** Bracket format chosen by the director. */
+      eliminationFormat?: 'single_elimination' | 'double_elimination';
+      /** Number of qualifiers (for audit/display). */
+      qualifierCount?: number;
+      /** Cut mode used (for audit/display). */
+      qualifierCutMode?: QualifierCutMode;
     } = {}
   ): Promise<{ success: boolean; matchCount: number }> {
     const bracketGen = useBracketGenerator();
@@ -1097,7 +1106,25 @@ export const useTournamentStore = defineStore('tournaments', () => {
     error.value = null;
 
     try {
-      const result = await bracketGen.generateEliminationFromPool(tournamentId, categoryId, options);
+      const result = await bracketGen.generateEliminationFromPool(tournamentId, categoryId, {
+        consolationFinal: options.consolationFinal,
+        precomputedQualifierRegistrationIds: options.advancingRegistrationIds,
+        eliminationFormat: options.eliminationFormat,
+      });
+
+      // Persist cut metadata so it can be displayed later
+      if (options.qualifierCount !== undefined || options.qualifierCutMode !== undefined) {
+        await setDoc(
+          doc(db, 'tournaments', tournamentId, 'categories', categoryId),
+          {
+            ...(options.qualifierCount !== undefined ? { qualifierCount: options.qualifierCount } : {}),
+            ...(options.qualifierCutMode !== undefined ? { qualifierCutMode: options.qualifierCutMode } : {}),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
       const category = categories.value.find((c) => c.id === categoryId);
       const auditStore = useAuditStore();
       await auditStore.logBracketGenerated(
