@@ -1346,17 +1346,11 @@ export const useMatchStore = defineStore('matches', () => {
     categoryId?: string,
     levelId?: string
   ): Promise<void> {
-    const scoringConfig = currentMatch.value?.scoringConfig
-      ?? await getScoringConfigForMatch(tournamentId, categoryId);
     const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
-    const walkoverScores: GameScore[] = [{
-      gameNumber: 1,
-      score1: winnerId === currentMatch.value?.participant1Id ? scoringConfig.pointsToWin : 0,
-      score2: winnerId === currentMatch.value?.participant2Id ? scoringConfig.pointsToWin : 0,
-      winnerId,
-      isComplete: true,
-    }];
+    // Walkovers store no game scores (0-0), same as a BYE.
+    // The winner receives match points via bracket advancement; point difference is unaffected.
+    const walkoverScores: GameScore[] = [];
 
     const usedVolunteerCallable = await applyVolunteerMatchUpdate({
       tournamentId,
