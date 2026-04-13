@@ -44,20 +44,28 @@ const isGenerating = ref(false);
 // ---------------------------------------------------------------------------
 // Load preview on open
 // ---------------------------------------------------------------------------
+const loadError = ref<string | null>(null);
+
 watch(
   () => props.modelValue,
   async (open) => {
-    if (!open) return;
+    if (!open) {
+      loadError.value = null;
+      return;
+    }
+    loadError.value = null;
     try {
       await poolLeveling.generatePreview(props.tournamentId, props.categoryId, 1);
       // Default N to nearest clean bracket size ≤ totalPlayers
       const total = poolLeveling.preview.value?.participants.length ?? 0;
       qualifierCount.value = nearestBracketSize(total) || total;
-    } catch {
-      notificationStore.showToast('error', 'Failed to load pool rankings');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load pool rankings';
+      loadError.value = msg;
+      notificationStore.showToast('error', msg);
     }
   },
-  { immediate: false }
+  { immediate: true }
 );
 
 // ---------------------------------------------------------------------------
@@ -149,6 +157,17 @@ async function generate() {
       Pool stage is not complete. {{ pendingMatches }} match{{ pendingMatches === 1 ? '' : 'es' }} still pending.
     </v-alert>
 
+    <!-- One-way action warning -->
+    <v-alert
+      type="warning"
+      variant="tonal"
+      density="compact"
+      class="mb-4"
+      icon="mdi-alert"
+    >
+      <strong>One-way action</strong> — Once you generate the bracket, pool play results are locked and cannot be changed.
+    </v-alert>
+
     <div class="d-flex gap-4" style="align-items: flex-start;">
 
       <!-- ---------------------------------------------------------------- -->
@@ -216,14 +235,6 @@ async function generate() {
         >
           Generate Bracket
           <v-icon end>mdi-arrow-right</v-icon>
-        </v-btn>
-        <v-btn
-          variant="text"
-          block
-          class="mt-2"
-          @click="$emit('update:modelValue', false)"
-        >
-          Cancel
         </v-btn>
       </div>
 
@@ -304,6 +315,14 @@ async function generate() {
                 </td>
               </tr>
             </template>
+
+            <!-- Error state -->
+            <tr v-else-if="loadError">
+              <td colspan="6" class="text-center py-6">
+                <v-icon color="error" class="mr-2">mdi-alert-circle</v-icon>
+                <span class="text-error">{{ loadError }}</span>
+              </td>
+            </tr>
 
             <!-- Loading state -->
             <tr v-else>

@@ -1184,7 +1184,7 @@ const categoryCardsWithAction = computed(() =>
 
             <v-alert
               v-if="shouldShowLevelBanner(stats)"
-              type="success"
+              type="info"
               variant="tonal"
               density="compact"
               class="mb-2"
@@ -1193,14 +1193,14 @@ const categoryCardsWithAction = computed(() =>
             >
               <div class="d-flex align-center flex-wrap ga-2">
                 <div class="flex-grow-1">
-                  <strong>All Pool Matches Complete!</strong>
+                  <strong>Pool Play Complete — Ready for leveling!</strong>
                   <div class="text-caption">
                     Create levels to split players into elimination brackets.
                   </div>
                 </div>
                 <v-btn
                   size="small"
-                  color="success"
+                  color="primary"
                   variant="elevated"
                   prepend-icon="mdi-layers-triple"
                   @click="emit('create-levels', stats.category.id)"
@@ -1212,7 +1212,7 @@ const categoryCardsWithAction = computed(() =>
 
             <v-alert
               v-if="shouldShowEliminationBanner(stats)"
-              type="success"
+              type="warning"
               variant="tonal"
               density="compact"
               class="mb-2"
@@ -1221,14 +1221,15 @@ const categoryCardsWithAction = computed(() =>
             >
               <div class="d-flex align-center flex-wrap ga-2">
                 <div class="flex-grow-1">
-                  <strong>All Pool Matches Complete!</strong>
+                  <strong>Pool Play Complete — Ready to advance!</strong>
                   <div class="text-caption">
                     Choose how many players advance to the elimination bracket.
+                    <strong class="text-error">This action cannot be undone.</strong>
                   </div>
                 </div>
                 <v-btn
                   size="small"
-                  color="success"
+                  color="deep-orange"
                   variant="elevated"
                   prepend-icon="mdi-tournament"
                   @click="emit('advance-to-elimination', stats.category.id)"
