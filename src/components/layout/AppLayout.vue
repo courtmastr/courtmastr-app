@@ -80,6 +80,7 @@ const publicMarketingLinks = [
   { title: 'Home', to: '/' },
   { title: 'About', to: '/about' },
   { title: 'Pricing', to: '/pricing' },
+  { title: 'Help', to: '/help' },
 ];
 
 const showPublicMarketingNav = computed(() =>
@@ -124,6 +125,7 @@ const userMenuItems = computed(() => {
           action: () => router.push(`/tournaments/${route.params.tournamentId as string}/settings`),
         }]
       : []),
+    { title: 'Help Center', icon: 'mdi-help-circle-outline', action: () => router.push('/help') },
     { divider: true },
     { title: 'Logout', icon: 'mdi-logout', action: handleLogout },
   ];

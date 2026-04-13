@@ -1,3 +1,10 @@
+- id: d80c1026
+  title: build:log fails when production Firebase web env is missing in a worktree
+  status: "❌ unresolved"
+  date: "2026-04-12"
+  fingerprint: "d80c1026"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-12-18-07-33.npm-run-check-firebase-env-vue-tsc-b-vite-build.log"
 - id: 2c2d7a81
   title: player merge route test times out under default Vitest budget
   status: "✅ fixed"

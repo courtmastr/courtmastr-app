@@ -416,6 +416,14 @@
           :ripple="false"
         />
         <v-list-item
+          to="/help"
+          :prepend-icon="NAVIGATION_ICONS.help"
+          title="Help Center"
+          class="nav-item nav-item--help"
+          rounded="lg"
+          :ripple="false"
+        />
+        <v-list-item
           href="/logout"
           :prepend-icon="NAVIGATION_ICONS.logout"
           title="Logout"
