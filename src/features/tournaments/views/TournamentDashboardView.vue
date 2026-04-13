@@ -144,9 +144,14 @@ async function confirmCompleteMatch(winnerId: string) {
 
 function handleEnterScore(matchId: string): void {
   const match = matches.value.find((m) => m.id === matchId);
+  if (!match?.categoryId) {
+    logger.warn('handleEnterScore: match or categoryId not found in store', { matchId });
+    notificationStore.showToast('error', 'Match data not ready — please try again');
+    return;
+  }
   router.push({
     path: `/tournaments/${tournamentId.value}/matches/${matchId}/score`,
-    query: match ? { category: match.categoryId } : undefined,
+    query: { category: match.categoryId },
   });
 }
 

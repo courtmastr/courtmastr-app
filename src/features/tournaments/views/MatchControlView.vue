@@ -593,6 +593,9 @@ const healthTooltip = computed(() => {
 
 onMounted(async () => {
   await tournamentStore.fetchTournament(tournamentId.value);
+  // Eagerly fetch all matches so the "All Matches" view is populated immediately,
+  // before the real-time subscription's first snapshot arrives.
+  await matchStore.fetchMatches(tournamentId.value);
   tournamentStore.subscribeTournament(tournamentId.value);
   registrationStore.subscribeRegistrations(tournamentId.value);
   registrationStore.subscribePlayers(tournamentId.value);
