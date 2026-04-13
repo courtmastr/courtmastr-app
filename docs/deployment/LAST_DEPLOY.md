@@ -6,13 +6,13 @@ Updated: 2026-04-12 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-12 11:54 CDT
-- Release ID: `v2.3.0`
-- Package version: `2.3.0`
+- Date: 2026-04-12 20:29 CDT
+- Release ID: `v2.3.1`
+- Package version: `2.3.1`
 - Deployed branch: `master`
-- Deployed commit: `a1f8ea3` (`refactor: structured logger utility + seed scripts + bugReport updates (#14)`)
+- Deployed commit: `4a35e62` (`fix: overlay card fixed size, score hero layout, cache bust on index.html (#17)`)
 - Release notes:
-  - [docs/releases/v2.3.0.md](docs/releases/v2.3.0.md)
+  - [docs/releases/v2.3.1.md](docs/releases/v2.3.1.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-12 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-12-16-51-34.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-13-01-28-33.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-12 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.3.0`
+  - Date: 2026-04-12 11:54 CDT
+  - Package version: `2.3.0`
+  - Deployed commit: `a1f8ea3`
+  - Release notes:
+    - [docs/releases/v2.3.0.md](docs/releases/v2.3.0.md)
 - `v2.2.0`
   - Date: 2026-04-11 19:05 CDT
   - Package version: `2.2.0`
@@ -83,7 +89,7 @@ Updated: 2026-04-12 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-11 19:05 CDT
-- Commit: `713c8e565e0f418fdac17a39229d8e47e42e20d3`
-- Message: `perf: reduce login-to-tournaments latency`
-- Note: deployed via `npm run release:deploy` on 2026-04-11.
+- Date: 2026-04-12 20:29 CDT
+- Commit: `4a35e62c5c60a26116b2672eb1b755da49e3b7ef`
+- Message: `fix: overlay card fixed size, score hero layout, cache bust on index.html (#17)`
+- Note: deployed via `npm run release:deploy` on 2026-04-12.
