@@ -6,13 +6,13 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-13 01:35 CDT
-- Release ID: `v2.5.0`
-- Package version: `2.5.0`
+- Date: 2026-04-13 01:55 CDT
+- Release ID: `v2.6.0`
+- Package version: `2.6.0`
 - Deployed branch: `master`
-- Deployed commit: `8add811` (`feat: add in-app help center documentation (#22)`)
+- Deployed commit: `8a0b909` (`feat: offline-safe volunteer scoring via Firestore queue (#23)`)
 - Release notes:
-  - [docs/releases/v2.5.0.md](docs/releases/v2.5.0.md)
+  - [docs/releases/v2.6.0.md](docs/releases/v2.6.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-13 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-13-06-34-32.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-13-06-52-46.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.5.0`
+  - Date: 2026-04-13 01:35 CDT
+  - Package version: `2.5.0`
+  - Deployed commit: `8add811`
+  - Release notes:
+    - [docs/releases/v2.5.0.md](docs/releases/v2.5.0.md)
 - `v2.4.0`
   - Date: 2026-04-13 00:42 CDT
   - Package version: `2.4.0`
@@ -101,7 +107,7 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-13 01:35 CDT
-- Commit: `8add8116b6de68d5bb82037bb75898bae5931f58`
-- Message: `feat: add in-app help center documentation (#22)`
+- Date: 2026-04-13 01:55 CDT
+- Commit: `8a0b909bc4118f1f7fa03cd97cc89247a0a1a674`
+- Message: `feat: offline-safe volunteer scoring via Firestore queue (#23)`
 - Note: deployed via `npm run release:deploy` on 2026-04-13.
