@@ -305,14 +305,14 @@ onUnmounted(() => {
   }
 }
 
-/* BROADCAST STYLE SCOREBOARD — 260×80px in 1920px canvas */
+/* BROADCAST STYLE SCOREBOARD — 260×110px in 1920px canvas */
 .broadcast-scoreboard {
   background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
   border-radius: 5px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
   overflow: hidden;
   width: 260px;
-  height: 80px;
+  height: 115px;
   display: flex;
   flex-direction: column;
 }
