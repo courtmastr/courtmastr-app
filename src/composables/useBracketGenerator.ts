@@ -44,6 +44,11 @@ export interface BracketOptions {
   qualifiersPerGroup?: number;
   teamsPerPool?: number;
   poolSeedingMethod?: PoolSeedingMethod;
+  /** Pre-sorted registration IDs from the Advance to Elimination dialog. When provided,
+   *  extractPoolQualifiers is skipped and these IDs are used directly in order. */
+  precomputedQualifierRegistrationIds?: string[];
+  /** Override the bracket type for pool→elimination. Defaults to 'single_elimination'. */
+  eliminationFormat?: 'single_elimination' | 'double_elimination';
 }
 
 export interface BracketResult {
@@ -392,19 +397,43 @@ export function useBracketGenerator() {
 
       progress.value = 45;
 
-      const qualifiers = extractPoolQualifiers({
-        participants,
-        matches: poolMatches,
-        rounds: poolRounds,
-        groups: poolGroups,
-        matchScores: matchScoresMap,
-        requestedQualifiersPerGroup:
-          options.qualifiersPerGroup ??
-          category.poolQualifiersPerGroup ??
-          2,
-      });
+      // Resolve who advances: either from pre-computed dialog selection or legacy per-group logic.
+      let qualifierParticipantIds: number[];
+      let qualifierRegistrationIds: string[];
+      let resolvedGroupCount: number;
+      let resolvedQualifiersPerGroup: number;
 
-      if (qualifiers.participantIds.length < 2) {
+      if (options.precomputedQualifierRegistrationIds?.length) {
+        // New path: dialog pre-computed the ordered list of advancing registration IDs.
+        const participantByRegistrationId = new Map<string, number>(
+          participants.map((p) => [p.name, p.id])
+        );
+        qualifierParticipantIds = options.precomputedQualifierRegistrationIds
+          .map((rid) => participantByRegistrationId.get(rid))
+          .filter((id): id is number => id !== undefined);
+        qualifierRegistrationIds = options.precomputedQualifierRegistrationIds;
+        resolvedGroupCount = 0; // not applicable for global-rank modes
+        resolvedQualifiersPerGroup = 0;
+      } else {
+        // Legacy path: top N per pool.
+        const qualifiers = extractPoolQualifiers({
+          participants,
+          matches: poolMatches,
+          rounds: poolRounds,
+          groups: poolGroups,
+          matchScores: matchScoresMap,
+          requestedQualifiersPerGroup:
+            options.qualifiersPerGroup ??
+            category.poolQualifiersPerGroup ??
+            2,
+        });
+        qualifierParticipantIds = qualifiers.participantIds;
+        qualifierRegistrationIds = qualifiers.registrationIds;
+        resolvedGroupCount = qualifiers.groupCount;
+        resolvedQualifiersPerGroup = qualifiers.qualifiersPerGroup;
+      }
+
+      if (qualifierParticipantIds.length < 2) {
         throw new Error('Not enough qualifiers to generate elimination stage.');
       }
 
@@ -413,13 +442,14 @@ export function useBracketGenerator() {
       // Pool data is preserved (not deleted) so pool standings remain available
       // for the leaderboard and historical records after elimination starts.
 
-      const eliminationSeeding = createSeedingFromParticipantIds(qualifiers.participantIds);
+      const bracketType = options.eliminationFormat ?? 'single_elimination';
+      const eliminationSeeding = createSeedingFromParticipantIds(qualifierParticipantIds);
       const result = await createStageWithStats(
         manager,
         storage,
         categoryId,
         `${category.name} - Elimination`,
-        'single_elimination',
+        bracketType,
         eliminationSeeding,
         {
           seedOrdering: options.seedOrdering || ['inner_outer'],
@@ -436,9 +466,9 @@ export function useBracketGenerator() {
           stageId: result.stageId,
           eliminationStageId: result.stageId,
           poolPhase: 'elimination',
-          poolGroupCount: qualifiers.groupCount,
-          poolQualifiersPerGroup: qualifiers.qualifiersPerGroup,
-          poolQualifiedRegistrationIds: qualifiers.registrationIds,
+          poolGroupCount: resolvedGroupCount,
+          poolQualifiersPerGroup: resolvedQualifiersPerGroup,
+          poolQualifiedRegistrationIds: qualifierRegistrationIds,
           bracketGeneratedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         },

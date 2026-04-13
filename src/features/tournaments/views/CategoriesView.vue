@@ -15,6 +15,7 @@ import AutoScheduleDialog from '../dialogs/AutoScheduleDialog.vue';
 import CategoryManagement from '../components/CategoryManagement.vue';
 import CategoryRegistrationStats from '../components/CategoryRegistrationStats.vue';
 import CreateLevelsDialog from '../components/CreateLevelsDialog.vue';
+import AdvanceToEliminationDialog from '../components/AdvanceToEliminationDialog.vue';
 import ManageSeedsDialog from '../dialogs/ManageSeedsDialog.vue';
 import type { Category, LevelDefinition, Match } from '@/types';
 import { logger } from '@/utils/logger';
@@ -264,6 +265,28 @@ watch(showCreateLevelsDialog, (isOpen) => {
   if (!isOpen) createLevelsCategoryId.value = null;
 });
 
+// Advance to Elimination dialog
+const showAdvanceToEliminationDialog = ref(false);
+const advanceToEliminationCategoryId = ref<string | null>(null);
+
+const advanceToEliminationCategoryName = computed(() => {
+  if (!advanceToEliminationCategoryId.value) return '';
+  return categories.value.find((c) => c.id === advanceToEliminationCategoryId.value)?.name || '';
+});
+
+function openAdvanceToEliminationDialog(categoryId: string): void {
+  advanceToEliminationCategoryId.value = categoryId;
+  showAdvanceToEliminationDialog.value = true;
+}
+
+async function handleEliminationGenerated(): Promise<void> {
+  await tournamentStore.fetchTournament(tournamentId.value);
+}
+
+watch(showAdvanceToEliminationDialog, (isOpen) => {
+  if (!isOpen) advanceToEliminationCategoryId.value = null;
+});
+
 // Time scheduling / publish actions
 const showScheduleDialog = ref(false);
 const scheduleDialogInitialCategoryIds = ref<string[]>([]);
@@ -399,6 +422,7 @@ function openSeedingDialog(categoryId: string): void {
       class="mt-6"
       @generate-bracket="generateBracket"
       @create-levels="openCreateLevelsDialog"
+      @advance-to-elimination="openAdvanceToEliminationDialog"
       @regenerate-bracket="confirmRegenerateBracket"
       @regenerate-pools="confirmRegeneratePools"
       @manage-registrations="openCategoryRegistrations"
@@ -431,6 +455,15 @@ function openSeedingDialog(categoryId: string): void {
       :category-id="createLevelsCategoryId"
       :category-name="createLevelsCategoryName"
       @generated="handleLevelsGenerated"
+    />
+
+    <AdvanceToEliminationDialog
+      v-if="advanceToEliminationCategoryId"
+      v-model="showAdvanceToEliminationDialog"
+      :tournament-id="tournamentId"
+      :category-id="advanceToEliminationCategoryId"
+      :category-name="advanceToEliminationCategoryName"
+      @generated="handleEliminationGenerated"
     />
 
     <BaseDialog

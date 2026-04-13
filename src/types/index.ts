@@ -132,6 +132,10 @@ export type PoolPhase = 'pool' | 'elimination';
 export type LevelingMode = 'pool_position' | 'global_bands';
 export type LevelEliminationFormat = 'single_elimination' | 'double_elimination' | 'playoff_8';
 export type LevelingStatus = 'not_started' | 'configured' | 'generated';
+export type QualifierCutMode =
+  | 'global_top_n'       // Best N across all pools by global rank
+  | 'pool_first_global'  // Pool rank breaks ties, then global rank
+  | 'top_n_per_pool';    // Top N from each pool (legacy default)
 export type PoolSeedingMethod = 'serpentine' | 'random_in_tiers' | 'fully_random';
 export type RankingPresetId = 'courtmaster_default' | 'bwf_strict' | 'simple_ladder';
 export type RankingProgressionMode = 'carry_forward' | 'phase_reset';
@@ -167,6 +171,8 @@ export interface Category {
   poolGroupCount?: number | null;
   poolQualifiersPerGroup?: number | null;
   poolQualifiedRegistrationIds?: string[];
+  qualifierCount?: number | null;
+  qualifierCutMode?: QualifierCutMode | null;
   teamsPerPool?: number | null;
   poolSeedingMethod?: PoolSeedingMethod | null;
   levelingEnabled?: boolean | null;

@@ -115,7 +115,8 @@ type PrimaryActionEvent =
   | 'schedule-times'
   | 'publish-schedule'
   | 'open-checkin'
-  | 'create-levels';
+  | 'create-levels'
+  | 'advance-to-elimination';
 
 interface PrimaryAction {
   label: string;
@@ -356,6 +357,7 @@ const overallStats = computed(() => {
 const emit = defineEmits<{
   (e: 'generate-bracket', categoryId: string): void;
   (e: 'create-levels', categoryId: string): void;
+  (e: 'advance-to-elimination', categoryId: string): void;
   (e: 'regenerate-bracket', categoryId: string): void;
   (e: 'regenerate-pools', categoryId: string): void;
   (e: 'manage-registrations', categoryId: string): void;
@@ -494,6 +496,8 @@ function shouldShowCheckinNudge(stats: CategoryStats): boolean {
 
 function needsLevelGeneration(stats: CategoryStats): boolean {
   if (!isPoolFormat(stats)) return false;
+  // pool_to_elimination uses the Advance to Elimination path, not levels
+  if (stats.resolvedFormat === 'pool_to_elimination') return false;
   if (stats.currentPhase !== 'levels') return false;
   if (hasEliminationBracket(stats.category, stats.resolvedFormat)) return false;
   return stats.levelMatches.length === 0;
@@ -501,6 +505,18 @@ function needsLevelGeneration(stats: CategoryStats): boolean {
 
 function shouldShowLevelBanner(stats: CategoryStats): boolean {
   if (!needsLevelGeneration(stats)) return false;
+  return !isPoolPanelExpanded(stats);
+}
+
+function needsEliminationAdvance(stats: CategoryStats): boolean {
+  if (stats.resolvedFormat !== 'pool_to_elimination') return false;
+  if (stats.currentPhase !== 'levels') return false;
+  if (hasEliminationBracket(stats.category, stats.resolvedFormat)) return false;
+  return true;
+}
+
+function shouldShowEliminationBanner(stats: CategoryStats): boolean {
+  if (!needsEliminationAdvance(stats)) return false;
   return !isPoolPanelExpanded(stats);
 }
 
@@ -1168,7 +1184,7 @@ const categoryCardsWithAction = computed(() =>
 
             <v-alert
               v-if="shouldShowLevelBanner(stats)"
-              type="success"
+              type="info"
               variant="tonal"
               density="compact"
               class="mb-2"
@@ -1177,19 +1193,48 @@ const categoryCardsWithAction = computed(() =>
             >
               <div class="d-flex align-center flex-wrap ga-2">
                 <div class="flex-grow-1">
-                  <strong>All Pool Matches Complete!</strong>
+                  <strong>Pool Play Complete — Ready for leveling!</strong>
                   <div class="text-caption">
                     Create levels to split players into elimination brackets.
                   </div>
                 </div>
                 <v-btn
                   size="small"
-                  color="success"
+                  color="primary"
                   variant="elevated"
                   prepend-icon="mdi-layers-triple"
                   @click="emit('create-levels', stats.category.id)"
                 >
                   Generate Levels
+                </v-btn>
+              </div>
+            </v-alert>
+
+            <v-alert
+              v-if="shouldShowEliminationBanner(stats)"
+              type="warning"
+              variant="tonal"
+              density="compact"
+              class="mb-2"
+              prominent
+              border="start"
+            >
+              <div class="d-flex align-center flex-wrap ga-2">
+                <div class="flex-grow-1">
+                  <strong>Pool Play Complete — Ready to advance!</strong>
+                  <div class="text-caption">
+                    Choose how many players advance to the elimination bracket.
+                    <strong class="text-error">This action cannot be undone.</strong>
+                  </div>
+                </div>
+                <v-btn
+                  size="small"
+                  color="deep-orange"
+                  variant="elevated"
+                  prepend-icon="mdi-tournament"
+                  @click="emit('advance-to-elimination', stats.category.id)"
+                >
+                  Advance to Elimination
                 </v-btn>
               </div>
             </v-alert>
