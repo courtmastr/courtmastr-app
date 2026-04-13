@@ -6,13 +6,13 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-13 00:42 CDT
-- Release ID: `v2.4.0`
-- Package version: `2.4.0`
+- Date: 2026-04-13 01:35 CDT
+- Release ID: `v2.5.0`
+- Package version: `2.5.0`
 - Deployed branch: `master`
-- Deployed commit: `d7644c8` (`fix: resolve P0 match control and scoring defects (DEFECT-001, 002, 003, 005) (#19)`)
+- Deployed commit: `8add811` (`feat: add in-app help center documentation (#22)`)
 - Release notes:
-  - [docs/releases/v2.4.0.md](docs/releases/v2.4.0.md)
+  - [docs/releases/v2.5.0.md](docs/releases/v2.5.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-13 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-13-05-41-44.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-13-06-34-32.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.4.0`
+  - Date: 2026-04-13 00:42 CDT
+  - Package version: `2.4.0`
+  - Deployed commit: `d7644c8`
+  - Release notes:
+    - [docs/releases/v2.4.0.md](docs/releases/v2.4.0.md)
 - `v2.3.1`
   - Date: 2026-04-12 20:29 CDT
   - Package version: `2.3.1`
@@ -95,7 +101,7 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-13 00:42 CDT
-- Commit: `d7644c8b2d9160d079e17e21e933dba013404a98`
-- Message: `fix: resolve P0 match control and scoring defects (DEFECT-001, 002, 003, 005) (#19)`
+- Date: 2026-04-13 01:35 CDT
+- Commit: `8add8116b6de68d5bb82037bb75898bae5931f58`
+- Message: `feat: add in-app help center documentation (#22)`
 - Note: deployed via `npm run release:deploy` on 2026-04-13.
