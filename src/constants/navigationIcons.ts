@@ -19,7 +19,7 @@ export const NAVIGATION_ICONS = {
   publicSchedule: 'mdi-calendar-clock',
   scoreEntry: 'mdi-scoreboard',
   overlayLinks: 'mdi-cast',
+  help: 'mdi-help-circle-outline',
   settings: 'mdi-cog',
   logout: 'mdi-logout',
 } as const;
-

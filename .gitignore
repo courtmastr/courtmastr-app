@@ -78,3 +78,5 @@ coverage
 output
 skills
 screenshots
+!public/help/screenshots/
+!public/help/screenshots/**

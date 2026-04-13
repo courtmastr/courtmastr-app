@@ -58,6 +58,8 @@ const About = () => import('@/features/public/views/AboutView.vue');
 const Pricing = () => import('@/features/public/views/PricingView.vue');
 const Privacy = () => import('@/features/public/views/PrivacyView.vue');
 const Terms = () => import('@/features/public/views/TermsView.vue');
+const HelpCenter = () => import('@/features/help/views/HelpCenterView.vue');
+const HelpTopic = () => import('@/features/help/views/HelpTopicView.vue');
 const OrgPublicHome = () => import('@/features/public/views/OrgPublicHomeView.vue');
 const PlayerSearchView = () => import('@/features/public/views/PlayerSearchView.vue');
 
@@ -117,6 +119,18 @@ const routes: RouteRecordRaw[] = [
     path: '/terms',
     name: 'terms',
     component: Terms,
+    meta: { requiresAuth: false, publicMarketingPage: true },
+  },
+  {
+    path: '/help',
+    name: 'help-center',
+    component: HelpCenter,
+    meta: { requiresAuth: false, publicMarketingPage: true },
+  },
+  {
+    path: '/help/:topicSlug',
+    name: 'help-topic',
+    component: HelpTopic,
     meta: { requiresAuth: false, publicMarketingPage: true },
   },
   {
