@@ -204,3 +204,40 @@ jobs:
             --auto \
             --squash \
             "${metadata_branch}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          NOTES_FILE="docs/releases/${TAG}.md"
+
+          if [ ! -f "${NOTES_FILE}" ]; then
+            echo "Release notes not found: ${NOTES_FILE}" && exit 1
+          fi
+
+          # Extract Summary + Highlights (stop before ## Verification)
+          RELEASE_BODY=$(awk '/^## Summary/{start=1} /^## Verification/{start=0} start' "${NOTES_FILE}")
+          RELEASE_BODY="${RELEASE_BODY}
+
+---
+Live at https://courtmaster-v2.web.app"
+
+          # Create and push tag (idempotent)
+          if git tag "${TAG}" 2>/dev/null; then
+            git push origin "${TAG}"
+          else
+            echo "Tag ${TAG} already exists, skipping"
+          fi
+
+          # Create GitHub Release (idempotent)
+          if gh release view "${TAG}" &>/dev/null; then
+            echo "Release ${TAG} already exists, skipping"
+          else
+            gh release create "${TAG}" \
+              --title "${TAG}" \
+              --notes "${RELEASE_BODY}"
+          fi
