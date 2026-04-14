@@ -224,7 +224,7 @@ export const onMatchUpdate = functions.firestore
 /**
  * HTTP trigger: Health check
  */
-export const healthCheck = functions.https.onRequest((req, res) => {
+export const healthCheck = functions.https.onRequest((_req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),

@@ -446,18 +446,6 @@ const hasTournamentScoringChanged = (): boolean => {
   );
 };
 
-const hasCategoryScoringChanged = (): boolean => {
-  const current = JSON.stringify(cloneOverrideRecord(categoryScoringOverrides.value));
-  const baseline = JSON.stringify(cloneOverrideRecord(initialCategoryScoringOverrides.value));
-  return current !== baseline;
-};
-
-const hasCategoryEliminationScoringChanged = (): boolean => {
-  const current = JSON.stringify(cloneOverrideRecord(categoryEliminationScoringOverrides.value));
-  const baseline = JSON.stringify(cloneOverrideRecord(initialCategoryEliminationScoringOverrides.value));
-  return current !== baseline;
-};
-
 // Populate form when tournament/category data loads
 watch([tournament, categories], ([t, nextCategories]) => {
   if (t) {
@@ -541,7 +529,7 @@ onMounted(async () => {
 async function saveSettings() {
   loading.value = true;
   try {
-    if ((hasTournamentScoringChanged() || hasCategoryScoringChanged()) && tournament.value) {
+    if (hasTournamentScoringChanged() && tournament.value) {
       assertCanEditScoring(tournamentState.value);
     }
 
@@ -1233,7 +1221,6 @@ async function confirmDelete() {
                     v-model="categoryScoringOverrides[category.id].enabled"
                     label="Use category-specific scoring"
                     color="primary"
-                    :disabled="scoringLocked"
                   />
 
                   <template v-if="categoryScoringOverrides[category.id].enabled">
@@ -1245,7 +1232,6 @@ async function confirmDelete() {
                       label="Category Scoring Preset"
                       variant="outlined"
                       density="compact"
-                      :disabled="scoringLocked"
                       @update:model-value="applyCategoryPreset(category.id, String($event))"
                     />
 
@@ -1262,7 +1248,6 @@ async function confirmDelete() {
                           label="Games Per Match"
                           variant="outlined"
                           density="compact"
-                          :disabled="scoringLocked"
                           @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
                         />
                       </v-col>
@@ -1277,7 +1262,6 @@ async function confirmDelete() {
                           min="1"
                           variant="outlined"
                           density="compact"
-                          :disabled="scoringLocked"
                           @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
                         />
                       </v-col>
@@ -1295,7 +1279,6 @@ async function confirmDelete() {
                           min="1"
                           variant="outlined"
                           density="compact"
-                          :disabled="scoringLocked"
                           @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
                         />
                       </v-col>
@@ -1310,7 +1293,6 @@ async function confirmDelete() {
                           variant="outlined"
                           density="compact"
                           clearable
-                          :disabled="scoringLocked"
                           @update:model-value="updateCategoryMaxPoints(category.id, $event)"
                         />
                       </v-col>
