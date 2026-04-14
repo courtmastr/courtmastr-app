@@ -439,8 +439,9 @@ export function useBracketGenerator() {
 
       progress.value = 60;
 
-      // Pool data is preserved (not deleted) so pool standings remain available
-      // for the leaderboard and historical records after elimination starts.
+      // Seed ID counters so the elimination stage receives IDs that don't collide
+      // with the pool stage (which already occupies IDs starting at 0 in this path).
+      await storage.seedCountersFromExisting(['stage', 'group', 'round', 'match', 'match_game', 'participant']);
 
       const bracketType = options.eliminationFormat ?? 'single_elimination';
       const eliminationSeeding = createSeedingFromParticipantIds(qualifierParticipantIds);

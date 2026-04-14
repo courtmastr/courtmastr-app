@@ -159,6 +159,8 @@ export interface Category {
     mustWinBy?: number;
     maxPoints?: number | null;
   } | null;
+  eliminationScoringEnabled?: boolean;
+  eliminationScoringConfig?: ScoringConfig | null;
   gamesPerMatch?: number;
   pointsToWin?: number;
   mustWinBy?: number;
@@ -313,6 +315,12 @@ export interface Team {
 }
 
 // Registration Types
+export interface DailyCheckIn {
+  checkedInAt?: Date;
+  source: 'admin' | 'kiosk';
+  presence?: Record<string, boolean>; // doubles: playerId → present on this day
+}
+
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'checked_in' | 'no_show';
 export type PaymentStatus = 'unpaid' | 'paid' | 'partial' | 'refunded';
 
@@ -330,6 +338,7 @@ export interface Registration {
   participantPresence?: Record<string, boolean>; // Per-player presence map used by self check-in kiosk
   checkInSource?: 'admin' | 'kiosk'; // Origin of latest check-in transition
   checkedInAt?: Date; // Timestamp when registration became fully checked in
+  dailyCheckIns?: Record<string, DailyCheckIn>; // key: "YYYY-MM-DD" in tournament local timezone (America/Chicago for v1)
   paymentStatus?: PaymentStatus; // Payment tracking
   paymentNote?: string; // e.g., "Paid via Venmo", "Cash collected"
   seed?: number;

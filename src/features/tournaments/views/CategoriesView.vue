@@ -281,6 +281,12 @@ function openAdvanceToEliminationDialog(categoryId: string): void {
 
 async function handleEliminationGenerated(): Promise<void> {
   await tournamentStore.fetchTournament(tournamentId.value);
+  // Navigate to the Bracket view so the director sees the generated elimination bracket.
+  await router.push({
+    name: 'tournament-brackets',
+    params: { tournamentId: tournamentId.value },
+    query: { category: advanceToEliminationCategoryId.value ?? undefined },
+  });
 }
 
 watch(showAdvanceToEliminationDialog, (isOpen) => {

@@ -869,7 +869,14 @@ async function releaseCourt(courtId: string) {
   if (court.currentMatchId) {
     releaseTargetMatch.value = matches.value.find((match) =>
       match.id === court.currentMatchId &&
-      match.courtId === court.id &&
+      (match.status === 'in_progress' || match.status === 'ready' || match.status === 'scheduled')
+    ) ?? null;
+  }
+  // Fallback: find orphaned match that still has courtId pointing here
+  // (happens when a previous partial release cleared the court doc but not the match)
+  if (!releaseTargetMatch.value) {
+    releaseTargetMatch.value = matches.value.find((match) =>
+      match.courtId === courtId &&
       (match.status === 'in_progress' || match.status === 'ready' || match.status === 'scheduled')
     ) ?? null;
   }
@@ -975,29 +982,27 @@ async function confirmReleaseCourt() {
   const match = releaseTargetMatch.value;
 
   try {
-    if (court.currentMatchId) {
-      if (match) {
-        const shouldClearInProgressState = match.status === 'in_progress' && releaseScoreHandling.value === 'clear';
-        await matchStore.unscheduleMatch(
-          tournamentId.value,
-          match.id,
-          match.categoryId,
-          court.id,
-          match.levelId,
-          {
-            clearInProgressState: shouldClearInProgressState,
-            returnStatus: 'ready',
-          }
-        );
-        notificationStore.showToast(
-          'success',
-          shouldClearInProgressState
-            ? 'Court released, scores cleared, and match moved to ready queue'
-            : 'Court released and match moved to ready queue'
-        );
-        releaseTargetMatch.value = null;
-        return;
-      }
+    if (match) {
+      const shouldClearInProgressState = match.status === 'in_progress' && releaseScoreHandling.value === 'clear';
+      await matchStore.unscheduleMatch(
+        tournamentId.value,
+        match.id,
+        match.categoryId,
+        court.id,
+        match.levelId,
+        {
+          clearInProgressState: shouldClearInProgressState,
+          returnStatus: 'ready',
+        }
+      );
+      notificationStore.showToast(
+        'success',
+        shouldClearInProgressState
+          ? 'Court released, scores cleared, and match moved to ready queue'
+          : 'Court released and match moved to ready queue'
+      );
+      releaseTargetMatch.value = null;
+      return;
     }
 
     await tournamentStore.releaseCourtManual(tournamentId.value, courtId);

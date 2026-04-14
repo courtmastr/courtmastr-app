@@ -176,3 +176,5 @@ export const assertCanEditScoring = (state: TournamentLifecycleState): void => {
   }
 };
 
+export const canEditEliminationScoring = (_state: TournamentLifecycleState): boolean => true;
+

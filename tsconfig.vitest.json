@@ -8,6 +8,6 @@
       "@tests/*": ["tests/*"]
     }
   },
-  "include": ["tests/**/*.ts"],
+  "include": ["tests/**/*.ts", "functions/src/**/*.ts"],
   "exclude": ["tests/diagnose_data.test.ts"]
 }

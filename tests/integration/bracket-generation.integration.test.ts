@@ -42,6 +42,7 @@ vi.mock('@/services/brackets-storage', () => ({
     delete = vi.fn();
     insert = vi.fn();
     update = vi.fn();
+    seedCountersFromExisting = vi.fn().mockResolvedValue(undefined);
   },
 }));
 
