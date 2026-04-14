@@ -26,8 +26,13 @@ export function getTodayKey(timezone = 'America/Chicago'): string {
  * Returns UTC Date objects for the start and end of the local calendar day
  * that contains `now` in the given timezone.
  *
- * Strategy: compute how many milliseconds into the local day `now` is,
- * then subtract to reach local midnight.
+ * Strategy: compute how many milliseconds into the local day `now` is (ignoring
+ * sub-second precision), then subtract to reach local midnight.
+ *
+ * Known limitation: on DST transition days the computed window start can be off by
+ * ±1 hour if `now` falls after a midnight-adjacent transition. For the scheduled
+ * use case (function runs at 06:00 UTC ≈ 00:00–01:00 Chicago) this never occurs
+ * because the function runs well before any US DST transition window.
  */
 export function getTodayWindowUTC(
   now: Date,
@@ -46,7 +51,10 @@ export function getTodayWindowUTC(
   const localSecond = parseInt(parts.find((p) => p.type === 'second')?.value ?? '0', 10);
 
   const msIntoLocalDay = (localHour * 3600 + localMinute * 60 + localSecond) * 1000;
-  const windowStart = new Date(now.getTime() - msIntoLocalDay);
+  // Truncate sub-second component to land precisely on the second boundary.
+  const windowStart = new Date(
+    Math.floor((now.getTime() - msIntoLocalDay) / 1000) * 1000
+  );
   const windowEnd = new Date(windowStart.getTime() + 24 * 60 * 60 * 1000);
 
   return { windowStart, windowEnd };
