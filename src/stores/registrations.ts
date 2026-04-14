@@ -82,6 +82,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
     registrationId: string,
     action: VolunteerCheckInAction,
     bibNumber?: number,
+    participantId?: string,
   ): Promise<boolean> => {
     const sessionToken = getVolunteerSessionToken(tournamentId, 'checkin');
     if (!sessionToken) {
@@ -94,6 +95,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
       registrationId,
       action,
       bibNumber,
+      participantId: participantId ?? null,
       sessionToken,
     });
     return true;
@@ -384,10 +386,11 @@ export const useRegistrationStore = defineStore('registrations', () => {
     await updateRegistrationStatus(tournamentId, registrationId, 'rejected');
   }
 
-  // Check in registration
+  // Check in registration (whole team) or a single participant (doubles player-by-player)
   async function checkInRegistration(
     tournamentId: string,
-    registrationId: string
+    registrationId: string,
+    participantId?: string,
   ): Promise<void> {
     const registration = registrations.value.find(r => r.id === registrationId);
     const participantName = registration?.teamName || registration?.playerId || registrationId;
@@ -396,27 +399,44 @@ export const useRegistrationStore = defineStore('registrations', () => {
       tournamentId,
       registrationId,
       'check_in',
+      undefined,
+      participantId,
     );
     if (!usedVolunteerCallable) {
-      // Admin direct path — write status + dailyCheckIns in one update
+      // Admin direct path — replicate CF presence logic so partial doubles work correctly
       const todayKey = formatCheckInDateKey(new Date());
-      const participantIds = [registration?.playerId, registration?.partnerPlayerId]
+      const requiredIds = [registration?.playerId, registration?.partnerPlayerId]
         .filter((id): id is string => Boolean(id));
+      const checkingInIds = participantId ? [participantId] : requiredIds;
+
+      const currentPresence = registration?.participantPresence ?? {};
+      const nextPresence = { ...currentPresence };
+      for (const id of checkingInIds) {
+        nextPresence[id] = true;
+      }
+      const allPresent =
+        requiredIds.length > 0 && requiredIds.every((id) => nextPresence[id] === true);
+
       const adminUpdates: Record<string, unknown> = {
-        status: 'checked_in',
-        isCheckedIn: true,
-        checkedInAt: serverTimestamp(),
+        participantPresence: nextPresence,
+        status: allPresent ? 'checked_in' : 'approved',
+        isCheckedIn: allPresent,
         checkInSource: 'admin',
         updatedAt: serverTimestamp(),
-        [`dailyCheckIns.${todayKey}.checkedInAt`]: serverTimestamp(),
-        [`dailyCheckIns.${todayKey}.source`]: 'admin',
       };
-      for (const id of participantIds) {
+      if (allPresent && !registration?.checkedInAt) {
+        adminUpdates.checkedInAt = serverTimestamp();
+      }
+      for (const id of checkingInIds) {
         adminUpdates[`dailyCheckIns.${todayKey}.presence.${id}`] = true;
+      }
+      if (allPresent) {
+        adminUpdates[`dailyCheckIns.${todayKey}.checkedInAt`] = serverTimestamp();
+        adminUpdates[`dailyCheckIns.${todayKey}.source`] = 'admin';
       }
       await updateDoc(
         doc(db, `tournaments/${tournamentId}/registrations`, registrationId),
-        adminUpdates
+        adminUpdates,
       );
     }
 

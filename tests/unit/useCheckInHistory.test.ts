@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 
-// Mock stores
 vi.mock('@/stores/registrations', () => ({
   useRegistrationStore: vi.fn(),
 }));
@@ -18,6 +17,7 @@ import { useTournamentStore } from '@/stores/tournaments';
 import { useCheckInHistory } from '@/features/checkin/composables/useCheckInHistory';
 
 const mockRegistrations = [
+  // Singles — checked in via kiosk
   {
     id: 'reg-singles',
     categoryId: 'cat-1',
@@ -28,9 +28,11 @@ const mockRegistrations = [
       '2026-04-14': {
         checkedInAt: new Date('2026-04-14T14:47:00Z'),
         source: 'kiosk' as const,
+        presence: { 'player-1': true },
       },
     },
   },
+  // Doubles — both partners checked in via admin
   {
     id: 'reg-doubles-full',
     categoryId: 'cat-2',
@@ -45,6 +47,7 @@ const mockRegistrations = [
       },
     },
   },
+  // Doubles — only one partner present (partial)
   {
     id: 'reg-partial',
     categoryId: 'cat-2',
@@ -53,11 +56,13 @@ const mockRegistrations = [
     teamName: undefined,
     dailyCheckIns: {
       '2026-04-14': {
+        // no checkedInAt = partial
         source: 'kiosk' as const,
         presence: { 'player-4': true, 'player-5': false },
       },
     },
   },
+  // Different day — should be excluded
   {
     id: 'reg-other-day',
     categoryId: 'cat-1',
@@ -97,66 +102,81 @@ describe('useCheckInHistory', () => {
     } as any);
   });
 
-  it('builds rows only for the selected date', async () => {
+  it('excludes registrations from other days', async () => {
     const history = useCheckInHistory();
-    history.selectedDate.value = new Date('2026-04-14T17:00:00Z'); // noon Chicago (UTC-5)
+    history.selectedDate.value = new Date('2026-04-14T17:00:00Z');
     await history.refresh();
     const ids = history.rows.value.map(r => r.registrationId);
     expect(ids).not.toContain('reg-other-day');
   });
 
-  it('resolves singles display name from player store', async () => {
+  it('returns one row for a singles player', async () => {
     const history = useCheckInHistory();
     history.selectedDate.value = new Date('2026-04-14T17:00:00Z');
     await history.refresh();
-    const row = history.rows.value.find(r => r.registrationId === 'reg-singles');
-    expect(row).toBeDefined();
-    expect(row!.displayName).toBe('Marcus Johnson');
-    expect(row!.source).toBe('kiosk');
-    expect(row!.isPartial).toBe(false);
+    const singlesRows = history.rows.value.filter(r => r.registrationId === 'reg-singles');
+    expect(singlesRows).toHaveLength(1);
+    expect(singlesRows[0].playerId).toBe('player-1');
+    expect(singlesRows[0].displayName).toBe('Marcus Johnson');
+    expect(singlesRows[0].source).toBe('kiosk');
+    expect(singlesRows[0].isPartial).toBe(false);
   });
 
-  it('uses teamName for doubles displayName when available', async () => {
+  it('returns two rows for a fully checked-in doubles registration', async () => {
     const history = useCheckInHistory();
     history.selectedDate.value = new Date('2026-04-14T17:00:00Z');
     await history.refresh();
-    const row = history.rows.value.find(r => r.registrationId === 'reg-doubles-full');
-    expect(row!.displayName).toBe('Johnson / Smith');
-    expect(row!.isPartial).toBe(false);
-    expect(row!.source).toBe('admin');
+    const doublesRows = history.rows.value.filter(r => r.registrationId === 'reg-doubles-full');
+    expect(doublesRows).toHaveLength(2);
+    const playerIds = doublesRows.map(r => r.playerId).sort();
+    expect(playerIds).toEqual(['player-2', 'player-3']);
+    doublesRows.forEach(row => {
+      expect(row.isPartial).toBe(false);
+      expect(row.source).toBe('admin');
+      expect(row.categoryName).toBe('Mixed Doubles A');
+    });
   });
 
-  it('marks partial doubles row correctly', async () => {
+  it('shows each player by individual name (not team name) for doubles', async () => {
     const history = useCheckInHistory();
     history.selectedDate.value = new Date('2026-04-14T17:00:00Z');
     await history.refresh();
-    const row = history.rows.value.find(r => r.registrationId === 'reg-partial');
-    expect(row).toBeDefined();
-    expect(row!.isPartial).toBe(true);
-    expect(row!.source).toBe('partial');
-    expect(row!.checkedInAt).toBeNull();
-    expect(row!.displayName).toBe('David Kim');
+    const doublesRows = history.rows.value.filter(r => r.registrationId === 'reg-doubles-full');
+    const names = doublesRows.map(r => r.displayName).sort();
+    expect(names).toEqual(['Anita Rao', 'Priya Sharma']);
+    // Team name "Johnson / Smith" should NOT appear
+    expect(doublesRows.every(r => r.displayName !== 'Johnson / Smith')).toBe(true);
   });
 
-  it('sorts fully checked-in rows descending, partial at bottom', async () => {
+  it('returns one row for partial doubles (only the present player)', async () => {
+    const history = useCheckInHistory();
+    history.selectedDate.value = new Date('2026-04-14T17:00:00Z');
+    await history.refresh();
+    const partialRows = history.rows.value.filter(r => r.registrationId === 'reg-partial');
+    expect(partialRows).toHaveLength(1);
+    expect(partialRows[0].playerId).toBe('player-4');
+    expect(partialRows[0].displayName).toBe('David Kim');
+    expect(partialRows[0].isPartial).toBe(true);
+    expect(partialRows[0].source).toBe('partial');
+    expect(partialRows[0].checkedInAt).toBeNull();
+  });
+
+  it('sorts fully checked-in rows descending by time, partial rows at bottom', async () => {
     const history = useCheckInHistory();
     history.selectedDate.value = new Date('2026-04-14T17:00:00Z');
     await history.refresh();
     const rows = history.rows.value;
     const fullRows = rows.filter(r => !r.isPartial);
     const partialRows = rows.filter(r => r.isPartial);
+
     if (partialRows.length > 0 && fullRows.length > 0) {
-      // All partial rows come after all full rows
+      const lastFullIdx = rows.reduce((acc, r, i) => (!r.isPartial ? i : acc), -1);
       const firstPartialIdx = rows.findIndex(r => r.isPartial);
-      const lastFullIdx = rows.reduce(
-        (acc, r, i) => (!r.isPartial ? i : acc),
-        -1
-      );
       expect(lastFullIdx).toBeLessThan(firstPartialIdx);
     }
     for (let i = 1; i < fullRows.length; i++) {
       expect(fullRows[i - 1].checkedInAt!.getTime()).toBeGreaterThanOrEqual(
-        fullRows[i].checkedInAt!.getTime()
+        fullRows[i].checkedInAt!.getTime(),
       );
     }
   });

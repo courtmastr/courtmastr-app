@@ -6,11 +6,12 @@ import { formatCheckInDateKey } from '@/features/checkin/utils/checkInDateKey';
 
 export interface CheckInHistoryRow {
   registrationId: string;
-  displayName: string;
+  playerId: string;         // individual player who physically checked in
+  displayName: string;      // player's full name
   categoryName: string;
-  checkedInAt: Date | null;
+  checkedInAt: Date | null; // null = partial (partner not yet arrived)
   source: 'admin' | 'kiosk' | 'partial';
-  isPartial: boolean;
+  isPartial: boolean;       // true when doubles partner hasn't checked in yet
 }
 
 export interface UseCheckInHistoryReturn {
@@ -27,6 +28,11 @@ export interface UseCheckInHistoryReturn {
 
 function isSameCalendarDay(a: Date, b: Date): boolean {
   return formatCheckInDateKey(a) === formatCheckInDateKey(b);
+}
+
+function toDate(ts: Date | { toDate(): Date } | undefined): Date | null {
+  if (ts == null) return null;
+  return ts instanceof Date ? ts : ts.toDate();
 }
 
 export function useCheckInHistory(): UseCheckInHistoryReturn {
@@ -70,58 +76,46 @@ export function useCheckInHistory(): UseCheckInHistoryReturn {
         const daily = reg.dailyCheckIns?.[key];
         if (!daily) continue;
 
-        const isDoubles = !!reg.partnerPlayerId;
-
-        let displayName: string;
-        if (reg.teamName) {
-          displayName = reg.teamName;
-        } else if (isDoubles) {
-          if (daily.checkedInAt) {
-            const p1 = playerList.find(p => p.id === reg.playerId);
-            const p2 = playerList.find(p => p.id === reg.partnerPlayerId);
-            const n1 = p1 ? `${p1.firstName} ${p1.lastName}` : 'Unknown';
-            const n2 = p2 ? `${p2.firstName} ${p2.lastName}` : 'Unknown';
-            displayName = `${n1} / ${n2}`;
-          } else {
-            // partial — show only the player(s) who are present
-            const presence = daily.presence ?? {};
-            const presentIds = Object.entries(presence)
-              .filter(([, present]) => present)
-              .map(([id]) => id);
-            const names = presentIds
-              .map(id => playerList.find(p => p.id === id))
-              .filter((p): p is NonNullable<typeof p> => p != null)
-              .map(p => `${p.firstName} ${p.lastName}`);
-            displayName = names.length > 0 ? names.join(' / ') : 'Unknown';
-          }
-        } else {
-          const player = playerList.find(p => p.id === reg.playerId);
-          displayName = player ? `${player.firstName} ${player.lastName}` : 'Unknown';
-        }
-
         const category = categoryList.find(c => c.id === reg.categoryId);
         const categoryName = category?.name ?? 'Unknown Category';
+        // Firestore Timestamps survive the shallow convertTimestamps — normalise here
+        const checkedInAt = toDate(daily.checkedInAt as Date | { toDate(): Date } | undefined);
+        const isDoubles = !!reg.partnerPlayerId;
 
-        const isPartial = isDoubles && !daily.checkedInAt;
-
-        // Firestore Timestamps are not converted by the shallow convertTimestamps utility —
-        // call toDate() if needed so checkedInAt is always a real Date or null.
-        const rawTs = daily.checkedInAt as Date | { toDate(): Date } | undefined;
-        const checkedInAt: Date | null =
-          rawTs == null
-            ? null
-            : rawTs instanceof Date
-              ? rawTs
-              : rawTs.toDate();
-
-        result.push({
-          registrationId: reg.id,
-          displayName,
-          categoryName,
-          checkedInAt,
-          source: isPartial ? 'partial' : daily.source,
-          isPartial,
-        });
+        if (!isDoubles) {
+          // Singles: one row for the player
+          const player = playerList.find(p => p.id === reg.playerId);
+          result.push({
+            registrationId: reg.id,
+            playerId: reg.playerId ?? '',
+            displayName: player ? `${player.firstName} ${player.lastName}` : 'Unknown',
+            categoryName,
+            checkedInAt,
+            source: daily.source,
+            isPartial: false,
+          });
+        } else {
+          // Doubles: one row per player who is physically present
+          const presence = daily.presence ?? {};
+          const participantIds = [reg.playerId, reg.partnerPlayerId].filter(
+            (id): id is string => Boolean(id),
+          );
+          for (const pid of participantIds) {
+            if (!presence[pid]) continue; // skip partner who hasn't arrived yet
+            const player = playerList.find(p => p.id === pid);
+            // isPartial = this player is here but the registration isn't fully done yet
+            const isPartial = checkedInAt === null;
+            result.push({
+              registrationId: reg.id,
+              playerId: pid,
+              displayName: player ? `${player.firstName} ${player.lastName}` : 'Unknown',
+              categoryName,
+              checkedInAt,
+              source: isPartial ? 'partial' : daily.source,
+              isPartial,
+            });
+          }
+        }
       }
 
       // Fully checked-in rows sorted by checkedInAt descending; partial rows at bottom

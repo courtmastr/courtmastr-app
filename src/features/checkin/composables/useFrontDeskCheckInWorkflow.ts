@@ -210,8 +210,10 @@ export interface UseFrontDeskCheckInWorkflowOptions {
   registrations: Ref<Registration[]>;
   matches: Ref<Match[]>;
   getParticipantName: (registrationId: string) => string;
+  /** Individual player name lookup — used to expand doubles into per-player rows */
+  getPlayerName?: (playerId: string) => string;
   getCategoryName: (categoryId: string) => string;
-  checkInRegistration: (registrationId: string) => Promise<void>;
+  checkInRegistration: (registrationId: string, participantId?: string) => Promise<void>;
   undoCheckInRegistration: (registrationId: string) => Promise<void>;
   assignBibNumber: (registrationId: string, bibNumber: number) => Promise<void>;
 }
@@ -324,6 +326,76 @@ export const useFrontDeskCheckInWorkflow = (
     options.registrations.value.filter(isCheckInEligibleRegistration)
   );
 
+  // ---------------------------------------------------------------------------
+  // Per-player participant entries — doubles registrations expand to 2 rows
+  // ---------------------------------------------------------------------------
+
+  interface ParticipantEntry {
+    /** Unique row key: playerId for both singles and doubles */
+    id: string;
+    registrationId: string;
+    playerId: string;
+    name: string;
+    categoryId: string;
+    bibNumber?: number | null;
+    /** Per-player status: 'checked_in' if this player is physically present */
+    status: CheckInStatus;
+    isDoubles: boolean;
+  }
+
+  const resolvePlayerName = (playerId: string, registrationId: string): string => {
+    if (options.getPlayerName) return options.getPlayerName(playerId);
+    // Fallback for backwards-compat (singles: registrationId→name works fine)
+    return options.getParticipantName(registrationId);
+  };
+
+  const getPlayerStatusInReg = (
+    reg: CheckInEligibleRegistration,
+    playerId: string,
+  ): CheckInStatus => {
+    if (reg.status === 'checked_in' || reg.status === 'no_show') return reg.status;
+    // Doubles partial: this player may already be physically present
+    if (reg.participantPresence?.[playerId]) return 'checked_in';
+    return 'approved';
+  };
+
+  const eligibleParticipants = computed<ParticipantEntry[]>(() => {
+    const result: ParticipantEntry[] = [];
+    for (const reg of eligibleRegistrations.value) {
+      const isDoubles = !!reg.partnerPlayerId;
+      if (!isDoubles) {
+        const pid = reg.playerId ?? reg.id;
+        result.push({
+          id: pid,
+          registrationId: reg.id,
+          playerId: pid,
+          name: resolvePlayerName(pid, reg.id),
+          categoryId: reg.categoryId,
+          bibNumber: reg.bibNumber,
+          status: reg.status,
+          isDoubles: false,
+        });
+      } else {
+        const participantIds = [reg.playerId, reg.partnerPlayerId].filter(
+          (id): id is string => Boolean(id),
+        );
+        for (const pid of participantIds) {
+          result.push({
+            id: pid,
+            registrationId: reg.id,
+            playerId: pid,
+            name: options.getPlayerName ? options.getPlayerName(pid) : pid,
+            categoryId: reg.categoryId,
+            bibNumber: reg.bibNumber,
+            status: getPlayerStatusInReg(reg, pid),
+            isDoubles: true,
+          });
+        }
+      }
+    }
+    return result;
+  });
+
   const stats = computed(() => {
     const approved = eligibleRegistrations.value.filter((registration) => registration.status === 'approved').length;
     const checkedIn = eligibleRegistrations.value.filter((registration) => registration.status === 'checked_in').length;
@@ -417,71 +489,45 @@ export const useFrontDeskCheckInWorkflow = (
   );
 
   const bulkRows = computed<FrontDeskBulkRow[]>(() =>
-    eligibleRegistrations.value
-      .map((registration) => ({
-        id: registration.id,
-        name: options.getParticipantName(registration.id),
-        category: options.getCategoryName(registration.categoryId),
-        bibNumber: registration.bibNumber,
-        status: registration.status,
+    eligibleParticipants.value
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        category: options.getCategoryName(entry.categoryId),
+        bibNumber: entry.bibNumber,
+        status: entry.status,
+        playerId: entry.playerId,
       }))
       .sort((a, b) => a.name.localeCompare(b.name))
   );
 
-  const resolveRegistration = (raw: string): CheckInEligibleRegistration => {
-    const parsed = parseScanInput(raw);
-    if (!parsed) throw new Error('No matching participant for scanned code');
-
-    if (parsed.kind === 'registration') {
-      const registration = eligibleRegistrations.value.find((item) => item.id === parsed.value);
-      if (registration) return registration;
-
-      const typedMatch = findRegistrationByTypedQuery(
-        parsed.value,
-        eligibleRegistrations.value,
-        options.getParticipantName
-      );
-      if (typedMatch.type === 'match') {
-        const matchedRegistration = eligibleRegistrations.value.find((item) => item.id === typedMatch.registrationId);
-        if (matchedRegistration) return matchedRegistration;
-      }
-      if (typedMatch.type === 'ambiguous') {
-        throw new Error('Multiple participants match this name. Type more of the name or use bib number.');
-      }
-      throw new Error('No matching participant for scanned code');
-    }
-
-    const candidates = eligibleRegistrations.value.filter((item) => item.bibNumber === parsed.value);
-    if (candidates.length === 0) throw new Error('No matching participant for scanned code');
-    if (candidates.length > 1) throw new Error('Ambiguous bib number. Multiple participants found');
-    return candidates[0];
-  };
-
-  const assignBibIfNeeded = async (
-    registration: CheckInEligibleRegistration,
-    bibStartFrom: number
+const assignBibIfNeeded = async (
+    registrationId: string,
+    existingBibNumber: number | null | undefined,
+    bibStartFrom: number,
   ): Promise<number | null> => {
-    if (registration.bibNumber && registration.bibNumber > 0) return registration.bibNumber;
+    if (existingBibNumber && existingBibNumber > 0) return existingBibNumber;
 
     const usedBibs = eligibleRegistrations.value
       .map((item) => item.bibNumber)
       .filter((value): value is number => value != null && value > 0);
     const nextBib = assignSmallestAvailableBib(usedBibs, bibStartFrom);
-    await options.assignBibNumber(registration.id, nextBib);
+    await options.assignBibNumber(registrationId, nextBib);
     return nextBib;
   };
 
-  const pushRecentCheckIn = (registration: CheckInEligibleRegistration, bibNumber: number | null): void => {
-    const token = undoState.startItemUndo(registration.id, 5000);
+  const pushRecentCheckIn = (entry: ParticipantEntry, bibNumber: number | null): void => {
+    // Undo still operates at registration level (reverts the whole registration)
+    const token = undoState.startItemUndo(entry.registrationId, 5000);
     const nextRecord: FrontDeskRecentRecord = {
-      id: registration.id,
-      name: options.getParticipantName(registration.id),
+      id: entry.registrationId,
+      name: entry.name,
       bibNumber,
       checkedInAtMs: token.createdAtMs,
       undoExpiresAtMs: token.expiresAtMs,
     };
 
-    recentRecords.value = [nextRecord, ...recentRecords.value.filter((record) => record.id !== registration.id)].slice(0, 5);
+    recentRecords.value = [nextRecord, ...recentRecords.value.filter((record) => record.id !== entry.registrationId)].slice(0, 5);
     const minTimestamp = token.createdAtMs - THROUGHPUT_WINDOW_MS;
     checkInTimestamps.value = [
       ...checkInTimestamps.value.filter((timestamp) => timestamp >= minTimestamp),
@@ -489,26 +535,85 @@ export const useFrontDeskCheckInWorkflow = (
     ];
   };
 
-  const checkInOne = async (registrationId: string, bibStartFrom = 101): Promise<ProcessScanResult> => {
-    const registration = eligibleRegistrations.value.find((item) => item.id === registrationId);
-    if (!registration) throw new Error('No matching participant for scanned code');
-    if (registration.status === 'checked_in') throw new Error('Already checked in');
-    if (registration.status !== 'approved') throw new Error('Only approved participants can be checked in');
+  /**
+   * Check in a single participant by their unique row ID.
+   *
+   * - For search-result rows (id = playerId): checks in that player only.
+   *   Doubles registrations stay 'approved' until both partners are present.
+   * - For urgent-item rows (id = registrationId): checks in the whole registration
+   *   at once (all participants).
+   */
+  const checkInOne = async (id: string, bibStartFrom = 101): Promise<ProcessScanResult> => {
+    // Resolve by playerId first (per-player search rows), then by registrationId (urgent items)
+    let entry = eligibleParticipants.value.find((e) => e.playerId === id);
+    const isPlayerLevel = !!entry;
+    if (!entry) {
+      entry = eligibleParticipants.value.find((e) => e.registrationId === id);
+    }
+    if (!entry) throw new Error('No matching participant for scanned code');
+    if (entry.status === 'checked_in') throw new Error('Already checked in');
+    if (entry.status !== 'approved') throw new Error('Only approved participants can be checked in');
 
-    const bibNumber = await assignBibIfNeeded(registration, bibStartFrom);
-    await options.checkInRegistration(registration.id);
-    pushRecentCheckIn(registration, bibNumber);
+    const bibNumber = await assignBibIfNeeded(entry.registrationId, entry.bibNumber, bibStartFrom);
+    // Player-level doubles check-in passes participantId so only one partner is marked present.
+    // Registration-level (urgent items, singles) passes no participantId → whole team.
+    const participantId = isPlayerLevel && entry.isDoubles ? entry.playerId : undefined;
+    await options.checkInRegistration(entry.registrationId, participantId);
+    pushRecentCheckIn(entry, bibNumber);
 
     return {
-      registrationId: registration.id,
-      name: options.getParticipantName(registration.id),
+      registrationId: entry.registrationId,
+      name: entry.name,
       bibNumber,
     };
   };
 
   const processScan = async (raw: string, scanOptions: ProcessScanOptions = {}): Promise<ProcessScanResult> => {
-    const registration = resolveRegistration(raw);
-    return checkInOne(registration.id, scanOptions.bibStartFrom ?? 101);
+    const parsed = parseScanInput(raw);
+    if (!parsed) throw new Error('No matching participant for scanned code');
+
+    let entry: ParticipantEntry | undefined;
+
+    if (parsed.kind === 'bib') {
+      const reg = eligibleRegistrations.value.find((r) => r.bibNumber === parsed.value);
+      if (!reg) throw new Error('No matching participant for scanned code');
+      // For bib scan, check in first available player of this registration
+      entry = eligibleParticipants.value.find((e) => e.registrationId === reg.id && e.status === 'approved');
+      if (!entry) throw new Error('Ambiguous bib number. Multiple participants found');
+    } else {
+      // Text / registration-ID input
+      const query = normalizeText(parsed.value);
+
+      // Exact registration-ID match → check in first available player
+      const regIdMatch = eligibleParticipants.value.find((e) => normalizeText(e.registrationId) === query);
+      if (regIdMatch) {
+        const available = eligibleParticipants.value.find(
+          (e) => e.registrationId === regIdMatch.registrationId && e.status === 'approved',
+        );
+        entry = available ?? regIdMatch;
+      }
+
+      if (!entry) {
+        // Name match (per-player)
+        const byName = eligibleParticipants.value.filter((e) =>
+          normalizeText(e.name).includes(query),
+        );
+        if (byName.length === 0) throw new Error('No matching participant for scanned code');
+        const exactMatches = byName.filter((e) => normalizeText(e.name) === query);
+        if (exactMatches.length === 1) {
+          entry = exactMatches[0];
+        } else if (byName.length === 1) {
+          entry = byName[0];
+        } else {
+          throw new Error(
+            'Multiple participants match this name. Type more of the name or use bib number.',
+          );
+        }
+      }
+    }
+
+    if (!entry) throw new Error('No matching participant for scanned code');
+    return checkInOne(entry.id, scanOptions.bibStartFrom ?? 101);
   };
 
   const bulkCheckIn = async (registrationIds: string[], bibStartFrom = 101): Promise<BulkCheckInResult> => {
