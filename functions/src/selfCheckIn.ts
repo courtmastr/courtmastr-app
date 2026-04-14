@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { FieldValue } from 'firebase-admin/firestore';
+import { formatDateKey } from './dailyCheckIn';
 
 const getDb = (): admin.firestore.Firestore => admin.firestore();
 
@@ -187,6 +188,15 @@ export const submitSelfCheckIn = functions.https.onCall(async (request) => {
 
     if (allPresent && !registration.checkedInAt) {
       updates.checkedInAt = FieldValue.serverTimestamp();
+    }
+
+    const todayKey = formatDateKey(new Date(), 'America/Chicago');
+    for (const participantId of participantIds) {
+      updates[`dailyCheckIns.${todayKey}.presence.${participantId}`] = true;
+    }
+    if (allPresent) {
+      updates[`dailyCheckIns.${todayKey}.checkedInAt`] = FieldValue.serverTimestamp();
+      updates[`dailyCheckIns.${todayKey}.source`] = 'kiosk';
     }
 
     transaction.update(registrationRef, updates);
