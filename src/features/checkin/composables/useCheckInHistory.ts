@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import type { ComputedRef, Ref } from 'vue';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
+import { formatCheckInDateKey } from '@/features/checkin/utils/checkInDateKey';
 
 export interface CheckInHistoryRow {
   registrationId: string;
@@ -24,13 +25,8 @@ export interface UseCheckInHistoryReturn {
   refresh(): Promise<void>;
 }
 
-function formatDateKey(date: Date): string {
-  // Matches backend formatDateKey — "YYYY-MM-DD" in America/Chicago
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(date);
-}
-
 function isSameCalendarDay(a: Date, b: Date): boolean {
-  return formatDateKey(a) === formatDateKey(b);
+  return formatCheckInDateKey(a) === formatCheckInDateKey(b);
 }
 
 export function useCheckInHistory(): UseCheckInHistoryReturn {
@@ -42,7 +38,7 @@ export function useCheckInHistory(): UseCheckInHistoryReturn {
   const error = ref<string | null>(null);
   const selectedDate = ref<Date>(new Date());
 
-  const dateKey = computed(() => formatDateKey(selectedDate.value));
+  const dateKey = computed(() => formatCheckInDateKey(selectedDate.value));
 
   const canGoForward = computed(() => !isSameCalendarDay(selectedDate.value, new Date()));
 
@@ -108,11 +104,21 @@ export function useCheckInHistory(): UseCheckInHistoryReturn {
 
         const isPartial = isDoubles && !daily.checkedInAt;
 
+        // Firestore Timestamps are not converted by the shallow convertTimestamps utility —
+        // call toDate() if needed so checkedInAt is always a real Date or null.
+        const rawTs = daily.checkedInAt as Date | { toDate(): Date } | undefined;
+        const checkedInAt: Date | null =
+          rawTs == null
+            ? null
+            : rawTs instanceof Date
+              ? rawTs
+              : rawTs.toDate();
+
         result.push({
           registrationId: reg.id,
           displayName,
           categoryName,
-          checkedInAt: daily.checkedInAt ?? null,
+          checkedInAt,
           source: isPartial ? 'partial' : daily.source,
           isPartial,
         });

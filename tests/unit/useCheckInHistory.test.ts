@@ -8,6 +8,10 @@ vi.mock('@/stores/registrations', () => ({
 vi.mock('@/stores/tournaments', () => ({
   useTournamentStore: vi.fn(),
 }));
+vi.mock('@/features/checkin/utils/checkInDateKey', () => ({
+  formatCheckInDateKey: (date: Date) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(date),
+}));
 
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';

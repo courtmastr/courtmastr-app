@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { useCheckInHistory } from '@/features/checkin/composables/useCheckInHistory';
+import { formatCheckInDateKey } from '@/features/checkin/utils/checkInDateKey';
 
 const { rows, loading, error, selectedDate, canGoForward, goBack, goForward, refresh } =
   useCheckInHistory();
 
 const dateLabel = computed(() => {
   const today = new Date();
-  const fmt = (d: Date) =>
-    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(d);
-  const isToday = fmt(selectedDate.value) === fmt(today);
+  const isToday = formatCheckInDateKey(selectedDate.value) === formatCheckInDateKey(today);
   const label = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Chicago',
     weekday: 'short',

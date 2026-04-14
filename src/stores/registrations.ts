@@ -20,6 +20,7 @@ import {
   httpsCallable,
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
+import { formatCheckInDateKey } from '@/features/checkin/utils/checkInDateKey';
 import type { Registration, RegistrationStatus, Player } from '@/types';
 import { useAuditStore } from '@/stores/audit';
 import { useAuthStore } from '@/stores/auth';
@@ -397,7 +398,26 @@ export const useRegistrationStore = defineStore('registrations', () => {
       'check_in',
     );
     if (!usedVolunteerCallable) {
-      await updateRegistrationStatus(tournamentId, registrationId, 'checked_in');
+      // Admin direct path — write status + dailyCheckIns in one update
+      const todayKey = formatCheckInDateKey(new Date());
+      const participantIds = [registration?.playerId, registration?.partnerPlayerId]
+        .filter((id): id is string => Boolean(id));
+      const adminUpdates: Record<string, unknown> = {
+        status: 'checked_in',
+        isCheckedIn: true,
+        checkedInAt: serverTimestamp(),
+        checkInSource: 'admin',
+        updatedAt: serverTimestamp(),
+        [`dailyCheckIns.${todayKey}.checkedInAt`]: serverTimestamp(),
+        [`dailyCheckIns.${todayKey}.source`]: 'admin',
+      };
+      for (const id of participantIds) {
+        adminUpdates[`dailyCheckIns.${todayKey}.presence.${id}`] = true;
+      }
+      await updateDoc(
+        doc(db, `tournaments/${tournamentId}/registrations`, registrationId),
+        adminUpdates
+      );
     }
 
     const auditStore = useAuditStore();
