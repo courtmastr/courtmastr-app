@@ -3,6 +3,7 @@ import * as functions from 'firebase-functions';
 import { FieldValue } from 'firebase-admin/firestore';
 import { timingSafeEqual } from 'node:crypto';
 import { formatDateKey } from './dailyCheckIn';
+import { computeCheckIn } from './checkInHelpers';
 import {
   assertVolunteerSessionAccess,
   decryptPin,
@@ -27,6 +28,13 @@ interface TournamentAccessDoc {
   createdBy?: string;
   organizerIds?: string[];
   volunteerAccess?: VolunteerAccessConfig;
+}
+
+interface RegistrationDoc {
+  playerId?: string;
+  partnerPlayerId?: string;
+  participantPresence?: Record<string, boolean>;
+  checkedInAt?: admin.firestore.Timestamp | null;
 }
 
 interface UserRoleDoc {
@@ -391,42 +399,107 @@ export const applyVolunteerCheckInAction = functions.https.onCall({
   const registrationId = parseRegistrationId(request.data?.registrationId);
   const action = parseCheckInAction(request.data?.action);
   const sessionToken = parseSessionToken(request.data?.sessionToken);
+  // Optional: which participant is checking in (for player-by-player doubles check-in).
+  // If omitted, all participants on the registration are checked in at once.
+  const participantIdInput =
+    request.data?.participantId != null
+      ? String(request.data.participantId).trim() || null
+      : null;
 
   await verifyVolunteerSession(sessionToken, tournamentId, 'checkin');
 
-  const registrationRef = getDb()
+  const db = getDb();
+  const registrationRef = db
     .collection('tournaments')
     .doc(tournamentId)
     .collection('registrations')
     .doc(registrationId);
 
-  const registrationSnapshot = await registrationRef.get();
-  if (!registrationSnapshot.exists) {
-    throw new functions.https.HttpsError('not-found', 'Registration not found');
-  }
-
-  const updates: Record<string, unknown> = {
-    updatedAt: FieldValue.serverTimestamp(),
-  };
-
   if (action === 'check_in') {
-    const todayKey = formatDateKey(new Date(), 'America/Chicago');
-    updates.status = 'checked_in';
-    updates.isCheckedIn = true;
-    updates.checkInSource = 'admin';
-    updates.checkedInAt = FieldValue.serverTimestamp();
-    updates[`dailyCheckIns.${todayKey}.checkedInAt`] = FieldValue.serverTimestamp();
-    updates[`dailyCheckIns.${todayKey}.source`] = 'admin';
-  } else if (action === 'undo_check_in') {
-    updates.status = 'approved';
-    updates.isCheckedIn = false;
-    updates.checkedInAt = FieldValue.delete();
-    updates.checkInSource = FieldValue.delete();
-  } else {
-    updates.bibNumber = parseBibNumber(request.data?.bibNumber);
-  }
+    await db.runTransaction(async (transaction) => {
+      const snap = await transaction.get(registrationRef);
+      if (!snap.exists) {
+        throw new functions.https.HttpsError('not-found', 'Registration not found');
+      }
 
-  await registrationRef.update(updates);
+      const registration = snap.data() as RegistrationDoc;
+      const requiredParticipantIds = [registration.playerId, registration.partnerPlayerId]
+        .filter((id): id is string => Boolean(id));
+
+      if (requiredParticipantIds.length === 0) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Registration has no participants',
+        );
+      }
+
+      // Which participants are being checked in now
+      const participantIds = participantIdInput
+        ? [participantIdInput]
+        : requiredParticipantIds;
+
+      if (participantIdInput && !requiredParticipantIds.includes(participantIdInput)) {
+        throw new functions.https.HttpsError(
+          'permission-denied',
+          'Participant is not part of this registration',
+        );
+      }
+
+      const { nextPresence, allPresent, nextStatus, setCheckedInAt } = computeCheckIn({
+        participantIds,
+        requiredParticipantIds,
+        currentPresence: registration.participantPresence || {},
+        hasCheckedInAt: !!registration.checkedInAt,
+      });
+
+      const todayKey = formatDateKey(new Date(), 'America/Chicago');
+      const updates: Record<string, unknown> = {
+        participantPresence: nextPresence,
+        status: nextStatus,
+        isCheckedIn: allPresent,
+        checkInSource: 'admin',
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+
+      if (setCheckedInAt) {
+        updates.checkedInAt = FieldValue.serverTimestamp();
+      }
+
+      for (const id of participantIds) {
+        updates[`dailyCheckIns.${todayKey}.presence.${id}`] = true;
+      }
+      if (allPresent) {
+        updates[`dailyCheckIns.${todayKey}.checkedInAt`] = FieldValue.serverTimestamp();
+        updates[`dailyCheckIns.${todayKey}.source`] = 'admin';
+      }
+
+      transaction.update(registrationRef, updates);
+    });
+  } else if (action === 'undo_check_in') {
+    const snap = await registrationRef.get();
+    if (!snap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Registration not found');
+    }
+
+    await registrationRef.update({
+      status: 'approved',
+      isCheckedIn: false,
+      checkedInAt: FieldValue.delete(),
+      checkInSource: FieldValue.delete(),
+      participantPresence: {},
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  } else {
+    const snap = await registrationRef.get();
+    if (!snap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Registration not found');
+    }
+
+    await registrationRef.update({
+      bibNumber: parseBibNumber(request.data?.bibNumber),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
 
   return {
     success: true,

@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { FieldValue } from 'firebase-admin/firestore';
 import { formatDateKey } from './dailyCheckIn';
+import { computeCheckIn } from './checkInHelpers';
 
 const getDb = (): admin.firestore.Firestore => admin.firestore();
 
@@ -169,15 +170,14 @@ export const submitSelfCheckIn = functions.https.onCall(async (request) => {
       );
     }
 
-    const currentPresence = registration.participantPresence || {};
-    const nextPresence: Record<string, boolean> = { ...currentPresence };
-    for (const participantId of participantIds) {
-      nextPresence[participantId] = true;
-    }
+    const { nextPresence, allPresent, nextStatus, setCheckedInAt } = computeCheckIn({
+      participantIds,
+      requiredParticipantIds,
+      currentPresence: registration.participantPresence || {},
+      hasCheckedInAt: !!registration.checkedInAt,
+    });
 
-    const allPresent = requiredParticipantIds.every((id) => nextPresence[id] === true);
-    const nextStatus = allPresent ? 'checked_in' : 'approved';
-
+    const todayKey = formatDateKey(new Date(), 'America/Chicago');
     const updates: Record<string, unknown> = {
       participantPresence: nextPresence,
       status: nextStatus,
@@ -186,11 +186,10 @@ export const submitSelfCheckIn = functions.https.onCall(async (request) => {
       updatedAt: FieldValue.serverTimestamp(),
     };
 
-    if (allPresent && !registration.checkedInAt) {
+    if (setCheckedInAt) {
       updates.checkedInAt = FieldValue.serverTimestamp();
     }
 
-    const todayKey = formatDateKey(new Date(), 'America/Chicago');
     for (const participantId of participantIds) {
       updates[`dailyCheckIns.${todayKey}.presence.${participantId}`] = true;
     }
