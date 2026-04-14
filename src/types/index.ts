@@ -316,7 +316,7 @@ export interface Team {
 
 // Registration Types
 export interface DailyCheckIn {
-  checkedInAt: Date;
+  checkedInAt?: Date;
   source: 'admin' | 'kiosk';
   presence?: Record<string, boolean>; // doubles: playerId → present on this day
 }
