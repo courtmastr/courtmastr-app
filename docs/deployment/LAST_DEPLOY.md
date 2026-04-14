@@ -2,17 +2,17 @@
 
 Current policy note: production infrastructure is Terraform-managed and production application rollout is expected to happen through the `master` CI/CD workflow. Older entries below may reference the previous local release command path because they are historical records.
 
-Updated: 2026-04-13 (America/Chicago)
+Updated: 2026-04-14 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-13 18:21 CDT
-- Release ID: `v2.7.1`
-- Package version: `2.7.1`
+- Date: 2026-04-14 00:13 CDT
+- Release ID: `v2.8.0`
+- Package version: `2.8.0`
 - Deployed branch: `master`
-- Deployed commit: `91a0ffa` (`fix: scoring buttons not showing for in-progress matches (#32)`)
+- Deployed commit: `ea9c90c` (`fix: tournament dates parse as local time with correct day boundaries (#36)`)
 - Release notes:
-  - [docs/releases/v2.7.1.md](docs/releases/v2.7.1.md)
+  - [docs/releases/v2.8.0.md](docs/releases/v2.8.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-13 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-13-23-19-56.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-14-05-12-22.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.7.1`
+  - Date: 2026-04-13 18:21 CDT
+  - Package version: `2.7.1`
+  - Deployed commit: `91a0ffa`
+  - Release notes:
+    - [docs/releases/v2.7.1.md](docs/releases/v2.7.1.md)
 - `v2.7.0`
   - Date: 2026-04-13 16:30 CDT
   - Package version: `2.7.0`
@@ -125,7 +131,7 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-13 18:21 CDT
-- Commit: `91a0ffa1df5e07d7f11f55d877aa5548cd47dfe6`
-- Message: `fix: scoring buttons not showing for in-progress matches (#32)`
-- Note: deployed via `npm run release:deploy` on 2026-04-13.
+- Date: 2026-04-14 00:13 CDT
+- Commit: `ea9c90cbfdd965e6b9b0479608151759458ee33c`
+- Message: `fix: tournament dates parse as local time with correct day boundaries (#36)`
+- Note: deployed via `npm run release:deploy` on 2026-04-14.
