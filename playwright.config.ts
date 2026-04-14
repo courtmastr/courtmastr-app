@@ -68,6 +68,7 @@ export default defineConfig({
         /user-registration\.spec\.ts$/,
         /p0-front-desk-checkin\.spec\.ts$/,
         /p0-self-checkin-kiosk\.spec\.ts$/,
+        /volunteer-checkin\.spec\.ts$/,
         /p0-search-and-filter\.spec\.ts$/,
         /p0-import-email-validation\.spec\.ts$/,
       ],
@@ -80,6 +81,10 @@ export default defineConfig({
       dependencies: ['setup'],
       testMatch: [
         /scorekeeper-flow\.spec\.ts$/,
+        /match-day-score-propagation\.spec\.ts$/,
+        /game-completion-warnings\.spec\.ts$/,
+        /scorekeeper-full-workflow\.spec\.ts$/,
+        /multi-game-match-scoring\.spec\.ts$/,
         /p0-match-control-scoring\.spec\.ts$/,
         /p0-score-correction\.spec\.ts$/,
       ],
@@ -98,6 +103,7 @@ export default defineConfig({
         /p0-seeding-management\.spec\.ts$/,
         /p0-tournament-lifecycle-pool-to-elimination\.spec\.ts$/,
         /p0-tournament-settings\.spec\.ts$/,
+        /pool-cut-advance\.spec\.ts$/,
       ],
     },
     {
