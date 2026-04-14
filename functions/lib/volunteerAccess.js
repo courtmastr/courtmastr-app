@@ -38,6 +38,8 @@ const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("firebase-admin/firestore");
 const node_crypto_1 = require("node:crypto");
+const dailyCheckIn_1 = require("./dailyCheckIn");
+const checkInHelpers_1 = require("./checkInHelpers");
 const volunteerAccessCore_1 = require("./volunteerAccessCore");
 const VOLUNTEER_PIN_SECRET_ENV = 'VOLUNTEER_PIN_SECRET';
 const VOLUNTEER_SESSION_SECRET_ENV = 'VOLUNTEER_SESSION_SECRET';
@@ -298,34 +300,93 @@ exports.verifyVolunteerSession = verifyVolunteerSession;
 exports.applyVolunteerCheckInAction = functions.https.onCall({
     secrets: [VOLUNTEER_SESSION_SECRET_ENV],
 }, async (request) => {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f;
     const tournamentId = parseTournamentId((_a = request.data) === null || _a === void 0 ? void 0 : _a.tournamentId);
     const registrationId = parseRegistrationId((_b = request.data) === null || _b === void 0 ? void 0 : _b.registrationId);
     const action = parseCheckInAction((_c = request.data) === null || _c === void 0 ? void 0 : _c.action);
     const sessionToken = parseSessionToken((_d = request.data) === null || _d === void 0 ? void 0 : _d.sessionToken);
+    // Optional: which participant is checking in (for player-by-player doubles check-in).
+    // If omitted, all participants on the registration are checked in at once.
+    const participantIdInput = ((_e = request.data) === null || _e === void 0 ? void 0 : _e.participantId) != null
+        ? String(request.data.participantId).trim() || null
+        : null;
     await (0, exports.verifyVolunteerSession)(sessionToken, tournamentId, 'checkin');
-    const registrationRef = getDb()
+    const db = getDb();
+    const registrationRef = db
         .collection('tournaments')
         .doc(tournamentId)
         .collection('registrations')
         .doc(registrationId);
-    const registrationSnapshot = await registrationRef.get();
-    if (!registrationSnapshot.exists) {
-        throw new functions.https.HttpsError('not-found', 'Registration not found');
-    }
-    const updates = {
-        updatedAt: firestore_1.FieldValue.serverTimestamp(),
-    };
     if (action === 'check_in') {
-        updates.status = 'checked_in';
+        await db.runTransaction(async (transaction) => {
+            const snap = await transaction.get(registrationRef);
+            if (!snap.exists) {
+                throw new functions.https.HttpsError('not-found', 'Registration not found');
+            }
+            const registration = snap.data();
+            const requiredParticipantIds = [registration.playerId, registration.partnerPlayerId]
+                .filter((id) => Boolean(id));
+            if (requiredParticipantIds.length === 0) {
+                throw new functions.https.HttpsError('failed-precondition', 'Registration has no participants');
+            }
+            // Which participants are being checked in now
+            const participantIds = participantIdInput
+                ? [participantIdInput]
+                : requiredParticipantIds;
+            if (participantIdInput && !requiredParticipantIds.includes(participantIdInput)) {
+                throw new functions.https.HttpsError('permission-denied', 'Participant is not part of this registration');
+            }
+            const { nextPresence, allPresent, nextStatus, setCheckedInAt } = (0, checkInHelpers_1.computeCheckIn)({
+                participantIds,
+                requiredParticipantIds,
+                currentPresence: registration.participantPresence || {},
+                hasCheckedInAt: !!registration.checkedInAt,
+            });
+            const todayKey = (0, dailyCheckIn_1.formatDateKey)(new Date(), 'America/Chicago');
+            const updates = {
+                participantPresence: nextPresence,
+                status: nextStatus,
+                isCheckedIn: allPresent,
+                checkInSource: 'admin',
+                updatedAt: firestore_1.FieldValue.serverTimestamp(),
+            };
+            if (setCheckedInAt) {
+                updates.checkedInAt = firestore_1.FieldValue.serverTimestamp();
+            }
+            for (const id of participantIds) {
+                updates[`dailyCheckIns.${todayKey}.presence.${id}`] = true;
+            }
+            if (allPresent) {
+                updates[`dailyCheckIns.${todayKey}.checkedInAt`] = firestore_1.FieldValue.serverTimestamp();
+                updates[`dailyCheckIns.${todayKey}.source`] = 'admin';
+            }
+            transaction.update(registrationRef, updates);
+        });
     }
     else if (action === 'undo_check_in') {
-        updates.status = 'approved';
+        const snap = await registrationRef.get();
+        if (!snap.exists) {
+            throw new functions.https.HttpsError('not-found', 'Registration not found');
+        }
+        await registrationRef.update({
+            status: 'approved',
+            isCheckedIn: false,
+            checkedInAt: firestore_1.FieldValue.delete(),
+            checkInSource: firestore_1.FieldValue.delete(),
+            participantPresence: {},
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
+        });
     }
     else {
-        updates.bibNumber = parseBibNumber((_e = request.data) === null || _e === void 0 ? void 0 : _e.bibNumber);
+        const snap = await registrationRef.get();
+        if (!snap.exists) {
+            throw new functions.https.HttpsError('not-found', 'Registration not found');
+        }
+        await registrationRef.update({
+            bibNumber: parseBibNumber((_f = request.data) === null || _f === void 0 ? void 0 : _f.bibNumber),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
+        });
     }
-    await registrationRef.update(updates);
     return {
         success: true,
         tournamentId,

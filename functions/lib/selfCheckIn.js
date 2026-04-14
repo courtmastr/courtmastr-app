@@ -37,6 +37,8 @@ exports.submitSelfCheckIn = exports.searchSelfCheckInCandidates = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("firebase-admin/firestore");
+const dailyCheckIn_1 = require("./dailyCheckIn");
+const checkInHelpers_1 = require("./checkInHelpers");
 const getDb = () => admin.firestore();
 const normalizeQuery = (value) => value.trim().toLowerCase();
 const toDisplayName = (player) => {
@@ -136,13 +138,13 @@ exports.submitSelfCheckIn = functions.https.onCall(async (request) => {
         if (hasInvalidParticipant) {
             throw new functions.https.HttpsError('permission-denied', 'Cannot check in participants outside this registration');
         }
-        const currentPresence = registration.participantPresence || {};
-        const nextPresence = { ...currentPresence };
-        for (const participantId of participantIds) {
-            nextPresence[participantId] = true;
-        }
-        const allPresent = requiredParticipantIds.every((id) => nextPresence[id] === true);
-        const nextStatus = allPresent ? 'checked_in' : 'approved';
+        const { nextPresence, allPresent, nextStatus, setCheckedInAt } = (0, checkInHelpers_1.computeCheckIn)({
+            participantIds,
+            requiredParticipantIds,
+            currentPresence: registration.participantPresence || {},
+            hasCheckedInAt: !!registration.checkedInAt,
+        });
+        const todayKey = (0, dailyCheckIn_1.formatDateKey)(new Date(), 'America/Chicago');
         const updates = {
             participantPresence: nextPresence,
             status: nextStatus,
@@ -150,8 +152,15 @@ exports.submitSelfCheckIn = functions.https.onCall(async (request) => {
             checkInSource: 'kiosk',
             updatedAt: firestore_1.FieldValue.serverTimestamp(),
         };
-        if (allPresent && !registration.checkedInAt) {
+        if (setCheckedInAt) {
             updates.checkedInAt = firestore_1.FieldValue.serverTimestamp();
+        }
+        for (const participantId of participantIds) {
+            updates[`dailyCheckIns.${todayKey}.presence.${participantId}`] = true;
+        }
+        if (allPresent) {
+            updates[`dailyCheckIns.${todayKey}.checkedInAt`] = firestore_1.FieldValue.serverTimestamp();
+            updates[`dailyCheckIns.${todayKey}.source`] = 'kiosk';
         }
         transaction.update(registrationRef, updates);
         return {
