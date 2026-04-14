@@ -577,8 +577,9 @@ async function saveSettings() {
       name: name.value,
       description: description.value,
       location: location.value,
-      startDate: new Date(startDate.value),
-      endDate: new Date(endDate.value),
+      // Append time strings to force local-time parsing (bare "YYYY-MM-DD" parses as UTC midnight)
+      startDate: new Date(startDate.value + 'T00:00:00'),
+      endDate: new Date(endDate.value + 'T23:59:59'),
       registrationDeadline: registrationDeadline.value
         ? new Date(registrationDeadline.value)
         : undefined,

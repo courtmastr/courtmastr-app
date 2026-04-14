@@ -204,6 +204,36 @@ describe('TournamentSettingsView volunteer access', () => {
     });
   });
 
+  it('parses startDate as local midnight and endDate as local end-of-day on save', async () => {
+    const wrapper = mountView();
+    const vm = wrapper.vm as any;
+
+    // Simulate user picking dates from the date input (bare YYYY-MM-DD strings)
+    vm.startDate = '2026-04-18';
+    vm.endDate = '2026-04-20';
+
+    await vm.saveSettings();
+
+    const call = mockDeps.updateTournament.mock.calls[0][1];
+    const start: Date = call.startDate;
+    const end: Date = call.endDate;
+
+    // Start date must be local midnight (hour 0), not UTC midnight
+    expect(start.getFullYear()).toBe(2026);
+    expect(start.getMonth()).toBe(3); // April = 3
+    expect(start.getDate()).toBe(18);
+    expect(start.getHours()).toBe(0);
+    expect(start.getMinutes()).toBe(0);
+
+    // End date must be local end-of-day (23:59:59), not midnight
+    expect(end.getFullYear()).toBe(2026);
+    expect(end.getMonth()).toBe(3);
+    expect(end.getDate()).toBe(20);
+    expect(end.getHours()).toBe(23);
+    expect(end.getMinutes()).toBe(59);
+    expect(end.getSeconds()).toBe(59);
+  });
+
   it('saves a check-in PIN through the callable and refreshes the tournament', async () => {
     const wrapper = mountView();
     const vm = wrapper.vm as unknown as TournamentSettingsVm;

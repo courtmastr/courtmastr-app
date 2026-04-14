@@ -230,8 +230,9 @@ async function createTournament() {
     
     // Build tournament data, omitting undefined/null values
     // Use toRaw to convert Vue proxies to plain objects for Firestore
-    const startDateObj = new Date(startDate.value);
-    const endDateObj = new Date(endDate.value);
+    // Append time strings to force local-time parsing (bare "YYYY-MM-DD" parses as UTC midnight)
+    const startDateObj = new Date(startDate.value + 'T00:00:00');
+    const endDateObj = new Date(endDate.value + 'T23:59:59');
 
     if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
       throw new Error('Invalid date format');
