@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { FieldValue } from 'firebase-admin/firestore';
 import { timingSafeEqual } from 'node:crypto';
+import { formatDateKey } from './dailyCheckIn';
 import {
   assertVolunteerSessionAccess,
   decryptPin,
@@ -409,9 +410,18 @@ export const applyVolunteerCheckInAction = functions.https.onCall({
   };
 
   if (action === 'check_in') {
+    const todayKey = formatDateKey(new Date(), 'America/Chicago');
     updates.status = 'checked_in';
+    updates.isCheckedIn = true;
+    updates.checkInSource = 'admin';
+    updates.checkedInAt = FieldValue.serverTimestamp();
+    updates[`dailyCheckIns.${todayKey}.checkedInAt`] = FieldValue.serverTimestamp();
+    updates[`dailyCheckIns.${todayKey}.source`] = 'admin';
   } else if (action === 'undo_check_in') {
     updates.status = 'approved';
+    updates.isCheckedIn = false;
+    updates.checkedInAt = FieldValue.delete();
+    updates.checkInSource = FieldValue.delete();
   } else {
     updates.bibNumber = parseBibNumber(request.data?.bibNumber);
   }
