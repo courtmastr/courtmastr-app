@@ -159,6 +159,8 @@ export interface Category {
     mustWinBy?: number;
     maxPoints?: number | null;
   } | null;
+  eliminationScoringEnabled?: boolean;
+  eliminationScoringConfig?: ScoringConfig | null;
   gamesPerMatch?: number;
   pointsToWin?: number;
   mustWinBy?: number;

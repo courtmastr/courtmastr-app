@@ -1,5 +1,7 @@
-const isDev = import.meta.env.DEV;
-const isInfoEnabled = import.meta.env.VITE_ENABLE_INFO_LOGS === 'true';
+// import.meta.env is Vite-specific; guard for Node.js contexts (seed scripts, tsx).
+const _metaEnv = (import.meta as unknown as { env?: Record<string, unknown> }).env ?? {};
+const isDev = (_metaEnv.DEV as boolean | undefined) ?? true;
+const isInfoEnabled = _metaEnv.VITE_ENABLE_INFO_LOGS === 'true';
 
 export const logger = {
   debug: (...args: unknown[]): void => {

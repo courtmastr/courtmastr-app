@@ -557,6 +557,15 @@ export function usePoolLeveling() {
       const safeLevelCount = Math.min(5, Math.max(2, Math.floor(levelCount)));
       const poolData = await fetchPoolData(tournamentId, categoryId);
 
+      logger.debug('[usePoolLeveling] Pool data fetched:', {
+        registrations: poolData.registrations.length,
+        participants: poolData.participants.length,
+        matches: poolData.matches.length,
+        groups: poolData.groups.length,
+        scores: poolData.scoresByMatchId.size,
+        poolStageId: poolData.category.poolStageId,
+      });
+
       const participantById = new Map<number, string>(
         poolData.participants.map((participant) => [participant.id, participant.name])
       );
@@ -573,6 +582,13 @@ export function usePoolLeveling() {
         poolData.scoresByMatchId,
         participantById
       );
+
+      logger.debug('[usePoolLeveling] Pool summaries built:', {
+        pools: pools.length,
+        mappedParticipants: participantPoolByRegistrationId.size,
+        pendingMatches,
+        resolvedMatches: resolvedMatches.length,
+      });
 
       const rankedParticipants = rankPools(
         poolData.category,

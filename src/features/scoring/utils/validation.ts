@@ -16,6 +16,9 @@ interface ScoringSource {
 export interface CategoryScoringSource extends ScoringSource {
   scoringOverrideEnabled?: boolean;
   scoringConfig?: Partial<ScoringConfig> | null;
+  eliminationScoringEnabled?: boolean;
+  eliminationScoringConfig?: Partial<ScoringConfig> | null;
+  eliminationStageId?: number | null;
 }
 
 export interface TournamentScoringSource {

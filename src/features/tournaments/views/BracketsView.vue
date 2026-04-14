@@ -46,6 +46,12 @@ onMounted(async () => {
       await tournamentStore.fetchTournament(tournamentId.value);
     }
     tournamentStore.subscribeTournament(tournamentId.value);
+
+    // Pre-select category from query param (e.g. after generating a bracket from Categories page)
+    const queryCategoryId = route.query.category as string | undefined;
+    if (queryCategoryId) {
+      selectedCategory.value = queryCategoryId;
+    }
   } catch (error) {
     logger.error('Failed to initialize brackets view:', error);
   }

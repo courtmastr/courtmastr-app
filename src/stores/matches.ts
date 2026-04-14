@@ -26,6 +26,7 @@ import { BADMINTON_CONFIG } from '@/types';
 import {
   getGamesNeeded,
   resolveScoringConfig,
+  sanitizeScoringConfig,
   validateCompletedGameScore,
   type CategoryScoringSource,
 } from '@/features/scoring/utils/validation';
@@ -362,7 +363,8 @@ export const useMatchStore = defineStore('matches', () => {
 
   async function getScoringConfigForMatch(
     tournamentId: string,
-    categoryId?: string
+    categoryId?: string,
+    stageId?: string
   ): Promise<ScoringConfig> {
     try {
       const tournamentDoc = await getDoc(doc(db, 'tournaments', tournamentId));
@@ -376,6 +378,18 @@ export const useMatchStore = defineStore('matches', () => {
         if (categoryDoc.exists()) {
           categoryData = categoryDoc.data() as CategoryScoringSource;
         }
+      }
+
+      // Phase routing: if this match is in the elimination stage and elimination scoring is configured, use it
+      if (
+        stageId != null &&
+        categoryData?.eliminationScoringEnabled &&
+        categoryData?.eliminationStageId != null &&
+        Number(stageId) === categoryData.eliminationStageId &&
+        categoryData.eliminationScoringConfig
+      ) {
+        const tournamentConfig = sanitizeScoringConfig(tournamentSettings ?? BADMINTON_CONFIG);
+        return sanitizeScoringConfig(categoryData.eliminationScoringConfig, tournamentConfig);
       }
 
       return resolveScoringConfig(
@@ -1023,7 +1037,7 @@ export const useMatchStore = defineStore('matches', () => {
       if (!adapted) throw new Error('Match found but invalid or empty');
 
       adapted.levelId = levelId;
-      adapted.scoringConfig = await getScoringConfigForMatch(tournamentId, categoryId);
+      adapted.scoringConfig = await getScoringConfigForMatch(tournamentId, categoryId, adapted.stageId);
 
       const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
       const scoreDoc = await getDoc(doc(db, matchScoresPath, matchId));
