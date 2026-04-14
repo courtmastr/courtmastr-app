@@ -4,6 +4,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getTodayWindowUTC } from './dailyCheckIn';
 
 const BATCH_SIZE = 500;
+const CHUNK_SIZE = 30; // Firestore 'in' query max
 
 interface TournamentDoc {
   status?: string;
@@ -66,7 +67,6 @@ export const resetDailyCheckIns = onSchedule('every day 06:00', async () => {
     // 5. Fetch those registrations to check their status
     const registrationIds = [...registrationIdsToCheck];
     // Firestore 'in' query supports max 30 items — chunk if needed
-    const CHUNK_SIZE = 30;
     for (let i = 0; i < registrationIds.length; i += CHUNK_SIZE) {
       const chunk = registrationIds.slice(i, i + CHUNK_SIZE);
       const registrationsSnapshot = await db
@@ -85,7 +85,10 @@ export const resetDailyCheckIns = onSchedule('every day 06:00', async () => {
     }
   }
 
-  if (resetUpdates.length === 0) return;
+  if (resetUpdates.length === 0) {
+    console.log('resetDailyCheckIns: no registrations to reset');
+    return;
+  }
 
   // 6. Batch-write resets (max 500 per batch)
   for (let i = 0; i < resetUpdates.length; i += BATCH_SIZE) {
@@ -103,4 +106,6 @@ export const resetDailyCheckIns = onSchedule('every day 06:00', async () => {
     }
     await batch.commit();
   }
+
+  console.log(`resetDailyCheckIns: reset ${resetUpdates.length} registrations`);
 });
