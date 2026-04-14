@@ -522,7 +522,14 @@ const seedOperationalMatchSamples = async (
                 score2: 6,
                 isComplete: false,
               }]
-            : [],
+            : status === 'in_progress'
+              ? [{
+                  gameNumber: 1,
+                  score1: 0,
+                  score2: 0,
+                  isComplete: false,
+                }]
+              : [],
           ...(index === 2 ? { startedAt: serverTimestamp() } : {}),
           updatedAt: serverTimestamp(),
         },

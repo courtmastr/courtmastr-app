@@ -6,7 +6,7 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-13 16:51 CDT
+- Date: 2026-04-13 16:30 CDT
 - Release ID: `v2.7.0`
 - Package version: `2.7.0`
 - Deployed branch: `master`
@@ -23,7 +23,7 @@ Updated: 2026-04-13 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-13-21-50-09.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-13-21-29-17.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -119,7 +119,7 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-13 16:51 CDT
+- Date: 2026-04-13 16:30 CDT
 - Commit: `bdb1f71ce0291a98707f184189165de8924eba59`
 - Message: `feat: Pool Cut & Advance to Elimination (#29)`
 - Note: deployed via `npm run release:deploy` on 2026-04-13.
