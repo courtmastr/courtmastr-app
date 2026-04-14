@@ -336,6 +336,7 @@ export const useFrontDeskCheckInWorkflow = (
     registrationId: string;
     playerId: string;
     name: string;
+    partnerName?: string; // set for doubles only
     categoryId: string;
     bibNumber?: number | null;
     /** Per-player status: 'checked_in' if this player is physically present */
@@ -380,11 +381,16 @@ export const useFrontDeskCheckInWorkflow = (
           (id): id is string => Boolean(id),
         );
         for (const pid of participantIds) {
+          const partnerId = participantIds.find((id) => id !== pid);
+          const partnerName = partnerId && options.getPlayerName
+            ? options.getPlayerName(partnerId)
+            : undefined;
           result.push({
             id: pid,
             registrationId: reg.id,
             playerId: pid,
             name: options.getPlayerName ? options.getPlayerName(pid) : pid,
+            partnerName,
             categoryId: reg.categoryId,
             bibNumber: reg.bibNumber,
             status: getPlayerStatusInReg(reg, pid),
@@ -493,6 +499,7 @@ export const useFrontDeskCheckInWorkflow = (
       .map((entry) => ({
         id: entry.id,
         name: entry.name,
+        partnerName: entry.partnerName ?? null,
         category: options.getCategoryName(entry.categoryId),
         bibNumber: entry.bibNumber,
         status: entry.status,

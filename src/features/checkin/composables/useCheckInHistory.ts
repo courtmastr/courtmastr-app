@@ -8,6 +8,7 @@ export interface CheckInHistoryRow {
   registrationId: string;
   playerId: string;         // individual player who physically checked in
   displayName: string;      // player's full name
+  partnerName?: string;     // set for doubles — who this player is waiting for (partial) or paired with
   categoryName: string;
   checkedInAt: Date | null; // null = partial (partner not yet arrived)
   source: 'admin' | 'kiosk' | 'partial';
@@ -103,12 +104,18 @@ export function useCheckInHistory(): UseCheckInHistoryReturn {
           for (const pid of participantIds) {
             if (!presence[pid]) continue; // skip partner who hasn't arrived yet
             const player = playerList.find(p => p.id === pid);
-            // isPartial = this player is here but the registration isn't fully done yet
             const isPartial = checkedInAt === null;
+            // Who is this player waiting for?
+            const partnerId = participantIds.find((id) => id !== pid);
+            const partnerPlayer = partnerId ? playerList.find(p => p.id === partnerId) : undefined;
+            const partnerName = partnerPlayer
+              ? `${partnerPlayer.firstName} ${partnerPlayer.lastName}`
+              : undefined;
             result.push({
               registrationId: reg.id,
               playerId: pid,
               displayName: player ? `${player.firstName} ${player.lastName}` : 'Unknown',
+              partnerName,
               categoryName,
               checkedInAt,
               source: isPartial ? 'partial' : daily.source,
