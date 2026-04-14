@@ -6,13 +6,13 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-13 16:30 CDT
-- Release ID: `v2.7.0`
-- Package version: `2.7.0`
+- Date: 2026-04-13 18:21 CDT
+- Release ID: `v2.7.1`
+- Package version: `2.7.1`
 - Deployed branch: `master`
-- Deployed commit: `bdb1f71` (`feat: Pool Cut & Advance to Elimination (#29)`)
+- Deployed commit: `91a0ffa` (`fix: scoring buttons not showing for in-progress matches (#32)`)
 - Release notes:
-  - [docs/releases/v2.7.0.md](docs/releases/v2.7.0.md)
+  - [docs/releases/v2.7.1.md](docs/releases/v2.7.1.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-13 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-13-21-29-17.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-13-23-19-56.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.7.0`
+  - Date: 2026-04-13 16:30 CDT
+  - Package version: `2.7.0`
+  - Deployed commit: `bdb1f71`
+  - Release notes:
+    - [docs/releases/v2.7.0.md](docs/releases/v2.7.0.md)
 - `v2.6.1`
   - Date: 2026-04-13 10:44 CDT
   - Package version: `2.6.1`
@@ -119,7 +125,7 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-13 16:30 CDT
-- Commit: `bdb1f71ce0291a98707f184189165de8924eba59`
-- Message: `feat: Pool Cut & Advance to Elimination (#29)`
+- Date: 2026-04-13 18:21 CDT
+- Commit: `91a0ffa1df5e07d7f11f55d877aa5548cd47dfe6`
+- Message: `fix: scoring buttons not showing for in-progress matches (#32)`
 - Note: deployed via `npm run release:deploy` on 2026-04-13.
