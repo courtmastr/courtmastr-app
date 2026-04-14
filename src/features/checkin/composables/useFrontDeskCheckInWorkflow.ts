@@ -5,6 +5,7 @@ import {
   type CheckInSearchRow,
   type CheckInStatus,
 } from '@/features/checkin/composables/checkInTypes';
+import { formatCheckInDateKey } from '@/features/checkin/utils/checkInDateKey';
 
 export type ScanInput =
   | { kind: 'registration'; value: string }
@@ -234,12 +235,13 @@ const formatMinutesLabel = (minutes: number): string => {
   return `Plays in ${minutes} min`;
 };
 
-const getCheckInBlockedReason = (status: Registration['status'] | undefined): string => {
-  if (status === 'checked_in') return 'Already checked in';
-  if (status === 'no_show') return 'Marked as no-show';
-  if (status === 'withdrawn') return 'Registration withdrawn';
-  if (status === 'rejected') return 'Registration not approved';
-  if (status === 'pending') return 'Pending approval';
+const getCheckInBlockedReason = (registration: Registration | undefined, todayKey: string): string => {
+  if (!registration) return 'Not eligible for check-in';
+  if (registration.status === 'no_show') return 'Marked as no-show';
+  if (registration.status === 'withdrawn') return 'Registration withdrawn';
+  if (registration.status === 'rejected') return 'Registration not approved';
+  if (registration.status === 'pending') return 'Pending approval';
+  if (registration.dailyCheckIns?.[todayKey]?.checkedInAt) return 'Already checked in today';
   return 'Not eligible for check-in';
 };
 
@@ -350,17 +352,30 @@ export const useFrontDeskCheckInWorkflow = (
     return options.getParticipantName(registrationId);
   };
 
-  const getPlayerStatusInReg = (
+  /**
+   * Derives whether a player has checked in TODAY from the dailyCheckIns audit log.
+   * The registration.status field is no longer reset nightly — daily check-in is
+   * determined entirely from dailyCheckIns[today].
+   */
+  const getPlayerDailyStatus = (
     reg: CheckInEligibleRegistration,
     playerId: string,
+    todayKey: string,
   ): CheckInStatus => {
-    if (reg.status === 'checked_in' || reg.status === 'no_show') return reg.status;
-    // Doubles partial: this player may already be physically present
-    if (reg.participantPresence?.[playerId]) return 'checked_in';
+    // Manual no-show is a permanent override (staff action, not a daily thing)
+    if (reg.status === 'no_show') return 'no_show';
+
+    const todayEntry = reg.dailyCheckIns?.[todayKey];
+    // Fully checked in today (checkedInAt stamp = all participants present)
+    if (todayEntry?.checkedInAt) return 'checked_in';
+    // Doubles: this player arrived today but partner hasn't yet
+    if (reg.partnerPlayerId && todayEntry?.presence?.[playerId]) return 'checked_in';
+    // No entry for today → needs check-in, regardless of yesterday's status
     return 'approved';
   };
 
   const eligibleParticipants = computed<ParticipantEntry[]>(() => {
+    const todayKey = formatCheckInDateKey(new Date());
     const result: ParticipantEntry[] = [];
     for (const reg of eligibleRegistrations.value) {
       const isDoubles = !!reg.partnerPlayerId;
@@ -373,7 +388,7 @@ export const useFrontDeskCheckInWorkflow = (
           name: resolvePlayerName(pid, reg.id),
           categoryId: reg.categoryId,
           bibNumber: reg.bibNumber,
-          status: reg.status,
+          status: getPlayerDailyStatus(reg, pid, todayKey),
           isDoubles: false,
         });
       } else {
@@ -393,7 +408,7 @@ export const useFrontDeskCheckInWorkflow = (
             partnerName,
             categoryId: reg.categoryId,
             bibNumber: reg.bibNumber,
-            status: getPlayerStatusInReg(reg, pid),
+            status: getPlayerDailyStatus(reg, pid, todayKey),
             isDoubles: true,
           });
         }
@@ -403,9 +418,14 @@ export const useFrontDeskCheckInWorkflow = (
   });
 
   const stats = computed(() => {
-    const approved = eligibleRegistrations.value.filter((registration) => registration.status === 'approved').length;
-    const checkedIn = eligibleRegistrations.value.filter((registration) => registration.status === 'checked_in').length;
-    const noShow = eligibleRegistrations.value.filter((registration) => registration.status === 'no_show').length;
+    const todayKey = formatCheckInDateKey(new Date());
+    const noShow = eligibleRegistrations.value.filter((r) => r.status === 'no_show').length;
+    const checkedIn = eligibleRegistrations.value.filter(
+      (r) => r.status !== 'no_show' && !!r.dailyCheckIns?.[todayKey]?.checkedInAt,
+    ).length;
+    const approved = eligibleRegistrations.value.filter(
+      (r) => r.status !== 'no_show' && !r.dailyCheckIns?.[todayKey]?.checkedInAt,
+    ).length;
     return computeFrontDeskStats({ approved, checkedIn, noShow });
   });
 
@@ -455,11 +475,20 @@ export const useFrontDeskCheckInWorkflow = (
       }
     }
 
+    const todayKey = formatCheckInDateKey(new Date());
+
     return [...byRegistration.entries()]
       .map(([registrationId, data]) => {
         const registration = options.registrations.value.find((item) => item.id === registrationId);
-        const canCheckIn = registration?.status === 'approved';
-        const disabledReason = canCheckIn ? undefined : getCheckInBlockedReason(registration?.status);
+        const checkedInToday = !!registration?.dailyCheckIns?.[todayKey]?.checkedInAt;
+        const canCheckIn =
+          !!registration &&
+          registration.status !== 'no_show' &&
+          registration.status !== 'withdrawn' &&
+          registration.status !== 'rejected' &&
+          registration.status !== 'pending' &&
+          !checkedInToday;
+        const disabledReason = canCheckIn ? undefined : getCheckInBlockedReason(registration, todayKey);
         const minutesAway = Math.max(0, Math.ceil((data.startAtMs - now) / 60_000));
         return {
           id: registrationId,

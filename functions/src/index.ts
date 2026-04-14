@@ -18,7 +18,6 @@ import { FirestoreStorage } from './storage/firestore-adapter';
 import { aggregatePlayerStats as aggregatePlayerStatsFn } from './playerStats';
 import { executeMerge as executeMergeFn } from './playerMerge';
 import { processScoreEvent as processScoreEventFn } from './processScoreEvent';
-import { resetDailyCheckIns as resetDailyCheckInsFn } from './resetDailyCheckIns';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -37,7 +36,6 @@ export const applyVolunteerCheckInAction = applyVolunteerCheckInActionFn;
 export const aggregatePlayerStats = aggregatePlayerStatsFn;
 export const executeMerge = executeMergeFn;
 export const processScoreEvent = processScoreEventFn;
-export const resetDailyCheckIns = resetDailyCheckInsFn;
 
 /**
  * Generate bracket for a tournament category
