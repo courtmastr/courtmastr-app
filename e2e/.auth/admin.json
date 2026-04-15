@@ -6,15 +6,19 @@
       "localStorage": [
         {
           "name": "firestore_sequence_number_firestore/[DEFAULT]/demo-courtmaster/",
-          "value": "12"
+          "value": "21"
+        },
+        {
+          "name": "firestore_targets_firestore/[DEFAULT]/demo-courtmaster/_6",
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1776184176000}"
         },
         {
           "name": "firestore_online_state_firestore/[DEFAULT]/demo-courtmaster/",
-          "value": "{\"clientId\":\"xGM7boaA5dDN6pLQS3sr\",\"onlineState\":\"Online\"}"
+          "value": "{\"clientId\":\"BSxXB54m4MTHYNgIvbAV\",\"onlineState\":\"Online\"}"
         },
         {
-          "name": "firestore_clients_firestore/[DEFAULT]/demo-courtmaster/_xGM7boaA5dDN6pLQS3sr",
-          "value": "{\"activeTargetIds\":[4,6],\"updateTimeMs\":1774048167414}"
+          "name": "firestore_clients_firestore/[DEFAULT]/demo-courtmaster/_BSxXB54m4MTHYNgIvbAV",
+          "value": "{\"activeTargetIds\":[4,6],\"updateTimeMs\":1776184176002}"
         }
       ]
     }
