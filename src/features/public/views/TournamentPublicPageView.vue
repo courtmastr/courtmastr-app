@@ -57,7 +57,7 @@ watch(snapshot, async (val) => {
     mm.add(
       { reduce: '(prefers-reduced-motion: reduce)' },
       (context) => {
-        const { reduce } = (context as { conditions: { reduce: boolean } }).conditions;
+        const { reduce } = (context as unknown as { conditions: { reduce: boolean } }).conditions;
         if (reduce) return;
 
         // Shuttlecock one-shot

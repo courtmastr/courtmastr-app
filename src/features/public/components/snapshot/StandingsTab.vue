@@ -26,7 +26,7 @@ function animateRows() {
     ctx = gsap.context(() => {
       const mm = gsap.matchMedia();
       mm.add({ reduce: '(prefers-reduced-motion: reduce)' }, (context) => {
-        const { reduce } = (context as { conditions: { reduce: boolean } }).conditions;
+        const { reduce } = (context as unknown as { conditions: { reduce: boolean } }).conditions;
         if (reduce) return;
         gsap.from('.s-row:not(.s-row--head)', {
           x: -14, autoAlpha: 0,

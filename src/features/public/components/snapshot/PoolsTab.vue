@@ -17,7 +17,7 @@ onMounted(() => {
   ctx = gsap.context(() => {
     const mm = gsap.matchMedia();
     mm.add({ reduce: '(prefers-reduced-motion: reduce)' }, (context) => {
-      const { reduce } = (context as { conditions: { reduce: boolean } }).conditions;
+      const { reduce } = (context as unknown as { conditions: { reduce: boolean } }).conditions;
       if (reduce) return;
       // Pool cards stagger up
       gsap.from('.pool-card', {
