@@ -158,6 +158,7 @@ export interface MatchSnapshot {
   player2: string;
   status: 'upcoming' | 'in_progress' | 'completed';
   score?: string;
+  winnerId?: string;
   poolLabel?: string;
   round?: string;
   isTbd?: true;
