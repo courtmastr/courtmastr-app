@@ -207,10 +207,13 @@ export const processScoreEvent = onDocumentCreated(
     } catch (error) {
       console.error('❌ [processScoreEvent] Error processing score event:', error);
       // Write error to the document rather than deleting — client onSnapshot
-      // can surface this as a toast via the processingError field.
+      // surfaces this via processingError/processingErrorCode fields.
+      const message = error instanceof Error ? error.message : 'Processing failed';
+      const isSessionError = message.includes('expired') || message.includes('PIN reset') || message.includes('disabled');
       try {
         await eventRef.update({
-          processingError: error instanceof Error ? error.message : 'Processing failed',
+          processingError: message,
+          processingErrorCode: isSessionError ? 'session_invalid' : 'processing_failed',
         });
       } catch (updateError) {
         console.error('❌ [processScoreEvent] Failed to write processingError:', updateError);

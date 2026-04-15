@@ -50,6 +50,18 @@ import { logger } from '@/utils/logger';
 const USE_CLOUD_FUNCTION_FOR_ADVANCE_WINNER = false;
 type VolunteerMatchUpdateStatus = 'in_progress' | 'completed' | 'walkover';
 
+/**
+ * Thrown when a volunteer scorekeeper's session has expired or been invalidated
+ * by a PIN rotation. The scoring UI catches this and prompts for PIN re-entry
+ * rather than silently failing or falling through to the admin Firestore path.
+ */
+export class VolunteerSessionExpiredError extends Error {
+  constructor() {
+    super('Scorekeeper session expired. Please re-enter your PIN to continue scoring.');
+    this.name = 'VolunteerSessionExpiredError';
+  }
+}
+
 // --- Shared helpers (pure, no store dependency) ---
 
 function toDate(value: unknown): Date | undefined {
@@ -164,6 +176,9 @@ export const useMatchStore = defineStore('matches', () => {
   const correctionHistory = ref<ScoreCorrectionRecord[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  // Set to true when the CF rejects a score event due to an invalid/expired session
+  // (PIN rotated mid-tournament). The scoring view watches this and shows re-PIN dialog.
+  const sessionExpiredSignal = ref(false);
 
   let matchesUnsubscribe: (() => void) | null = null;
   let currentMatchUnsubscribe: (() => void) | null = null;
@@ -231,6 +246,14 @@ export const useMatchStore = defineStore('matches', () => {
   }): Promise<boolean> => {
     const sessionToken = getVolunteerSessionToken(input.tournamentId, 'scorekeeper');
     if (!sessionToken) {
+      // Distinguish a volunteer device with an expired session from an admin
+      // who never had one. On volunteer devices, throw so the UI can prompt
+      // for PIN re-entry instead of falling through to a Firestore write that
+      // will be rejected by security rules (kiosks have no Firebase Auth).
+      const volunteerAccessStore = useVolunteerAccessStore();
+      if (volunteerAccessStore.isVolunteerDevice) {
+        throw new VolunteerSessionExpiredError();
+      }
       return false;
     }
 
@@ -257,6 +280,32 @@ export const useMatchStore = defineStore('matches', () => {
       sequence: Date.now(),
       createdAt: serverTimestamp(),
     });
+
+    // Watch for server-side session rejection (e.g. PIN rotated mid-tournament).
+    // The processScoreEvent CF writes processingErrorCode:'session_invalid' back to
+    // the event doc if the token is rejected. We clean up the listener on both
+    // success (doc deleted) and rejection to prevent memory leaks.
+    let eventUnsub: (() => void) | null = null;
+    eventUnsub = onSnapshot(eventRef, (snap) => {
+      if (!snap.exists()) {
+        // Doc deleted = CF processed successfully. Clean up listener.
+        eventUnsub?.();
+        return;
+      }
+      const data = snap.data();
+      if (data?.processingErrorCode === 'session_invalid') {
+        // The CF rejected this event — the score was NOT applied to Firestore.
+        // Re-fetch the authoritative Firestore state to roll back the optimistic
+        // score update that already mutated local Vue state.
+        fetchMatch(input.tournamentId, input.matchId, input.categoryId, input.levelId)
+          .catch(() => {}); // non-blocking; best-effort rollback
+        // Surface as a store-level signal. The scoring view watches this ref
+        // and opens the re-PIN dialog when it becomes true.
+        sessionExpiredSignal.value = true;
+        eventUnsub?.(); // Stop watching to avoid repeated signals.
+      }
+    });
+
     return true;
   };
 
@@ -2031,6 +2080,7 @@ export const useMatchStore = defineStore('matches', () => {
     correctionHistory,
     loading,
     error,
+    sessionExpiredSignal,
     scheduledMatches,
     readyMatches,
     inProgressMatches,

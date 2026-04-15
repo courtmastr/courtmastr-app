@@ -88,6 +88,10 @@ const persistSession = (session: VolunteerSession | null): void => {
 
 export const useVolunteerAccessStore = defineStore('volunteerAccess', () => {
   const session = ref<VolunteerSession | null>(readStoredSession());
+  // True once a volunteer session has been established on this device in this page lifetime.
+  // Stays true even after expiry so the scoring store can distinguish "scorer with expired
+  // session" from "admin who never had one".
+  const isVolunteerDevice = ref(session.value !== null);
 
   const clearSession = (): void => {
     session.value = null;
@@ -111,6 +115,7 @@ export const useVolunteerAccessStore = defineStore('volunteerAccess', () => {
 
   const setSession = (nextSession: VolunteerSession): void => {
     session.value = nextSession;
+    isVolunteerDevice.value = true;
     persistSession(nextSession);
   };
 
@@ -142,6 +147,7 @@ export const useVolunteerAccessStore = defineStore('volunteerAccess', () => {
 
   return {
     currentSession,
+    isVolunteerDevice,
     clearSession,
     hasValidSession,
     requestSession,

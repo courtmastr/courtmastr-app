@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useMatchStore } from '@/stores/matches';
+import { useMatchStore, VolunteerSessionExpiredError } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
@@ -54,6 +54,69 @@ const walkoverWinnerId = ref<string | null>(null);
 
 // Score correction dialog state
 const showCorrectionDialog = ref(false);
+
+// Re-PIN dialog: shown when the scorekeeper session expires mid-match
+const showRepinDialog = ref(false);
+const repinValue = ref('');
+const repinSubmitting = ref(false);
+const repinError = ref<string | null>(null);
+
+async function submitRepin(): Promise<void> {
+  if (!repinValue.value.trim()) return;
+  repinSubmitting.value = true;
+  repinError.value = null;
+  try {
+    await volunteerAccessStore.requestSession({
+      tournamentId: tournamentId.value,
+      role: 'scorekeeper',
+      pin: repinValue.value.trim(),
+    });
+    matchStore.sessionExpiredSignal = false;
+    showRepinDialog.value = false;
+    repinValue.value = '';
+    notificationStore.showToast('success', 'Session renewed — re-tap any points scored during the interruption');
+  } catch (err) {
+    repinError.value = err instanceof Error ? err.message : 'Invalid PIN';
+  } finally {
+    repinSubmitting.value = false;
+  }
+}
+
+// Returns true if the session is valid (or if not in volunteer mode).
+// If expired, opens the re-PIN dialog and returns false — caller must abort.
+function checkSessionOrPrompt(): boolean {
+  if (
+    volunteerAccessStore.isVolunteerDevice &&
+    !volunteerAccessStore.hasValidSession(tournamentId.value, 'scorekeeper')
+  ) {
+    showRepinDialog.value = true;
+    return false;
+  }
+  return true;
+}
+
+function handleScoringError(error: unknown, fallbackMessage: string): void {
+  if (error instanceof VolunteerSessionExpiredError) {
+    // Defensive rollback: session expired in the narrow window between the guard
+    // check and the Firestore write. Re-fetch to undo the optimistic score mutation.
+    if (match.value) {
+      matchStore.fetchMatch(
+        tournamentId.value,
+        matchId.value,
+        match.value.categoryId,
+        match.value.levelId,
+      ).catch(() => {});
+    }
+    showRepinDialog.value = true;
+    return;
+  }
+  notificationStore.showToast('error', error instanceof Error ? error.message : fallbackMessage);
+}
+
+// Watch for server-side PIN rotation rejection surfaced via sessionExpiredSignal
+watch(() => matchStore.sessionExpiredSignal, (fired) => {
+  if (fired) showRepinDialog.value = true;
+});
 
 // Check if user can correct scores
 const canCorrectMatch = computed(() => {
@@ -149,6 +212,12 @@ onMounted(async () => {
     }
   } finally {
     initialized.value = true;
+    // Proactive session check: show re-PIN dialog immediately if the scorer
+    // lands on this page with an already-expired session rather than waiting
+    // for the first tap to fail.
+    if (volunteerAccessStore.isVolunteerDevice && !volunteerAccessStore.hasValidSession(tournamentId.value, 'scorekeeper')) {
+      showRepinDialog.value = true;
+    }
   }
 });
 
@@ -202,6 +271,7 @@ const categoryName = computed(() => {
 });
 
 async function startMatch() {
+  if (!checkSessionOrPrompt()) return;
   loading.value = true;
   try {
     await matchStore.startMatch(
@@ -222,7 +292,7 @@ async function startMatch() {
       categoryName.value
     ).catch((err) => logger.warn('Activity logging failed:', err));
   } catch (error) {
-    notificationStore.showToast('error', 'Failed to start match');
+    handleScoringError(error, 'Failed to start match');
   } finally {
     loading.value = false;
   }
@@ -230,6 +300,7 @@ async function startMatch() {
 
 async function addPoint(participant: 'participant1' | 'participant2') {
   if (isMatchComplete.value || !match.value || scoreEntryLocked.value) return;
+  if (!checkSessionOrPrompt()) return;
 
   try {
     await matchStore.updateScore(
@@ -240,12 +311,13 @@ async function addPoint(participant: 'participant1' | 'participant2') {
       match.value.levelId
     );
   } catch (error) {
-    notificationStore.showToast('error', 'Failed to update score');
+    handleScoringError(error, 'Failed to update score');
   }
 }
 
 async function removePoint(participant: 'participant1' | 'participant2') {
   if (isMatchComplete.value || !match.value) return;
+  if (!checkSessionOrPrompt()) return;
 
   try {
     await matchStore.decrementScore(
@@ -256,12 +328,13 @@ async function removePoint(participant: 'participant1' | 'participant2') {
       match.value.levelId
     );
   } catch (error) {
-    notificationStore.showToast('error', 'Failed to update score');
+    handleScoringError(error, 'Failed to update score');
   }
 }
 
 async function completeCurrentGame() {
   if (isMatchComplete.value || !match.value || !currentGameReadyToComplete.value) return;
+  if (!checkSessionOrPrompt()) return;
 
   loading.value = true;
   try {
@@ -273,8 +346,7 @@ async function completeCurrentGame() {
     );
     notificationStore.showToast('success', 'Game completed');
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to complete game';
-    notificationStore.showToast('error', message);
+    handleScoringError(error, 'Failed to complete game');
   } finally {
     loading.value = false;
   }
@@ -1059,6 +1131,56 @@ const goBack = (): void => {
     :scoring-config="match?.scoringConfig || BADMINTON_CONFIG"
     @corrected="onScoreCorrected"
   />
+
+  <!-- Session Expired / Re-PIN Dialog -->
+  <v-dialog
+    v-model="showRepinDialog"
+    max-width="380"
+    persistent
+  >
+    <v-card>
+      <v-card-title class="text-h6 pt-5 px-5">
+        Session expired
+      </v-card-title>
+      <v-card-text class="px-5">
+        <p class="text-body-2 mb-4">
+          Your scorekeeper session has expired or the PIN was changed. Re-enter the PIN to continue scoring.
+        </p>
+        <v-alert
+          v-if="repinError"
+          type="error"
+          variant="tonal"
+          density="compact"
+          class="mb-3"
+        >
+          {{ repinError }}
+        </v-alert>
+        <v-text-field
+          v-model="repinValue"
+          label="Scorekeeper PIN"
+          type="password"
+          autocomplete="one-time-code"
+          variant="outlined"
+          density="comfortable"
+          autofocus
+          :disabled="repinSubmitting"
+          @keyup.enter="submitRepin"
+        />
+      </v-card-text>
+      <v-card-actions class="px-5 pb-5">
+        <v-spacer />
+        <v-btn
+          color="primary"
+          variant="flat"
+          :loading="repinSubmitting"
+          :disabled="!repinValue.trim() || repinSubmitting"
+          @click="submitRepin"
+        >
+          Renew session
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
