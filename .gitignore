@@ -41,6 +41,12 @@ functions/.secret.local
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+emulator-data/
+
+# Functions debug/scratch scripts
+functions/check-doc*.mjs
+functions/reset-levels.mjs
+functions/lib/tsconfig.tsbuildinfo
 
 # Service account keys
 serviceAccountKey.json

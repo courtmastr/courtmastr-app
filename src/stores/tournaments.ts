@@ -34,7 +34,7 @@ import { useAuditStore } from '@/stores/audit';
 import { useAuthStore } from '@/stores/auth';
 import { useOrganizationsStore } from '@/stores/organizations';
 
-const USE_CLOUD_FUNCTION_FOR_BRACKETS = false;
+const USE_CLOUD_BRACKETS = true; // set to true to test cloud-side bracket generation
 const USE_CLOUD_FUNCTION_FOR_SCHEDULE = false;
 import type {
   Tournament,
@@ -1052,10 +1052,10 @@ export const useTournamentStore = defineStore('tournaments', () => {
         await preOperation();
       }
 
-      if (USE_CLOUD_FUNCTION_FOR_BRACKETS) {
-        const generateBracketFn = httpsCallable(functions, 'generateBracket');
-        await generateBracketFn({ tournamentId, categoryId, ...options });
-        return { success: true, matchCount: 0 };
+      if (USE_CLOUD_BRACKETS) {
+        const generateBracketFn = httpsCallable<object, { success: boolean; matchCount: number }>(functions, 'generateBracket');
+        const res = await generateBracketFn({ tournamentId, categoryId, ...options });
+        return { success: true, matchCount: res.data.matchCount ?? 0 };
       } else {
         const result = await bracketGen.generateBracket(tournamentId, categoryId, options);
         return result;
@@ -1106,11 +1106,24 @@ export const useTournamentStore = defineStore('tournaments', () => {
     error.value = null;
 
     try {
-      const result = await bracketGen.generateEliminationFromPool(tournamentId, categoryId, {
-        consolationFinal: options.consolationFinal,
-        precomputedQualifierRegistrationIds: options.advancingRegistrationIds,
-        eliminationFormat: options.eliminationFormat,
-      });
+      let result: { success: boolean; matchCount: number };
+      if (USE_CLOUD_BRACKETS) {
+        const fn = httpsCallable<object, { success: boolean; matchCount: number }>(functions, 'generateEliminationFromPool');
+        const res = await fn({
+          tournamentId,
+          categoryId,
+          consolationFinal: options.consolationFinal,
+          precomputedQualifierRegistrationIds: options.advancingRegistrationIds,
+          eliminationFormat: options.eliminationFormat,
+        });
+        result = { success: true, matchCount: res.data.matchCount ?? 0 };
+      } else {
+        result = await bracketGen.generateEliminationFromPool(tournamentId, categoryId, {
+          consolationFinal: options.consolationFinal,
+          precomputedQualifierRegistrationIds: options.advancingRegistrationIds,
+          eliminationFormat: options.eliminationFormat,
+        });
+      }
 
       // Persist cut metadata so it can be displayed later
       if (options.qualifierCount !== undefined || options.qualifierCutMode !== undefined) {
@@ -1316,14 +1329,28 @@ export const useTournamentStore = defineStore('tournaments', () => {
           continue;
         }
 
-        const levelResult = await bracketGen.generateLevelBracket(
-          tournamentId,
-          categoryId,
-          level.id,
-          level.name,
-          levelParticipants,
-          level.eliminationFormat
-        );
+        let levelResult: { success: boolean; stageId: number; matchCount: number };
+        if (USE_CLOUD_BRACKETS) {
+          const fn = httpsCallable<object, { success: boolean; stageId: number; matchCount: number }>(functions, 'generateLevelBracket');
+          const res = await fn({
+            tournamentId,
+            categoryId,
+            levelId: level.id,
+            levelName: level.name,
+            orderedRegistrationIds: levelParticipants,
+            eliminationFormat: level.eliminationFormat,
+          });
+          levelResult = res.data;
+        } else {
+          levelResult = await bracketGen.generateLevelBracket(
+            tournamentId,
+            categoryId,
+            level.id,
+            level.name,
+            levelParticipants,
+            level.eliminationFormat
+          );
+        }
 
         await setDoc(
           doc(db, `tournaments/${tournamentId}/categories/${categoryId}/levels`, level.id),
@@ -1386,7 +1413,12 @@ export const useTournamentStore = defineStore('tournaments', () => {
   ): Promise<{ success: boolean; matchCount: number }> {
     const bracketGen = useBracketGenerator();
     const result = await executeBracketOperation(tournamentId, categoryId, options, async () => {
-      await bracketGen.deleteBracket(tournamentId, categoryId);
+      if (USE_CLOUD_BRACKETS) {
+        const deleteFn = httpsCallable(functions, 'deleteBracket');
+        await deleteFn({ tournamentId, categoryId });
+      } else {
+        await bracketGen.deleteBracket(tournamentId, categoryId);
+      }
     });
     if (result.success) {
       const category = categories.value.find((c) => c.id === categoryId);
@@ -1410,7 +1442,12 @@ export const useTournamentStore = defineStore('tournaments', () => {
     error.value = null;
     try {
       // Step 1: Delete the existing pool stage completely
-      await bracketGen.deleteBracket(tournamentId, categoryId);
+      if (USE_CLOUD_BRACKETS) {
+        const deleteFn = httpsCallable(functions, 'deleteBracket');
+        await deleteFn({ tournamentId, categoryId });
+      } else {
+        await bracketGen.deleteBracket(tournamentId, categoryId);
+      }
 
       // Step 2: Clear all derived pool state from the category document.
       // This MUST happen before generateBracket() so no stale state survives
@@ -1431,7 +1468,13 @@ export const useTournamentStore = defineStore('tournaments', () => {
       );
 
       // Step 3: Regenerate fresh pools
-      const result = await bracketGen.generateBracket(tournamentId, categoryId);
+      const result = USE_CLOUD_BRACKETS
+        ? await (async () => {
+            const fn = httpsCallable<object, { success: boolean; matchCount: number }>(functions, 'generateBracket');
+            const res = await fn({ tournamentId, categoryId });
+            return { success: true, matchCount: res.data.matchCount ?? 0 };
+          })()
+        : await bracketGen.generateBracket(tournamentId, categoryId);
       const category = categories.value.find((c) => c.id === categoryId);
       const auditStore = useAuditStore();
       await auditStore.logBracketGenerated(

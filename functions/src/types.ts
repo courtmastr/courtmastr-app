@@ -104,3 +104,16 @@ export const BADMINTON_CONFIG: BadmintonConfig = {
   mustWinBy: 2,
   maxPoints: 30,
 };
+
+export type PoolSeedingMethod = 'serpentine' | 'random_in_tiers' | 'fully_random';
+export type LevelEliminationFormat = 'single_elimination' | 'double_elimination' | 'playoff_8';
+
+export interface Category {
+  id: string;
+  name: string;
+  format: TournamentFormat;
+  teamsPerPool?: number;
+  poolSeedingMethod?: PoolSeedingMethod;
+  poolQualifiersPerGroup?: number;
+  poolStageId?: number | null;
+}

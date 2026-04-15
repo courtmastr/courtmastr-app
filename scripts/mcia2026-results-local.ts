@@ -132,8 +132,8 @@ function asNumber(value: number | string | undefined | null): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function pairKey(left: number, right: number): string {
-  return left < right ? `${left}-${right}` : `${right}-${left}`;
+function pairKey(left: number | string, right: number | string): string {
+  return String(left) < String(right) ? `${left}-${right}` : `${right}-${left}`;
 }
 
 function parseCliArgs(argv: string[]): CliOptions {
@@ -377,7 +377,7 @@ async function main(): Promise<void> {
       console.warn(`  Warning: category format is "${category.format || 'unknown'}"`);
     }
 
-    const poolStageId = asNumber(category.poolStageId);
+    const poolStageId = category.poolStageId != null ? String(category.poolStageId) : null;
     if (poolStageId === null) {
       throw new Error('poolStageId is missing. Generate pools in UI first.');
     }
@@ -414,12 +414,12 @@ async function main(): Promise<void> {
       regIdByTeamKey.set(normalizeTeamName(data.teamName), docSnap.id);
     });
 
-    const participantIdByRegId = new Map<string, number>();
-    const regIdByParticipantId = new Map<number, string>();
+    const participantIdByRegId = new Map<string, string>();
+    const regIdByParticipantId = new Map<string, string>();
     participantsSnap.docs.forEach((docSnap) => {
       const data = docSnap.data() as ParticipantDoc;
-      const participantId = asNumber(data.id);
-      if (participantId === null) return;
+      if (data.id == null) return;
+      const participantId = String(data.id);
       participantIdByRegId.set(String(data.name), participantId);
       regIdByParticipantId.set(participantId, String(data.name));
     });
@@ -427,7 +427,7 @@ async function main(): Promise<void> {
     const poolMatches: MatchDoc[] = [];
     matchesSnap.docs.forEach((docSnap) => {
       const data = docSnap.data() as Omit<MatchDoc, 'id'>;
-      if (asNumber(data.stage_id) !== poolStageId) return;
+      if (data.stage_id == null || String(data.stage_id) !== poolStageId) return;
       poolMatches.push({ ...data, id: docSnap.id });
     });
 
@@ -482,8 +482,8 @@ async function main(): Promise<void> {
       }
       seenMatchIds.add(match.id);
 
-      const opponent1Id = asNumber(match.opponent1?.id);
-      const opponent2Id = asNumber(match.opponent2?.id);
+      const opponent1Id = match.opponent1?.id != null ? String(match.opponent1.id) : null;
+      const opponent2Id = match.opponent2?.id != null ? String(match.opponent2.id) : null;
       if (opponent1Id === null || opponent2Id === null) {
         throw new Error(`Match ${match.id} has incomplete opponents`);
       }
