@@ -415,7 +415,7 @@ function buildCategorySnapshot(
 
   // TBD auto-removal: for each roundLabel in tbdEntries, check if real matches exist for that round label
   const realRoundLabels = new Set(schedule.map((s) => s.round).filter(Boolean));
-  const catTbdEntries = tbdEntries.filter((e) => e.categoryId === category.id);
+  const catTbdEntries = tbdEntries.filter((e) => e.categoryId === category.id || e.categoryId === '__all__');
   const survivingTbd = catTbdEntries.filter((e) => !realRoundLabels.has(e.roundLabel));
 
   const tbdSnapshots: MatchSnapshot[] = survivingTbd.map((e) => ({
