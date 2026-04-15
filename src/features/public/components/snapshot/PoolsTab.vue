@@ -37,7 +37,7 @@ function buildPoolStandings(matches: MatchSnapshot[]): PoolStanding[] {
     if (m.status !== 'completed' || !m.score) continue;
     let p1Total = 0, p2Total = 0, p1Sets = 0, p2Sets = 0;
     for (const set of m.score.split(/[,;]/).map((s) => s.trim())) {
-      const parts = set.split(/[–\-]/).map((x) => parseInt(x.trim(), 10));
+      const parts = set.split(/[–-]/).map((x) => parseInt(x.trim(), 10));
       if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
         p1Total += parts[0]; p2Total += parts[1];
         if (parts[0] > parts[1]) p1Sets++; else if (parts[1] > parts[0]) p2Sets++;
