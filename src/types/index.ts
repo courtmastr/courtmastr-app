@@ -218,6 +218,10 @@ export type PoolPhase = 'pool' | 'elimination';
 export type LevelingMode = 'pool_position' | 'global_bands';
 export type LevelEliminationFormat = 'single_elimination' | 'double_elimination' | 'playoff_8';
 export type LevelingStatus = 'not_started' | 'configured' | 'generated';
+export type QualifierCutMode =
+  | 'global_top_n'       // Best N across all pools by global rank
+  | 'pool_first_global'  // Pool rank breaks ties, then global rank
+  | 'top_n_per_pool';    // Top N from each pool (legacy default)
 export type PoolSeedingMethod = 'serpentine' | 'random_in_tiers' | 'fully_random';
 export type RankingPresetId = 'courtmaster_default' | 'bwf_strict' | 'simple_ladder';
 export type RankingProgressionMode = 'carry_forward' | 'phase_reset';
@@ -241,6 +245,8 @@ export interface Category {
     mustWinBy?: number;
     maxPoints?: number | null;
   } | null;
+  eliminationScoringEnabled?: boolean;
+  eliminationScoringConfig?: ScoringConfig | null;
   gamesPerMatch?: number;
   pointsToWin?: number;
   mustWinBy?: number;
@@ -253,6 +259,8 @@ export interface Category {
   poolGroupCount?: number | null;
   poolQualifiersPerGroup?: number | null;
   poolQualifiedRegistrationIds?: string[];
+  qualifierCount?: number | null;
+  qualifierCutMode?: QualifierCutMode | null;
   teamsPerPool?: number | null;
   poolSeedingMethod?: PoolSeedingMethod | null;
   levelingEnabled?: boolean | null;
@@ -393,6 +401,12 @@ export interface Team {
 }
 
 // Registration Types
+export interface DailyCheckIn {
+  checkedInAt?: Date;
+  source: 'admin' | 'kiosk';
+  presence?: Record<string, boolean>; // doubles: playerId → present on this day
+}
+
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'checked_in' | 'no_show';
 export type PaymentStatus = 'unpaid' | 'paid' | 'partial' | 'refunded';
 
@@ -410,6 +424,7 @@ export interface Registration {
   participantPresence?: Record<string, boolean>; // Per-player presence map used by self check-in kiosk
   checkInSource?: 'admin' | 'kiosk'; // Origin of latest check-in transition
   checkedInAt?: Date; // Timestamp when registration became fully checked in
+  dailyCheckIns?: Record<string, DailyCheckIn>; // key: "YYYY-MM-DD" in tournament local timezone (America/Chicago for v1)
   paymentStatus?: PaymentStatus; // Payment tracking
   paymentNote?: string; // e.g., "Paid via Venmo", "Cash collected"
   seed?: number;

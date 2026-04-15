@@ -30,8 +30,10 @@ const visualState = computed(() => {
   if (props.court.status === 'maintenance') {
     return { label: 'BLOCKED', color: 'warning', borderClass: 'court-card--blocked' };
   }
-  if (props.court.status === 'in_use') {
-    if (props.match?.status === 'in_progress') {
+  // Use match presence as the source of truth — court.status can lag behind
+  // (orphaned match: court cleared but match.courtId still set)
+  if (props.match) {
+    if (props.match.status === 'in_progress') {
       return { label: 'LIVE', color: 'success', borderClass: 'court-card--live' };
     }
     return { label: 'READY', color: 'info', borderClass: 'court-card--ready' };
@@ -182,7 +184,7 @@ const currentScore = computed(() => {
       <template v-if="hasMatch">
         <div class="d-flex w-100 gap-2">
           <v-btn
-            v-if="match?.status === 'in_progress' || match?.status === 'ready'"
+            v-if="match?.status === 'in_progress' || match?.status === 'ready' || match?.status === 'scheduled'"
             variant="flat"
             color="primary"
             size="small"
@@ -191,17 +193,6 @@ const currentScore = computed(() => {
             @click="emit('score', match!.id)"
           >
             Score
-          </v-btn>
-          <v-btn
-            v-else-if="match?.status === 'scheduled'"
-            variant="flat"
-            color="info"
-            size="small"
-            class="flex-grow-1"
-            prepend-icon="mdi-play"
-            @click="emit('score', match!.id)"
-          >
-            Start
           </v-btn>
           <v-btn
             variant="text"

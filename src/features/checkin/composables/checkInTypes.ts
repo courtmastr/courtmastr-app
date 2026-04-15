@@ -10,6 +10,8 @@ export interface CheckInSearchRow {
   bibNumber?: number | null;
   partnerName?: string | null;
   status: CheckInStatus;
+  // Individual player ID — set for doubles rows, undefined for singles
+  playerId?: string;
 }
 
 export const isCheckInSearchableStatus = (status: Registration['status']): status is CheckInStatus =>

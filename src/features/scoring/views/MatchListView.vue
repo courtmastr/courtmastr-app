@@ -99,7 +99,10 @@ function openScoreDialog(match: Match): void {
         tournamentId: tournamentId.value,
         matchId: match.id,
       },
-      query: match.categoryId ? { category: match.categoryId } : undefined,
+      query: {
+        ...(match.categoryId ? { category: match.categoryId } : {}),
+        ...(match.levelId ? { level: match.levelId } : {}),
+      },
     });
     return;
   }

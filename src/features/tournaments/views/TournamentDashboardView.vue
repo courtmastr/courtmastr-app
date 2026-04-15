@@ -160,7 +160,10 @@ function handleEnterScore(matchId: string): void {
   }
   router.push({
     path: `/tournaments/${tournamentId.value}/matches/${matchId}/score`,
-    query: { category: match.categoryId },
+    query: {
+      category: match.categoryId,
+      ...(match.levelId ? { level: match.levelId } : {}),
+    },
   });
 }
 
@@ -169,10 +172,13 @@ function handleCompleteMatch(matchId: string): void {
   showCompleteMatchDialog.value = true;
 }
 
-function handleQueueSelect(ref: { matchId: string; categoryId: string }): void {
+function handleQueueSelect(ref: { matchId: string; categoryId: string; levelId?: string }): void {
   router.push({
     path: `/tournaments/${tournamentId.value}/matches/${ref.matchId}/score`,
-    query: { category: ref.categoryId },
+    query: {
+      category: ref.categoryId,
+      ...(ref.levelId ? { level: ref.levelId } : {}),
+    },
   });
 }
 

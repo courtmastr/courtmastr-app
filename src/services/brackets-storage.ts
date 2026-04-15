@@ -2,7 +2,7 @@ import { CrudInterface, Table, OmitId, DataTypes } from 'brackets-manager';
 import { Firestore } from 'firebase/firestore';
 import { collection, doc, getDocs, setDoc, query, where, writeBatch, Query, DocumentData } from 'firebase/firestore';
 import { normalizeReferences, removeUndefinedDeep } from './brackets-storage-utils';
-import { logger } from '@/utils/logger';
+import { logger } from '../utils/logger';
 
 /**
  * ADAPTER CONSISTENCY:
@@ -29,6 +29,27 @@ export class ClientFirestoreStorage implements CrudInterface {
     const current = this.idCounters.get(table) || 0;
     this.idCounters.set(table, current + 1);
     return current;
+  }
+
+  /**
+   * Reads existing documents in each table and advances the ID counter past
+   * the current maximum. Call this before generating a new stage into a path
+   * that already contains data (e.g. elimination stage after pool stage) so
+   * the new stage receives non-colliding IDs.
+   */
+  async seedCountersFromExisting(tables: string[]): Promise<void> {
+    for (const table of tables) {
+      const colRef = this.getCollectionRef(table);
+      const snapshot = await getDocs(colRef);
+      if (!snapshot.empty) {
+        let maxId = -1;
+        snapshot.docs.forEach((d) => {
+          const id = (d.data() as { id?: unknown }).id;
+          if (typeof id === 'number' && id > maxId) maxId = id;
+        });
+        if (maxId >= 0) this.idCounters.set(table, maxId + 1);
+      }
+    }
   }
 
   private getCollectionRef(table: string) {

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.healthCheck = exports.advanceWinner = exports.generateSchedule = exports.generateBracket = exports.executeMerge = exports.aggregatePlayerStats = exports.applyVolunteerCheckInAction = exports.issueVolunteerSession = exports.revealVolunteerPin = exports.setVolunteerPin = exports.submitSelfCheckIn = exports.searchSelfCheckInCandidates = exports.submitReview = exports.submitBugReport = exports.updateMatch = void 0;
+exports.healthCheck = exports.advanceWinner = exports.generateSchedule = exports.deleteBracket = exports.generateLevelBracket = exports.generateEliminationFromPool = exports.generateBracket = exports.processScoreEvent = exports.executeMerge = exports.aggregatePlayerStats = exports.applyVolunteerCheckInAction = exports.issueVolunteerSession = exports.revealVolunteerPin = exports.setVolunteerPin = exports.submitSelfCheckIn = exports.searchSelfCheckInCandidates = exports.submitReview = exports.submitBugReport = exports.updateMatch = void 0;
 // Cloud Functions Entry Point
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
@@ -48,6 +48,7 @@ const volunteerAccess_1 = require("./volunteerAccess");
 const firestore_adapter_1 = require("./storage/firestore-adapter");
 const playerStats_1 = require("./playerStats");
 const playerMerge_1 = require("./playerMerge");
+const processScoreEvent_1 = require("./processScoreEvent");
 // Initialize Firebase Admin
 admin.initializeApp();
 const db = admin.firestore();
@@ -62,12 +63,94 @@ exports.issueVolunteerSession = volunteerAccess_1.issueVolunteerSession;
 exports.applyVolunteerCheckInAction = volunteerAccess_1.applyVolunteerCheckInAction;
 exports.aggregatePlayerStats = playerStats_1.aggregatePlayerStats;
 exports.executeMerge = playerMerge_1.executeMerge;
+exports.processScoreEvent = processScoreEvent_1.processScoreEvent;
 /**
- * Generate bracket for a tournament category
+ * Generate bracket for a tournament category (all formats including pool_to_elimination)
  */
 exports.generateBracket = functions.https.onCall(async (request) => {
     var _a;
-    // Verify authentication
+    if (!request.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { tournamentId, categoryId, grandFinal, consolationFinal, seedOrdering, groupCount, qualifiersPerGroup, teamsPerPool, poolSeedingMethod } = request.data;
+    if (!tournamentId || !categoryId) {
+        throw new functions.https.HttpsError('invalid-argument', 'tournamentId and categoryId are required');
+    }
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    const userRole = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.role;
+    if (!['admin', 'organizer'].includes(userRole)) {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins and organizers can generate brackets');
+    }
+    try {
+        const result = await (0, bracket_1.createBracket)(tournamentId, categoryId, {
+            grandFinal, consolationFinal, seedOrdering, groupCount, qualifiersPerGroup, teamsPerPool, poolSeedingMethod,
+        });
+        return result;
+    }
+    catch (error) {
+        console.error('Error generating bracket:', error);
+        throw new functions.https.HttpsError('internal', error instanceof Error ? error.message : 'Failed to generate bracket');
+    }
+});
+/**
+ * Generate elimination stage from completed pool play
+ */
+exports.generateEliminationFromPool = functions.https.onCall(async (request) => {
+    var _a;
+    if (!request.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { tournamentId, categoryId, consolationFinal, precomputedQualifierRegistrationIds, eliminationFormat, qualifiersPerGroup } = request.data;
+    if (!tournamentId || !categoryId) {
+        throw new functions.https.HttpsError('invalid-argument', 'tournamentId and categoryId are required');
+    }
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    const userRole = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.role;
+    if (!['admin', 'organizer'].includes(userRole)) {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins and organizers can generate brackets');
+    }
+    try {
+        const result = await (0, bracket_1.createEliminationFromPool)(tournamentId, categoryId, {
+            consolationFinal, precomputedQualifierRegistrationIds, eliminationFormat, qualifiersPerGroup,
+        });
+        return result;
+    }
+    catch (error) {
+        console.error('Error generating elimination from pool:', error);
+        throw new functions.https.HttpsError('internal', error instanceof Error ? error.message : 'Failed to generate elimination stage');
+    }
+});
+/**
+ * Generate a level-specific bracket under categories/{c}/levels/{l}/
+ */
+exports.generateLevelBracket = functions.https.onCall(async (request) => {
+    var _a;
+    if (!request.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { tournamentId, categoryId, levelId, levelName, orderedRegistrationIds, eliminationFormat, grandFinal, consolationFinal } = request.data;
+    if (!tournamentId || !categoryId || !levelId || !levelName || !orderedRegistrationIds) {
+        throw new functions.https.HttpsError('invalid-argument', 'tournamentId, categoryId, levelId, levelName, and orderedRegistrationIds are required');
+    }
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    const userRole = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.role;
+    if (!['admin', 'organizer'].includes(userRole)) {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins and organizers can generate brackets');
+    }
+    try {
+        const result = await (0, bracket_1.createLevelBracket)(tournamentId, categoryId, levelId, levelName, orderedRegistrationIds, eliminationFormat || 'single_elimination', { grandFinal, consolationFinal });
+        return result;
+    }
+    catch (error) {
+        console.error('Error generating level bracket:', error);
+        throw new functions.https.HttpsError('internal', error instanceof Error ? error.message : 'Failed to generate level bracket');
+    }
+});
+/**
+ * Delete all bracket data for a category (used before regeneration)
+ */
+exports.deleteBracket = functions.https.onCall(async (request) => {
+    var _a;
     if (!request.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -75,19 +158,18 @@ exports.generateBracket = functions.https.onCall(async (request) => {
     if (!tournamentId || !categoryId) {
         throw new functions.https.HttpsError('invalid-argument', 'tournamentId and categoryId are required');
     }
-    // Verify user is admin or organizer
     const userDoc = await db.collection('users').doc(request.auth.uid).get();
     const userRole = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.role;
     if (!['admin', 'organizer'].includes(userRole)) {
-        throw new functions.https.HttpsError('permission-denied', 'Only admins and organizers can generate brackets');
+        throw new functions.https.HttpsError('permission-denied', 'Only admins and organizers can delete brackets');
     }
     try {
-        await (0, bracket_1.generateBracket)(tournamentId, categoryId);
+        await (0, bracket_1.deleteBracket)(tournamentId, categoryId);
         return { success: true };
     }
     catch (error) {
-        console.error('Error generating bracket:', error);
-        throw new functions.https.HttpsError('internal', error instanceof Error ? error.message : 'Failed to generate bracket');
+        console.error('Error deleting bracket:', error);
+        throw new functions.https.HttpsError('internal', error instanceof Error ? error.message : 'Failed to delete bracket');
     }
 });
 /**
@@ -196,7 +278,7 @@ export const onMatchUpdate = functions.firestore
 /**
  * HTTP trigger: Health check
  */
-exports.healthCheck = functions.https.onRequest((req, res) => {
+exports.healthCheck = functions.https.onRequest((_req, res) => {
     res.json({
         status: 'healthy',
         timestamp: new Date().toISOString(),

@@ -225,6 +225,8 @@ const initialRankingDefaults = ref<{
 });
 const categoryScoringOverrides = ref<Record<string, CategoryScoringOverrideForm>>({});
 const initialCategoryScoringOverrides = ref<Record<string, CategoryScoringOverrideForm>>({});
+const categoryEliminationScoringOverrides = ref<Record<string, CategoryScoringOverrideForm>>({});
+const initialCategoryEliminationScoringOverrides = ref<Record<string, CategoryScoringOverrideForm>>({});
 const categoryRankingOverrides = ref<Record<string, CategoryRankingOverrideForm>>({});
 const initialCategoryRankingOverrides = ref<Record<string, CategoryRankingOverrideForm>>({});
 
@@ -372,6 +374,18 @@ const buildCategoryScoringForm = (category: Category, fallbackConfig: ScoringCon
   };
 };
 
+const buildCategoryEliminationScoringForm = (category: Category, fallbackConfig: ScoringConfig): CategoryScoringOverrideForm => {
+  const effectiveConfig = category.eliminationScoringEnabled
+    ? sanitizeScoringConfig(category.eliminationScoringConfig ?? {}, fallbackConfig)
+    : fallbackConfig;
+
+  return {
+    enabled: Boolean(category.eliminationScoringEnabled),
+    preset: detectPreset(effectiveConfig),
+    config: cloneScoringConfig(effectiveConfig),
+  };
+};
+
 const buildCategoryRankingForm = (
   category: Category,
   fallbackPreset: RankingPresetId,
@@ -405,6 +419,21 @@ function updateCategoryMaxPoints(categoryId: string, value: string | number | nu
   override.preset = 'custom';
 }
 
+function applyCategoryEliminationPreset(categoryId: string, presetKey: string): void {
+  if (presetKey === 'custom') return;
+  const preset = SCORING_PRESETS[presetKey];
+  const form = categoryEliminationScoringOverrides.value[categoryId];
+  if (!preset || !form) return;
+  form.config = sanitizeScoringConfig(preset, sanitizeScoringConfig(settings.value));
+}
+
+function updateCategoryEliminationMaxPoints(categoryId: string, value: string | number | null): void {
+  const override = categoryEliminationScoringOverrides.value[categoryId];
+  if (!override) return;
+  override.config.maxPoints = value === '' || value == null ? null : Number(value);
+  override.preset = 'custom';
+}
+
 const hasTournamentScoringChanged = (): boolean => {
   const current = sanitizeScoringConfig(settings.value);
   const baseline = initialScoringConfig.value;
@@ -415,12 +444,6 @@ const hasTournamentScoringChanged = (): boolean => {
     || current.mustWinBy !== baseline.mustWinBy
     || current.maxPoints !== baseline.maxPoints
   );
-};
-
-const hasCategoryScoringChanged = (): boolean => {
-  const current = JSON.stringify(cloneOverrideRecord(categoryScoringOverrides.value));
-  const baseline = JSON.stringify(cloneOverrideRecord(initialCategoryScoringOverrides.value));
-  return current !== baseline;
 };
 
 // Populate form when tournament/category data loads
@@ -464,9 +487,11 @@ watch([tournament, categories], ([t, nextCategories]) => {
     };
 
     const categoryOverrides: Record<string, CategoryScoringOverrideForm> = {};
+    const categoryEliminationOverrides: Record<string, CategoryScoringOverrideForm> = {};
     const categoryRankingOverrideValues: Record<string, CategoryRankingOverrideForm> = {};
     nextCategories.forEach((category) => {
       categoryOverrides[category.id] = buildCategoryScoringForm(category, normalizedScoringConfig);
+      categoryEliminationOverrides[category.id] = buildCategoryEliminationScoringForm(category, normalizedScoringConfig);
       categoryRankingOverrideValues[category.id] = buildCategoryRankingForm(
         category,
         rankingPresetDefault,
@@ -475,6 +500,8 @@ watch([tournament, categories], ([t, nextCategories]) => {
     });
     categoryScoringOverrides.value = categoryOverrides;
     initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryOverrides);
+    categoryEliminationScoringOverrides.value = categoryEliminationOverrides;
+    initialCategoryEliminationScoringOverrides.value = cloneOverrideRecord(categoryEliminationOverrides);
     categoryRankingOverrides.value = categoryRankingOverrideValues;
     initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrideValues);
     brandingSponsors.value = normalizedSponsors.value.map(cloneTournamentSponsor);
@@ -502,7 +529,7 @@ onMounted(async () => {
 async function saveSettings() {
   loading.value = true;
   try {
-    if ((hasTournamentScoringChanged() || hasCategoryScoringChanged()) && tournament.value) {
+    if (hasTournamentScoringChanged() && tournament.value) {
       assertCanEditScoring(tournamentState.value);
     }
 
@@ -577,8 +604,9 @@ async function saveSettings() {
       name: name.value,
       description: description.value,
       location: location.value,
-      startDate: new Date(startDate.value),
-      endDate: new Date(endDate.value),
+      // Append time strings to force local-time parsing (bare "YYYY-MM-DD" parses as UTC midnight)
+      startDate: new Date(startDate.value + 'T00:00:00'),
+      endDate: new Date(endDate.value + 'T23:59:59'),
       registrationDeadline: registrationDeadline.value
         ? new Date(registrationDeadline.value)
         : undefined,
@@ -591,17 +619,23 @@ async function saveSettings() {
       categories.value.map(async (category) => {
         const scoringOverride = categoryScoringOverrides.value[category.id];
         const rankingOverride = categoryRankingOverrides.value[category.id];
+        const elimOverride = categoryEliminationScoringOverrides.value[category.id];
         if (!scoringOverride || !rankingOverride) return;
 
         const overrideConfig = sanitizeScoringConfig(
           scoringOverride.config,
           sanitizeScoringConfig(settings.value)
         );
+        const elimOverrideConfig = elimOverride
+          ? sanitizeScoringConfig(elimOverride.config, sanitizeScoringConfig(settings.value))
+          : null;
         await tournamentStore.updateCategory(tournamentId.value, category.id, {
           scoringOverrideEnabled: scoringOverride.enabled,
           scoringConfig: scoringOverride.enabled ? overrideConfig : null,
           rankingPresetOverride: rankingOverride.enabled ? rankingOverride.rankingPreset : null,
           progressionModeOverride: rankingOverride.enabled ? rankingOverride.progressionMode : null,
+          eliminationScoringEnabled: elimOverride?.enabled ?? false,
+          eliminationScoringConfig: (elimOverride?.enabled && elimOverrideConfig) ? elimOverrideConfig : null,
         });
       })
     );
@@ -612,6 +646,7 @@ async function saveSettings() {
       progressionModeDefault: settings.value.progressionModeDefault,
     };
     initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryScoringOverrides.value);
+    initialCategoryEliminationScoringOverrides.value = cloneOverrideRecord(categoryEliminationScoringOverrides.value);
     initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrides.value);
 
     brandingSponsors.value = nextSponsors.map(cloneTournamentSponsor);
@@ -1186,7 +1221,6 @@ async function confirmDelete() {
                     v-model="categoryScoringOverrides[category.id].enabled"
                     label="Use category-specific scoring"
                     color="primary"
-                    :disabled="scoringLocked"
                   />
 
                   <template v-if="categoryScoringOverrides[category.id].enabled">
@@ -1198,7 +1232,6 @@ async function confirmDelete() {
                       label="Category Scoring Preset"
                       variant="outlined"
                       density="compact"
-                      :disabled="scoringLocked"
                       @update:model-value="applyCategoryPreset(category.id, String($event))"
                     />
 
@@ -1215,7 +1248,6 @@ async function confirmDelete() {
                           label="Games Per Match"
                           variant="outlined"
                           density="compact"
-                          :disabled="scoringLocked"
                           @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
                         />
                       </v-col>
@@ -1230,7 +1262,6 @@ async function confirmDelete() {
                           min="1"
                           variant="outlined"
                           density="compact"
-                          :disabled="scoringLocked"
                           @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
                         />
                       </v-col>
@@ -1248,7 +1279,6 @@ async function confirmDelete() {
                           min="1"
                           variant="outlined"
                           density="compact"
-                          :disabled="scoringLocked"
                           @update:model-value="categoryScoringOverrides[category.id].preset = 'custom'"
                         />
                       </v-col>
@@ -1263,11 +1293,96 @@ async function confirmDelete() {
                           variant="outlined"
                           density="compact"
                           clearable
-                          :disabled="scoringLocked"
                           @update:model-value="updateCategoryMaxPoints(category.id, $event)"
                         />
                       </v-col>
                     </v-row>
+                  </template>
+
+                  <template v-if="category.format === 'pool_to_elimination' && categoryEliminationScoringOverrides[category.id]">
+                    <v-divider class="my-4" />
+
+                    <div class="d-flex align-center mb-2">
+                      <span class="text-body-2 font-weight-medium">Elimination / Playoff Scoring</span>
+                      <v-chip
+                        class="ml-2"
+                        size="x-small"
+                        color="success"
+                        variant="tonal"
+                      >
+                        Always editable
+                      </v-chip>
+                    </div>
+
+                    <v-switch
+                      v-model="categoryEliminationScoringOverrides[category.id].enabled"
+                      label="Use different scoring for elimination matches"
+                      color="primary"
+                    />
+
+                    <template v-if="categoryEliminationScoringOverrides[category.id].enabled">
+                      <v-select
+                        v-model="categoryEliminationScoringOverrides[category.id].preset"
+                        :items="scoringPresets"
+                        item-title="title"
+                        item-value="value"
+                        label="Elimination Scoring Preset"
+                        variant="outlined"
+                        density="compact"
+                        @update:model-value="applyCategoryEliminationPreset(category.id, String($event))"
+                      />
+
+                      <v-row>
+                        <v-col cols="12" md="6">
+                          <v-select
+                            v-model="categoryEliminationScoringOverrides[category.id].config.gamesPerMatch"
+                            :items="gamesOptions"
+                            item-title="title"
+                            item-value="value"
+                            label="Games Per Match"
+                            variant="outlined"
+                            density="compact"
+                            @update:model-value="categoryEliminationScoringOverrides[category.id].preset = 'custom'"
+                          />
+                        </v-col>
+                        <v-col cols="12" md="6">
+                          <v-text-field
+                            v-model.number="categoryEliminationScoringOverrides[category.id].config.pointsToWin"
+                            label="Points to Win"
+                            type="number"
+                            min="1"
+                            variant="outlined"
+                            density="compact"
+                            @update:model-value="categoryEliminationScoringOverrides[category.id].preset = 'custom'"
+                          />
+                        </v-col>
+                      </v-row>
+
+                      <v-row>
+                        <v-col cols="12" md="6">
+                          <v-text-field
+                            v-model.number="categoryEliminationScoringOverrides[category.id].config.mustWinBy"
+                            label="Win By"
+                            type="number"
+                            min="1"
+                            variant="outlined"
+                            density="compact"
+                            @update:model-value="categoryEliminationScoringOverrides[category.id].preset = 'custom'"
+                          />
+                        </v-col>
+                        <v-col cols="12" md="6">
+                          <v-text-field
+                            :model-value="categoryEliminationScoringOverrides[category.id].config.maxPoints ?? ''"
+                            label="Max Points Cap"
+                            type="number"
+                            variant="outlined"
+                            density="compact"
+                            clearable
+                            @update:model-value="updateCategoryEliminationMaxPoints(category.id, $event)"
+                          />
+                        </v-col>
+                      </v-row>
+                    </template>
                   </template>
                 </v-expansion-panel-text>
               </v-expansion-panel>

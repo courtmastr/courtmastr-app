@@ -20,6 +20,7 @@ import {
   httpsCallable,
 } from '@/services/firebase';
 import { convertTimestamps } from '@/utils/firestore';
+import { formatCheckInDateKey } from '@/features/checkin/utils/checkInDateKey';
 import type { Registration, RegistrationStatus, Player } from '@/types';
 import { useAuditStore } from '@/stores/audit';
 import { useAuthStore } from '@/stores/auth';
@@ -81,6 +82,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
     registrationId: string,
     action: VolunteerCheckInAction,
     bibNumber?: number,
+    participantId?: string,
   ): Promise<boolean> => {
     const sessionToken = getVolunteerSessionToken(tournamentId, 'checkin');
     if (!sessionToken) {
@@ -88,13 +90,10 @@ export const useRegistrationStore = defineStore('registrations', () => {
     }
 
     const volunteerCheckInFn = httpsCallable(functions, 'applyVolunteerCheckInAction');
-    await volunteerCheckInFn({
-      tournamentId,
-      registrationId,
-      action,
-      bibNumber,
-      sessionToken,
-    });
+    const payload: Record<string, unknown> = { tournamentId, registrationId, action, sessionToken };
+    if (bibNumber !== undefined) payload.bibNumber = bibNumber;
+    if (participantId != null) payload.participantId = participantId;
+    await volunteerCheckInFn(payload);
     return true;
   };
 
@@ -383,10 +382,11 @@ export const useRegistrationStore = defineStore('registrations', () => {
     await updateRegistrationStatus(tournamentId, registrationId, 'rejected');
   }
 
-  // Check in registration
+  // Check in registration (whole team) or a single participant (doubles player-by-player)
   async function checkInRegistration(
     tournamentId: string,
-    registrationId: string
+    registrationId: string,
+    participantId?: string,
   ): Promise<void> {
     const registration = registrations.value.find(r => r.id === registrationId);
     const participantName = registration?.teamName || registration?.playerId || registrationId;
@@ -395,9 +395,45 @@ export const useRegistrationStore = defineStore('registrations', () => {
       tournamentId,
       registrationId,
       'check_in',
+      undefined,
+      participantId,
     );
     if (!usedVolunteerCallable) {
-      await updateRegistrationStatus(tournamentId, registrationId, 'checked_in');
+      // Admin direct path — replicate CF presence logic so partial doubles work correctly
+      const todayKey = formatCheckInDateKey(new Date());
+      const requiredIds = [registration?.playerId, registration?.partnerPlayerId]
+        .filter((id): id is string => Boolean(id));
+      const checkingInIds = participantId ? [participantId] : requiredIds;
+
+      const currentPresence = registration?.participantPresence ?? {};
+      const nextPresence = { ...currentPresence };
+      for (const id of checkingInIds) {
+        nextPresence[id] = true;
+      }
+      const allPresent =
+        requiredIds.length > 0 && requiredIds.every((id) => nextPresence[id] === true);
+
+      const adminUpdates: Record<string, unknown> = {
+        participantPresence: nextPresence,
+        status: allPresent ? 'checked_in' : 'approved',
+        isCheckedIn: allPresent,
+        checkInSource: 'admin',
+        updatedAt: serverTimestamp(),
+      };
+      if (allPresent && !registration?.checkedInAt) {
+        adminUpdates.checkedInAt = serverTimestamp();
+      }
+      for (const id of checkingInIds) {
+        adminUpdates[`dailyCheckIns.${todayKey}.presence.${id}`] = true;
+      }
+      if (allPresent) {
+        adminUpdates[`dailyCheckIns.${todayKey}.checkedInAt`] = serverTimestamp();
+        adminUpdates[`dailyCheckIns.${todayKey}.source`] = 'admin';
+      }
+      await updateDoc(
+        doc(db, `tournaments/${tournamentId}/registrations`, registrationId),
+        adminUpdates,
+      );
     }
 
     const auditStore = useAuditStore();

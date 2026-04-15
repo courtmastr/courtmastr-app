@@ -193,7 +193,7 @@ describe('matches store scoring completion', () => {
     expect(mockDeps.advanceWinner).toHaveBeenCalledWith('t1', 'cat-1', 'm1', 'reg-1', undefined);
   });
 
-  it('uses the callable path for volunteer scorekeeper start-match updates', async () => {
+  it('writes to pending_score_events queue for volunteer scorekeeper start-match updates', async () => {
     runtime.volunteerSession = {
       tournamentId: 't1',
       role: 'scorekeeper',
@@ -207,24 +207,28 @@ describe('matches store scoring completion', () => {
 
     await store.startMatch('t1', 'm1', 'cat-1', 'level-1');
 
-    expect(mockDeps.updateMatchCallable).toHaveBeenCalledWith({
-      tournamentId: 't1',
-      categoryId: 'cat-1',
-      levelId: 'level-1',
-      matchId: 'm1',
-      status: 'in_progress',
-      scores: [{
-        gameNumber: 1,
-        score1: 0,
-        score2: 0,
-        isComplete: false,
-      }],
-      sessionToken: 'score-token',
-    });
-    expect(mockDeps.setDoc).not.toHaveBeenCalled();
+    // Volunteer path now writes to Firestore queue (offline-safe) instead of calling httpsCallable
+    expect(mockDeps.updateMatchCallable).not.toHaveBeenCalled();
+    expect(mockDeps.setDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        tournamentId: 't1',
+        categoryId: 'cat-1',
+        levelId: 'level-1',
+        matchId: 'm1',
+        status: 'in_progress',
+        sessionToken: 'score-token',
+        scores: [{
+          gameNumber: 1,
+          score1: 0,
+          score2: 0,
+          isComplete: false,
+        }],
+      }),
+    );
   });
 
-  it('uses the callable path for volunteer scorekeeper match completion', async () => {
+  it('writes to pending_score_events queue for volunteer scorekeeper match completion', async () => {
     runtime.volunteerSession = {
       tournamentId: 't1',
       role: 'scorekeeper',
@@ -248,18 +252,21 @@ describe('matches store scoring completion', () => {
 
     await store.completeMatch('t1', 'm1', scores, 'reg-1', 'cat-1');
 
-    expect(mockDeps.updateMatchCallable).toHaveBeenCalledWith({
-      tournamentId: 't1',
-      categoryId: 'cat-1',
-      levelId: undefined,
-      matchId: 'm1',
-      status: 'completed',
-      winnerId: 'reg-1',
-      scores,
-      sessionToken: 'score-token',
-    });
-    expect(mockDeps.setDoc).not.toHaveBeenCalled();
-    expect(mockDeps.updateDoc).not.toHaveBeenCalled();
+    // Volunteer path now writes to Firestore queue (offline-safe) instead of calling httpsCallable
+    expect(mockDeps.updateMatchCallable).not.toHaveBeenCalled();
+    expect(mockDeps.setDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        tournamentId: 't1',
+        categoryId: 'cat-1',
+        matchId: 'm1',
+        status: 'completed',
+        winnerId: 'reg-1',
+        scores,
+        sessionToken: 'score-token',
+      }),
+    );
+    // Bracket advancement and direct Firestore writes are deferred to the Cloud Function
     expect(mockDeps.advanceWinner).not.toHaveBeenCalled();
   });
 

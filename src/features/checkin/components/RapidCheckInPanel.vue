@@ -232,6 +232,13 @@ const handleInputKeydown = (event: KeyboardEvent): void => {
               <div class="text-caption text-medium-emphasis">
                 {{ row.category }} • Bib: {{ row.bibNumber ?? '---' }}
               </div>
+              <div
+                v-if="row.partnerName"
+                class="text-caption"
+                style="color: rgba(var(--v-theme-on-surface), 0.5)"
+              >
+                Partner: {{ row.partnerName }}
+              </div>
             </div>
             <div class="suggestion-actions">
               <v-chip

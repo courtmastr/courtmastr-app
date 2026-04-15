@@ -11,10 +11,12 @@ import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import BrandLogo from '@/components/common/BrandLogo.vue';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import BulkCheckInPanel from '@/features/checkin/components/BulkCheckInPanel.vue';
+import CheckInHistoryPanel from '@/features/checkin/components/CheckInHistoryPanel.vue';
 import RapidCheckInPanel from '@/features/checkin/components/RapidCheckInPanel.vue';
 import { useFrontDeskCheckInWorkflow } from '@/features/checkin/composables/useFrontDeskCheckInWorkflow';
 
 type FrontDeskMode = 'rapid' | 'bulk';
+type FrontDeskTab = 'checkin' | 'history';
 
 const route = useRoute();
 const router = useRouter();
@@ -24,6 +26,11 @@ const notificationStore = useNotificationStore();
 const registrationStore = useRegistrationStore();
 const tournamentStore = useTournamentStore();
 const { getParticipantName } = useParticipantResolver();
+
+const getPlayerName = (playerId: string): string => {
+  const player = registrationStore.players.find((p) => p.id === playerId);
+  return player ? `${player.firstName} ${player.lastName}` : 'Unknown';
+};
 
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
@@ -38,6 +45,7 @@ const tournamentStartDateLabel = computed(() => {
 });
 
 const mode = ref<FrontDeskMode>('rapid');
+const activeTab = ref<FrontDeskTab>('checkin');
 const scanLoading = ref(false);
 const bulkLoading = ref(false);
 const selectedIds = ref<string[]>([]);
@@ -60,9 +68,10 @@ const workflow = useFrontDeskCheckInWorkflow({
   registrations: computed(() => registrationStore.registrations),
   matches: computed(() => matchStore.matches),
   getParticipantName,
+  getPlayerName,
   getCategoryName,
-  checkInRegistration: async (registrationId: string) => {
-    await registrationStore.checkInRegistration(tournamentId.value, registrationId);
+  checkInRegistration: async (registrationId: string, participantId?: string) => {
+    await registrationStore.checkInRegistration(tournamentId.value, registrationId, participantId);
   },
   undoCheckInRegistration: async (registrationId: string) => {
     await registrationStore.undoCheckInRegistration(
@@ -281,6 +290,7 @@ onUnmounted(() => {
         Live Ops
       </v-chip>
       <v-btn-toggle
+        v-show="activeTab === 'checkin'"
         v-model="mode"
         mandatory
         density="comfortable"
@@ -394,51 +404,69 @@ onUnmounted(() => {
         </v-card-text>
       </v-card>
 
-      <v-alert
-        v-if="bulkUndoToken"
-        type="info"
-        variant="tonal"
-        class="mb-4 frontdesk-checkin__undo-alert"
+      <!-- Tab bar -->
+      <v-tabs
+        v-model="activeTab"
+        color="primary"
+        class="mb-4"
       >
-        <div class="d-flex align-center ga-2">
-          <span>Bulk undo available for 10 seconds.</span>
-          <v-spacer />
-          <v-btn
-            size="small"
-            variant="text"
-            @click="handleBulkUndo"
-          >
-            Undo Bulk
-          </v-btn>
+        <v-tab value="checkin">
+          Check In
+        </v-tab>
+        <v-tab value="history">
+          History
+        </v-tab>
+      </v-tabs>
+
+      <template v-if="activeTab === 'checkin'">
+        <v-alert
+          v-if="bulkUndoToken"
+          type="info"
+          variant="tonal"
+          class="mb-4 frontdesk-checkin__undo-alert"
+        >
+          <div class="d-flex align-center ga-2">
+            <span>Bulk undo available for 10 seconds.</span>
+            <v-spacer />
+            <v-btn
+              size="small"
+              variant="text"
+              @click="handleBulkUndo"
+            >
+              Undo Bulk
+            </v-btn>
+          </div>
+        </v-alert>
+
+        <div class="frontdesk-checkin__panel-wrap">
+          <rapid-check-in-panel
+            v-if="mode === 'rapid'"
+            class="frontdesk-checkin__panel"
+            :urgent-items="urgentItems"
+            :recent-items="recentItems"
+            :search-rows="bulkRows"
+            :loading="scanLoading"
+            :pending-ids="pendingQuickCheckInIds"
+            @scan-submit="handleScanSubmit"
+            @quick-check-in="handleQuickCheckIn"
+            @undo-item="handleUndoItem"
+            @undo-latest-shortcut="handleUndoLatestShortcut"
+          />
+
+          <bulk-check-in-panel
+            v-else
+            class="frontdesk-checkin__panel"
+            :rows="bulkRows"
+            :selected-ids="selectedIds"
+            :loading="bulkLoading"
+            @toggle-row="toggleSelectRow"
+            @toggle-all="toggleSelectAll"
+            @bulk-check-in="handleBulkCheckIn"
+          />
         </div>
-      </v-alert>
+      </template>
 
-      <div class="frontdesk-checkin__panel-wrap">
-        <rapid-check-in-panel
-          v-if="mode === 'rapid'"
-          class="frontdesk-checkin__panel"
-          :urgent-items="urgentItems"
-          :recent-items="recentItems"
-          :search-rows="bulkRows"
-          :loading="scanLoading"
-          :pending-ids="pendingQuickCheckInIds"
-          @scan-submit="handleScanSubmit"
-          @quick-check-in="handleQuickCheckIn"
-          @undo-item="handleUndoItem"
-          @undo-latest-shortcut="handleUndoLatestShortcut"
-        />
-
-        <bulk-check-in-panel
-          v-else
-          class="frontdesk-checkin__panel"
-          :rows="bulkRows"
-          :selected-ids="selectedIds"
-          :loading="bulkLoading"
-          @toggle-row="toggleSelectRow"
-          @toggle-all="toggleSelectAll"
-          @bulk-check-in="handleBulkCheckIn"
-        />
-      </div>
+      <check-in-history-panel v-else />
     </div>
 
     <div

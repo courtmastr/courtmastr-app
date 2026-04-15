@@ -2,17 +2,17 @@
 
 Current policy note: production infrastructure is Terraform-managed and production application rollout is expected to happen through the `master` CI/CD workflow. Older entries below may reference the previous local release command path because they are historical records.
 
-Updated: 2026-04-13 (America/Chicago)
+Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-13 00:42 CDT
-- Release ID: `v2.4.0`
-- Package version: `2.4.0`
+- Date: 2026-04-15 11:26 CDT
+- Release ID: `v2.10.0`
+- Package version: `2.10.0`
 - Deployed branch: `master`
-- Deployed commit: `d7644c8` (`fix: resolve P0 match control and scoring defects (DEFECT-001, 002, 003, 005) (#19)`)
+- Deployed commit: `d764441` (`feat: move all bracket generation to cloud functions (#44)`)
 - Release notes:
-  - [docs/releases/v2.4.0.md](docs/releases/v2.4.0.md)
+  - [docs/releases/v2.10.0.md](docs/releases/v2.10.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-13 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-13-05-41-44.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-15-16-23-58.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,54 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.9.0`
+  - Date: 2026-04-15 00:56 CDT
+  - Package version: `2.9.0`
+  - Deployed commit: `fb9f194`
+  - Release notes:
+    - [docs/releases/v2.9.0.md](docs/releases/v2.9.0.md)
+- `v2.8.0`
+  - Date: 2026-04-14 00:13 CDT
+  - Package version: `2.8.0`
+  - Deployed commit: `ea9c90c`
+  - Release notes:
+    - [docs/releases/v2.8.0.md](docs/releases/v2.8.0.md)
+- `v2.7.1`
+  - Date: 2026-04-13 18:21 CDT
+  - Package version: `2.7.1`
+  - Deployed commit: `91a0ffa`
+  - Release notes:
+    - [docs/releases/v2.7.1.md](docs/releases/v2.7.1.md)
+- `v2.7.0`
+  - Date: 2026-04-13 16:30 CDT
+  - Package version: `2.7.0`
+  - Deployed commit: `bdb1f71`
+  - Release notes:
+    - [docs/releases/v2.7.0.md](docs/releases/v2.7.0.md)
+- `v2.6.1`
+  - Date: 2026-04-13 10:44 CDT
+  - Package version: `2.6.1`
+  - Deployed commit: `aabc396`
+  - Release notes:
+    - [docs/releases/v2.6.1.md](docs/releases/v2.6.1.md)
+- `v2.6.0`
+  - Date: 2026-04-13 01:55 CDT
+  - Package version: `2.6.0`
+  - Deployed commit: `8a0b909`
+  - Release notes:
+    - [docs/releases/v2.6.0.md](docs/releases/v2.6.0.md)
+- `v2.5.0`
+  - Date: 2026-04-13 01:35 CDT
+  - Package version: `2.5.0`
+  - Deployed commit: `8add811`
+  - Release notes:
+    - [docs/releases/v2.5.0.md](docs/releases/v2.5.0.md)
+- `v2.4.0`
+  - Date: 2026-04-13 00:42 CDT
+  - Package version: `2.4.0`
+  - Deployed commit: `d7644c8`
+  - Release notes:
+    - [docs/releases/v2.4.0.md](docs/releases/v2.4.0.md)
 - `v2.3.1`
   - Date: 2026-04-12 20:29 CDT
   - Package version: `2.3.1`
@@ -95,7 +143,7 @@ Updated: 2026-04-13 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-13 00:42 CDT
-- Commit: `d7644c8b2d9160d079e17e21e933dba013404a98`
-- Message: `fix: resolve P0 match control and scoring defects (DEFECT-001, 002, 003, 005) (#19)`
-- Note: deployed via `npm run release:deploy` on 2026-04-13.
+- Date: 2026-04-15 11:26 CDT
+- Commit: `d7644410a2ee450949fd28ff43433cdcfe61dcd2`
+- Message: `feat: move all bracket generation to cloud functions (#44)`
+- Note: deployed via `npm run release:deploy` on 2026-04-15.

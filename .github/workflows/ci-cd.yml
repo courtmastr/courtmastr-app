@@ -18,10 +18,11 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
-  deploy-changes:
-    name: Detect deploy-affecting changes
+  detect-changes:
+    name: Detect changed paths
     runs-on: ubuntu-latest
     outputs:
+      should_ci: ${{ steps.detect.outputs.should_ci }}
       should_deploy: ${{ steps.detect.outputs.should_deploy }}
     steps:
       - name: Checkout
@@ -29,28 +30,49 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect deploy-affecting paths
+      - name: Detect changed paths
         id: detect
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ "${GITHUB_EVENT_NAME}" != "push" || "${GITHUB_REF}" != "refs/heads/master" ]]; then
+          # workflow_dispatch: always run CI, never deploy
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "should_ci=true" >> "$GITHUB_OUTPUT"
             echo "should_deploy=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          base_sha="${{ github.event.before }}"
-          head_sha="${{ github.sha }}"
+          # Resolve base/head SHAs for both PR and push events
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
 
           if [[ -z "$base_sha" || "$base_sha" == "0000000000000000000000000000000000000000" ]]; then
             base_sha="$(git rev-list --max-parents=0 "$head_sha" | tail -n 1)"
           fi
 
           changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
-          printf 'Changed files for deploy gate:\n%s\n' "$changed_files"
+          printf 'Changed files:\n%s\n' "$changed_files"
 
-          if printf '%s\n' "$changed_files" | grep -qE '^(src/|functions/|public/|index\.html$|vite\.config\..*$|vitest\.config\..*$|tsconfig.*\.json$|package\.json$|package-lock\.json$|firebase\.json$|\.firebaserc$|firestore\.rules$|firestore\.indexes\.json$|storage\.rules$)'; then
+          # CI gate: src, functions, tests, and config files that affect lint/build/test
+          if printf '%s\n' "$changed_files" | grep -qE '^(src/|functions/|public/|tests/|index\.html$|vite\.config\.|vitest\.config\.|tsconfig|package\.json$|package-lock\.json$|eslint\.config\.)'; then
+            echo "should_ci=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_ci=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Deploy gate: push to master only, subset of CI paths (no tests/)
+          if [[ "${GITHUB_EVENT_NAME}" != "push" || "${GITHUB_REF}" != "refs/heads/master" ]]; then
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if printf '%s\n' "$changed_files" | grep -qE '^(src/|functions/|public/|index\.html$|vite\.config\.|vitest\.config\.|tsconfig|package\.json$|package-lock\.json$|firebase\.json$|\.firebaserc$|firestore\.rules$|firestore\.indexes\.json$|storage\.rules$)'; then
             echo "should_deploy=true" >> "$GITHUB_OUTPUT"
           else
             echo "should_deploy=false" >> "$GITHUB_OUTPUT"
@@ -58,8 +80,8 @@ jobs:
 
   ci:
     name: Lint, Test, Build
-    needs: [deploy-changes]
-    if: github.event_name == 'pull_request' || needs.deploy-changes.outputs.should_deploy == 'true'
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.should_ci == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -87,7 +109,6 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_USE_FIREBASE_EMULATOR=false
-          NODE_ENV=production
           EOF
 
       - name: Lint
@@ -101,13 +122,13 @@ jobs:
 
   deploy:
     name: Release and Deploy to Firebase
-    needs: [deploy-changes, ci]
+    needs: [detect-changes, ci]
     if: >-
       always() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/master' &&
       !contains(github.event.head_commit.message, '[skip release]') &&
-      needs.deploy-changes.outputs.should_deploy == 'true' &&
+      needs.detect-changes.outputs.should_deploy == 'true' &&
       needs.ci.result == 'success'
     runs-on: ubuntu-latest
     permissions:
@@ -142,7 +163,6 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_USE_FIREBASE_EMULATOR=false
-          NODE_ENV=production
           EOF
 
       - name: Install Firebase CLI
@@ -223,8 +243,8 @@ jobs:
           RELEASE_BODY=$(awk '/^## Summary/{start=1} /^## Verification/{start=0} start' "${NOTES_FILE}")
           RELEASE_BODY="${RELEASE_BODY}
 
----
-Live at https://courtmaster-v2.web.app"
+          ---
+          Live at https://courtmastr.com/"
 
           # Create and push tag (idempotent)
           if git tag "${TAG}" 2>/dev/null; then

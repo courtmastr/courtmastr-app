@@ -240,7 +240,7 @@ service cloud.firestore {
           }
         }
 
-        match /level_assignments/{assignmentId} {
+      match /level_assignments/{assignmentId} {
           allow read: if true;
           allow write: if isAdmin() || isOrganizerOf(tournamentId);
         }

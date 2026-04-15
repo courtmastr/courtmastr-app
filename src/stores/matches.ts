@@ -26,6 +26,7 @@ import { BADMINTON_CONFIG } from '@/types';
 import {
   getGamesNeeded,
   resolveScoringConfig,
+  sanitizeScoringConfig,
   validateCompletedGameScore,
   type CategoryScoringSource,
 } from '@/features/scoring/utils/validation';
@@ -238,16 +239,23 @@ export const useMatchStore = defineStore('matches', () => {
       throw new Error('categoryId is required for volunteer scoring updates');
     }
 
-    const updateMatchFn = httpsCallable(functions, 'updateMatch');
-    await updateMatchFn({
+    // Write to Firestore queue collection instead of calling the Cloud Function directly.
+    // Firestore's offline cache queues this write in IndexedDB when the device has no
+    // network. When connectivity returns, the document syncs and the processScoreEvent
+    // Cloud Function trigger validates the session token and applies the score — the
+    // same validation as before, just deferred until the network is available.
+    const eventRef = doc(collection(db, `tournaments/${input.tournamentId}/pending_score_events`));
+    await setDoc(eventRef, {
       tournamentId: input.tournamentId,
       categoryId: scope.categoryId,
-      levelId: scope.levelId,
+      levelId: scope.levelId ?? null,
       matchId: input.matchId,
       status: input.status,
       scores: input.scores,
-      winnerId: input.winnerId,
+      winnerId: input.winnerId ?? null,
       sessionToken,
+      sequence: Date.now(),
+      createdAt: serverTimestamp(),
     });
     return true;
   };
@@ -355,7 +363,8 @@ export const useMatchStore = defineStore('matches', () => {
 
   async function getScoringConfigForMatch(
     tournamentId: string,
-    categoryId?: string
+    categoryId?: string,
+    stageId?: string
   ): Promise<ScoringConfig> {
     try {
       const tournamentDoc = await getDoc(doc(db, 'tournaments', tournamentId));
@@ -369,6 +378,18 @@ export const useMatchStore = defineStore('matches', () => {
         if (categoryDoc.exists()) {
           categoryData = categoryDoc.data() as CategoryScoringSource;
         }
+      }
+
+      // Phase routing: if this match is in the elimination stage and elimination scoring is configured, use it
+      if (
+        stageId != null &&
+        categoryData?.eliminationScoringEnabled &&
+        categoryData?.eliminationStageId != null &&
+        Number(stageId) === categoryData.eliminationStageId &&
+        categoryData.eliminationScoringConfig
+      ) {
+        const tournamentConfig = sanitizeScoringConfig(tournamentSettings ?? BADMINTON_CONFIG);
+        return sanitizeScoringConfig(categoryData.eliminationScoringConfig, tournamentConfig);
       }
 
       return resolveScoringConfig(
@@ -1016,7 +1037,7 @@ export const useMatchStore = defineStore('matches', () => {
       if (!adapted) throw new Error('Match found but invalid or empty');
 
       adapted.levelId = levelId;
-      adapted.scoringConfig = await getScoringConfigForMatch(tournamentId, categoryId);
+      adapted.scoringConfig = await getScoringConfigForMatch(tournamentId, categoryId, adapted.stageId);
 
       const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
       const scoreDoc = await getDoc(doc(db, matchScoresPath, matchId));
@@ -1346,17 +1367,11 @@ export const useMatchStore = defineStore('matches', () => {
     categoryId?: string,
     levelId?: string
   ): Promise<void> {
-    const scoringConfig = currentMatch.value?.scoringConfig
-      ?? await getScoringConfigForMatch(tournamentId, categoryId);
     const matchScoresPath = getMatchScoresPath(tournamentId, categoryId, levelId);
 
-    const walkoverScores: GameScore[] = [{
-      gameNumber: 1,
-      score1: winnerId === currentMatch.value?.participant1Id ? scoringConfig.pointsToWin : 0,
-      score2: winnerId === currentMatch.value?.participant2Id ? scoringConfig.pointsToWin : 0,
-      winnerId,
-      isComplete: true,
-    }];
+    // Walkovers store no game scores (0-0), same as a BYE.
+    // The winner receives match points via bracket advancement; point difference is unaffected.
+    const walkoverScores: GameScore[] = [];
 
     const usedVolunteerCallable = await applyVolunteerMatchUpdate({
       tournamentId,
