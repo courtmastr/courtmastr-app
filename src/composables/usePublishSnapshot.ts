@@ -400,11 +400,16 @@ function buildCategorySnapshot(
   const regMap = new Map(registrations.map((r) => [r.id, r]));
   const groupLabelMap = buildGroupLabelMap(groups);
 
-  // Include all matches that have at least one participant assigned (not a bye slot)
+  // All matches with at least one participant assigned (used for pools + bracket results)
   const publishedMatches = matches.filter(
     (m) => m.participant1Id || m.participant2Id
   );
-  const schedule: MatchSnapshot[] = publishedMatches
+
+  // Schedule tab: only explicitly published matches
+  const scheduleMatches = publishedMatches.filter(
+    (m) => m.scheduleStatus === 'published' || Boolean(m.publishedAt)
+  );
+  const schedule: MatchSnapshot[] = scheduleMatches
     .sort((a, b) => (a.plannedStartAt?.getTime() ?? 0) - (b.plannedStartAt?.getTime() ?? 0))
     .map((m) => buildMatchSnapshot(m, regMap, players, groupLabelMap, courts));
 

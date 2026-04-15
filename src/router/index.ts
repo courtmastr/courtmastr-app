@@ -534,7 +534,7 @@ const routes: RouteRecordRaw[] = [
     path: '/t/:slug',
     name: 'tournament-public-page',
     component: TournamentPublicPage,
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: false, publicViewPage: true },
   },
 
   // Org public landing — must be LAST before catch-all to avoid shadowing static paths
