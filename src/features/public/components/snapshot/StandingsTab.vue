@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
+import { gsap } from 'gsap';
 import type { PlayerStanding } from '@/types';
 
 interface Props {
@@ -9,16 +10,42 @@ interface Props {
 const props = defineProps<Props>();
 
 const search = ref('');
+const tabRef = ref<HTMLElement | null>(null);
+let ctx: ReturnType<typeof gsap.context> | null = null;
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
   if (!q) return props.standings;
   return props.standings.filter((e) => e.name.toLowerCase().includes(q));
 });
+
+function animateRows() {
+  nextTick(() => {
+    if (!tabRef.value) return;
+    ctx?.revert();
+    ctx = gsap.context(() => {
+      const mm = gsap.matchMedia();
+      mm.add({ reduce: '(prefers-reduced-motion: reduce)' }, (context) => {
+        const { reduce } = (context as unknown as { conditions: { reduce: boolean } }).conditions;
+        if (reduce) return;
+        gsap.from('.s-row:not(.s-row--head)', {
+          x: -14, autoAlpha: 0,
+          duration: 0.32,
+          ease: 'power2.out',
+          stagger: { each: 0.04, from: 'start' },
+        });
+      });
+    }, tabRef.value);
+  });
+}
+
+watch(() => props.standings, animateRows, { immediate: true });
+watch(search, animateRows);
+onUnmounted(() => { ctx?.revert(); });
 </script>
 
 <template>
-  <div class="standings-tab">
+  <div ref="tabRef" class="standings-tab">
     <div v-if="standings.length === 0" class="standings-tab__empty">
       <v-icon size="32" color="grey">mdi-podium</v-icon>
       <p>No standings yet</p>
@@ -57,11 +84,10 @@ const filtered = computed(() => {
 
         <!-- Rows -->
         <div
-          v-for="(entry, ri) in filtered"
+          v-for="entry in filtered"
           :key="entry.rank"
           class="s-row"
           :class="{ 's-row--top': entry.rank === 1, 's-row--alt': entry.rank % 2 === 0 }"
-          :style="{ '--ri': ri }"
         >
           <span class="s-col s-col--rank" :class="{ 's-col--gold': entry.rank === 1, 's-col--silver': entry.rank === 2, 's-col--bronze': entry.rank === 3 }">
             {{ entry.rank }}
@@ -165,12 +191,6 @@ const filtered = computed(() => {
   border-radius: 6px;
   background: #161b22;
   min-height: 44px;
-  animation: rowSlideIn 0.35s cubic-bezier(0.34, 1.3, 0.64, 1) both;
-  animation-delay: calc(var(--ri, 0) * 35ms);
-}
-@keyframes rowSlideIn {
-  from { opacity: 0; transform: translateX(-12px); }
-  to   { opacity: 1; transform: translateX(0); }
 }
 .s-row--head {
   background: transparent;
@@ -244,7 +264,5 @@ const filtered = computed(() => {
 .s-pos { color: #4caf50; font-weight: 600; }
 .s-neg { color: #ef5350; font-weight: 600; }
 
-@media (prefers-reduced-motion: reduce) {
-  .s-row { animation: none; }
-}
+/* reduced-motion handled by gsap.matchMedia() in script */
 </style>

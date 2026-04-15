@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted, ref } from 'vue';
+import { gsap } from 'gsap';
 import type { TournamentSnapshot } from '@/types';
 
 interface Props {
@@ -6,6 +8,42 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const headerRef = ref<HTMLElement | null>(null);
+let ctx: ReturnType<typeof gsap.context> | null = null;
+
+onMounted(() => {
+  if (!headerRef.value) return;
+  ctx = gsap.context(() => {
+    const mm = gsap.matchMedia();
+    mm.add({ reduce: '(prefers-reduced-motion: reduce)' }, (context) => {
+      const { reduce } = (context as unknown as { conditions: { reduce: boolean } }).conditions;
+      if (reduce) return;
+
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+      // Header slides down
+      tl.from('.pub-header', { y: -80, duration: 0.5, ease: 'back.out(1.2)' })
+        // Court lines reveal (scaleY from top)
+        .from('.court-line', {
+          scaleY: 0,
+          transformOrigin: 'top center',
+          autoAlpha: 0,
+          duration: 0.6,
+          stagger: 0.12,
+        }, '-=0.25')
+        .from('.court-net', { scaleX: 0, transformOrigin: 'left center', autoAlpha: 0, duration: 0.5 }, '-=0.3')
+        // Text content fades up
+        .from('.pub-header__eyebrow', { y: 10, autoAlpha: 0, duration: 0.35 }, '-=0.2')
+        .from('.pub-header__title',   { y: 14, autoAlpha: 0, duration: 0.4, ease: 'back.out(1.4)' }, '-=0.2')
+        .from('.pub-header__meta',    { y: 8, autoAlpha: 0, duration: 0.3 }, '-=0.15')
+        .from('.pub-header__badges',  { y: 6, autoAlpha: 0, duration: 0.3 }, '-=0.15')
+        .from('.pub-header__logo',    { scale: 0.6, autoAlpha: 0, duration: 0.4, ease: 'back.out(1.7)' }, '-=0.55');
+    });
+  }, headerRef.value);
+});
+
+onUnmounted(() => {
+  ctx?.revert();
+});
 
 function formatDateRange(start: string, end: string): string {
   const s = new Date(start);
@@ -31,7 +69,7 @@ function timeAgo(isoDate: string): string {
 </script>
 
 <template>
-  <div class="pub-header">
+  <div ref="headerRef" class="pub-header">
     <!-- Badminton court line decorations -->
     <div class="pub-header__court" aria-hidden="true">
       <div class="court-line court-line--center" />
@@ -78,8 +116,8 @@ function timeAgo(isoDate: string): string {
 .pub-header {
   background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 60%, #1d4ed8 100%);
   background-size: 200% 200%;
-  animation: headerSlideDown 0.5s cubic-bezier(0.34, 1.3, 0.64, 1) both,
-             gradientShift 8s ease infinite;
+  /* gradient shimmer stays as CSS — only transforms handled by GSAP */
+  animation: gradientShift 8s ease infinite;
   padding: 20px 16px 16px;
   position: relative;
   overflow: hidden;
@@ -87,10 +125,6 @@ function timeAgo(isoDate: string): string {
 @keyframes gradientShift {
   0%, 100% { background-position: 0% 50%; }
   50%       { background-position: 100% 50%; }
-}
-@keyframes headerSlideDown {
-  from { transform: translateY(-100%); opacity: 0; }
-  to   { transform: translateY(0);     opacity: 1; }
 }
 
 /* ── Court line decorations ──────────────────── */
@@ -105,15 +139,11 @@ function timeAgo(isoDate: string): string {
   top: 0; bottom: 0;
   width: 1.5px;
   background: rgba(255,255,255,0.12);
-  animation: courtReveal 0.7s ease both;
+  visibility: hidden; /* GSAP autoAlpha manages visibility */
 }
-.court-line--center { left: 50%; transform: translateX(-50%); animation-delay: 0.5s; }
-.court-line--left   { left: 18%;  animation-delay: 0.65s; }
-.court-line--right  { right: 18%; animation-delay: 0.65s; }
-@keyframes courtReveal {
-  from { opacity: 0; transform: scaleY(0); transform-origin: top; }
-  to   { opacity: 1; transform: scaleY(1); transform-origin: top; }
-}
+.court-line--center { left: 50%; transform: translateX(-50%); }
+.court-line--left   { left: 18%; }
+.court-line--right  { right: 18%; }
 /* Net — horizontal dotted line in the middle */
 .court-net {
   position: absolute;
@@ -125,8 +155,7 @@ function timeAgo(isoDate: string): string {
     rgba(255,255,255,0.25) 0px, rgba(255,255,255,0.25) 6px,
     transparent 6px, transparent 10px
   );
-  animation: courtReveal 0.6s ease both;
-  animation-delay: 0.8s;
+  visibility: hidden; /* GSAP autoAlpha manages visibility */
 }
 
 .pub-header__inner {
@@ -136,16 +165,7 @@ function timeAgo(isoDate: string): string {
   align-items: flex-start;
   gap: 12px;
 }
-
-/* Content entrance */
-.pub-header__text {
-  animation: fadeUp 0.5s ease both;
-  animation-delay: 0.25s;
-}
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+.pub-header__text { /* entrance driven by GSAP */ }
 .pub-header__logo-img {
   width: 48px;
   height: 48px;
