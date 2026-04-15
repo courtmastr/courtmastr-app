@@ -1,24 +1,62 @@
-// Bracket Generation Logic
+/**
+ * Server-side bracket generation operations.
+ * All 4 operations mirror the client-side useBracketGenerator.ts composable.
+ * Uses FirestoreStorage (admin SDK) instead of ClientFirestoreStorage (client SDK).
+ */
+
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import { TournamentFormat, Registration } from './types';
-import { getBracketsManager } from './manager';
+import { BracketsManager } from 'brackets-manager';
+import { FirestoreStorage } from './storage/firestore-adapter';
+import type { Registration, Category, LevelEliminationFormat } from './types';
+import {
+  BracketOptions,
+  BracketResult,
+  StoredStage,
+  StoredParticipant,
+  StoredMatch,
+  sortRegistrationsBySeed,
+  orderRegistrationsForPool,
+  calculatePoolGroupCount,
+  asArray,
+  createSeedingFromParticipantIds,
+  createSeedingArrayWithExistingOrder,
+  resolvePoolStage,
+  isCompletedMatch,
+  extractPoolQualifiers,
+  createStandardStage,
+  createPoolStage,
+  createStageWithStats,
+  initializeByeWalkovers,
+  initializeLevelMatchScores,
+  deleteMatchScoresByIds,
+  clearBracketStorage,
+} from './bracketHelpers';
 
-// Get db lazily to avoid initialization order issues
 function getDb() {
   return admin.firestore();
 }
 
-/**
- * Generate bracket for a category using brackets-manager
- */
-export async function generateBracket(
+function getStorage(rootPath: string): FirestoreStorage {
+  return new FirestoreStorage(getDb(), rootPath);
+}
+
+function getManager(rootPath: string): BracketsManager {
+  return new BracketsManager(getStorage(rootPath));
+}
+
+// ============================================
+// 1. createBracket — standard + pool phase generation
+// ============================================
+
+export async function createBracket(
   tournamentId: string,
-  categoryId: string
-): Promise<void> {
+  categoryId: string,
+  options: BracketOptions = {}
+): Promise<BracketResult> {
   const db = getDb();
 
-  // Get category details
+  // 1. Get category details
   const categoryDoc = await db
     .collection('tournaments')
     .doc(tournamentId)
@@ -26,15 +64,12 @@ export async function generateBracket(
     .doc(categoryId)
     .get();
 
-  if (!categoryDoc.exists) {
-    throw new Error('Category not found');
-  }
+  if (!categoryDoc.exists) throw new Error('Category not found');
 
-  const category = categoryDoc.data();
-  const format = category?.format as TournamentFormat;
+  const category: Category = { id: categoryDoc.id, ...(categoryDoc.data() as any) };
 
-  // Get approved/checked-in registrations
-  const registrationsSnapshot = await db
+  // 2. Get approved/checked_in registrations
+  const registrationsSnap = await db
     .collection('tournaments')
     .doc(tournamentId)
     .collection('registrations')
@@ -42,130 +77,397 @@ export async function generateBracket(
     .where('status', 'in', ['approved', 'checked_in'])
     .get();
 
-  const registrations: Registration[] = registrationsSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Registration[];
+  const registrations: Registration[] = registrationsSnap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as any),
+  }));
 
   if (registrations.length < 2) {
     throw new Error('Need at least 2 participants to generate bracket');
   }
 
-  // Sort by seed (seeded players first, then random)
-  const seededRegistrations = registrations
-    .filter((r) => r.seed !== undefined)
-    .sort((a, b) => (a.seed || 0) - (b.seed || 0));
+  // 3. Sort by seed; apply pool seeding method if applicable
+  const baseSorted = sortRegistrationsBySeed(registrations);
+  let finalOrdered: Registration[] = baseSorted;
+  let poolSeedOverride: BracketOptions['seedOrdering'];
 
-  const unseededRegistrations = registrations
-    .filter((r) => r.seed === undefined)
-    .sort(() => Math.random() - 0.5);
-
-  const sortedRegistrations = [...seededRegistrations, ...unseededRegistrations];
-
-  console.log(`📊 Sorting verification:`);
-  console.log(`   Seeded players (${seededRegistrations.length}):`, seededRegistrations.map(r => `Seed ${r.seed}`));
-  console.log(`   Unseeded players (${unseededRegistrations.length}):`, unseededRegistrations.length);
-  console.log(`   Total sorted: ${sortedRegistrations.length}`);
-
-  // Delete existing bracket data for this category (if any)
-  // brackets-manager stores data in category-isolated sub-collections
-  const manager = getBracketsManager(tournamentId, categoryId);
-
-  // TODO: Fix stage deletion - currently causing "Could not delete match games" error
-  /*
-  // Check if a stage already exists for this category
-  const existingStages = await manager.storage.select('stage', {
-    tournament_id: categoryId  // Using categoryId as the stage identifier
-  });
-
-  // Delete existing stage(s) if any
-  if (existingStages) {
-    const stages = Array.isArray(existingStages) ? existingStages : [existingStages];
-    for (const stage of stages) {
-      if (stage && typeof stage === 'object' && 'id' in stage && stage.id) {
-        await manager.delete.stage(stage.id);
-      }
-    }
-  }
-  */
-
-  // Map format to brackets-manager format
-  let stageType: 'single_elimination' | 'double_elimination' | 'round_robin';
-  switch (format) {
-    case 'single_elimination':
-      stageType = 'single_elimination';
-      break;
-    case 'double_elimination':
-      stageType = 'double_elimination';
-      break;
-    case 'round_robin':
-      stageType = 'round_robin';
-      break;
-    default:
-      throw new Error(`Unsupported format: ${format}`);
+  if (category.format === 'pool_to_elimination') {
+    const teamsPerPool = category.teamsPerPool ?? options.teamsPerPool ?? 4;
+    const numPools = calculatePoolGroupCount(registrations.length, teamsPerPool);
+    const method = category.poolSeedingMethod ?? options.poolSeedingMethod ?? 'serpentine';
+    const { ordered, seedOrdering } = orderRegistrationsForPool(baseSorted, method, numPools);
+    finalOrdered = ordered;
+    poolSeedOverride = seedOrdering;
   }
 
-  // Create seeding array (participant names or IDs)
-  // brackets-manager requires bracket size to be a power of 2
-  // For non-power-of-2 counts, pad with null for automatic byes
-  const numParticipants = sortedRegistrations.length;
-  const bracketSize = Math.pow(2, Math.ceil(Math.log2(numParticipants)));
+  // 4. Create storage scoped to category
+  const categoryPath = `tournaments/${tournamentId}/categories/${categoryId}`;
+  const storage = getStorage(categoryPath);
+  const manager = getManager(categoryPath);
 
-  const seeding: (string | null)[] = sortedRegistrations.map(reg => reg.id);
+  // 5. Insert participants (name = registrationId, tournament_id = categoryId)
+  const participantsData: Omit<StoredParticipant, 'id'>[] = finalOrdered.map((reg, index) => ({
+    id: index + 1,
+    tournament_id: categoryId,
+    name: reg.id,
+  }));
 
-  // Pad with nulls for byes (added to end)
-  while (seeding.length < bracketSize) {
-    seeding.push(null);
-  }
+  await storage.insert('participant', participantsData as any);
 
-  console.log(`📊 Bracket info: ${numParticipants} participants → ${bracketSize}-size bracket (${bracketSize - numParticipants} byes)`);
-  console.log(`📋 Seeding array (first 12):`, seeding.slice(0, 12).map((s, i) => s ? `Pos${i + 1}:Player` : `Pos${i + 1}:BYE`));
+  // 6. Generate stage
+  let result: BracketResult;
 
-  // Create the stage (bracket)
-  const stage = await manager.create.stage({
-    tournamentId: categoryId, // Use categoryId to scope this stage
-    name: category?.name || 'Bracket',
-    type: stageType,
-    seeding,
-    settings: {
-      seedOrdering: ['inner_outer'], // This will properly distribute byes to top seeds
-      grandFinal: stageType === 'double_elimination' ? 'simple' : undefined,
-    },
-  });
+  if (category.format === 'pool_to_elimination') {
+    result = await createPoolStage(
+      category,
+      manager,
+      storage,
+      participantsData.length,
+      poolSeedOverride ? { ...options, seedOrdering: poolSeedOverride } : options
+    );
 
-  console.log(`✅ Generated ${stageType} bracket for category ${categoryId} with ${registrations.length} participants`);
-  console.log(`   Stage ID: ${stage.id} (type: ${typeof stage.id})`);
-  console.log(`   Stage object:`, JSON.stringify(stage, null, 2).substring(0, 500));
+    await db
+      .collection('tournaments')
+      .doc(tournamentId)
+      .collection('categories')
+      .doc(categoryId)
+      .set(
+        {
+          status: 'active',
+          stageId: result.stageId,
+          poolStageId: result.stageId,
+          eliminationStageId: null,
+          poolPhase: 'pool',
+          poolGroupCount: result.groupCount,
+          poolQualifiersPerGroup: options.qualifiersPerGroup ?? 2,
+          bracketGeneratedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
 
-  // CRITICAL: Verify matches were actually created
-  const allMatches = await manager.storage.select('match', { stage_id: String(stage.id) });
-  const matchCount = Array.isArray(allMatches) ? allMatches.length : 0;
-  console.log(`   🔍 Immediate match verification: ${matchCount} matches found`);
-
-  if (matchCount === 0) {
-    console.error(`   ❌ CRITICAL: No matches were created for stage ${stage.id}!`);
-    console.error(`   This indicates stage creation failed silently.`);
-    console.error(`   Expected ~${Math.ceil(bracketSize * 1.5)} matches for ${stageType} with ${numParticipants} participants`);
+    await initializeByeWalkovers(
+      db,
+      tournamentId,
+      categoryId,
+      storage,
+      result.stageId,
+      participantsData as StoredParticipant[]
+    );
   } else {
-    console.log(`   ✅ Match creation successful`);
+    result = await createStandardStage(
+      category,
+      manager,
+      storage,
+      participantsData.length,
+      options
+    );
+
+    await db
+      .collection('tournaments')
+      .doc(tournamentId)
+      .collection('categories')
+      .doc(categoryId)
+      .set(
+        {
+          status: 'active',
+          stageId: result.stageId,
+          poolStageId: null,
+          eliminationStageId: null,
+          poolPhase: null,
+          poolGroupCount: null,
+          poolQualifiersPerGroup: null,
+          poolQualifiedRegistrationIds: [],
+          bracketGeneratedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
   }
 
-  // Sync match data to legacy schema for frontend compatibility
+  return result;
+}
 
+// ============================================
+// 2. createEliminationFromPool — advance pool → elimination
+// ============================================
 
-  // Update category status
+export async function createEliminationFromPool(
+  tournamentId: string,
+  categoryId: string,
+  options: BracketOptions = {}
+): Promise<BracketResult> {
+  const db = getDb();
+
+  const categoryDoc = await db
+    .collection('tournaments')
+    .doc(tournamentId)
+    .collection('categories')
+    .doc(categoryId)
+    .get();
+
+  if (!categoryDoc.exists) throw new Error('Category not found');
+  const category: Category = { id: categoryDoc.id, ...(categoryDoc.data() as any) };
+
+  if (category.format !== 'pool_to_elimination') {
+    throw new Error('Category is not configured for pool-to-elimination');
+  }
+
+  const categoryPath = `tournaments/${tournamentId}/categories/${categoryId}`;
+  const storage = getStorage(categoryPath);
+  const manager = getManager(categoryPath);
+
+  const stages = asArray(await storage.select<StoredStage>('stage'));
+  const poolStage = resolvePoolStage(stages, category.poolStageId);
+  if (!poolStage) throw new Error('Pool stage not found. Generate pool play first.');
+
+  const poolStageId = poolStage.id;
+
+  const participants = asArray(await storage.select<StoredParticipant>('participant'));
+  const poolMatches = asArray(
+    await storage.select<StoredMatch>('match', { stage_id: poolStageId })
+  );
+  const poolRounds = asArray(
+    await storage.select('round', { stage_id: poolStageId }) as any
+  );
+  const poolGroups = asArray(
+    await storage.select('group', { stage_id: poolStageId }) as any
+  );
+
+  if (participants.length < 2) throw new Error('Need at least 2 participants to generate elimination');
+  if (poolMatches.length === 0) throw new Error('No pool matches found. Generate pool play first.');
+
+  // Fetch match_scores to verify completion
+  const matchScoresSnap = await db
+    .collection('tournaments')
+    .doc(tournamentId)
+    .collection('categories')
+    .doc(categoryId)
+    .collection('match_scores')
+    .get();
+
+  const matchScoresMap = new Map<string, any>(
+    matchScoresSnap.docs.map((d) => [d.id, { ...d.data(), id: d.id }])
+  );
+
+  const pendingPoolMatches = poolMatches.filter((match) => {
+    const score = matchScoresMap.get(String(match.id));
+    return !isCompletedMatch(match, score);
+  });
+
+  if (pendingPoolMatches.length > 0) {
+    throw new Error(
+      `Pool stage not complete. ${pendingPoolMatches.length} match(es) still pending.`
+    );
+  }
+
+  // Resolve qualifiers
+  let qualifierParticipantIds: (number | string)[];
+  let qualifierRegistrationIds: string[];
+  let resolvedGroupCount: number;
+  let resolvedQualifiersPerGroup: number;
+
+  if (options.precomputedQualifierRegistrationIds?.length) {
+    const participantByRegistrationId = new Map<string, string | number>(
+      participants.map((p) => [p.name, p.id])
+    );
+    qualifierParticipantIds = options.precomputedQualifierRegistrationIds
+      .map((rid) => participantByRegistrationId.get(rid))
+      .filter((id): id is string | number => id !== undefined);
+    qualifierRegistrationIds = options.precomputedQualifierRegistrationIds;
+    resolvedGroupCount = 0;
+    resolvedQualifiersPerGroup = 0;
+  } else {
+    const qualifiers = extractPoolQualifiers({
+      participants,
+      matches: poolMatches,
+      rounds: poolRounds,
+      groups: poolGroups,
+      matchScores: matchScoresMap,
+      requestedQualifiersPerGroup:
+        options.qualifiersPerGroup ?? category.poolQualifiersPerGroup ?? 2,
+    });
+    qualifierParticipantIds = qualifiers.participantIds;
+    qualifierRegistrationIds = qualifiers.registrationIds;
+    resolvedGroupCount = qualifiers.groupCount;
+    resolvedQualifiersPerGroup = qualifiers.qualifiersPerGroup;
+  }
+
+  if (qualifierParticipantIds.length < 2) {
+    throw new Error('Not enough qualifiers to generate elimination stage.');
+  }
+
+  // Server uses auto-generated string IDs — no seedCountersFromExisting needed
+  const bracketType = options.eliminationFormat ?? 'single_elimination';
+  const eliminationSeeding = createSeedingFromParticipantIds(qualifierParticipantIds);
+
+  const result = await createStageWithStats(
+    manager,
+    storage,
+    categoryId,
+    `${category.name} - Elimination`,
+    bracketType,
+    eliminationSeeding,
+    {
+      seedOrdering: options.seedOrdering || ['inner_outer'],
+      consolationFinal: options.consolationFinal,
+    }
+  );
+
   await db
     .collection('tournaments')
     .doc(tournamentId)
     .collection('categories')
     .doc(categoryId)
-    .update({
-      status: 'active',
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+    .set(
+      {
+        status: 'active',
+        stageId: result.stageId,
+        eliminationStageId: result.stageId,
+        poolPhase: 'elimination',
+        poolGroupCount: resolvedGroupCount,
+        poolQualifiersPerGroup: resolvedQualifiersPerGroup,
+        poolQualifiedRegistrationIds: qualifierRegistrationIds,
+        bracketGeneratedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+  return result;
 }
-/**
- * Sync brackets-manager match data to legacy matches collection for frontend compatibility
- */
 
+// ============================================
+// 3. createLevelBracket — level-scoped bracket
+// ============================================
 
+export async function createLevelBracket(
+  tournamentId: string,
+  categoryId: string,
+  levelId: string,
+  levelName: string,
+  orderedRegistrationIds: string[],
+  eliminationFormat: LevelEliminationFormat,
+  options: BracketOptions = {}
+): Promise<BracketResult> {
+  if (orderedRegistrationIds.length < 2) {
+    throw new Error('Need at least 2 participants to generate level bracket');
+  }
+
+  const db = getDb();
+  const levelPath = `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}`;
+  const storage = getStorage(levelPath);
+  const manager = getManager(levelPath);
+
+  await clearBracketStorage(storage);
+
+  const participantsData = orderedRegistrationIds.map((registrationId, index) => ({
+    id: index + 1,
+    tournament_id: `${categoryId}:${levelId}`,
+    name: registrationId,
+  }));
+
+  await storage.insert('participant', participantsData as any);
+
+  const maxBracketSize = eliminationFormat === 'playoff_8' ? 8 : undefined;
+  const seeding = createSeedingArrayWithExistingOrder(
+    participantsData.map((p) => p.id),
+    maxBracketSize
+  );
+
+  const stageType =
+    eliminationFormat === 'double_elimination' ? 'double_elimination' : 'single_elimination';
+
+  const result = await createStageWithStats(
+    manager,
+    storage,
+    `${categoryId}:${levelId}`,
+    levelName,
+    stageType,
+    seeding,
+    {
+      seedOrdering: options.seedOrdering || ['inner_outer'],
+      grandFinal:
+        stageType === 'double_elimination' ? options.grandFinal || 'double' : undefined,
+      consolationFinal: options.consolationFinal,
+    }
+  );
+
+  const registrationIdByParticipantId = new Map<string, string>(
+    participantsData.map((p) => [String(p.id), p.name])
+  );
+
+  await initializeLevelMatchScores(
+    db,
+    tournamentId,
+    categoryId,
+    levelId,
+    storage,
+    result.stageId,
+    registrationIdByParticipantId
+  );
+
+  return result;
+}
+
+// ============================================
+// 4. deleteBracket — full cleanup
+// ============================================
+
+export async function deleteBracket(
+  tournamentId: string,
+  categoryId: string
+): Promise<void> {
+  const db = getDb();
+  const categoryPath = `tournaments/${tournamentId}/categories/${categoryId}`;
+  const storage = getStorage(categoryPath);
+
+  const stages = asArray(await storage.select<StoredStage>('stage'));
+
+  if (stages.length > 0) {
+    for (const stage of stages) {
+      const stageId = stage.id;
+
+      const stageMatches = asArray(
+        await storage.select<StoredMatch>('match', { stage_id: stageId })
+      );
+
+      if (stageMatches.length > 0) {
+        await deleteMatchScoresByIds(
+          db,
+          tournamentId,
+          categoryId,
+          stageMatches.map((m) => String(m.id))
+        );
+      }
+
+      await storage.delete('match', { stage_id: stageId });
+      await storage.delete('match_game', { stage_id: stageId });
+      await storage.delete('round', { stage_id: stageId });
+      await storage.delete('group', { stage_id: stageId });
+      await storage.delete('stage', stageId as any);
+    }
+  }
+
+  await storage.delete('participant', { tournament_id: categoryId });
+
+  await db
+    .collection('tournaments')
+    .doc(tournamentId)
+    .collection('categories')
+    .doc(categoryId)
+    .set(
+      {
+        status: 'setup',
+        stageId: null,
+        poolStageId: null,
+        eliminationStageId: null,
+        poolPhase: null,
+        poolGroupCount: null,
+        poolQualifiersPerGroup: null,
+        poolQualifiedRegistrationIds: [],
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+}
