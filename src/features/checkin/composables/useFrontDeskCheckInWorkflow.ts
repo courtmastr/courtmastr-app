@@ -572,12 +572,16 @@ const assignBibIfNeeded = async (
   };
 
   /**
-   * Check in a single participant by their unique row ID.
+   * Check in a participant by their unique row ID and automatically check them
+   * in across ALL their other registrations for today.
    *
-   * - For search-result rows (id = playerId): checks in that player only.
-   *   Doubles registrations stay 'approved' until both partners are present.
+   * A player who competes in 3 categories only needs to physically arrive once —
+   * one check-in covers all their events for the day.
+   *
+   * - For search-result rows (id = playerId): cascades to all registrations for
+   *   that player. Doubles registrations stamp only this player's presence.
    * - For urgent-item rows (id = registrationId): checks in the whole registration
-   *   at once (all participants).
+   *   as before (no cascade, since we may not have a specific playerId).
    */
   const checkInOne = async (id: string, bibStartFrom = 101): Promise<ProcessScanResult> => {
     // Resolve by playerId first (per-player search rows), then by registrationId (urgent items)
@@ -587,14 +591,26 @@ const assignBibIfNeeded = async (
       entry = eligibleParticipants.value.find((e) => e.registrationId === id);
     }
     if (!entry) throw new Error('No matching participant for scanned code');
-    if (entry.status === 'checked_in') throw new Error('Already checked in');
+    if (entry.status === 'checked_in') throw new Error('Already checked in today');
     if (entry.status !== 'approved') throw new Error('Only approved participants can be checked in');
 
     const bibNumber = await assignBibIfNeeded(entry.registrationId, entry.bibNumber, bibStartFrom);
-    // Player-level doubles check-in passes participantId so only one partner is marked present.
-    // Registration-level (urgent items, singles) passes no participantId → whole team.
-    const participantId = isPlayerLevel && entry.isDoubles ? entry.playerId : undefined;
-    await options.checkInRegistration(entry.registrationId, participantId);
+
+    if (isPlayerLevel) {
+      // Cascade: check in this player across ALL their registrations that still need check-in today
+      const allEntriesForPlayer = eligibleParticipants.value.filter(
+        (e) => e.playerId === entry!.playerId && e.status === 'approved',
+      );
+      for (const e of allEntriesForPlayer) {
+        // Doubles: stamp this player's presence only; singles: no participantId needed
+        const participantId = e.isDoubles ? e.playerId : undefined;
+        await options.checkInRegistration(e.registrationId, participantId);
+      }
+    } else {
+      // Registration-level (urgent items): check in the whole registration at once
+      await options.checkInRegistration(entry.registrationId, undefined);
+    }
+
     pushRecentCheckIn(entry, bibNumber);
 
     return {
