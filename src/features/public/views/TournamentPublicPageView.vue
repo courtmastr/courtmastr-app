@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { gsap } from 'gsap';
 import { usePublicSnapshot } from '@/composables/usePublicSnapshot';
 import PublicPageHeader from '@/features/public/components/snapshot/PublicPageHeader.vue';
 import CategorySelector from '@/features/public/components/snapshot/CategorySelector.vue';
@@ -15,10 +16,22 @@ const { snapshot, loading, error, notFound, loadBySlug } = usePublicSnapshot();
 const selectedCategoryId = ref<string>('');
 const activeTab = ref(0);
 const tabTransitionName = ref('tab-right');
+const pageRef = ref<HTMLElement | null>(null);
+const indicatorRef = ref<HTMLElement | null>(null);
+
+let ctx: ReturnType<typeof gsap.context> | null = null;
 
 function switchTab(i: number) {
   tabTransitionName.value = i > activeTab.value ? 'tab-right' : 'tab-left';
   activeTab.value = i;
+  // GSAP animate the sliding indicator
+  if (indicatorRef.value) {
+    gsap.to(indicatorRef.value, {
+      x: i * 100 + '%',
+      duration: 0.38,
+      ease: 'back.out(1.4)',
+    });
+  }
 }
 
 const tabs = [
@@ -32,6 +45,46 @@ const selectedCategory = computed(() =>
   snapshot.value?.categories.find((c) => c.id === selectedCategoryId.value)
 );
 
+// Run page-load entrance timeline once snapshot arrives
+watch(snapshot, async (val) => {
+  if (!val) return;
+  await nextTick();
+  if (!pageRef.value) return;
+
+  ctx?.revert();
+  ctx = gsap.context(() => {
+    const mm = gsap.matchMedia();
+    mm.add(
+      { reduce: '(prefers-reduced-motion: reduce)' },
+      (context) => {
+        const { reduce } = (context as { conditions: { reduce: boolean } }).conditions;
+        if (reduce) return;
+
+        // Shuttlecock one-shot
+        gsap.fromTo('.shuttle-fly',
+          { x: -60, y: 0, rotation: -42, autoAlpha: 0 },
+          { x: '112vw', y: '-58vh', rotation: 8, autoAlpha: 0,
+            duration: 2.2, ease: 'power1.inOut', delay: 0.6,
+            keyframes: [
+              { autoAlpha: 0.95, duration: 0.13 },
+              { x: '48vw', y: '-32vh', rotation: -18, autoAlpha: 0.9, duration: 0.87 },
+              { x: '112vw', y: '-58vh', rotation: 8, autoAlpha: 0, duration: 1.2 },
+            ],
+          },
+        );
+
+        // Page entrance sequence
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        tl.from('.pub-header',    { y: -24, autoAlpha: 0, duration: 0.45 })
+          .from('.cat-selector',  { y: 12, autoAlpha: 0, duration: 0.3 }, '-=0.1')
+          .from('.pub-tabs',      { y: 10, autoAlpha: 0, duration: 0.3 }, '-=0.1')
+          .from('.tab-pane',      { y: 16, autoAlpha: 0, duration: 0.35 }, '-=0.05')
+          .from('.pub-footer',    { autoAlpha: 0, duration: 0.3 }, '-=0.1');
+      },
+    );
+  }, pageRef.value);
+}, { once: true });
+
 onMounted(async () => {
   const slug = route.params.slug as string;
   await loadBySlug(slug);
@@ -39,10 +92,14 @@ onMounted(async () => {
     selectedCategoryId.value = snapshot.value.categories[0].id;
   }
 });
+
+onUnmounted(() => {
+  ctx?.revert();
+});
 </script>
 
 <template>
-  <div class="pub-page">
+  <div ref="pageRef" class="pub-page">
     <!-- Loading -->
     <div v-if="loading" class="pub-page__state">
       <v-progress-circular indeterminate color="primary" size="40" />
@@ -100,7 +157,7 @@ onMounted(async () => {
           <v-icon size="18">{{ tab.icon }}</v-icon>
           <span>{{ tab.label }}</span>
         </button>
-        <div class="pub-tab__indicator" :style="{ transform: `translateX(${activeTab * 100}%)` }" />
+        <div ref="indicatorRef" class="pub-tab__indicator" />
       </div>
 
       <!-- Tab content -->
@@ -206,7 +263,7 @@ onMounted(async () => {
   filter: drop-shadow(0 0 5px rgba(59,130,246,0.6));
 }
 
-/* Sliding indicator — child of .pub-tabs, spans 25% */
+/* Sliding indicator — child of .pub-tabs, spans 25%; position driven by GSAP */
 .pub-tab__indicator {
   position: absolute;
   bottom: 0;
@@ -216,7 +273,6 @@ onMounted(async () => {
   background: linear-gradient(90deg, #3b82f6 0%, #f59e0b 100%);
   border-radius: 2px 2px 0 0;
   box-shadow: 0 0 10px 1px rgba(59,130,246,0.5);
-  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
 }
 
@@ -233,24 +289,15 @@ onMounted(async () => {
 .tab-left-enter-from    { opacity: 0; transform: translateX(-28px); }
 .tab-left-leave-to      { opacity: 0; transform: translateX(28px); }
 
-/* ── Shuttlecock fly-through ───────────────────── */
+/* ── Shuttlecock fly-through — position/opacity driven by GSAP ── */
 .shuttle-fly {
   position: fixed;
   bottom: 28vh;
   left: -60px;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0;
-  animation: shuttleFly 2.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-  animation-delay: 0.6s;
+  visibility: hidden; /* GSAP autoAlpha will unhide it */
   filter: drop-shadow(0 0 10px rgba(88,166,255,0.5));
-}
-@keyframes shuttleFly {
-  0%   { transform: translate(0, 0)           rotate(-42deg); opacity: 0;   }
-  6%   { opacity: 0.95; }
-  50%  { transform: translate(48vw, -32vh)    rotate(-18deg); opacity: 0.9; }
-  94%  { opacity: 0.55; }
-  100% { transform: translate(112vw, -58vh)   rotate(8deg);   opacity: 0;   }
 }
 
 /* ── Footer ────────────────────────────────────── */
@@ -264,23 +311,15 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   letter-spacing: 0.3px;
-  animation: fadeUp 0.5s ease both;
-  animation-delay: 0.9s;
 }
 .pub-footer strong {
   color: #3b82f6;
   font-weight: 700;
   margin-left: 3px;
 }
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 
-/* ── Reduced-motion overrides ──────────────────── */
+/* ── Reduced-motion: Vue transitions still respect this ──────── */
 @media (prefers-reduced-motion: reduce) {
-  .shuttle-fly            { display: none; }
-  .pub-tab__indicator     { transition: none; }
   .tab-right-enter-active,
   .tab-right-leave-active,
   .tab-left-enter-active,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { gsap } from 'gsap';
 import type { PoolSnapshot, MatchSnapshot } from '@/types';
 
 interface Props {
@@ -7,6 +8,29 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+const tabRef = ref<HTMLElement | null>(null);
+let ctx: ReturnType<typeof gsap.context> | null = null;
+
+onMounted(() => {
+  if (!tabRef.value) return;
+  ctx = gsap.context(() => {
+    const mm = gsap.matchMedia();
+    mm.add({ reduce: '(prefers-reduced-motion: reduce)' }, (context) => {
+      const { reduce } = (context as { conditions: { reduce: boolean } }).conditions;
+      if (reduce) return;
+      // Pool cards stagger up
+      gsap.from('.pool-card', {
+        y: 24, autoAlpha: 0, scale: 0.97,
+        duration: 0.45,
+        ease: 'back.out(1.4)',
+        stagger: { each: 0.1, from: 'start' },
+      });
+    });
+  }, tabRef.value);
+});
+
+onUnmounted(() => { ctx?.revert(); });
 
 // One accent colour per pool, cycling through a palette
 const POOL_COLORS = [
@@ -64,7 +88,7 @@ const poolsWithMeta = computed(() =>
 </script>
 
 <template>
-  <div class="pools-tab">
+  <div ref="tabRef" class="pools-tab">
     <div v-if="pools.length === 0" class="pools-tab__empty">
       <v-icon size="32" color="grey">mdi-account-group</v-icon>
       <p>No pool data available</p>
@@ -153,18 +177,11 @@ const poolsWithMeta = computed(() =>
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.06);
   box-shadow: 0 0 0 0 var(--glow);
-  animation: cardIn 0.35s ease both;
-  animation-delay: var(--delay);
   transition: box-shadow 0.2s, border-color 0.2s;
 }
 .pool-card:hover {
   border-color: var(--accent);
   box-shadow: 0 0 18px 2px var(--glow);
-}
-
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Coloured top bar */
@@ -228,8 +245,6 @@ const poolsWithMeta = computed(() =>
   padding: 5px 14px;
   border-radius: 6px;
   margin: 1px 6px;
-  animation: rowIn 0.3s ease both;
-  animation-delay: var(--row-delay);
   transition: background 0.15s;
 }
 .pool-standings__row:hover {
@@ -237,11 +252,6 @@ const poolsWithMeta = computed(() =>
 }
 .pool-standings__row--leader {
   background: var(--glow);
-}
-
-@keyframes rowIn {
-  from { opacity: 0; transform: translateX(-6px); }
-  to   { opacity: 1; transform: translateX(0); }
 }
 
 /* Columns */
@@ -310,11 +320,5 @@ const poolsWithMeta = computed(() =>
   font-size: 10px;
 }
 
-/* ── Reduced motion ─────────────────────── */
-@media (prefers-reduced-motion: reduce) {
-  .pool-card,
-  .pool-standings__row {
-    animation: none;
-  }
-}
+/* reduced-motion handled by gsap.matchMedia() in script */
 </style>

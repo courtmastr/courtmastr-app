@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted, ref } from 'vue';
+import { gsap } from 'gsap';
 import type { CategorySnapshot } from '@/types';
 
 interface Props {
@@ -8,10 +10,34 @@ interface Props {
 
 const props = defineProps<Props>();
 const emit = defineEmits<{ 'update:modelValue': [id: string] }>();
+
+const selectorRef = ref<HTMLElement | null>(null);
+let ctx: ReturnType<typeof gsap.context> | null = null;
+
+onMounted(() => {
+  if (!selectorRef.value) return;
+  ctx = gsap.context(() => {
+    const mm = gsap.matchMedia();
+    mm.add({ reduce: '(prefers-reduced-motion: reduce)' }, (context) => {
+      const { reduce } = (context as { conditions: { reduce: boolean } }).conditions;
+      if (reduce) return;
+      gsap.from('.cat-selector', { y: 10, autoAlpha: 0, duration: 0.3, ease: 'power2.out' });
+      gsap.from('.cat-chip', {
+        y: 8, autoAlpha: 0, scale: 0.88,
+        duration: 0.35,
+        ease: 'back.out(1.7)',
+        stagger: { each: 0.06, from: 'start' },
+        delay: 0.1,
+      });
+    });
+  }, selectorRef.value);
+});
+
+onUnmounted(() => { ctx?.revert(); });
 </script>
 
 <template>
-  <div class="cat-selector">
+  <div ref="selectorRef" class="cat-selector">
     <div class="cat-selector__label">Division</div>
     <div class="cat-selector__chips">
       <button
@@ -32,12 +58,6 @@ const emit = defineEmits<{ 'update:modelValue': [id: string] }>();
   background: #1e293b;
   padding: 10px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  animation: fadeUp 0.4s ease both;
-  animation-delay: 0.3s;
-}
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 .cat-selector__label {
   font-size: 11px;
@@ -81,11 +101,6 @@ const emit = defineEmits<{ 'update:modelValue': [id: string] }>();
   background: linear-gradient(135deg, #1d4ed8, #6d28d9);
   color: #fff;
   font-weight: 600;
-  animation: chipBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow: 0 0 12px rgba(21,101,192,0.45);
-}
-@keyframes chipBounce {
-  from { transform: scale(0.88); }
-  to   { transform: scale(1); }
 }
 </style>

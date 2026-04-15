@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
+import { gsap } from 'gsap';
 import type { MatchSnapshot } from '@/types';
 
 interface Props {
@@ -9,6 +10,32 @@ interface Props {
 const props = defineProps<Props>();
 
 const search = ref('');
+const tabRef = ref<HTMLElement | null>(null);
+let ctx: ReturnType<typeof gsap.context> | null = null;
+
+function animateCards() {
+  nextTick(() => {
+    if (!tabRef.value) return;
+    ctx?.revert();
+    ctx = gsap.context(() => {
+      const mm = gsap.matchMedia();
+      mm.add({ reduce: '(prefers-reduced-motion: reduce)' }, (context) => {
+        const { reduce } = (context as { conditions: { reduce: boolean } }).conditions;
+        if (reduce) return;
+        gsap.from('.match-card', {
+          y: 20, autoAlpha: 0, scale: 0.97,
+          duration: 0.38,
+          ease: 'back.out(1.4)',
+          stagger: { each: 0.05, from: 'start' },
+        });
+      });
+    }, tabRef.value);
+  });
+}
+
+watch(() => props.matches, animateCards, { immediate: true });
+watch(search, animateCards);
+onUnmounted(() => { ctx?.revert(); });
 
 // Parse date from formatted string like "Apr 15, 10:00 AM" → "Apr 15"
 function extractDate(time?: string): string {
@@ -48,7 +75,7 @@ const groupedByDate = computed(() => {
 </script>
 
 <template>
-  <div class="schedule-tab">
+  <div ref="tabRef" class="schedule-tab">
     <!-- Search -->
     <div class="schedule-search">
       <v-icon size="16" class="schedule-search__icon">mdi-magnify</v-icon>
@@ -251,16 +278,10 @@ const groupedByDate = computed(() => {
   background: #1e293b;
   border: 1px solid rgba(255,255,255,0.06);
   transition: border-color 0.15s, transform 0.15s;
-  animation: cardBounceIn 0.4s cubic-bezier(0.34, 1.4, 0.64, 1) both;
-  animation-delay: calc(var(--mi, 0) * 45ms);
 }
 .match-card:hover {
   border-color: rgba(255,255,255,0.14);
   transform: translateY(-1px);
-}
-@keyframes cardBounceIn {
-  from { opacity: 0; transform: translateY(16px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0)    scale(1); }
 }
 
 .match-card--live {
@@ -394,10 +415,7 @@ const groupedByDate = computed(() => {
   letter-spacing: 0.3px;
 }
 
-/* ── Reduced motion ─────────────────────────────────── */
-@media (prefers-reduced-motion: reduce) {
-  .match-card { animation: none; }
-}
+/* reduced-motion handled by gsap.matchMedia() in script */
 
 /* ── TBD block ───────────────────────────────────────── */
 .match-card__tbd-block {
