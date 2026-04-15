@@ -74,7 +74,7 @@ async function submitRepin(): Promise<void> {
     matchStore.sessionExpiredSignal = false;
     showRepinDialog.value = false;
     repinValue.value = '';
-    notificationStore.showToast('success', 'Session renewed — you can continue scoring');
+    notificationStore.showToast('success', 'Session renewed — re-tap any points scored during the interruption');
   } catch (err) {
     repinError.value = err instanceof Error ? err.message : 'Invalid PIN';
   } finally {
@@ -82,8 +82,31 @@ async function submitRepin(): Promise<void> {
   }
 }
 
+// Returns true if the session is valid (or if not in volunteer mode).
+// If expired, opens the re-PIN dialog and returns false — caller must abort.
+function checkSessionOrPrompt(): boolean {
+  if (
+    volunteerAccessStore.isVolunteerDevice &&
+    !volunteerAccessStore.hasValidSession(tournamentId.value, 'scorekeeper')
+  ) {
+    showRepinDialog.value = true;
+    return false;
+  }
+  return true;
+}
+
 function handleScoringError(error: unknown, fallbackMessage: string): void {
   if (error instanceof VolunteerSessionExpiredError) {
+    // Defensive rollback: session expired in the narrow window between the guard
+    // check and the Firestore write. Re-fetch to undo the optimistic score mutation.
+    if (match.value) {
+      matchStore.fetchMatch(
+        tournamentId.value,
+        matchId.value,
+        match.value.categoryId,
+        match.value.levelId,
+      ).catch(() => {});
+    }
     showRepinDialog.value = true;
     return;
   }
@@ -189,6 +212,12 @@ onMounted(async () => {
     }
   } finally {
     initialized.value = true;
+    // Proactive session check: show re-PIN dialog immediately if the scorer
+    // lands on this page with an already-expired session rather than waiting
+    // for the first tap to fail.
+    if (volunteerAccessStore.isVolunteerDevice && !volunteerAccessStore.hasValidSession(tournamentId.value, 'scorekeeper')) {
+      showRepinDialog.value = true;
+    }
   }
 });
 
@@ -242,6 +271,7 @@ const categoryName = computed(() => {
 });
 
 async function startMatch() {
+  if (!checkSessionOrPrompt()) return;
   loading.value = true;
   try {
     await matchStore.startMatch(
@@ -270,6 +300,7 @@ async function startMatch() {
 
 async function addPoint(participant: 'participant1' | 'participant2') {
   if (isMatchComplete.value || !match.value || scoreEntryLocked.value) return;
+  if (!checkSessionOrPrompt()) return;
 
   try {
     await matchStore.updateScore(
@@ -286,6 +317,7 @@ async function addPoint(participant: 'participant1' | 'participant2') {
 
 async function removePoint(participant: 'participant1' | 'participant2') {
   if (isMatchComplete.value || !match.value) return;
+  if (!checkSessionOrPrompt()) return;
 
   try {
     await matchStore.decrementScore(
@@ -302,6 +334,7 @@ async function removePoint(participant: 'participant1' | 'participant2') {
 
 async function completeCurrentGame() {
   if (isMatchComplete.value || !match.value || !currentGameReadyToComplete.value) return;
+  if (!checkSessionOrPrompt()) return;
 
   loading.value = true;
   try {

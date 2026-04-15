@@ -283,17 +283,26 @@ export const useMatchStore = defineStore('matches', () => {
 
     // Watch for server-side session rejection (e.g. PIN rotated mid-tournament).
     // The processScoreEvent CF writes processingErrorCode:'session_invalid' back to
-    // the event doc if the token is rejected. We listen for up to 15 s; if the doc
-    // is deleted (success) or the timeout elapses (offline queue), we stop watching.
-    onSnapshot(eventRef, (snap) => {
-      if (!snap.exists()) return; // Deleted = success, nothing to do.
+    // the event doc if the token is rejected. We clean up the listener on both
+    // success (doc deleted) and rejection to prevent memory leaks.
+    let eventUnsub: (() => void) | null = null;
+    eventUnsub = onSnapshot(eventRef, (snap) => {
+      if (!snap.exists()) {
+        // Doc deleted = CF processed successfully. Clean up listener.
+        eventUnsub?.();
+        return;
+      }
       const data = snap.data();
       if (data?.processingErrorCode === 'session_invalid') {
+        // The CF rejected this event — the score was NOT applied to Firestore.
+        // Re-fetch the authoritative Firestore state to roll back the optimistic
+        // score update that already mutated local Vue state.
+        fetchMatch(input.tournamentId, input.matchId, input.categoryId, input.levelId)
+          .catch(() => {}); // non-blocking; best-effort rollback
         // Surface as a store-level signal. The scoring view watches this ref
         // and opens the re-PIN dialog when it becomes true.
         sessionExpiredSignal.value = true;
-        // Stop watching to avoid repeated signals.
-        // (The listener is auto-cleaned by Firestore when the doc is later deleted.)
+        eventUnsub?.(); // Stop watching to avoid repeated signals.
       }
     });
 
