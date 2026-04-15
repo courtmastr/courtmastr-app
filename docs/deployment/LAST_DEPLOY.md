@@ -2,17 +2,17 @@
 
 Current policy note: production infrastructure is Terraform-managed and production application rollout is expected to happen through the `master` CI/CD workflow. Older entries below may reference the previous local release command path because they are historical records.
 
-Updated: 2026-04-14 (America/Chicago)
+Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-14 00:13 CDT
-- Release ID: `v2.8.0`
-- Package version: `2.8.0`
+- Date: 2026-04-15 00:56 CDT
+- Release ID: `v2.9.0`
+- Package version: `2.9.0`
 - Deployed branch: `master`
-- Deployed commit: `ea9c90c` (`fix: tournament dates parse as local time with correct day boundaries (#36)`)
+- Deployed commit: `fb9f194` (`fix: remove resetDailyCheckIns import and export from functions index (#42)`)
 - Release notes:
-  - [docs/releases/v2.8.0.md](docs/releases/v2.8.0.md)
+  - [docs/releases/v2.9.0.md](docs/releases/v2.9.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-14 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-14-05-12-22.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-15-05-53-14.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-14 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.8.0`
+  - Date: 2026-04-14 00:13 CDT
+  - Package version: `2.8.0`
+  - Deployed commit: `ea9c90c`
+  - Release notes:
+    - [docs/releases/v2.8.0.md](docs/releases/v2.8.0.md)
 - `v2.7.1`
   - Date: 2026-04-13 18:21 CDT
   - Package version: `2.7.1`
@@ -131,7 +137,7 @@ Updated: 2026-04-14 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-14 00:13 CDT
-- Commit: `ea9c90cbfdd965e6b9b0479608151759458ee33c`
-- Message: `fix: tournament dates parse as local time with correct day boundaries (#36)`
-- Note: deployed via `npm run release:deploy` on 2026-04-14.
+- Date: 2026-04-15 00:56 CDT
+- Commit: `fb9f194eedca5540cc340e15505a74280bed4de5`
+- Message: `fix: remove resetDailyCheckIns import and export from functions index (#42)`
+- Note: deployed via `npm run release:deploy` on 2026-04-15.
