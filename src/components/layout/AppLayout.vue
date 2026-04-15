@@ -95,6 +95,7 @@ const showPublicWebsiteFooter = computed(() =>
 
 const showLanguageToggle = computed(() =>
   route.meta.requiresAuth === false &&
+  route.meta.publicViewPage !== true &&
   route.meta.overlayPage !== true &&
   route.meta.obsOverlay !== true &&
   route.meta.volunteerLayout !== true
@@ -483,7 +484,7 @@ async function submitBugReport() {
             </v-avatar>
           </v-btn>
           <div
-            v-else
+            v-else-if="!route.meta.publicViewPage"
             class="auth-buttons d-flex flex-column flex-sm-row"
           >
             <v-btn

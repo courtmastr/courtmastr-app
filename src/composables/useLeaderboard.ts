@@ -350,6 +350,9 @@ export function resolveParticipantName(
   reg: Registration,
   players: Player[]
 ): string {
+  // teamName is the canonical registration-time display name — prefer it over player record lookups
+  if (reg.teamName) return reg.teamName;
+
   const formatPlayerName = (playerId?: string): string | null => {
     if (!playerId) return null;
     const player = players.find((p) => p.id === playerId);
