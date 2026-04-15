@@ -6,13 +6,13 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-15 11:26 CDT
-- Release ID: `v2.10.0`
-- Package version: `2.10.0`
+- Date: 2026-04-15 14:51 CDT
+- Release ID: `v2.11.0`
+- Package version: `2.11.0`
 - Deployed branch: `master`
-- Deployed commit: `d764441` (`feat: move all bracket generation to cloud functions (#44)`)
+- Deployed commit: `fd21b50` (`fix: scorekeeper session expiry — re-PIN dialog with score integrity (#47)`)
 - Release notes:
-  - [docs/releases/v2.10.0.md](docs/releases/v2.10.0.md)
+  - [docs/releases/v2.11.0.md](docs/releases/v2.11.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-15 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-15-16-23-58.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-15-19-48-50.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.10.0`
+  - Date: 2026-04-15 11:26 CDT
+  - Package version: `2.10.0`
+  - Deployed commit: `d764441`
+  - Release notes:
+    - [docs/releases/v2.10.0.md](docs/releases/v2.10.0.md)
 - `v2.9.0`
   - Date: 2026-04-15 00:56 CDT
   - Package version: `2.9.0`
@@ -143,7 +149,7 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-15 11:26 CDT
-- Commit: `d7644410a2ee450949fd28ff43433cdcfe61dcd2`
-- Message: `feat: move all bracket generation to cloud functions (#44)`
+- Date: 2026-04-15 14:51 CDT
+- Commit: `fd21b50f530d96d0b9149d17336b3fe7c9475762`
+- Message: `fix: scorekeeper session expiry — re-PIN dialog with score integrity (#47)`
 - Note: deployed via `npm run release:deploy` on 2026-04-15.
