@@ -268,7 +268,7 @@ watch(() => props.tournamentId, async (newId) => {
         <div v-if="showAddForm" class="pub-panel__add-form mt-2">
           <v-select
             v-model="newEntry.categoryId"
-            :items="categories.map(c => ({ title: c.name, value: c.id }))"
+            :items="[{ title: 'All Divisions', value: '__all__' }, ...categories.map(c => ({ title: c.name, value: c.id }))]"
             label="Division *"
             density="compact"
             variant="outlined"
@@ -326,7 +326,7 @@ watch(() => props.tournamentId, async (newId) => {
       >
         <div class="pub-panel__tbd-entry-info">
           <span class="pub-panel__tbd-category">
-            {{ categories.find(c => c.id === entry.categoryId)?.name ?? entry.categoryId }}
+            {{ entry.categoryId === '__all__' ? 'All Divisions' : (categories.find(c => c.id === entry.categoryId)?.name ?? entry.categoryId) }}
           </span>
           <span class="pub-panel__tbd-round">{{ entry.roundLabel }}</span>
           <span class="pub-panel__tbd-time">{{ entry.startTime }} – {{ entry.endTime }}</span>
