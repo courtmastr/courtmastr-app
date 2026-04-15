@@ -6,13 +6,13 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-15 14:51 CDT
-- Release ID: `v2.11.0`
-- Package version: `2.11.0`
+- Date: 2026-04-15 15:56 CDT
+- Release ID: `v2.11.1`
+- Package version: `2.11.1`
 - Deployed branch: `master`
-- Deployed commit: `fd21b50` (`fix: scorekeeper session expiry — re-PIN dialog with score integrity (#47)`)
+- Deployed commit: `3fbbc4e` (`fix: public tournament page improvements (#50)`)
 - Release notes:
-  - [docs/releases/v2.11.0.md](docs/releases/v2.11.0.md)
+  - [docs/releases/v2.11.1.md](docs/releases/v2.11.1.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-15 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-15-19-48-50.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-15-20-55-20.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.11.0`
+  - Date: 2026-04-15 14:51 CDT
+  - Package version: `2.11.0`
+  - Deployed commit: `fd21b50`
+  - Release notes:
+    - [docs/releases/v2.11.0.md](docs/releases/v2.11.0.md)
 - `v2.10.0`
   - Date: 2026-04-15 11:26 CDT
   - Package version: `2.10.0`
@@ -149,7 +155,7 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-15 14:51 CDT
-- Commit: `fd21b50f530d96d0b9149d17336b3fe7c9475762`
-- Message: `fix: scorekeeper session expiry — re-PIN dialog with score integrity (#47)`
+- Date: 2026-04-15 15:56 CDT
+- Commit: `3fbbc4e7b2ce35caa4e2fd657dc41821558a53c3`
+- Message: `fix: public tournament page improvements (#50)`
 - Note: deployed via `npm run release:deploy` on 2026-04-15.
