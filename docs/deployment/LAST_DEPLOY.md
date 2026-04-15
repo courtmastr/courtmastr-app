@@ -6,13 +6,13 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-15 15:56 CDT
-- Release ID: `v2.11.1`
-- Package version: `2.11.1`
+- Date: 2026-04-15 16:28 CDT
+- Release ID: `v2.11.2`
+- Package version: `2.11.2`
 - Deployed branch: `master`
-- Deployed commit: `3fbbc4e` (`fix: public tournament page improvements (#50)`)
+- Deployed commit: `a77ef86` (`feat: add All Divisions option to TBD schedule selector (#52)`)
 - Release notes:
-  - [docs/releases/v2.11.1.md](docs/releases/v2.11.1.md)
+  - [docs/releases/v2.11.2.md](docs/releases/v2.11.2.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-15 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-15-20-55-20.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-15-21-27-14.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.11.1`
+  - Date: 2026-04-15 15:56 CDT
+  - Package version: `2.11.1`
+  - Deployed commit: `3fbbc4e`
+  - Release notes:
+    - [docs/releases/v2.11.1.md](docs/releases/v2.11.1.md)
 - `v2.11.0`
   - Date: 2026-04-15 14:51 CDT
   - Package version: `2.11.0`
@@ -155,7 +161,7 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-15 15:56 CDT
-- Commit: `3fbbc4e7b2ce35caa4e2fd657dc41821558a53c3`
-- Message: `fix: public tournament page improvements (#50)`
+- Date: 2026-04-15 16:28 CDT
+- Commit: `a77ef8605e44e13013b3253127ed52b01db0dfca`
+- Message: `feat: add All Divisions option to TBD schedule selector (#52)`
 - Note: deployed via `npm run release:deploy` on 2026-04-15.
