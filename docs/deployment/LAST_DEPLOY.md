@@ -6,13 +6,13 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-15 00:56 CDT
-- Release ID: `v2.9.0`
-- Package version: `2.9.0`
+- Date: 2026-04-15 11:26 CDT
+- Release ID: `v2.10.0`
+- Package version: `2.10.0`
 - Deployed branch: `master`
-- Deployed commit: `fb9f194` (`fix: remove resetDailyCheckIns import and export from functions index (#42)`)
+- Deployed commit: `d764441` (`feat: move all bracket generation to cloud functions (#44)`)
 - Release notes:
-  - [docs/releases/v2.9.0.md](docs/releases/v2.9.0.md)
+  - [docs/releases/v2.10.0.md](docs/releases/v2.10.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-15 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-15-05-53-14.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-15-16-23-58.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.9.0`
+  - Date: 2026-04-15 00:56 CDT
+  - Package version: `2.9.0`
+  - Deployed commit: `fb9f194`
+  - Release notes:
+    - [docs/releases/v2.9.0.md](docs/releases/v2.9.0.md)
 - `v2.8.0`
   - Date: 2026-04-14 00:13 CDT
   - Package version: `2.8.0`
@@ -137,7 +143,7 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-15 00:56 CDT
-- Commit: `fb9f194eedca5540cc340e15505a74280bed4de5`
-- Message: `fix: remove resetDailyCheckIns import and export from functions index (#42)`
+- Date: 2026-04-15 11:26 CDT
+- Commit: `d7644410a2ee450949fd28ff43433cdcfe61dcd2`
+- Message: `feat: move all bracket generation to cloud functions (#44)`
 - Note: deployed via `npm run release:deploy` on 2026-04-15.
