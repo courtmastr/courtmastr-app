@@ -131,6 +131,12 @@ service cloud.firestore {
         allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
       }
 
+      // TBD schedule entries (organizer-managed placeholder slots)
+      match /tbdSchedule/{entryId} {
+        allow read: if true;
+        allow write: if isAdmin() || isOrganizerOf(tournamentId);
+      }
+
       // match_scores subcollection (for legacy/custom scoring)
       match /match_scores/{matchId} {
         allow read: if true;

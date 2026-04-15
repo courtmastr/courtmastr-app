@@ -100,8 +100,95 @@ export interface Tournament {
   tournamentLogo?: TournamentLogo | null;
   sponsors?: TournamentSponsorRecord[];
   volunteerAccess?: TournamentVolunteerAccess;
+  slug?: string;
+  publicSnapshot?: {
+    pushedAt: Date;
+    pushedBy: string;
+    storageUrl: string;
+  };
   createdAt: Date;
   updatedAt: Date;
+}
+
+// TBD schedule entry — placeholder match slot shown on public page before real matchups are known
+export interface TbdScheduleEntry {
+  id: string;
+  categoryId: string;
+  roundLabel: string;  // free text: "QF", "Semi Finals", "Pool Play", etc.
+  startTime: string;   // "10:00 AM"
+  endTime: string;     // "12:00 PM"
+  court?: string;      // optional: "Court 1–2"
+  createdAt: Date;
+  createdBy: string;
+}
+
+// Public snapshot types — written to Firebase Storage on admin push
+export interface TournamentSnapshot {
+  meta: {
+    tournamentId: string;
+    slug: string;
+    name: string;
+    sport?: string;
+    startDate: string;
+    endDate: string;
+    location?: string;
+    logoUrl?: string;
+    pushedAt: string;
+    pushedBy: string;
+  };
+  categories: CategorySnapshot[];
+}
+
+export interface CategorySnapshot {
+  id: string;
+  name: string;
+  format: string;
+  schedule: MatchSnapshot[];
+  pools: PoolSnapshot[];
+  standings: PlayerStanding[];
+  bracket?: BracketSnapshot;
+}
+
+export interface MatchSnapshot {
+  id: string;
+  time?: string;
+  endTime?: string;
+  court?: string;
+  player1: string;
+  player2: string;
+  status: 'upcoming' | 'in_progress' | 'completed';
+  score?: string;
+  winnerId?: string;
+  poolLabel?: string;
+  round?: string;
+  isTbd?: true;
+}
+
+export interface PoolSnapshot {
+  label: string;
+  matches: MatchSnapshot[];
+}
+
+export interface PlayerStanding {
+  rank: number;
+  name: string;
+  mp: number;        // matches played
+  wins: number;
+  losses: number;
+  setWins: number;
+  setLosses: number;
+  ptsFor: number;
+  ptsAgainst: number;
+  pointsDiff: number;
+}
+
+export interface BracketSnapshot {
+  rounds: BracketRound[];
+}
+
+export interface BracketRound {
+  label: string;
+  matches: MatchSnapshot[];
 }
 
 export interface TournamentSettings {

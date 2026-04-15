@@ -263,9 +263,16 @@ export const useTournamentStore = defineStore('tournaments', () => {
         ? tournamentData.organizerIds
         : uid ? [uid] : [];
 
+      const year = tournamentData.startDate.getFullYear();
+      const slug = `${tournamentData.name} ${year}`
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+
       const addDocPromise = addDoc(collection(db, 'tournaments'), {
         ...tournamentData,
         organizerIds,
+        slug,
         startDate: Timestamp.fromDate(tournamentData.startDate),
         endDate: Timestamp.fromDate(tournamentData.endDate),
         registrationDeadline: tournamentData.registrationDeadline
