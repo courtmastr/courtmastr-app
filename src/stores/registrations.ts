@@ -90,14 +90,10 @@ export const useRegistrationStore = defineStore('registrations', () => {
     }
 
     const volunteerCheckInFn = httpsCallable(functions, 'applyVolunteerCheckInAction');
-    await volunteerCheckInFn({
-      tournamentId,
-      registrationId,
-      action,
-      bibNumber,
-      participantId: participantId ?? null,
-      sessionToken,
-    });
+    const payload: Record<string, unknown> = { tournamentId, registrationId, action, sessionToken };
+    if (bibNumber !== undefined) payload.bibNumber = bibNumber;
+    if (participantId != null) payload.participantId = participantId;
+    await volunteerCheckInFn(payload);
     return true;
   };
 
