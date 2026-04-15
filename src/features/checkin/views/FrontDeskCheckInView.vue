@@ -27,6 +27,11 @@ const registrationStore = useRegistrationStore();
 const tournamentStore = useTournamentStore();
 const { getParticipantName } = useParticipantResolver();
 
+const getPlayerName = (playerId: string): string => {
+  const player = registrationStore.players.find((p) => p.id === playerId);
+  return player ? `${player.firstName} ${player.lastName}` : 'Unknown';
+};
+
 const tournamentId = computed(() => route.params.tournamentId as string);
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
@@ -63,9 +68,10 @@ const workflow = useFrontDeskCheckInWorkflow({
   registrations: computed(() => registrationStore.registrations),
   matches: computed(() => matchStore.matches),
   getParticipantName,
+  getPlayerName,
   getCategoryName,
-  checkInRegistration: async (registrationId: string) => {
-    await registrationStore.checkInRegistration(tournamentId.value, registrationId);
+  checkInRegistration: async (registrationId: string, participantId?: string) => {
+    await registrationStore.checkInRegistration(tournamentId.value, registrationId, participantId);
   },
   undoCheckInRegistration: async (registrationId: string) => {
     await registrationStore.undoCheckInRegistration(

@@ -196,6 +196,13 @@ describe('useFrontDeskCheckInWorkflow', () => {
         status: 'checked_in',
         registeredBy: 'admin-1',
         registeredAt: new Date('2026-02-27T10:00:00.000Z'),
+        // dailyCheckIns marks this player as checked in today (2026-02-27 Chicago)
+        dailyCheckIns: {
+          '2026-02-27': {
+            checkedInAt: new Date('2026-02-27T11:00:00.000Z'),
+            source: 'admin' as const,
+          },
+        },
       },
     ]);
 
@@ -234,7 +241,7 @@ describe('useFrontDeskCheckInWorkflow', () => {
     expect(approved?.canCheckIn).toBe(true);
     expect(approved?.disabledReason).toBeUndefined();
     expect(checkedIn?.canCheckIn).toBe(false);
-    expect(checkedIn?.disabledReason).toBe('Already checked in');
+    expect(checkedIn?.disabledReason).toBe('Already checked in today');
 
     wrapper.unmount();
   });

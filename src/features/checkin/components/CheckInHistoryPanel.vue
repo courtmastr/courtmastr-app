@@ -144,7 +144,7 @@ onMounted(() => {
           >
             {{ row.categoryName }}
             <template v-if="row.isPartial">
-              · <span class="font-weight-medium">waiting for partner</span>
+              · <span class="font-weight-medium">waiting for {{ row.partnerName ?? 'partner' }}</span>
             </template>
           </div>
         </div>
