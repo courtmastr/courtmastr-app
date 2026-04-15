@@ -47,6 +47,9 @@ const CourtScorerView = () => import('@/features/scoring/views/CourtScorerView.v
 const MatchList = () => import('@/features/scoring/views/MatchListView.vue');
 const MatchControl = () => import('@/features/tournaments/views/MatchControlView.vue');
 
+// Public tournament page (snapshot-based, no auth, zero participant Firestore reads)
+const TournamentPublicPage = () => import('@/features/public/views/TournamentPublicPageView.vue');
+
 // Public views
 const PublicBracket = () => import('@/features/public/views/PublicBracketView.vue');
 const PublicScoring = () => import('@/features/public/views/PublicScoringView.vue');
@@ -523,6 +526,14 @@ const routes: RouteRecordRaw[] = [
     path: '/find',
     name: 'player-search',
     component: PlayerSearchView,
+    meta: { requiresAuth: false },
+  },
+
+  // Public tournament page — short URL for QR codes and sharing
+  {
+    path: '/t/:slug',
+    name: 'tournament-public-page',
+    component: TournamentPublicPage,
     meta: { requiresAuth: false },
   },
 

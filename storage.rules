@@ -44,6 +44,12 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    // Public tournament snapshot JSON — read by anyone, write by authenticated organizers only
+    match /public-snapshots/{tournamentId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
     // Default deny all other paths
     match /{allPaths=**} {
       allow read, write: if false;

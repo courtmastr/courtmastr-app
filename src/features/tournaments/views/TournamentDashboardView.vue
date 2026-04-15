@@ -16,6 +16,7 @@ import ReadyQueue from '../components/ReadyQueue.vue';
 import ScoringQrDialog from '../components/ScoringQrDialog.vue';
 import TournamentAnnouncementCardDialog from '../components/TournamentAnnouncementCardDialog.vue';
 import CategoryProgressPanel from '../components/CategoryProgressPanel.vue';
+import PublicPagePanel from '../components/PublicPagePanel.vue';
 import { logger } from '@/utils/logger';
 
 const route = useRoute();
@@ -38,6 +39,14 @@ const isAdmin = computed(() => authStore.isAdmin);
 const isOrganizer = computed(() => authStore.isOrganizer);
 // Both admins and organizers need Manage controls for their own tournaments.
 const showManageControls = computed(() => isAdmin.value || isOrganizer.value);
+const publicPageLastPushedAt = computed((): Date | null => {
+  const raw = tournament.value?.publicSnapshot?.pushedAt;
+  if (!raw) return null;
+  if (raw instanceof Date) return raw;
+  // Firestore Timestamp
+  if (typeof (raw as any).toDate === 'function') return (raw as any).toDate();
+  return new Date(raw as any);
+});
 const { tournamentLogoUrl } = useTournamentBranding(tournament);
 
 const selectedCategory = ref<string | null>(null);
@@ -709,6 +718,19 @@ function handleExport() {
       class="pa-5"
     >
       <organizer-checklist :tournament-id="tournamentId" />
+    </div>
+
+    <!-- Public Page Panel (all statuses, admin/organizer only) -->
+    <div
+      v-if="showManageControls"
+      class="pa-4"
+    >
+      <PublicPagePanel
+        :tournament-id="tournamentId"
+        :categories="categories"
+        :slug="tournament.slug"
+        :last-pushed-at="publicPageLastPushedAt"
+      />
     </div>
 
     <!-- Schedule Result Alert -->

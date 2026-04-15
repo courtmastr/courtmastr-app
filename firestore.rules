@@ -131,6 +131,12 @@ service cloud.firestore {
         allow write: if isAdmin() || isOrganizerOf(tournamentId) || isScorekeeper();
       }
 
+      // TBD schedule entries (organizer-managed placeholder slots)
+      match /tbdSchedule/{entryId} {
+        allow read: if true;
+        allow write: if isAdmin() || isOrganizerOf(tournamentId);
+      }
+
       // match_scores subcollection (for legacy/custom scoring)
       match /match_scores/{matchId} {
         allow read: if true;
@@ -243,6 +249,21 @@ service cloud.firestore {
           allow read: if true;
           allow write: if isAdmin() || isOrganizerOf(tournamentId);
         }
+      }
+
+      // pending_score_events — offline-safe volunteer scoring queue.
+      // Volunteers (unauthenticated) write full match state snapshots here directly.
+      // The processScoreEvent Cloud Function trigger validates the session token and
+      // applies the score to match_scores. Admin SDK bypasses these rules for delete/update.
+      match /pending_score_events/{eventId} {
+        allow create: if request.resource.data.keys().hasAll(['sessionToken', 'matchId', 'scores'])
+                     && request.resource.data.sessionToken is string
+                     && request.resource.data.matchId is string
+                     && request.resource.data.tournamentId == tournamentId;
+        // Client reads to watch for processingError field or document deletion (success signal)
+        allow read: if true;
+        // Only Cloud Function (Admin SDK) may delete or update
+        allow update, delete: if false;
       }
 
     }
