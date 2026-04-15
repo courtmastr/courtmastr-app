@@ -382,18 +382,16 @@ const groupedByDate = computed(() => {
 /* ── Players ─────────────────────────────────────────── */
 .match-card__players {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 3px;
   margin-bottom: 4px;
 }
 .player {
-  flex: 1;
   font-size: 13px;
   font-weight: 600;
   color: rgba(255,255,255,0.65);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.35;
+  word-break: break-word;
 }
 .player--winner {
   color: #e6edf3;
@@ -404,7 +402,8 @@ const groupedByDate = computed(() => {
   font-weight: 800;
   color: rgba(255,255,255,0.2);
   letter-spacing: 1px;
-  flex-shrink: 0;
+  align-self: center;
+  padding: 1px 0;
 }
 
 /* ── Score ───────────────────────────────────────────── */
