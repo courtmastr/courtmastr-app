@@ -19,7 +19,7 @@ onMounted(() => {
   ctx = gsap.context(() => {
     const mm = gsap.matchMedia();
     mm.add({ reduce: '(prefers-reduced-motion: reduce)' }, (context) => {
-      const { reduce } = (context as { conditions: { reduce: boolean } }).conditions;
+      const { reduce } = (context as unknown as { conditions: { reduce: boolean } }).conditions;
       if (reduce) return;
       gsap.from('.cat-selector', { y: 10, autoAlpha: 0, duration: 0.3, ease: 'power2.out' });
       gsap.from('.cat-chip', {

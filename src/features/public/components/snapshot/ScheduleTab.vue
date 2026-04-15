@@ -20,7 +20,7 @@ function animateCards() {
     ctx = gsap.context(() => {
       const mm = gsap.matchMedia();
       mm.add({ reduce: '(prefers-reduced-motion: reduce)' }, (context) => {
-        const { reduce } = (context as { conditions: { reduce: boolean } }).conditions;
+        const { reduce } = (context as unknown as { conditions: { reduce: boolean } }).conditions;
         if (reduce) return;
         gsap.from('.match-card', {
           y: 20, autoAlpha: 0, scale: 0.97,
