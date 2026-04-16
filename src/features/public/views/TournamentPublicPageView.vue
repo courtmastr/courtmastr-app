@@ -21,6 +21,7 @@ const pageRef = ref<HTMLElement | null>(null);
 const indicatorRef = ref<HTMLElement | null>(null);
 
 let ctx: ReturnType<typeof gsap.context> | null = null;
+let manifestBlobUrl: string | null = null;
 
 function switchTab(i: number) {
   tabTransitionName.value = i > activeTab.value ? 'tab-right' : 'tab-left';
@@ -86,6 +87,42 @@ watch(snapshot, async (val) => {
   }, pageRef.value);
 }, { once: true });
 
+// Inject a tournament-specific web app manifest so "Add to Home Screen" installs
+// this tournament page — not the CourtMastr admin app.
+watch(snapshot, (val) => {
+  if (!val) return;
+
+  const name = val.meta.name;
+  const manifest = {
+    name,
+    short_name: name.length > 15 ? name.slice(0, 15) : name,
+    description: `Live scores and schedule for ${name}`,
+    start_url: window.location.pathname,
+    scope: '/t/',
+    display: 'standalone',
+    background_color: '#0f172a',
+    theme_color: '#0a1628',
+    icons: [
+      { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ],
+  };
+
+  if (manifestBlobUrl) URL.revokeObjectURL(manifestBlobUrl);
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  manifestBlobUrl = URL.createObjectURL(blob);
+
+  // Replace the site-wide manifest so the install prompt uses tournament details
+  document.querySelector('link[rel="manifest"]')?.remove();
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = manifestBlobUrl;
+  document.head.appendChild(link);
+
+  // iOS Safari uses document.title as the home screen app label
+  document.title = name;
+}, { once: true });
+
 onMounted(async () => {
   const slug = route.params.slug as string;
   await loadBySlug(slug);
@@ -96,6 +133,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   ctx?.revert();
+  if (manifestBlobUrl) URL.revokeObjectURL(manifestBlobUrl);
 });
 </script>
 
