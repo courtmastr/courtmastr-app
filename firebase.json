@@ -17,7 +17,7 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {
-        "regex": "^(?!/(assets/|sw\\.js$|registerSW\\.js$|manifest\\.webmanifest$|site\\.webmanifest$|recover\\.html$)).*",
+        "source": "!/assets/**",
         "destination": "/index.html"
       }
     ],
