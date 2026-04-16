@@ -22,8 +22,20 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { seedGlobalPlayer } from './helpers';
+import { BracketsManager } from 'brackets-manager';
+import { ClientFirestoreStorage } from '../../src/services/brackets-storage';
 
 type PlayerGender = 'male' | 'female';
+
+interface StoredParticipant { id: number | string; name: string; }
+interface StoredMatch {
+  id: number | string;
+  round_id?: number;
+  group_id?: number;
+  number?: number;
+  opponent1?: { id?: number | null } | null;
+  opponent2?: { id?: number | null } | null;
+}
 
 interface CategoryInfo {
   id: string;
@@ -62,6 +74,7 @@ interface CategorySeedConfig {
   name: string;
   type: 'singles' | 'doubles' | 'mixed_doubles';
   gender: 'men' | 'women' | 'mixed' | 'open';
+  format?: 'single_elimination' | 'pool_to_elimination';
   selectColumn: number;
   dataStartColumn: number;
 }
@@ -73,6 +86,7 @@ export interface TNF2026SeedConfig {
   organizerIds?: string[];
   tournamentName?: string;
   workbookPath?: string;
+  startDate?: Date;         // fixed start date (takes priority over startDateOffset)
   startDateOffset?: number;
 }
 
@@ -786,6 +800,7 @@ const CATEGORY_CONFIGS: readonly CategorySeedConfig[] = [
     name: "Men's Singles",
     type: 'singles',
     gender: 'men',
+    format: 'pool_to_elimination',
     selectColumn: 4,
     dataStartColumn: 10,
   },
@@ -794,6 +809,7 @@ const CATEGORY_CONFIGS: readonly CategorySeedConfig[] = [
     name: "Men's Doubles",
     type: 'doubles',
     gender: 'men',
+    format: 'pool_to_elimination',
     selectColumn: 5,
     dataStartColumn: 15,
   },
@@ -802,6 +818,7 @@ const CATEGORY_CONFIGS: readonly CategorySeedConfig[] = [
     name: "Women's Doubles",
     type: 'doubles',
     gender: 'women',
+    format: 'pool_to_elimination',
     selectColumn: 6,
     dataStartColumn: 25,
   },
@@ -810,6 +827,7 @@ const CATEGORY_CONFIGS: readonly CategorySeedConfig[] = [
     name: 'Mixed Doubles',
     type: 'mixed_doubles',
     gender: 'mixed',
+    format: 'pool_to_elimination',
     selectColumn: 7,
     dataStartColumn: 35,
   },
@@ -818,6 +836,7 @@ const CATEGORY_CONFIGS: readonly CategorySeedConfig[] = [
     name: 'Youth Doubles',
     type: 'doubles',
     gender: 'open',
+    format: 'pool_to_elimination',
     selectColumn: 8,
     dataStartColumn: 45,
   },
@@ -826,6 +845,7 @@ const CATEGORY_CONFIGS: readonly CategorySeedConfig[] = [
     name: 'Kids Doubles',
     type: 'doubles',
     gender: 'open',
+    format: 'pool_to_elimination',
     selectColumn: 9,
     dataStartColumn: 55,
   },
@@ -1524,9 +1544,12 @@ export async function runTNF2026Seed(config: TNF2026SeedConfig): Promise<string>
     return existingId;
   }
 
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() + startDateOffset);
-  startDate.setHours(9, 0, 0, 0);
+  const startDate = config.startDate ? new Date(config.startDate) : (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + startDateOffset);
+    d.setHours(9, 0, 0, 0);
+    return d;
+  })();
 
   console.log('\n[1] Creating Tournament...');
   const tournamentRef = await addDoc(collection(db, 'tournaments'), {
@@ -1542,8 +1565,8 @@ export async function runTNF2026Seed(config: TNF2026SeedConfig): Promise<string>
     registrationDeadline: Timestamp.fromDate(new Date()),
     maxParticipants: 250,
     settings: {
-      minRestTimeMinutes: 15,
-      matchDurationMinutes: 20,
+      minRestTimeMinutes: 5,
+      matchDurationMinutes: 15,
       allowSelfRegistration: false,
       requireApproval: false,
       gamesPerMatch: 3,
@@ -1569,7 +1592,7 @@ export async function runTNF2026Seed(config: TNF2026SeedConfig): Promise<string>
       type: configEntry.type,
       gender: configEntry.gender,
       ageGroup: 'open',
-      format: 'single_elimination',
+      format: configEntry.format ?? 'single_elimination',
       status: 'registration',
       seedingEnabled: true,
       maxParticipants: 64,
@@ -1586,8 +1609,9 @@ export async function runTNF2026Seed(config: TNF2026SeedConfig): Promise<string>
   }
 
   console.log('\n[3] Creating Courts...');
+  const courtIds: string[] = [];
   for (let courtNumber = 1; courtNumber <= 5; courtNumber += 1) {
-    await addDoc(collection(db, 'tournaments', tournamentId, 'courts'), {
+    const courtRef = await addDoc(collection(db, 'tournaments', tournamentId, 'courts'), {
       tournamentId,
       name: `Court ${courtNumber}`,
       number: courtNumber,
@@ -1595,6 +1619,7 @@ export async function runTNF2026Seed(config: TNF2026SeedConfig): Promise<string>
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    courtIds.push(courtRef.id);
   }
   console.log('  Created 5 courts');
 
@@ -1637,6 +1662,156 @@ export async function runTNF2026Seed(config: TNF2026SeedConfig): Promise<string>
       `  ${configEntry.name}: ${registrationCounts.get(configEntry.key) ?? 0} registrations`,
     );
   }
+
+  // ── Step [5]: Generate brackets (pool_to_elimination, ~4 per pool) ──────────
+  console.log('\n[5] Generating brackets...');
+  const regsSnap = await getDocs(collection(db, 'tournaments', tournamentId, 'registrations'));
+  const regsByCategoryId = new Map<string, { id: string; seed: number | null; playerId?: string; partnerPlayerId?: string }[]>();
+  for (const regDoc of regsSnap.docs) {
+    const data = regDoc.data();
+    const catId = data.categoryId as string;
+    if (!regsByCategoryId.has(catId)) regsByCategoryId.set(catId, []);
+    regsByCategoryId.get(catId)!.push({
+      id: regDoc.id,
+      seed: typeof data.seed === 'number' ? data.seed : null,
+      playerId: data.playerId as string | undefined,
+      partnerPlayerId: data.partnerPlayerId as string | undefined,
+    });
+  }
+
+  const bracketCategoryKeys = ['MS', 'WD', 'MD', 'MXD', 'YD', 'KD'] as const;
+  for (const catKey of bracketCategoryKeys) {
+    const cat = categories[catKey];
+    if (!cat) continue;
+    const regs = regsByCategoryId.get(cat.id) ?? [];
+    if (regs.length < 2) { console.log(`  Skipped ${cat.name} (< 2 registrations)`); continue; }
+
+    const configEntry = CATEGORY_CONFIGS.find((c) => c.key === catKey)!;
+    const format = configEntry.format ?? 'pool_to_elimination';
+    const poolCount = Math.max(1, Math.ceil(regs.length / 4));
+
+    await clearCategoryBracketData(db, tournamentId, cat.id);
+    const storage = new ClientFirestoreStorage(db, `tournaments/${tournamentId}/categories/${cat.id}`);
+    const manager = new BracketsManager(storage);
+
+    // Sort by seed, then insert participants
+    const sorted = [...regs].sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999));
+    const participants = sorted.map((r, i) => ({ id: i + 1, tournament_id: cat.id, name: r.id }));
+    await storage.insert('participant', participants);
+
+    const stage = await manager.create.stage({
+      tournamentId: cat.id,
+      name: `${cat.name} - Pool Play`,
+      type: 'round_robin',
+      seedingIds: participants.map((_, i) => i + 1),
+      settings: {
+        seedOrdering: ['groups.effort_balanced'],
+        groupCount: poolCount,
+      },
+    });
+
+    const stageId = Number((stage as { id?: number | string }).id);
+    await setDoc(doc(db, 'tournaments', tournamentId, 'categories', cat.id), {
+      status: 'active',
+      format,
+      stageId,
+      poolStageId: stageId,
+      eliminationStageId: null,
+      poolPhase: 'pool',
+      poolGroupCount: poolCount,
+      poolQualifiersPerGroup: 2,
+      poolQualifiedRegistrationIds: [],
+      bracketGeneratedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    console.log(`  ${cat.name}: ${regs.length} teams → ${poolCount} pools`);
+  }
+
+  // ── Step [6]: Schedule pool matches ─────────────────────────────────────────
+  console.log('\n[6] Scheduling pool matches...');
+  const MATCH_MINUTES = 15;
+  const BUFFER_MINUTES = 5;
+  const SLOT_MS = (MATCH_MINUTES + BUFFER_MINUTES) * 60_000;
+
+  // startDate is set to 9:00 AM for the tournament day — reuse that day
+  const msStart = new Date(startDate); msStart.setHours(8, 30, 0, 0);
+  const wdStart = new Date(startDate); wdStart.setHours(8, 30, 0, 0);
+  const mdStart = new Date(startDate); mdStart.setHours(11, 30, 0, 0);
+
+  // Court assignment: WD → courts 1-3 (idx 0-2), MS → courts 4-5 (idx 3-4), MD → all 5
+  const wdCourts = courtIds.slice(0, 3);
+  const msCourts = courtIds.slice(3, 5);
+  const mdCourts = courtIds;
+
+  async function scheduleCategory(categoryId: string, startAt: Date, courts: string[]): Promise<number> {
+    const storage = new ClientFirestoreStorage(db, `tournaments/${tournamentId}/categories/${categoryId}`);
+    const rawMatches = await storage.select<StoredMatch>('match');
+    const rawParticipants = await storage.select<StoredParticipant>('participant');
+
+    const allMatches = (Array.isArray(rawMatches) ? rawMatches : rawMatches ? [rawMatches] : [])
+      .filter((m) => m.opponent1?.id != null && m.opponent2?.id != null)
+      .sort((a, b) => (a.group_id ?? 0) - (b.group_id ?? 0) || (a.round_id ?? 0) - (b.round_id ?? 0) || (a.number ?? 0) - (b.number ?? 0));
+
+    const participants = (Array.isArray(rawParticipants) ? rawParticipants : rawParticipants ? [rawParticipants] : []);
+    const regById = new Map<number, string>(participants.map((p) => [Number(p.id), String(p.name)]));
+
+    const courtFree = courts.map(() => startAt.getTime());
+    let count = 0;
+
+    for (const match of allMatches) {
+      const p1 = regById.get(Number(match.opponent1?.id));
+      const p2 = regById.get(Number(match.opponent2?.id));
+      if (!p1 || !p2) continue;
+
+      const earliest = courtFree.indexOf(Math.min(...courtFree));
+      const matchStart = new Date(courtFree[earliest]);
+      const matchEnd = new Date(matchStart.getTime() + MATCH_MINUTES * 60_000);
+      courtFree[earliest] += SLOT_MS;
+
+      await setDoc(
+        doc(db, 'tournaments', tournamentId, 'categories', categoryId, 'match_scores', String(match.id)),
+        {
+          tournamentId,
+          categoryId,
+          participant1Id: p1,
+          participant2Id: p2,
+          status: 'scheduled',
+          courtId: courts[earliest],
+          scheduledTime: Timestamp.fromDate(matchStart),
+          plannedStartAt: Timestamp.fromDate(matchStart),
+          plannedEndAt: Timestamp.fromDate(matchEnd),
+          scheduleStatus: 'published',
+          publishedAt: serverTimestamp(),
+          publishedBy: adminId,
+          scores: [],
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+      count++;
+    }
+    return count;
+  }
+
+  // MXD / YD / KD share all 5 courts, staggered after MD
+  const mxdStart = new Date(startDate); mxdStart.setHours(8, 30, 0, 0);
+  const ydStart  = new Date(startDate); ydStart.setHours(8, 30, 0, 0);
+  const kdStart  = new Date(startDate); kdStart.setHours(11, 30, 0, 0);
+
+  const msCount  = await scheduleCategory(categories['MS'].id,  msStart,  msCourts);
+  const wdCount  = await scheduleCategory(categories['WD'].id,  wdStart,  wdCourts);
+  const mdCount  = await scheduleCategory(categories['MD'].id,  mdStart,  mdCourts);
+  const mxdCount = await scheduleCategory(categories['MXD'].id, mxdStart, mdCourts);
+  const ydCount  = await scheduleCategory(categories['YD'].id,  ydStart,  mdCourts);
+  const kdCount  = await scheduleCategory(categories['KD'].id,  kdStart,  mdCourts);
+
+  console.log(`  MS:  ${msCount}  matches on courts 4-5   from 8:30 AM`);
+  console.log(`  WD:  ${wdCount}  matches on courts 1-3   from 8:30 AM`);
+  console.log(`  MD:  ${mdCount}  matches on all courts   from 11:30 AM`);
+  console.log(`  MXD: ${mxdCount} matches on all courts   from 8:30 AM`);
+  console.log(`  YD:  ${ydCount}  matches on all courts   from 8:30 AM`);
+  console.log(`  KD:  ${kdCount}  matches on all courts   from 11:30 AM`);
 
   return tournamentId;
 }

@@ -350,6 +350,9 @@ export function resolveParticipantName(
   reg: Registration,
   players: Player[]
 ): string {
+  // teamName always takes priority (matches app behaviour in useParticipantResolver)
+  if (reg.teamName) return reg.teamName;
+
   const formatPlayerName = (playerId?: string): string | null => {
     if (!playerId) return null;
     const player = players.find((p) => p.id === playerId);
@@ -357,7 +360,7 @@ export function resolveParticipantName(
     return `${player.firstName} ${player.lastName}`.trim();
   };
 
-  // For doubles/mixed registrations, prefer full player names when both are available.
+  // Doubles/mixed: show both player names when no teamName set
   if (reg.partnerPlayerId) {
     const playerOne = formatPlayerName(reg.playerId);
     const playerTwo = formatPlayerName(reg.partnerPlayerId);
@@ -365,8 +368,6 @@ export function resolveParticipantName(
       return `${playerOne} / ${playerTwo}`;
     }
   }
-
-  if (reg.teamName) return reg.teamName;
 
   const playerName = formatPlayerName(reg.playerId);
   if (playerName) return playerName;
