@@ -129,6 +129,64 @@ export default defineConfig({
       dependencies: ['setup'],
       testMatch: [/negative-tests\.spec\.ts$/, /edge-cases\.spec\.ts$/],
     },
+    {
+      name: 'compat-desktop-chrome',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+      dependencies: ['setup'],
+      testMatch: [/browser-compat-cache-recovery\.spec\.ts$/],
+    },
+    {
+      name: 'compat-desktop-firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+      },
+      dependencies: ['setup'],
+      testMatch: [/browser-compat-cache-recovery\.spec\.ts$/],
+    },
+    {
+      name: 'compat-desktop-webkit',
+      use: {
+        ...devices['Desktop Safari'],
+      },
+      dependencies: ['setup'],
+      testMatch: [/browser-compat-cache-recovery\.spec\.ts$/],
+    },
+    {
+      name: 'compat-mobile-chrome',
+      use: {
+        ...devices['Pixel 5'],
+      },
+      dependencies: ['setup'],
+      testMatch: [/browser-compat-cache-recovery\.spec\.ts$/],
+    },
+    {
+      name: 'compat-mobile-webkit',
+      use: {
+        ...devices['iPhone 13'],
+      },
+      dependencies: ['setup'],
+      testMatch: [/browser-compat-cache-recovery\.spec\.ts$/],
+    },
+    {
+      name: 'compat-tablet-webkit',
+      use: {
+        ...devices['iPad (gen 7)'],
+      },
+      dependencies: ['setup'],
+      testMatch: [/browser-compat-cache-recovery\.spec\.ts$/],
+    },
+    {
+      name: 'compat-landscape-chrome',
+      use: {
+        ...devices['Pixel 5'],
+        isMobile: true,
+        viewport: { width: 915, height: 412 },
+      },
+      dependencies: ['setup'],
+      testMatch: [/browser-compat-cache-recovery\.spec\.ts$/],
+    },
   ],
   webServer: isProduction
     ? undefined 

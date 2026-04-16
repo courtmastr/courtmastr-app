@@ -5047,6 +5047,85 @@ rg -n "logger\\.debug.*\\[fetchMatches\\]|logger\\.debug.*\\[adaptBracketsMatch\
 
 ---
 
+### CP-102: SPA Hosting Rewrites Must Exclude Built Assets And Service Worker Files
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-16 |
+| **Source Bug** | Stale custom-domain app shells rewrote deleted JS chunks to `index.html`, breaking tournament pages with module MIME errors |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```json
+{
+  "hosting": {
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=31536000, immutable"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```json
+{
+  "hosting": {
+    "rewrites": [
+      {
+        "regex": "^(?!/(assets/|sw\\.js$|registerSW\\.js$|manifest\\.webmanifest$|site\\.webmanifest$|recover\\.html$)).*",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "!/assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=31536000, immutable"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Rule:** Firebase Hosting SPA rewrites must never catch built asset URLs or service-worker entry points. Mutable app shell files must be `no-store`, while only hashed build assets under `/assets/**` may be cached immutably. Otherwise, deleted chunks can resolve to `index.html` and leave clients stuck on stale builds.
+
+**Detection:**
+```bash
+rg -n '"regex": ".*assets/' firebase.json
+rg -n 'recover' firebase.json
+rg -n '"source": "!/assets/\\*\\*"|"source": "/assets/\\*\\*"' firebase.json
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

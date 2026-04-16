@@ -3,6 +3,12 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth';
 import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import type { VolunteerRole } from '@/types';
+import { logger } from '@/utils/logger';
+import {
+  attemptStaleChunkRecovery,
+  clearStaleChunkRecoveryGuard,
+  isStaleChunkError,
+} from '@/utils/staleCacheRecovery';
 
 // Lazy-loaded views
 const Home = () => import('@/features/public/views/HomeView.vue');
@@ -650,6 +656,20 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   next();
+});
+
+router.afterEach(() => {
+  clearStaleChunkRecoveryGuard();
+});
+
+router.onError((error) => {
+  if (!isStaleChunkError(error)) {
+    logger.error('Router navigation failed', error);
+    return;
+  }
+
+  logger.warn('Detected stale lazy-loaded chunk during navigation', error);
+  attemptStaleChunkRecovery();
 });
 
 export default router;

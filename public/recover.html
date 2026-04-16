@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1D4ED8" />
+  <title>Refreshing CourtMastr</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      padding-top: calc(24px + env(safe-area-inset-top));
+      padding-right: calc(24px + env(safe-area-inset-right));
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+      padding-left: calc(24px + env(safe-area-inset-left));
+      background: #09111f;
+      color: #f8fafc;
+    }
+
+    main {
+      width: min(100%, 420px);
+      padding: 24px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.96);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(1.75rem, 5vw, 2.2rem);
+      line-height: 1;
+    }
+
+    p {
+      margin: 0;
+      color: rgba(226, 232, 240, 0.82);
+      font-size: 0.98rem;
+      line-height: 1.5;
+    }
+
+    .status {
+      margin-top: 18px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 8px;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .primary {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .secondary {
+      background: rgba(148, 163, 184, 0.14);
+      color: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Refreshing CourtMastr</h1>
+    <p>
+      Clearing stale browser files and reloading the latest tournament data.
+    </p>
+    <p class="status" id="status">Resetting cached app files…</p>
+    <div class="actions">
+      <button class="primary" id="retry" type="button">Try again now</button>
+      <button class="secondary" id="home" type="button">Go home</button>
+    </div>
+  </main>
+  <script>
+    (function () {
+      const statusEl = document.getElementById('status');
+      const retryButton = document.getElementById('retry');
+      const homeButton = document.getElementById('home');
+      const params = new URLSearchParams(window.location.search);
+
+      const sanitizeReturnTo = (value) => {
+        if (!value || typeof value !== 'string') {
+          return '/';
+        }
+
+        if (!value.startsWith('/')) {
+          return '/';
+        }
+
+        if (value.startsWith('//')) {
+          return '/';
+        }
+
+        return value;
+      };
+
+      const returnTo = sanitizeReturnTo(params.get('returnTo'));
+      const buildRedirectUrl = () => {
+        const targetUrl = new URL(returnTo, window.location.origin);
+        targetUrl.searchParams.set('cacheRecovered', '1');
+        targetUrl.searchParams.set('ts', String(Date.now()));
+        return targetUrl.toString();
+      };
+
+      const updateStatus = (message) => {
+        if (statusEl) {
+          statusEl.textContent = message;
+        }
+      };
+
+      const clearCaches = async () => {
+        if ('caches' in window) {
+          const keys = await window.caches.keys();
+          await Promise.all(keys.map((key) => window.caches.delete(key)));
+        }
+      };
+
+      const clearServiceWorkers = async () => {
+        if (!('serviceWorker' in navigator)) {
+          return;
+        }
+
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      };
+
+      const clearWebStorage = () => {
+        try {
+          window.localStorage.clear();
+        } catch (_) {}
+
+        try {
+          window.sessionStorage.clear();
+        } catch (_) {}
+      };
+
+      const recover = async () => {
+        updateStatus('Removing stale app files…');
+        await clearServiceWorkers();
+        await clearCaches();
+        clearWebStorage();
+        updateStatus('Opening the latest build…');
+        window.location.replace(buildRedirectUrl());
+      };
+
+      retryButton.addEventListener('click', function () {
+        void recover();
+      });
+
+      homeButton.addEventListener('click', function () {
+        window.location.replace('/');
+      });
+
+      void recover().catch(function () {
+        updateStatus('Automatic recovery hit a browser limitation. Use Try again now.');
+      });
+    })();
+  </script>
+</body>
+</html>

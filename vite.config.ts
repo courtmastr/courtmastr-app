@@ -8,6 +8,7 @@ export default defineConfig({
   plugins: [
     vue(),
     VitePWA({
+      injectRegister: false,
       registerType: 'autoUpdate',
       includeAssets: ['logo.svg', 'favicon.png', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
@@ -40,24 +41,11 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
             handler: 'NetworkOnly',
-          },
-          {
-            // Snapshot JSON from Firebase Storage — always try network first so
-            // tournament updates are visible on refresh without a cache-busting URL.
-            urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'firebase-storage',
-              expiration: {
-                maxEntries: 20,
-                maxAgeSeconds: 60, // 1 minute — stale fallback only if network fails
-              },
-            },
           },
         ],
       },

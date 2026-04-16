@@ -518,7 +518,7 @@ export function usePublishSnapshot() {
       const fileRef = storageRef(storage, `public-snapshots/${tournamentId}/latest.json`);
       await uploadBytes(fileRef, jsonBlob, {
         contentType: 'application/json',
-        cacheControl: 'public, max-age=300', // 5-min CDN cache; participants get updates within 5 min after next push
+        cacheControl: 'no-cache, max-age=0, must-revalidate',
       });
       const storageUrl = await getDownloadURL(fileRef);
 
