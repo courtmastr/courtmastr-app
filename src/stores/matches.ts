@@ -594,7 +594,11 @@ export const useMatchStore = defineStore('matches', () => {
     }
 
     // Direct fields
-    if (scoreData.courtId) adapted.courtId = scoreData.courtId as string;
+    if (Object.prototype.hasOwnProperty.call(scoreData, 'courtId')) {
+      adapted.courtId = typeof scoreData.courtId === 'string'
+        ? scoreData.courtId
+        : undefined;
+    }
 
     // Date fields
     adapted.scheduledTime = toDate(scoreData.scheduledTime) ?? adapted.scheduledTime;
@@ -646,7 +650,11 @@ export const useMatchStore = defineStore('matches', () => {
       }
     }
 
-    if (scoreData.courtId) updated.courtId = scoreData.courtId as string;
+    if (Object.prototype.hasOwnProperty.call(scoreData, 'courtId')) {
+      updated.courtId = typeof scoreData.courtId === 'string'
+        ? scoreData.courtId
+        : undefined;
+    }
     updated.scheduledTime = toDate(scoreData.scheduledTime) ?? updated.scheduledTime;
     updated.startedAt = toDate(scoreData.startedAt) ?? updated.startedAt;
     updated.completedAt = toDate(scoreData.completedAt) ?? updated.completedAt;
@@ -1846,6 +1854,7 @@ export const useMatchStore = defineStore('matches', () => {
     const batch = writeBatch(db);
 
     const matchUpdate: Record<string, unknown> = {
+      tournamentId,
       courtId: null,
       plannedCourtId: null,
       lockedTime: false,
@@ -1861,7 +1870,7 @@ export const useMatchStore = defineStore('matches', () => {
       matchUpdate.scores = [];
     }
 
-    batch.update(doc(db, matchScoresPath, matchId), matchUpdate);
+    batch.set(doc(db, matchScoresPath, matchId), matchUpdate, { merge: true });
 
     // Determine correct court to release:
     // 1. Explicitly passed courtId (most reliable for "zombie" fixes)

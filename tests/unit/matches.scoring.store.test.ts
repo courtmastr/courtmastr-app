@@ -193,6 +193,49 @@ describe('matches store scoring completion', () => {
     expect(mockDeps.advanceWinner).toHaveBeenCalledWith('t1', 'cat-1', 'm1', 'reg-1', undefined);
   });
 
+  it('unscheduleMatch creates a minimal match_scores doc when operational state is missing', async () => {
+    const batchUpdate = vi.fn();
+    const batchSet = vi.fn();
+    const batchCommit = vi.fn().mockResolvedValue(undefined);
+    mockDeps.writeBatch.mockReturnValue({
+      update: batchUpdate,
+      set: batchSet,
+      delete: vi.fn(),
+      commit: batchCommit,
+    });
+
+    const { useMatchStore } = await import('@/stores/matches');
+    const store = useMatchStore();
+
+    await store.unscheduleMatch('t1', 'm1', 'cat-1', 'court-7', undefined, {
+      returnStatus: 'ready',
+    });
+
+    expect(batchSet).toHaveBeenCalledWith(
+      'tournaments/t1/categories/cat-1/match_scores/m1',
+      expect.objectContaining({
+        tournamentId: 't1',
+        courtId: null,
+        plannedCourtId: null,
+        lockedTime: false,
+        status: 'ready',
+        updatedAt: 'SERVER_TS',
+      }),
+      { merge: true }
+    );
+    expect(batchUpdate).toHaveBeenCalledWith(
+      'tournaments/t1/courts/court-7',
+      expect.objectContaining({
+        status: 'available',
+        currentMatchId: null,
+        assignedMatchId: null,
+        lastFreedAt: 'SERVER_TS',
+        updatedAt: 'SERVER_TS',
+      })
+    );
+    expect(batchCommit).toHaveBeenCalledTimes(1);
+  });
+
   it('writes to pending_score_events queue for volunteer scorekeeper start-match updates', async () => {
     runtime.volunteerSession = {
       tournamentId: 't1',
