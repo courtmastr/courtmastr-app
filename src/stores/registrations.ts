@@ -303,6 +303,53 @@ export const useRegistrationStore = defineStore('registrations', () => {
     }
   }
 
+  // Reassign a player slot in a doubles registration
+  async function reassignRegistrationPlayer(
+    tournamentId: string,
+    registrationId: string,
+    slot: 'player' | 'partner',
+    newPlayerId: string
+  ): Promise<void> {
+    try {
+      const reg = registrations.value.find((r) => r.id === registrationId);
+      if (!reg) throw new Error(`Registration ${registrationId} not found`);
+
+      const updatedPlayerId = slot === 'player' ? newPlayerId : (reg.playerId ?? '');
+      const updatedPartnerId = slot === 'partner' ? newPlayerId : (reg.partnerPlayerId ?? '');
+
+      const mainPlayer = players.value.find((p) => p.id === updatedPlayerId);
+      const partnerPlayer = players.value.find((p) => p.id === updatedPartnerId);
+      const newTeamName =
+        mainPlayer && partnerPlayer
+          ? `${mainPlayer.firstName} ${mainPlayer.lastName} / ${partnerPlayer.firstName} ${partnerPlayer.lastName}`
+          : reg.teamName;
+
+      const docUpdates: Record<string, unknown> = {
+        teamName: newTeamName,
+        updatedAt: serverTimestamp(),
+      };
+      if (slot === 'player') docUpdates.playerId = newPlayerId;
+      else docUpdates.partnerPlayerId = newPlayerId;
+
+      await updateDoc(
+        doc(db, `tournaments/${tournamentId}/registrations`, registrationId),
+        docUpdates
+      );
+
+      const regIdx = registrations.value.findIndex((r) => r.id === registrationId);
+      if (regIdx !== -1) {
+        registrations.value[regIdx] = {
+          ...registrations.value[regIdx],
+          ...(slot === 'player' ? { playerId: newPlayerId } : { partnerPlayerId: newPlayerId }),
+          teamName: newTeamName ?? registrations.value[regIdx].teamName,
+        };
+      }
+    } catch (err) {
+      logger.error('Error reassigning registration player:', err);
+      throw err;
+    }
+  }
+
   // Delete a player
   async function deletePlayer(tournamentId: string, playerId: string): Promise<void> {
     try {
@@ -738,6 +785,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
     subscribePlayers,
     addPlayer,
     updatePlayer,
+    reassignRegistrationPlayer,
     deletePlayer,
     bulkImportPlayers,
     createRegistration,

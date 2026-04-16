@@ -134,6 +134,34 @@ async function saveInlinePlayerEdit() {
   }
 }
 
+// Reassign player slot in doubles registration
+const showReassignDialog = ref(false);
+const reassignTarget = ref<{ registrationId: string; slot: 'player' | 'partner'; currentPlayerId: string } | null>(null);
+const reassignSelectedPlayerId = ref<string | null>(null);
+
+function openReassignDialog(registrationId: string, slot: 'player' | 'partner', currentPlayerId: string) {
+  reassignTarget.value = { registrationId, slot, currentPlayerId };
+  reassignSelectedPlayerId.value = currentPlayerId;
+  showReassignDialog.value = true;
+}
+
+async function saveReassign() {
+  if (!reassignTarget.value || !reassignSelectedPlayerId.value) return;
+  try {
+    await registrationStore.reassignRegistrationPlayer(
+      tournamentId.value,
+      reassignTarget.value.registrationId,
+      reassignTarget.value.slot,
+      reassignSelectedPlayerId.value
+    );
+    notificationStore.showToast('success', 'Player reassigned');
+    showReassignDialog.value = false;
+    reassignTarget.value = null;
+  } catch {
+    notificationStore.showToast('error', 'Failed to reassign player');
+  }
+}
+
 // Selection for bulk actions
 const selectedRegistrations = ref<string[]>([]);
 
@@ -1455,6 +1483,15 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                         :title="`Edit ${getPlayerName(item.playerId)}'s name`"
                         @click.stop="openInlinePlayerEdit(item.playerId!)"
                       />
+                      <v-btn
+                        v-if="item.playerId"
+                        icon="mdi-account-switch"
+                        size="x-small"
+                        variant="text"
+                        density="compact"
+                        title="Reassign player 1"
+                        @click.stop="openReassignDialog(item.id, 'player', item.playerId!)"
+                      />
                       <span class="text-grey">/</span>
                       <span>{{ getPlayerName(item.partnerPlayerId) }}</span>
                       <v-btn
@@ -1464,6 +1501,14 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                         density="compact"
                         :title="`Edit ${getPlayerName(item.partnerPlayerId)}'s name`"
                         @click.stop="openInlinePlayerEdit(item.partnerPlayerId)"
+                      />
+                      <v-btn
+                        icon="mdi-account-switch"
+                        size="x-small"
+                        variant="text"
+                        density="compact"
+                        title="Reassign player 2"
+                        @click.stop="openReassignDialog(item.id, 'partner', item.partnerPlayerId!)"
                       />
                     </template>
                     <template v-else>
@@ -2329,6 +2374,31 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
           >
             Save
           </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Reassign Player Slot Dialog -->
+    <v-dialog v-model="showReassignDialog" max-width="480">
+      <v-card v-if="reassignTarget">
+        <v-card-title>
+          <v-icon start>mdi-account-switch</v-icon>
+          Reassign {{ reassignTarget.slot === 'player' ? 'Player 1' : 'Player 2' }}
+        </v-card-title>
+        <v-card-text>
+          <v-select
+            v-model="reassignSelectedPlayerId"
+            :items="players"
+            :item-title="getPlayerItemTitle"
+            item-value="id"
+            label="Select player"
+            variant="outlined"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showReassignDialog = false">Cancel</v-btn>
+          <v-btn color="primary" :disabled="!reassignSelectedPlayerId" @click="saveReassign">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
