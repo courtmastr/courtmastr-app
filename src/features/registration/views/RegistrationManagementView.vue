@@ -1447,12 +1447,13 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                     <template v-if="item.partnerPlayerId">
                       <span>{{ getPlayerName(item.playerId) }}</span>
                       <v-btn
+                        v-if="item.playerId"
                         icon="mdi-pencil"
                         size="x-small"
                         variant="text"
                         density="compact"
                         :title="`Edit ${getPlayerName(item.playerId)}'s name`"
-                        @click.stop="openInlinePlayerEdit(item.playerId)"
+                        @click.stop="openInlinePlayerEdit(item.playerId!)"
                       />
                       <span class="text-grey">/</span>
                       <span>{{ getPlayerName(item.partnerPlayerId) }}</span>
@@ -1468,12 +1469,13 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                     <template v-else>
                       {{ getPlayerName(item.playerId) }}
                       <v-btn
+                        v-if="item.playerId"
                         icon="mdi-pencil"
                         size="x-small"
                         variant="text"
                         density="compact"
                         :title="`Edit ${getPlayerName(item.playerId)}'s name`"
-                        @click.stop="openInlinePlayerEdit(item.playerId)"
+                        @click.stop="openInlinePlayerEdit(item.playerId!)"
                       />
                     </template>
                   </div>
