@@ -1011,18 +1011,29 @@ export function useLeaderboard() {
     stage.value = 'fetching';
     error.value = null;
     try {
-      // Fetch data via stores (reuses the proven adapter pipeline)
-      await Promise.all([
-        matchStore.fetchMatches(tournamentId, categoryId), // Scoped fetch prevents full replace
+      // 1. Ensure categories are loaded first — needed for the per-category match fetch loop below
+      if (tournamentStore.categories.length === 0 || !tournamentStore.currentTournament) {
+        await tournamentStore.fetchTournament(tournamentId);
+      }
 
+      // 2. Load registrations + players in parallel (no match-store race condition here)
+      await Promise.all([
         registrationStore.fetchRegistrations(tournamentId),
         registrationStore.fetchPlayers(tournamentId),
       ]);
 
-      // Ensure categories are loaded (parent view usually loads them,
-      // but fetch if empty to be safe)
-      if (tournamentStore.categories.length === 0 || !tournamentStore.currentTournament) {
-        await tournamentStore.fetchTournament(tournamentId);
+      // 3. Fetch matches using the same per-category path as SmartBracketView.
+      //    A tournament-wide single fetch (fetchMatches with no categoryId) does a full
+      //    matches.value replace and can lose participant ID resolution for
+      //    pool_to_elimination categories (participant sub-collection lookup fails → all
+      //    participant IDs come back undefined → matchesToResolvedMatches drops every match).
+      //    Per-category fetches safely merge into the store via the otherMatches merge path.
+      if (categoryId) {
+        await matchStore.fetchMatches(tournamentId, categoryId);
+      } else {
+        for (const category of tournamentStore.categories) {
+          await matchStore.fetchMatches(tournamentId, category.id);
+        }
       }
 
       const selectedCategory = categoryId
