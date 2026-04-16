@@ -206,6 +206,41 @@ rg -n "<ready-queue|:matches=\"pendingMatches\"|:can-assign-match|assignment-gat
 
 ---
 
+### CP-103: Share Links And QR Codes Must Resolve Named Routes, Not Hardcoded Lookalike Paths
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-16 |
+| **Source Bug** | Tournament dashboard “Share Scoring Link” copied `/tournaments/:id/score` and generated a QR for the public scoring page instead of the scorekeeper access route |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const scoringUrl = `${window.location.origin}/tournaments/${tournamentId}/score`;
+await QRCode.toDataURL(scoringUrl);
+```
+
+**Correct Pattern (✅):**
+```typescript
+const scoringAccessHref = router.resolve({
+  name: 'volunteer-scoring-access',
+  params: { tournamentId },
+}).href;
+
+const scoringUrl = new URL(scoringAccessHref, window.location.origin).toString();
+await QRCode.toDataURL(scoringUrl);
+```
+
+**Rule:** Any copied link, QR code payload, or share target that represents a router destination must be built from the named route via `router.resolve(...)`, especially when multiple similar paths exist (for example public score pages vs volunteer scoring access). Do not hardcode “close enough” path strings for share surfaces.
+
+**Detection:**
+```bash
+rg -n "QRCode\\.toDataURL\\([^\\n]*`/tournaments/.*/score|clipboard\\.writeText\\([^\\n]*`/tournaments/.*/score|window\\.location\\.origin\\}/tournaments/\\$\\{.*\\}/score" src --glob "*.vue" --glob "*.ts"
+```
+
+---
+
 ## Category: Data Integrity
 
 ### CP-075: Workbook Seed Imports Must Apply Authoritative Corrections Before Dedupe And Persist Registration Seeds
