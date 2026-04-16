@@ -9,6 +9,7 @@ import ScheduleTab from '@/features/public/components/snapshot/ScheduleTab.vue';
 import PoolsTab from '@/features/public/components/snapshot/PoolsTab.vue';
 import StandingsTab from '@/features/public/components/snapshot/StandingsTab.vue';
 import BracketTab from '@/features/public/components/snapshot/BracketTab.vue';
+import AddToHomeScreen from '@/features/public/components/snapshot/AddToHomeScreen.vue';
 
 const route = useRoute();
 const { snapshot, loading, error, notFound, loadBySlug } = usePublicSnapshot();
@@ -176,6 +177,8 @@ onUnmounted(() => {
         <p>Select a division above</p>
       </div>
 
+      <AddToHomeScreen />
+
       <!-- Footer -->
       <footer class="pub-footer">
         <v-icon size="13" class="mr-1" style="color:#3b82f6">mdi-badminton</v-icon>
@@ -241,7 +244,7 @@ onUnmounted(() => {
   border: none;
   background: transparent;
   color: rgba(255,255,255,0.38);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: color 0.2s ease, background 0.2s ease;
@@ -269,7 +272,7 @@ onUnmounted(() => {
   bottom: 0;
   left: 0;
   width: 25%;
-  height: 2.5px;
+  height: 3px;
   background: linear-gradient(90deg, #3b82f6 0%, #f59e0b 100%);
   border-radius: 2px 2px 0 0;
   box-shadow: 0 0 10px 1px rgba(59,130,246,0.5);

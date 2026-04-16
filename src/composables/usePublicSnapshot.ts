@@ -56,13 +56,14 @@ export function usePublicSnapshot() {
         return;
       }
 
-      // 3. Fetch snapshot JSON
-      const response = await fetch(storageUrl);
+      // 3. Fetch snapshot JSON — cache: 'no-store' bypasses browser cache and service worker
+      //    so refreshing the page always delivers the latest snapshot.
+      const response = await fetch(storageUrl, { cache: 'no-store' });
       if (!response.ok) {
         // Fall back to constructing the Storage URL
         const fileRef = storageRef(storage, `public-snapshots/${tournamentId}/latest.json`);
         storageUrl = await getDownloadURL(fileRef);
-        const retryResponse = await fetch(storageUrl);
+        const retryResponse = await fetch(storageUrl, { cache: 'no-store' });
         if (!retryResponse.ok) throw new Error('Failed to load tournament data');
         snapshot.value = (await retryResponse.json()) as TournamentSnapshot;
       } else {

@@ -32,7 +32,7 @@
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
   background-color: $background;
 }
 
@@ -42,7 +42,7 @@ h1, h2, h3, h4 {
 
 #app {
   width: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Typography Utilities */
