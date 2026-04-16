@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { isRoundRobinStage } from '@/features/brackets/utils/stageLayout';
+import { prepareViewerData } from '@/features/brackets/utils/prepareViewerData';
 import { db, onSnapshot, collection, doc, getDoc } from '@/services/firebase';
 import { ClientFirestoreStorage } from '@/services/brackets-storage';
 import { query, where, getDocs } from 'firebase/firestore';
-import type { Stage, Match, MatchGame, Participant } from 'brackets-model';
+import type { Stage, Match, MatchGame, Participant, Round } from 'brackets-model';
 
 import 'brackets-viewer/dist/brackets-viewer.min.css';
 import { logger } from '@/utils/logger';
@@ -39,6 +40,7 @@ const lastUpdatedLabel = computed(() => {
 });
 
 const stages = ref<Stage[]>([]);
+const rounds = ref<Round[]>([]);
 const matches = ref<Match[]>([]);
 const matchGames = ref<MatchGame[]>([]);
 const participants = ref<Participant[]>([]);
@@ -142,6 +144,7 @@ async function fetchBracketData() {
     if (!stageData || stageData.length === 0) {
       logger.debug('⚠️ No bracket generated yet');
       stages.value = [];
+      rounds.value = [];
       matches.value = [];
       matchGames.value = [];
       participants.value = [];
@@ -172,14 +175,16 @@ async function fetchBracketData() {
     stages.value = [stage];
     logger.debug('📊 Found stage:', stage);
 
-    const [matchesData, participantsData, matchGamesData] = await Promise.all([
+    const [matchesData, participantsData, matchGamesData, roundsData] = await Promise.all([
       storage.select('match', { stage_id: stage.id }) as Promise<Match[] | null>,
       storage.select('participant') as Promise<Participant[] | null>,
       storage.select('match_game', { stage_id: stage.id }) as Promise<MatchGame[] | null>,
+      storage.select('round', { stage_id: stage.id }) as Promise<Round[] | null>,
     ]);
 
     matches.value = matchesData || [];
     matchGames.value = matchGamesData || [];
+    rounds.value = roundsData || [];
 
     const rawParticipants = participantsData || [];
     logger.debug(`📊 Loaded ${matches.value.length} matches, ${matchGames.value.length} match games, ${rawParticipants.length} participants`);
@@ -307,13 +312,18 @@ function renderBracket() {
       bracketContainer.value.innerHTML = '';
     }
 
+    // LOCKED CONTRACT: Do not pass raw Firestore match ordering directly to
+    // brackets-viewer. brackets-manager data is correct, but brackets-viewer
+    // derives visual columns from first-seen round order. This preparation step
+    // keeps 9/10-player level brackets aligned with the expected layout.
     // Deep clone to remove Vue proxies
-    const data = JSON.parse(JSON.stringify({
+    const data = JSON.parse(JSON.stringify(prepareViewerData({
       stages: stages.value,
+      rounds: rounds.value,
       matches: matches.value,
       matchGames: matchGames.value,
       participants: participants.value,
-    }));
+    })));
 
     viewer.render(data, {
       selector: '#' + containerId,

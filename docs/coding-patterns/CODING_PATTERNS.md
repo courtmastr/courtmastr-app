@@ -265,6 +265,53 @@ await addDoc(collection(db, 'tournaments', tournamentId, 'registrations'), {
 rg -n "buildAuthoritativeWomenDoublesRegistrations|seed: registration.seed|seed: registration.seed,|seed: null" scripts/seed/tnf2026-core.ts
 ```
 
+### CP-076: Bracket Viewer Inputs Must Be Sorted By Stored `round.number`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-16 |
+| **Source Bug** | MCIA 2026 level brackets rendered rounds in the wrong columns because Firestore match docs were consumed in arbitrary order |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const matches = matchesData || [];
+
+viewer.render({
+  stages,
+  matches,
+  matchGames,
+  participants,
+}, {
+  selector: '#bracket',
+});
+```
+
+**Correct Pattern (✅):**
+```typescript
+const data = prepareViewerData({
+  stages,
+  rounds,
+  matches,
+  matchGames,
+  participants,
+});
+
+viewer.render(data, {
+  selector: '#bracket',
+});
+```
+
+**Rule:** `brackets-viewer.js` groups matches by the order their `round_id`s first appear in the `matches` array. When reading bracket docs from Firestore, always sort matches using the persisted `round.number` values before rendering. Do not rely on Firestore document order.
+
+**Detection:**
+```bash
+if rg -q "viewer\\.render\\(" src/features/brackets/components/BracketsManagerViewer.vue && ! rg -q "prepareViewerData" src/features/brackets/components/BracketsManagerViewer.vue; then
+  echo "Violation: BracketsManagerViewer renders Firestore matches without round-order preparation"
+fi
+```
+
 ### CP-067: Mock or Provide Vuetify Display in AppLayout Unit Tests
 
 | Field | Value |
