@@ -273,6 +273,30 @@ export const useRegistrationStore = defineStore('registrations', () => {
           updatedAt: serverTimestamp(),
         }
       );
+
+      // Update in-memory player list immediately so cascade uses fresh names
+      const playerIdx = players.value.findIndex((p) => p.id === playerId);
+      if (playerIdx !== -1) {
+        players.value[playerIdx] = { ...players.value[playerIdx], ...updates };
+      }
+
+      // Cascade teamName to all doubles registrations this player is part of
+      if (updates.firstName !== undefined || updates.lastName !== undefined) {
+        const affected = registrations.value.filter(
+          (r) => r.teamName && (r.playerId === playerId || r.partnerPlayerId === playerId)
+        );
+        for (const reg of affected) {
+          const mainPlayer = players.value.find((p) => p.id === reg.playerId);
+          const partnerPlayer = players.value.find((p) => p.id === reg.partnerPlayerId);
+          if (mainPlayer && partnerPlayer) {
+            const newTeamName = `${mainPlayer.firstName} ${mainPlayer.lastName} / ${partnerPlayer.firstName} ${partnerPlayer.lastName}`;
+            await updateDoc(
+              doc(db, `tournaments/${tournamentId}/registrations`, reg.id),
+              { teamName: newTeamName, updatedAt: serverTimestamp() }
+            );
+          }
+        }
+      }
     } catch (err) {
       logger.error('Error updating player:', err);
       throw err;
