@@ -6,13 +6,13 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-16 10:36 CDT
-- Release ID: `v2.12.4`
-- Package version: `2.12.4`
+- Date: 2026-04-16 11:43 CDT
+- Release ID: `v2.12.5`
+- Package version: `2.12.5`
 - Deployed branch: `master`
-- Deployed commit: `1ca6aeb` (`feat: polish public leaderboard page (#62)`)
+- Deployed commit: `88b1859` (`feat: inject tournament-specific PWA manifest on public page (#64)`)
 - Release notes:
-  - [docs/releases/v2.12.4.md](docs/releases/v2.12.4.md)
+  - [docs/releases/v2.12.5.md](docs/releases/v2.12.5.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-16 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-16-15-35-03.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-16-16-41-39.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.12.4`
+  - Date: 2026-04-16 10:36 CDT
+  - Package version: `2.12.4`
+  - Deployed commit: `1ca6aeb`
+  - Release notes:
+    - [docs/releases/v2.12.4.md](docs/releases/v2.12.4.md)
 - `v2.12.3`
   - Date: 2026-04-16 01:43 CDT
   - Package version: `2.12.3`
@@ -185,7 +191,7 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-16 10:36 CDT
-- Commit: `1ca6aeb60824b2cdf912535910dcd10d1de2ce34`
-- Message: `feat: polish public leaderboard page (#62)`
+- Date: 2026-04-16 11:43 CDT
+- Commit: `88b1859f0dd689da4d1c30280a7fa32bfe43d7ff`
+- Message: `feat: inject tournament-specific PWA manifest on public page (#64)`
 - Note: deployed via `npm run release:deploy` on 2026-04-16.
