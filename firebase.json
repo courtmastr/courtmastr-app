@@ -17,13 +17,13 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {
-        "source": "**",
+        "regex": "^(?!/(assets/|sw\\.js$|registerSW\\.js$|manifest\\.webmanifest$|site\\.webmanifest$|recover\\.html$)).*",
         "destination": "/index.html"
       }
     ],
     "headers": [
       {
-        "source": "/index.html",
+        "source": "!/assets/**",
         "headers": [
           {
             "key": "Cache-Control",
@@ -32,20 +32,11 @@
         ]
       },
       {
-        "source": "**/*.@(js|css)",
+        "source": "/assets/**",
         "headers": [
           {
             "key": "Cache-Control",
             "value": "max-age=31536000, immutable"
-          }
-        ]
-      },
-      {
-        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "max-age=31536000"
           }
         ]
       }

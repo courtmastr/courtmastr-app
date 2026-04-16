@@ -161,11 +161,11 @@ onUnmounted(() => {
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 7px 16px;
+  padding: 10px 16px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  min-height: 36px;
+  min-height: 44px;
   touch-action: manipulation;
 }
 
@@ -179,8 +179,8 @@ onUnmounted(() => {
   border: none;
   color: rgba(255, 255, 255, 0.3);
   cursor: pointer;
-  min-width: 36px;
-  min-height: 36px;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;

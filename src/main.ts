@@ -2,6 +2,7 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import { initializeFirebase } from './services/firebase';
+import { setupServiceWorkerRegistration } from './services/serviceWorkerRegistration';
 
 // CRITICAL: Initialize Firebase before importing stores to ensure db is defined
 initializeFirebase();
@@ -39,3 +40,7 @@ installI18n(app);
 const authStore = useAuthStore();
 app.mount('#app');
 authStore.initAuth();
+
+if (import.meta.env.PROD) {
+  setupServiceWorkerRegistration();
+}

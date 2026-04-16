@@ -80,6 +80,7 @@ export {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   setDoc,
   addDoc,
   updateDoc,

@@ -64,7 +64,8 @@
     "e2e:feature:scoring": "npm run e2e:clean && playwright test --project=feature-scoring",
     "e2e:feature:tournament-admin": "npm run e2e:clean && playwright test --project=feature-tournament-admin",
     "e2e:feature:public": "npm run e2e:clean && playwright test --project=feature-public-leaderboard",
-    "e2e:feature:regression": "npm run e2e:clean && playwright test --project=feature-regression"
+    "e2e:feature:regression": "npm run e2e:clean && playwright test --project=feature-regression",
+    "e2e:compat": "npm run e2e:clean && playwright test --project=compat-desktop-chrome --project=compat-desktop-firefox --project=compat-desktop-webkit --project=compat-mobile-chrome --project=compat-mobile-webkit --project=compat-tablet-webkit --project=compat-landscape-chrome"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",

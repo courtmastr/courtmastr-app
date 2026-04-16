@@ -15,6 +15,7 @@ import {
   db,
   collection,
   getDocs,
+  getDocsFromServer,
   query,
   where,
   storage,
@@ -37,7 +38,7 @@ export function usePublicSnapshot() {
     try {
       // 1. Resolve slug → tournamentId
       const q = query(collection(db, 'tournaments'), where('slug', '==', slug));
-      const snap = await getDocs(q);
+      const snap = await getDocsFromServer(q).catch(() => getDocs(q));
 
       if (snap.empty) {
         notFound.value = true;
