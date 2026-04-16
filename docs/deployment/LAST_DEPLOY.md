@@ -6,13 +6,13 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-15 17:07 CDT
-- Release ID: `v2.12.0`
-- Package version: `2.12.0`
+- Date: 2026-04-15 22:26 CDT
+- Release ID: `v2.12.1`
+- Package version: `2.12.1`
 - Deployed branch: `master`
-- Deployed commit: `3aa732c` (`fix: stack player names vertically on schedule cards for full visibility (#54)`)
+- Deployed commit: `c3eb880` (`fix: leaderboard shows all-zeros for pool_to_elimination categories (#56)`)
 - Release notes:
-  - [docs/releases/v2.12.0.md](docs/releases/v2.12.0.md)
+  - [docs/releases/v2.12.1.md](docs/releases/v2.12.1.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-15 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-15-22-05-51.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-16-03-24-56.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.12.0`
+  - Date: 2026-04-15 17:07 CDT
+  - Package version: `2.12.0`
+  - Deployed commit: `3aa732c`
+  - Release notes:
+    - [docs/releases/v2.12.0.md](docs/releases/v2.12.0.md)
 - `v2.11.1`
   - Date: 2026-04-15 15:56 CDT
   - Package version: `2.11.1`
@@ -161,7 +167,7 @@ Updated: 2026-04-15 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-15 17:07 CDT
-- Commit: `3aa732cd0ad1da58976e1e4f17f4f6a62729a0b4`
-- Message: `fix: stack player names vertically on schedule cards for full visibility (#54)`
+- Date: 2026-04-15 22:26 CDT
+- Commit: `c3eb8800f0d23a36d2fbb10c301b868125f169d5`
+- Message: `fix: leaderboard shows all-zeros for pool_to_elimination categories (#56)`
 - Note: deployed via `npm run release:deploy` on 2026-04-15.
