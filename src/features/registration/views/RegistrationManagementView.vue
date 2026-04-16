@@ -108,6 +108,32 @@ const editingPlayer = ref<{
   skillLevel: number;
 } | null>(null);
 
+// Inline player name edit (from registration row)
+const showInlinePlayerEditDialog = ref(false);
+const editingPlayerInline = ref<{ id: string; firstName: string; lastName: string } | null>(null);
+
+function openInlinePlayerEdit(playerId: string) {
+  const player = players.value.find((p) => p.id === playerId);
+  if (!player) return;
+  editingPlayerInline.value = { id: player.id, firstName: player.firstName, lastName: player.lastName };
+  showInlinePlayerEditDialog.value = true;
+}
+
+async function saveInlinePlayerEdit() {
+  if (!editingPlayerInline.value) return;
+  try {
+    await registrationStore.updatePlayer(tournamentId.value, editingPlayerInline.value.id, {
+      firstName: editingPlayerInline.value.firstName,
+      lastName: editingPlayerInline.value.lastName,
+    });
+    notificationStore.showToast('success', 'Player name updated');
+    showInlinePlayerEditDialog.value = false;
+    editingPlayerInline.value = null;
+  } catch {
+    notificationStore.showToast('error', 'Failed to update player name');
+  }
+}
+
 // Selection for bulk actions
 const selectedRegistrations = ref<string[]>([]);
 
@@ -1417,8 +1443,41 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                   <span class="text-caption">{{ getPlayerName(item.playerId).charAt(0) }}</span>
                 </v-avatar>
                 <div>
-                  <div class="font-weight-medium">
-                    {{ getParticipantDisplay(item) }}
+                  <div class="font-weight-medium d-flex align-center gap-1 flex-wrap">
+                    <template v-if="item.partnerPlayerId">
+                      <span>{{ getPlayerName(item.playerId) }}</span>
+                      <v-btn
+                        v-if="item.playerId"
+                        icon="mdi-pencil"
+                        size="x-small"
+                        variant="text"
+                        density="compact"
+                        :title="`Edit ${getPlayerName(item.playerId)}'s name`"
+                        @click.stop="openInlinePlayerEdit(item.playerId!)"
+                      />
+                      <span class="text-grey">/</span>
+                      <span>{{ getPlayerName(item.partnerPlayerId) }}</span>
+                      <v-btn
+                        icon="mdi-pencil"
+                        size="x-small"
+                        variant="text"
+                        density="compact"
+                        :title="`Edit ${getPlayerName(item.partnerPlayerId)}'s name`"
+                        @click.stop="openInlinePlayerEdit(item.partnerPlayerId)"
+                      />
+                    </template>
+                    <template v-else>
+                      {{ getPlayerName(item.playerId) }}
+                      <v-btn
+                        v-if="item.playerId"
+                        icon="mdi-pencil"
+                        size="x-small"
+                        variant="text"
+                        density="compact"
+                        :title="`Edit ${getPlayerName(item.playerId)}'s name`"
+                        @click.stop="openInlinePlayerEdit(item.playerId!)"
+                      />
+                    </template>
                   </div>
                   <div class="text-caption text-grey">
                     {{ item.partnerPlayerId ? 'Doubles' : 'Singles' }}
@@ -2270,6 +2329,43 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
           >
             Save
           </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Inline Player Name Edit Dialog -->
+    <v-dialog
+      v-model="showInlinePlayerEditDialog"
+      max-width="400"
+    >
+      <v-card v-if="editingPlayerInline">
+        <v-card-title>
+          <v-icon start>mdi-account-edit</v-icon>
+          Edit Player Name
+        </v-card-title>
+        <v-card-text>
+          <v-row>
+            <v-col cols="6">
+              <v-text-field
+                v-model="editingPlayerInline.firstName"
+                label="First Name"
+                variant="outlined"
+                autofocus
+              />
+            </v-col>
+            <v-col cols="6">
+              <v-text-field
+                v-model="editingPlayerInline.lastName"
+                label="Last Name"
+                variant="outlined"
+              />
+            </v-col>
+          </v-row>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showInlinePlayerEditDialog = false">Cancel</v-btn>
+          <v-btn color="primary" @click="saveInlinePlayerEdit">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

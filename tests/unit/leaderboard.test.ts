@@ -221,11 +221,10 @@ describe('selectMatchesForPhaseScope', () => {
 // ============================================
 
 describe('resolveParticipantName', () => {
-  it('returns full names for doubles when partnerPlayerId exists', () => {
+  it('returns full names for doubles when partnerPlayerId exists and no teamName', () => {
     const reg = {
       ...makeReg('r1', 'cat1', 'p1'),
       partnerPlayerId: 'p2',
-      teamName: 'Baker / Baker',
     };
     const players = [makePlayer('p1', 'Alex', 'Baker'), makePlayer('p2', 'Blake', 'Baker')];
     expect(resolveParticipantName(reg, players)).toBe('Alex Baker / Blake Baker');

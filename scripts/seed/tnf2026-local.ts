@@ -80,7 +80,7 @@ async function main(): Promise<void> {
       adminId,
       orgId: tnfOrgId,
       organizerIds: [tnfOrganizerId],
-      startDateOffset: 14,
+      startDate: new Date('2026-04-18T08:30:00'),
     });
 
     console.log(`\n${'='.repeat(64)}`);
