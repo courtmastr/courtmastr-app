@@ -66,6 +66,8 @@ const isPublicMarketingRoute = computed(() =>
   route.meta.volunteerLayout !== true
 );
 
+const isPublicViewPage = computed(() => route.meta.publicViewPage === true);
+
 const showSearch = computed(() => {
   if (!isAuthenticatedAppRoute.value) return false;
 
@@ -294,6 +296,7 @@ async function submitBugReport() {
 
     <!-- App Bar -->
     <v-app-bar
+      v-if="!isPublicViewPage"
       elevation="0"
       class="app-bar"
     >
@@ -572,6 +575,7 @@ async function submitBugReport() {
       <v-container
         fluid
         class="app-main__content"
+        :class="{ 'app-main__content--bare': isPublicViewPage }"
       >
         <!-- Breadcrumb Navigation -->
         <BreadcrumbNavigation v-if="showBreadcrumbs" />
@@ -749,6 +753,11 @@ async function submitBugReport() {
   width: min(100%, 1540px);
   margin: 0 auto;
   padding-inline: clamp(12px, 2.2vw, 28px);
+}
+.app-main__content--bare {
+  padding-inline: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 .app-route-frame {

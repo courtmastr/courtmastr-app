@@ -202,7 +202,7 @@ onUnmounted(() => { ctx?.revert(); });
   background: #172033;
 }
 .s-row--top {
-  border-left: 3px solid #f0c040;
+  background: rgba(240,192,64,0.07);
 }
 
 /* Desktop: show extra columns */

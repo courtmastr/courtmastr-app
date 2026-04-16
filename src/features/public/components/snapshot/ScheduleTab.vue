@@ -120,9 +120,6 @@ const groupedByDate = computed(() => {
         }"
         :style="{ '--mi': mi }"
       >
-        <!-- Left accent stripe -->
-        <div class="match-card__stripe" />
-
         <div class="match-card__inner">
           <!-- Top row: time + badges + status -->
           <div class="match-card__meta">
@@ -285,26 +282,16 @@ const groupedByDate = computed(() => {
 }
 
 .match-card--live {
-  border-color: rgba(255,152,0,0.5);
-  background: #1a160d;
+  border-color: rgba(255,152,0,0.45);
+  background: linear-gradient(135deg, rgba(255,152,0,0.06) 0%, #1a160d 40%);
 }
 .match-card--done {
-  opacity: 0.85;
+  opacity: 0.8;
 }
 .match-card--tbd {
   background: #16130a;
   border: 1.5px dashed rgba(245,158,11,0.5);
 }
-
-/* Accent stripe */
-.match-card__stripe {
-  width: 4px;
-  flex-shrink: 0;
-  background: rgba(255,255,255,0.1);
-}
-.match-card--live .match-card__stripe { background: #ff9800; }
-.match-card--done .match-card__stripe { background: #4caf50; }
-.match-card--tbd  .match-card__stripe { background: #f59e0b; }
 
 .match-card__inner {
   flex: 1;
@@ -320,7 +307,7 @@ const groupedByDate = computed(() => {
   flex-wrap: wrap;
 }
 .match-card__time {
-  font-size: 10px;
+  font-size: 11px;
   color: rgba(255,255,255,0.45);
   display: flex;
   align-items: center;
@@ -387,20 +374,23 @@ const groupedByDate = computed(() => {
   margin-bottom: 4px;
 }
 .player {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: rgba(255,255,255,0.65);
+  color: rgba(255,255,255,0.88);
   line-height: 1.35;
   word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  max-width: 100%;
 }
 .player--winner {
-  color: #e6edf3;
-  font-weight: 700;
+  color: #ffffff;
+  font-weight: 800;
 }
 .vs {
   font-size: 9px;
   font-weight: 800;
-  color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.38);
   letter-spacing: 1px;
   align-self: center;
   padding: 1px 0;

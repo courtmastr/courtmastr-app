@@ -448,6 +448,9 @@ Use a small default path plus trigger-based add-ons. Do not load a large skill s
 | External SDK / library / migration / version-specific docs | `context7` |
 | Architecture fit / extending existing app | `architecture-blueprint-generator` |
 | New system design / ADR | `architecture-designer` |
+| Adding motion / entrance animations / micro-interactions | `emil-design-eng` |
+| Typography, spacing, color, or layout feels off / pre-ship tightening | `impeccable` |
+| Output looks "AI-generated" / generic gradients / over-used Inter / lacks design taste | `taste` (tasteskill.dev) |
 
 ### 13.3 Optional Polish Skills (Not Default)
 
@@ -456,6 +459,9 @@ Only load these when the task explicitly asks for them:
 | Need | Add |
 |---|---|
 | UI polish | `ui-ux-pro-max` → `frontend-design`, `web-design-guidelines` |
+| Motion / animations feel flat or lifeless | `emil-design-eng` |
+| Pre-ship design tightening (typography, color, spacing, layout) | `impeccable` → run `/polish` |
+| UI looks generic / AI-like — needs design taste reset | `taste` |
 | Accessibility pass | `fixing-accessibility` |
 | Perf / animation jank | `fixing-motion-performance` |
 | SEO / metadata | `fixing-metadata` |
@@ -499,6 +505,27 @@ Only load these when the task explicitly asks for them:
 - `fixing-motion-performance`
 - `fixing-metadata`
 - `test-driven-development`
+- `emil-design-eng` (motion)
+- `impeccable` (design polish)
+- `taste` (design taste reset)
+
+---
+
+### 13.6 Design Skills Reference
+
+Three specialist skills for UI quality. Load only when the task explicitly targets design/UI output.
+
+| Skill | Source | When to invoke | Key command |
+|-------|--------|---------------|-------------|
+| `emil-design-eng` | emilkowal.ski/skill | UI feels static/lifeless; adding entrance animations, hover effects, or micro-interactions | Run the skill — it adds real motion vocabulary |
+| `impeccable` | impeccable.style | Pre-ship polish pass; typography looks off; spacing/color/layout needs tightening | `/polish` — runs a full design audit |
+| `taste` | tasteskill.dev | Output looks AI-generated; generic gradients; over-used Inter; visual identity feels bland | Run the skill — resets Claude's design judgment |
+
+**Decision guide:**
+- Motion problem → `emil-design-eng`
+- Layout/spacing/type problem → `impeccable`
+- "It just looks like AI made it" → `taste` first, then `impeccable`
+- Full pre-launch UI pass → `taste` → `impeccable` → `/polish`
 
 ---
 
@@ -525,6 +552,89 @@ Only load these when the task explicitly asks for them:
 - Use `env:VARIABLE_NAME` prefix to reference environment variables.
 - Use `file:.secrets` prefix to reference secrets from a local file.
 - This prevents API keys from appearing in shell history or process lists.
+
+---
+
+## 14. Impeccable Design Skills — Public Tournament Page (`/t/:slug`)
+
+The `pbakaus/impeccable` skill package (24 skills) is installed and governs all UI polish work on the public page. These skills are **mandatory** for any work touching `src/features/public/`.
+
+### 14.1 One-Time Setup (Required Before First Polish Pass)
+
+```bash
+# Run once per project to create .impeccable.md design context
+/impeccable teach
+```
+
+Without `.impeccable.md`, impeccable works blind on brand voice, audience intent, and aesthetic direction. Run this first.
+
+### 14.2 Running a Full Critique on `/t/tnf`
+
+```bash
+# Start dev server (must be running)
+npm run dev
+
+# Run automated scanner on public feature files
+npx impeccable --json src/features/public/
+
+# Start live visual overlay server
+npx impeccable live &
+# Note the port printed (e.g., http://localhost:8400)
+```
+
+Then in Claude Code, use Playwright to inject the overlay:
+```javascript
+// Navigate to the page, then inject:
+const s = document.createElement('script');
+s.src = 'http://localhost:PORT/detect.js';
+document.head.appendChild(s);
+// Read console for [impeccable] prefixed findings
+```
+
+Invoke the critique skill: `/critique` (loads impeccable automatically, runs two independent assessments, synthesizes findings).
+
+### 14.3 Known Active Issues on `/t/tnf` (as of 2026-04-16)
+
+Issues confirmed by: `npx impeccable --json` + live detector + LLM review.
+
+| Issue | File | Line | Severity | Skill to Fix |
+|-------|------|------|----------|-------------|
+| `border-left: 3px solid #f0c040` on leader row (BAN 1) | `StandingsTab.vue` | 205 | P1 | `/shape` |
+| Purple-blue gradient header (AI palette tell) | `PublicPageHeader.vue` | 117 | P1 | `/colorize` |
+| Amber `#f59e0b` on purple `#7c3aed` — 2.7:1 contrast fail | `PublicPageHeader.vue` | 178 | P0 | `/access` |
+| Dark glow on blue indicator (AI tell) | `TournamentPublicPageView.vue` | 275 | P2 | `/shape` |
+| Inter font — 99% of text (banned for premium contexts) | All public `.vue` | — | P2 | `/typeset` |
+| `transition: height` layout property animation | `PoolsTab.vue` or `StandingsTab.vue` | — | P2 | `/optimize` |
+| Tournament title too small on mobile (20px floor) | `PublicPageHeader.vue` | 189 | P2 | `/typeset` |
+| Date group headers (11px) same size as match timestamps | `ScheduleTab.vue` | 252 | P2 | `/layout` |
+| Match cards show 4–6 badges — cognitive overload | `ScheduleTab.vue` | 133-139 | P3 | `/distill` |
+
+### 14.4 Skill Command Reference for This Page
+
+| Command | When to Use on `/t/tnf` |
+|---------|------------------------|
+| `/impeccable teach` | One-time setup — creates `.impeccable.md` |
+| `/critique` | Full design health check (runs scanner + LLM review) |
+| `/polish` | Full pass after context exists — fixes everything in priority order |
+| `/colorize` | Rethink the header gradient; derive tournament-specific color |
+| `/typeset` | Replace Inter; fix title size; tighten type scale |
+| `/shape` | Fix side-stripe on StandingsTab leader row; audit glow effects |
+| `/layout` | Date group headers; card spacing; mobile density |
+| `/distill` | Reduce badge count per match card; remove decorative animations |
+| `/access` | Fix contrast failures; verify WCAG AA across dark theme |
+| `/bolder` | Make tournament name and date more impactful on mobile |
+| `/delight` | Add purposeful micro-interactions after core polish is done |
+| `/overdrive` | Full aesthetic rethink if gradient header is replaced entirely |
+
+### 14.5 Hard Rules for Public Page Work
+
+**MUST NOT (impeccable BAN 1):** No `border-left` or `border-right` wider than 1px as a colored accent stripe on any card, list item, or callout. Replace with background tints, full borders, or status dots.
+
+**MUST NOT (impeccable BAN 2):** No `background-clip: text` with a gradient fill on any text element.
+
+**MUST NOT:** Use the purple-to-blue gradient (`#1d4ed8 → #7c3aed`) as a decorative background — it is the canonical AI design tell. Any redesign of the header must use a non-default palette.
+
+**MUST NOT:** Use Inter as the only font for a premium public-facing page. Either push Barlow Condensed (already declared) into active use, or use `/typeset` to select a replacement.
 
 ---
 

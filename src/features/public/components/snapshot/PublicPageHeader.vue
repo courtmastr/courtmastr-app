@@ -99,13 +99,13 @@ function timeAgo(isoDate: string): string {
           </span>
         </div>
         <div class="pub-header__badges mt-2">
-          <v-chip size="x-small" color="success" variant="flat" class="mr-1">
-            <v-icon start size="10">mdi-circle</v-icon>
+          <span class="pub-badge pub-badge--live" role="status" aria-label="Tournament is live">
+            <span class="pub-badge__dot" aria-hidden="true" />
             Live
-          </v-chip>
-          <v-chip size="x-small" variant="tonal" color="white">
+          </span>
+          <span class="pub-badge pub-badge--updated">
             Updated {{ timeAgo(meta.pushedAt) }}
-          </v-chip>
+          </span>
         </div>
       </div>
     </div>
@@ -114,17 +114,11 @@ function timeAgo(isoDate: string): string {
 
 <style scoped>
 .pub-header {
-  background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 60%, #1d4ed8 100%);
-  background-size: 200% 200%;
-  /* gradient shimmer stays as CSS — only transforms handled by GSAP */
-  animation: gradientShift 8s ease infinite;
-  padding: 20px 16px 16px;
+  background: linear-gradient(160deg, #0a1628 0%, #0f2340 55%, #0a1628 100%);
+  /* env(safe-area-inset-top) pads the notch/Dynamic Island when viewport-fit=cover is set */
+  padding: calc(20px + env(safe-area-inset-top)) 16px 16px;
   position: relative;
   overflow: hidden;
-}
-@keyframes gradientShift {
-  0%, 100% { background-position: 0% 50%; }
-  50%       { background-position: 100% 50%; }
 }
 
 /* ── Court line decorations ──────────────────── */
@@ -186,7 +180,7 @@ function timeAgo(isoDate: string): string {
   text-shadow: 0 0 8px rgba(245,158,11,0.4);
 }
 .pub-header__title {
-  font-size: clamp(16px, 5vw, 22px);
+  font-size: clamp(20px, 5.5vw, 32px);
   font-weight: 700;
   color: #fff;
   margin: 0 0 4px;
@@ -205,5 +199,37 @@ function timeAgo(isoDate: string): string {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 6px;
+}
+.pub-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.4px;
+}
+.pub-badge--live {
+  background: rgba(22,163,74,0.22);
+  color: #4ade80;
+  border: 1px solid rgba(74,222,128,0.32);
+}
+.pub-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  flex-shrink: 0;
+  animation: livePulse 1.4s ease-in-out infinite;
+}
+.pub-badge--updated {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.6);
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.35; transform: scale(0.65); }
 }
 </style>

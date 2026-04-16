@@ -58,6 +58,16 @@ onUnmounted(() => { ctx?.revert(); });
   background: #1e293b;
   padding: 10px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  position: relative;
+}
+.cat-selector::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 36px;
+  background: linear-gradient(to left, #1e293b 20%, transparent);
+  pointer-events: none;
+  z-index: 1;
 }
 .cat-selector__label {
   font-size: 11px;
