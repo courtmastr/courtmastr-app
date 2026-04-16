@@ -6,13 +6,13 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-16 00:44 CDT
-- Release ID: `v2.12.2`
-- Package version: `2.12.2`
+- Date: 2026-04-16 01:43 CDT
+- Release ID: `v2.12.3`
+- Package version: `2.12.3`
 - Deployed branch: `master`
-- Deployed commit: `bddd6be` (`fix: correct team name priority in snapshot builder (#58)`)
+- Deployed commit: `aa1f2ea` (`feat: add reassign player slot UI for doubles registrations (#60)`)
 - Release notes:
-  - [docs/releases/v2.12.2.md](docs/releases/v2.12.2.md)
+  - [docs/releases/v2.12.3.md](docs/releases/v2.12.3.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-16 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-16-05-42-39.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-16-06-42-15.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.12.2`
+  - Date: 2026-04-16 00:44 CDT
+  - Package version: `2.12.2`
+  - Deployed commit: `bddd6be`
+  - Release notes:
+    - [docs/releases/v2.12.2.md](docs/releases/v2.12.2.md)
 - `v2.12.1`
   - Date: 2026-04-15 22:26 CDT
   - Package version: `2.12.1`
@@ -173,7 +179,7 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-16 00:44 CDT
-- Commit: `bddd6be540d63b002e2e39bd09336bcaeb78cf4e`
-- Message: `fix: correct team name priority in snapshot builder (#58)`
+- Date: 2026-04-16 01:43 CDT
+- Commit: `aa1f2eab6a9e1fefc7bab5d7df9b8926f9da78b5`
+- Message: `feat: add reassign player slot UI for doubles registrations (#60)`
 - Note: deployed via `npm run release:deploy` on 2026-04-16.
