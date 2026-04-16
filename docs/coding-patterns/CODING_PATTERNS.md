@@ -5087,7 +5087,7 @@ rg -n "logger\\.debug.*\\[fetchMatches\\]|logger\\.debug.*\\[adaptBracketsMatch\
   "hosting": {
     "rewrites": [
       {
-        "regex": "^(?!/(assets/|sw\\.js$|registerSW\\.js$|manifest\\.webmanifest$|site\\.webmanifest$|recover\\.html$)).*",
+        "source": "!/assets/**",
         "destination": "/index.html"
       }
     ],
@@ -5115,12 +5115,11 @@ rg -n "logger\\.debug.*\\[fetchMatches\\]|logger\\.debug.*\\[adaptBracketsMatch\
 }
 ```
 
-**Rule:** Firebase Hosting SPA rewrites must never catch built asset URLs or service-worker entry points. Mutable app shell files must be `no-store`, while only hashed build assets under `/assets/**` may be cached immutably. Otherwise, deleted chunks can resolve to `index.html` and leave clients stuck on stale builds.
+**Rule:** Firebase Hosting SPA rewrites must never catch built asset URLs. Use Hosting `source` globs/extglob for exclusions, not negative-lookahead regexes. Mutable app shell files must be `no-store`, while only hashed build assets under `/assets/**` may be cached immutably. Otherwise, deleted chunks can resolve to `index.html` and leave clients stuck on stale builds, and unsupported regex syntax can block deploys entirely.
 
 **Detection:**
 ```bash
-rg -n '"regex": ".*assets/' firebase.json
-rg -n 'recover' firebase.json
+rg -n '"source": "!/assets/\\*\\*"' firebase.json
 rg -n '"source": "!/assets/\\*\\*"|"source": "/assets/\\*\\*"' firebase.json
 ```
 
