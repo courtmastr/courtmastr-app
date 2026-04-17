@@ -6,13 +6,13 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-16 14:27 CDT
-- Release ID: `v2.13.0`
-- Package version: `2.13.0`
+- Date: 2026-04-16 15:02 CDT
+- Release ID: `v2.14.0`
+- Package version: `2.14.0`
 - Deployed branch: `master`
-- Deployed commit: `e3c59e5` (`fix: make court release upsert operational match state (#68)`)
+- Deployed commit: `b8a6aba` (`fix: correct shared scoring access link (#70)`)
 - Release notes:
-  - [docs/releases/v2.13.0.md](docs/releases/v2.13.0.md)
+  - [docs/releases/v2.14.0.md](docs/releases/v2.14.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-16 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-16-19-26-16.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-16-20-01-19.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.13.0`
+  - Date: 2026-04-16 14:27 CDT
+  - Package version: `2.13.0`
+  - Deployed commit: `e3c59e5`
+  - Release notes:
+    - [docs/releases/v2.13.0.md](docs/releases/v2.13.0.md)
 - `v2.12.5`
   - Date: 2026-04-16 11:43 CDT
   - Package version: `2.12.5`
@@ -197,7 +203,7 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-16 14:27 CDT
-- Commit: `e3c59e50c00ac8c0d0098028390a0783a3d56668`
-- Message: `fix: make court release upsert operational match state (#68)`
+- Date: 2026-04-16 15:02 CDT
+- Commit: `b8a6aba768109202f2640a9f437ac9cb57a0360f`
+- Message: `fix: correct shared scoring access link (#70)`
 - Note: deployed via `npm run release:deploy` on 2026-04-16.
