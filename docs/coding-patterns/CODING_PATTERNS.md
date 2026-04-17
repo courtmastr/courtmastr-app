@@ -206,6 +206,41 @@ rg -n "<ready-queue|:matches=\"pendingMatches\"|:can-assign-match|assignment-gat
 
 ---
 
+### CP-103: Share Links And QR Codes Must Resolve Named Routes, Not Hardcoded Lookalike Paths
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-16 |
+| **Source Bug** | Tournament dashboard “Share Scoring Link” copied `/tournaments/:id/score` and generated a QR for the public scoring page instead of the scorekeeper access route |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+const scoringUrl = `${window.location.origin}/tournaments/${tournamentId}/score`;
+await QRCode.toDataURL(scoringUrl);
+```
+
+**Correct Pattern (✅):**
+```typescript
+const scoringAccessHref = router.resolve({
+  name: 'volunteer-scoring-access',
+  params: { tournamentId },
+}).href;
+
+const scoringUrl = new URL(scoringAccessHref, window.location.origin).toString();
+await QRCode.toDataURL(scoringUrl);
+```
+
+**Rule:** Any copied link, QR code payload, or share target that represents a router destination must be built from the named route via `router.resolve(...)`, especially when multiple similar paths exist (for example public score pages vs volunteer scoring access). Do not hardcode “close enough” path strings for share surfaces.
+
+**Detection:**
+```bash
+rg -n "QRCode\\.toDataURL\\([^\\n]*`/tournaments/.*/score|clipboard\\.writeText\\([^\\n]*`/tournaments/.*/score|window\\.location\\.origin\\}/tournaments/\\$\\{.*\\}/score" src --glob "*.vue" --glob "*.ts"
+```
+
+---
+
 ## Category: Data Integrity
 
 ### CP-075: Workbook Seed Imports Must Apply Authoritative Corrections Before Dedupe And Persist Registration Seeds
@@ -5168,6 +5203,155 @@ rg -n "logger\\.debug.*\\[fetchMatches\\]|logger\\.debug.*\\[adaptBracketsMatch\
 ```bash
 rg -n '"source": "!/assets/\\*\\*"' firebase.json
 rg -n '"source": "!/assets/\\*\\*"|"source": "/assets/\\*\\*"' firebase.json
+```
+
+---
+
+### CP-103: Firestore Bracket Stage References Must Be Compared As Normalized Strings
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-16 |
+| **Source Bug** | MCIA 2026 Create Levels dialog loaded zero participants because pool stages, rounds, groups, and matches were filtered out when Firestore stage ids were string doc ids |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+const poolStage = stages.find((stage) => Number(stage.id) === Number(category.poolStageId));
+const matches = storedMatches.filter((match) => Number(match.stage_id) === Number(poolStage?.id));
+const rounds = storedRounds.filter((round) => Number(round.stage_id ?? poolStage?.id) === Number(poolStage?.id));
+```
+
+**Correct Pattern (✅):**
+```ts
+function matchesStageId(
+  candidate: number | string | null | undefined,
+  expected: number | string | null | undefined
+): boolean {
+  const normalizedCandidate = candidate == null ? null : String(candidate);
+  const normalizedExpected = expected == null ? null : String(expected);
+  return normalizedCandidate !== null && normalizedCandidate === normalizedExpected;
+}
+
+const poolStage = stages.find((stage) => matchesStageId(stage.id, category.poolStageId));
+const matches = storedMatches.filter((match) => matchesStageId(match.stage_id, poolStage?.id));
+const rounds = storedRounds.filter((round) => matchesStageId(round.stage_id ?? poolStage?.id, poolStage?.id));
+```
+
+**Rule:** Bracket stage ids coming from Firestore may be numeric, numeric strings, or opaque document ids. Never coerce stage references with `Number(...)` when joining stages, rounds, groups, and matches. Normalize both sides to strings so seeded emulator data and production data resolve the same pool stage.
+
+**Detection:**
+```bash
+rg -n "Number\\(stage\\.id\\).*poolStageId|Number\\(category\\.poolStageId\\)|Number\\(match\\.stage_id\\)|Number\\(.*stage_id.*\\) ===" src --glob "*.ts"
+```
+
+---
+
+### CP-104: Snapshot Form Overrides Before Optimistic Store Updates Trigger Rehydration Watchers
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-16 |
+| **Source Bug** | Tournament settings saved the tournament doc first, the view watcher rehydrated category scoring from stale store data, and category override writes persisted the old defaults while showing a success toast |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+async function saveSettings() {
+  await tournamentStore.updateTournament(tournamentId.value, {
+    settings: settings.value,
+  });
+
+  await Promise.all(
+    categories.value.map((category) =>
+      tournamentStore.updateCategory(tournamentId.value, category.id, {
+        scoringOverrideEnabled: categoryScoringOverrides.value[category.id].enabled,
+        scoringConfig: categoryScoringOverrides.value[category.id].config,
+      })
+    )
+  );
+}
+```
+
+**Correct Pattern (✅):**
+```ts
+async function saveSettings() {
+  const categoriesToSave = [...categories.value];
+  const scoringOverridesSnapshot = cloneOverrideRecord(categoryScoringOverrides.value);
+
+  await tournamentStore.updateTournament(tournamentId.value, {
+    settings: settings.value,
+  });
+
+  await Promise.all(
+    categoriesToSave.map((category) =>
+      tournamentStore.updateCategory(tournamentId.value, category.id, {
+        scoringOverrideEnabled: scoringOverridesSnapshot[category.id].enabled,
+        scoringConfig: scoringOverridesSnapshot[category.id].config,
+      })
+    )
+  );
+}
+```
+
+**Rule:** If a save flow updates store-backed documents in multiple phases and the view has watchers that rehydrate local form state from that store, snapshot the local form state before the first optimistic store mutation. Never read the mutable form refs again after an awaited store update that can trigger rehydration.
+
+**Detection:**
+```bash
+rg -n "updateTournament\\([^\\n]*\\)[\\s\\S]{0,600}updateCategory\\(" src/features --glob "*.vue"
+```
+
+---
+
+### CP-105: Court Release Flows Must Upsert `match_scores` And Respect Explicit `courtId: null`
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-16 |
+| **Source Bug** | Match Control release-court failed with `FirebaseError: No document to update` and left stale court cards because ready matches can exist in `/match` before `/match_scores/{matchId}` is created |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+const matchUpdate = {
+  courtId: null,
+  status: 'ready',
+  updatedAt: serverTimestamp(),
+};
+
+batch.update(doc(db, matchScoresPath, matchId), matchUpdate);
+
+if (scoreData.courtId) {
+  updated.courtId = scoreData.courtId as string;
+}
+```
+
+**Correct Pattern (✅):**
+```ts
+const matchUpdate = {
+  tournamentId,
+  courtId: null,
+  status: 'ready',
+  updatedAt: serverTimestamp(),
+};
+
+batch.set(doc(db, matchScoresPath, matchId), matchUpdate, { merge: true });
+
+if (Object.prototype.hasOwnProperty.call(scoreData, 'courtId')) {
+  updated.courtId = typeof scoreData.courtId === 'string'
+    ? scoreData.courtId
+    : undefined;
+}
+```
+
+**Rule:** Match Control release, unschedule, and similar operational transitions must not assume a `/match_scores/{matchId}` document already exists. Use merge writes when a transition may be the first operational write for that match. When applying Firestore overlay data, treat an explicit `courtId: null` as authoritative so local state clears stale court assignments.
+
+**Detection:**
+```bash
+rg -n "batch\\.update\\(doc\\(db, matchScoresPath, matchId\\)|if \\(scoreData\\.courtId\\)" src/stores/matches.ts
 ```
 
 ---

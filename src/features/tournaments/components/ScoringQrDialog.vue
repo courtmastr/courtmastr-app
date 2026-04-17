@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import QRCode from 'qrcode';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 
@@ -13,11 +14,17 @@ const emit = defineEmits<{
   'copied': [];
 }>();
 
+const router = useRouter();
 const qrDataUrl = ref('');
 
-const scoringUrl = computed(() =>
-  `${window.location.origin}/tournaments/${props.tournamentId}/score`
-);
+const scoringUrl = computed(() => {
+  const scoringAccessHref = router.resolve({
+    name: 'volunteer-scoring-access',
+    params: { tournamentId: props.tournamentId },
+  }).href;
+
+  return new URL(scoringAccessHref, window.location.origin).toString();
+});
 
 async function generateQr() {
   qrDataUrl.value = await QRCode.toDataURL(scoringUrl.value, { width: 240, margin: 1 });
