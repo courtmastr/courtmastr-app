@@ -2373,12 +2373,13 @@ fi
 
 ---
 
-### CP-038: Match Control Schedule Table Must Use Public-State Quick Filters, Time-First Sort, and One Primary Row Action
+### CP-038: Match Control Schedule Table Must Use Public-State Quick Filters, Time-First Sort, and Keep Manual Score Visible For Pre-Match Rows
 
 | Field | Value |
 |-------|-------|
 | **Added** | 2026-02-22 |
-| **Source Bug** | All Matches view buried public visibility state, defaulted to non-time sorting, and showed cramped dual action buttons |
+| **Updated** | 2026-04-17 |
+| **Source Bug** | Compact All Matches rows hid manual score entry behind assignment state, blocking organizers from entering pre-match scores |
 | **Severity** | Medium |
 | **Status** | ✅ Active |
 
@@ -2411,27 +2412,53 @@ const scheduleFilters = ref({
 ```
 ```typescript
 function getPrimaryRowAction(match: Match): 'score' | 'assign' | null {
-  if (!match.courtId && (match.status === 'scheduled' || match.status === 'ready')) return 'assign';
-  if (match.status === 'ready' || match.status === 'in_progress') return 'score';
+  if (canAssignCourtToMatch(match)) return 'assign';
+  if (canScoreMatch(match)) return 'score';
   return null;
 }
 ```
 ```vue
-<!-- High-contrast public chip + quick filter toggle -->
-<v-btn-toggle v-model="scheduleFilters.publicState" mandatory />
-<v-chip variant="flat" :color="getMatchScheduleStateColor(item)" :prepend-icon="getMatchScheduleStateIcon(item)">
-  {{ getMatchScheduleStateLabel(item) }}
-</v-chip>
+<!-- Mutually exclusive CTA hides score entry for pre-match rows -->
+<v-btn v-if="getPrimaryRowAction(item) === 'score'">Score</v-btn>
+<v-btn v-else-if="getPrimaryRowAction(item) === 'assign'">Assign</v-btn>
 ```
 
 **Rule:** In Match Control → All Matches, default sorting must be planned time ascending (`plannedStartAt` fallback), public state must be filterable with quick toggles (`All/Published/Draft/Not Scheduled`), and each row must expose only one visible primary CTA (`Score` or `Assign`) with secondary actions in the overflow menu.
 
 **Detection:**
 ```bash
-rg -n "sortBy:\\s*'round'" src/features/tournaments/views/MatchControlView.vue
-rg -n "v-if=\"item\\.status === 'ready' \\|\\| item\\.status === 'in_progress'\"|v-if=\"!item\\.courtId && \\(item\\.status === 'scheduled' \\|\\| item\\.status === 'ready'\\)\"" src/features/tournaments/views/MatchControlView.vue
-rg -n "scheduleFilters\\.publicState|getPrimaryRowAction|getMatchScheduleStateIcon" src/features/tournaments/views/MatchControlView.vue
+if rg -n "getPrimaryRowAction" src/features/tournaments/views/MatchControlView.vue; then
+  echo "Violation: compact Match Control rows still gate Score behind a single primary-action helper"
+fi
+rg -n "function canScoreMatch\\(match: Match\\): boolean \\{|return match\\.status === 'scheduled' \\|\\| match\\.status === 'ready' \\|\\| match\\.status === 'in_progress'" src/features/tournaments/views/MatchControlView.vue
+rg -n "scheduleFilters\\.publicState|sortBy:\\s*'time'|v-if=\"canScoreMatch\\(item\\)\"|v-if=\"canAssignCourtToMatch\\(item\\)\"|v-else-if=\"shouldShowBlockedAssign\\(item\\)\"" src/features/tournaments/views/MatchControlView.vue
 ```
+
+**Correct Pattern (✅):**
+```typescript
+const scheduleFilters = ref({
+  status: 'all',
+  publicState: 'all',
+  sortBy: 'time',
+  sortDesc: false,
+});
+
+function canScoreMatch(match: Match): boolean {
+  return match.status === 'scheduled' || match.status === 'ready' || match.status === 'in_progress';
+}
+```
+```vue
+<!-- Keep Score available for pre-match rows, and gate Assign independently -->
+<v-btn v-if="canScoreMatch(item)">Score</v-btn>
+<v-btn v-if="canAssignCourtToMatch(item)">Assign</v-btn>
+<v-tooltip v-else-if="shouldShowBlockedAssign(item)">
+  <template #activator="{ props }">
+    <span v-bind="props"><v-btn disabled>Assign</v-btn></span>
+  </template>
+</v-tooltip>
+```
+
+**Rule:** In Match Control → All Matches, default sorting must be planned time ascending (`plannedStartAt` fallback), public state must be filterable with quick toggles (`All/Published/Draft/Not Scheduled`), and compact rows must keep manual `Score` visible for `scheduled`, `ready`, and `in_progress` matches. `Assign` must remain independently gated by the existing assignment checks, with blocked pre-match rows still surfacing disabled assign UI and tooltip reasons.
 
 ---
 
