@@ -15,7 +15,7 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
+  getDocsFromServer,
   updateDoc,
   query,
   where,
@@ -99,18 +99,18 @@ function buildGroupLabelMap(groups: { id: string; name?: string }[]): Map<string
 // ── Firestore data helpers ────────────────────────────────────────────────────
 
 async function fetchCategories(tournamentId: string): Promise<Category[]> {
-  const snap = await getDocs(collection(db, `tournaments/${tournamentId}/categories`));
+  const snap = await getDocsFromServer(collection(db, `tournaments/${tournamentId}/categories`));
   return snap.docs.map((d) => convertTimestamps({ id: d.id, ...d.data() }) as Category);
 }
 
 async function fetchRegistrations(tournamentId: string): Promise<Registration[]> {
-  const snap = await getDocs(collection(db, `tournaments/${tournamentId}/registrations`));
+  const snap = await getDocsFromServer(collection(db, `tournaments/${tournamentId}/registrations`));
   return snap.docs.map((d) => convertTimestamps({ id: d.id, ...d.data() }) as Registration);
 }
 
 async function fetchPlayers(tournamentId: string): Promise<Player[]> {
   // Players are linked via registrations — fetch all referenced player IDs
-  const regsSnap = await getDocs(
+  const regsSnap = await getDocsFromServer(
     query(
       collection(db, `tournaments/${tournamentId}/registrations`),
       where('status', 'in', ['approved', 'checked_in'])
@@ -131,7 +131,7 @@ async function fetchPlayers(tournamentId: string): Promise<Player[]> {
   for (let i = 0; i < ids.length; i += 30) {
     const batch = ids.slice(i, i + 30);
     batches.push(
-      getDocs(query(collection(db, 'players'), where('__name__', 'in', batch))).then((s) =>
+      getDocsFromServer(query(collection(db, 'players'), where('__name__', 'in', batch))).then((s) =>
         s.docs.map((d) => convertTimestamps({ id: d.id, ...d.data() }) as Player)
       )
     );
@@ -145,10 +145,10 @@ async function fetchMatchesForCategory(
 ): Promise<{ matches: Match[]; groups: { id: string; name?: string }[] }> {
   const basePath = `tournaments/${tournamentId}/categories/${categoryId}`;
   const [matchSnap, matchScoresSnap, participantSnap, groupSnap] = await Promise.all([
-    getDocs(collection(db, `${basePath}/match`)),
-    getDocs(collection(db, `${basePath}/match_scores`)),
-    getDocs(collection(db, `${basePath}/participant`)),
-    getDocs(collection(db, `${basePath}/group`)),
+    getDocsFromServer(collection(db, `${basePath}/match`)),
+    getDocsFromServer(collection(db, `${basePath}/match_scores`)),
+    getDocsFromServer(collection(db, `${basePath}/participant`)),
+    getDocsFromServer(collection(db, `${basePath}/group`)),
   ]);
 
   if (matchSnap.empty) {
@@ -206,7 +206,7 @@ async function fetchMatchesForCategory(
 }
 
 async function fetchTbdEntries(tournamentId: string): Promise<TbdScheduleEntry[]> {
-  const snap = await getDocs(collection(db, `tournaments/${tournamentId}/tbdSchedule`));
+  const snap = await getDocsFromServer(collection(db, `tournaments/${tournamentId}/tbdSchedule`));
   return snap.docs.map((d) => convertTimestamps({ id: d.id, ...d.data() }) as TbdScheduleEntry);
 }
 
@@ -479,7 +479,7 @@ export function usePublishSnapshot() {
         fetchRegistrations(tournamentId),
         fetchPlayers(tournamentId),
         fetchTbdEntries(tournamentId),
-        getDocs(collection(db, `tournaments/${tournamentId}/courts`)),
+        getDocsFromServer(collection(db, `tournaments/${tournamentId}/courts`)),
       ]);
 
       const courts = new Map<string, string>(
