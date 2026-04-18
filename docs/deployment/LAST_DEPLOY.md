@@ -2,17 +2,17 @@
 
 Current policy note: production infrastructure is Terraform-managed and production application rollout is expected to happen through the `master` CI/CD workflow. Older entries below may reference the previous local release command path because they are historical records.
 
-Updated: 2026-04-16 (America/Chicago)
+Updated: 2026-04-17 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-16 22:18 CDT
-- Release ID: `v2.15.0`
-- Package version: `2.15.0`
+- Date: 2026-04-17 20:23 CDT
+- Release ID: `v2.15.1`
+- Package version: `2.15.1`
 - Deployed branch: `master`
-- Deployed commit: `73c9bd2` (`[codex] Fix bracket viewer round ordering (#72)`)
+- Deployed commit: `7003b45` (`fix: use getDocsFromServer in publishSnapshot to prevent stale cache reads (#74)`)
 - Release notes:
-  - [docs/releases/v2.15.0.md](docs/releases/v2.15.0.md)
+  - [docs/releases/v2.15.1.md](docs/releases/v2.15.1.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-16 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-17-03-17-12.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-18-01-21-52.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.15.0`
+  - Date: 2026-04-16 22:18 CDT
+  - Package version: `2.15.0`
+  - Deployed commit: `73c9bd2`
+  - Release notes:
+    - [docs/releases/v2.15.0.md](docs/releases/v2.15.0.md)
 - `v2.14.0`
   - Date: 2026-04-16 15:02 CDT
   - Package version: `2.14.0`
@@ -209,7 +215,7 @@ Updated: 2026-04-16 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-16 22:18 CDT
-- Commit: `73c9bd28ef83937547374b9043f6855121c1a5e4`
-- Message: `[codex] Fix bracket viewer round ordering (#72)`
-- Note: deployed via `npm run release:deploy` on 2026-04-16.
+- Date: 2026-04-17 20:23 CDT
+- Commit: `7003b45da5742c960d39bd01195981184d0552fa`
+- Message: `fix: use getDocsFromServer in publishSnapshot to prevent stale cache reads (#74)`
+- Note: deployed via `npm run release:deploy` on 2026-04-17.
