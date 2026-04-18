@@ -325,6 +325,123 @@ function writeStandingsSection(
   return row;
 }
 
+/* ─── Consolidated standings (across multiple pools) ────────────────────────── */
+interface PoolRange {
+  poolLabel: string;
+  players: string[];
+  dataStart: number; // 1-indexed Excel row of first match row
+  dataEnd: number;   // 1-indexed Excel row of last match row
+}
+
+// Columns for the consolidated section (note the extra "Pool" column):
+// A=Rank B=Player C=Pool D=Played E=M.Won F=M.Lost G=MP H=Win%
+// I=Sets W J=Sets L K=Set Diff L=Pts For M=Pts Against N=Pt Diff
+function writeConsolidatedStandingsSection(
+  ws: WS,
+  startRow: number,
+  label: string,
+  pools: PoolRange[],
+  gpm: number,
+): number {
+  const statusC = encCol(statusCol(gpm));
+  const winnerC = encCol(winnerCol(gpm));
+  const sp1C    = encCol(setsP1Col(gpm));
+  const sp2C    = encCol(setsP2Col(gpm));
+  const pp1C    = encCol(ptsP1Col(gpm));
+  const pp2C    = encCol(ptsP2Col(gpm));
+
+  // One range tuple per pool
+  const ranges = pools.map(p => ({
+    p1:  `$C$${p.dataStart}:$C$${p.dataEnd}`,
+    p2:  `$D$${p.dataStart}:$D$${p.dataEnd}`,
+    st:  `$${statusC}$${p.dataStart}:$${statusC}$${p.dataEnd}`,
+    wi:  `$${winnerC}$${p.dataStart}:$${winnerC}$${p.dataEnd}`,
+    s1:  `$${sp1C}$${p.dataStart}:$${sp1C}$${p.dataEnd}`,
+    s2:  `$${sp2C}$${p.dataStart}:$${sp2C}$${p.dataEnd}`,
+    pf1: `$${pp1C}$${p.dataStart}:$${pp1C}$${p.dataEnd}`,
+    pf2: `$${pp2C}$${p.dataStart}:$${pp2C}$${p.dataEnd}`,
+  }));
+
+  let row = startRow;
+
+  wv(ws, row, 0, label, S.sectionHead);
+  row++;
+
+  const cHeaders = ['Rank', 'Player', 'Pool', 'Played', 'M.Won', 'M.Lost', 'MP', 'Win%', 'Sets W', 'Sets L', 'Set Diff', 'Pts For', 'Pts Against', 'Pt Diff'];
+  cHeaders.forEach((h, c) => wv(ws, row, c, h, S.header));
+  row++;
+
+  // Flatten all players with their pool label (stable pool order, players within pool alphabetical)
+  const allPlayers: Array<{ name: string; pool: string }> = [];
+  for (const p of pools) {
+    for (const name of p.players) allPlayers.push({ name, pool: p.poolLabel });
+  }
+
+  const sdStart = row + 1;
+  const sdEnd = sdStart + allPlayers.length - 1;
+
+  for (const { name, pool } of allPlayers) {
+    const er = row + 1;
+    const pRef = `B${er}`;
+
+    wv(ws, row, 1, name);
+    wv(ws, row, 2, pool);
+
+    // Played — union of COUNTIFS across all pool ranges (both p1 and p2 sides)
+    const playedParts = ranges.map(r =>
+      `COUNTIFS(${r.st},"Complete",${r.p1},${pRef})+COUNTIFS(${r.st},"Complete",${r.p2},${pRef})`,
+    );
+    wf(ws, row, 3, `=${playedParts.join('+')}`, S.formula);
+
+    // Won — sum of COUNTIF across winner columns of each pool
+    const wonParts = ranges.map(r => `COUNTIF(${r.wi},${pRef})`);
+    wf(ws, row, 4, `=${wonParts.join('+')}`, S.formula);
+
+    // Lost = Played - Won
+    wf(ws, row, 5, `=D${er}-E${er}`, S.formula);
+
+    // MP = 2*Won + 1*Lost
+    wf(ws, row, 6, `=E${er}*2+F${er}*1`, S.formula);
+
+    // Win%
+    wf(ws, row, 7, `=IF(D${er}=0,0,E${er}/D${er})`, S.formula, '0%');
+
+    // Sets W — union across pools
+    const swParts = ranges.map(r => `SUMIF(${r.p1},${pRef},${r.s1})+SUMIF(${r.p2},${pRef},${r.s2})`);
+    wf(ws, row, 8, `=${swParts.join('+')}`, S.formula);
+
+    // Sets L
+    const slParts = ranges.map(r => `SUMIF(${r.p1},${pRef},${r.s2})+SUMIF(${r.p2},${pRef},${r.s1})`);
+    wf(ws, row, 9, `=${slParts.join('+')}`, S.formula);
+
+    // Set Diff
+    wf(ws, row, 10, `=I${er}-J${er}`, S.formula);
+
+    // Pts For
+    const pfParts = ranges.map(r => `SUMIF(${r.p1},${pRef},${r.pf1})+SUMIF(${r.p2},${pRef},${r.pf2})`);
+    wf(ws, row, 11, `=${pfParts.join('+')}`, S.formula);
+
+    // Pts Against
+    const paParts = ranges.map(r => `SUMIF(${r.p1},${pRef},${r.pf2})+SUMIF(${r.p2},${pRef},${r.pf1})`);
+    wf(ws, row, 12, `=${paParts.join('+')}`, S.formula);
+
+    // Pt Diff
+    wf(ws, row, 13, `=L${er}-M${er}`, S.formula);
+
+    // Rank — MP desc → SW desc → SL asc → PD desc, composite via SUMPRODUCT
+    // Cols in this section: G=MP, I=SW, J=SL, N=PD
+    const keyRange = `$G$${sdStart}:$G$${sdEnd}*1000000+$I$${sdStart}:$I$${sdEnd}*10000-$J$${sdStart}:$J$${sdEnd}*100+$N$${sdStart}:$N$${sdEnd}`;
+    const myKey = `G${er}*1000000+I${er}*10000-J${er}*100+N${er}`;
+    wf(ws, row, 0,
+      `=IFERROR(SUMPRODUCT((${keyRange})>(${myKey}))+1,"")`,
+      S.formula);
+
+    row++;
+  }
+
+  return row;
+}
+
 /* ─── Player extraction ──────────────────────────────────────────────────────── */
 function playersFromMatches(matches: Match[], getName: GetName, catId: string): string[] {
   const seen = new Set<string>();
@@ -390,10 +507,14 @@ function buildPoolSheet(
   const groupIds = [...groupMap.keys()].sort();
   const poolLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
+  // Collect per-pool ranges for the consolidated section at the bottom
+  const poolRanges: PoolRange[] = [];
+
   for (let i = 0; i < groupIds.length; i++) {
     const gid = groupIds[i];
     const gMatches = groupMap.get(gid)!;
-    const label = `Pool ${poolLabels[i] ?? gid}`;
+    const poolLabel = poolLabels[i] ?? gid;
+    const label = `Pool ${poolLabel}`;
 
     // Standings first (compact — players see who's ahead)
     const players = playersFromMatches(gMatches, getName, cat.id);
@@ -409,10 +530,27 @@ function buildPoolSheet(
       players, matchResult.dataStart, matchResult.dataEnd, gpm,
     );
 
+    poolRanges.push({
+      poolLabel,
+      players,
+      dataStart: matchResult.dataStart,
+      dataEnd: matchResult.dataEnd,
+    });
+
     row = finalRow + 2; // blank separator between groups
   }
 
-  setRange(ws, row, statusCol(gpm));
+  // Consolidated standings across all pools (only meaningful with 2+ pools)
+  if (poolRanges.length >= 2) {
+    const consolidatedFinal = writeConsolidatedStandingsSection(
+      ws, row,
+      `── ${cat.name} — ALL POOLS CONSOLIDATED STANDINGS ──`,
+      poolRanges, gpm,
+    );
+    row = consolidatedFinal + 1;
+  }
+
+  setRange(ws, row, Math.max(statusCol(gpm), 13));
   ws['!cols'] = matchColWidths(gpm);
   lockSheet(ws);
   return ws;
