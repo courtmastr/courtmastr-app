@@ -6,13 +6,13 @@ Updated: 2026-04-17 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-17 20:23 CDT
-- Release ID: `v2.15.1`
-- Package version: `2.15.1`
+- Date: 2026-04-17 23:32 CDT
+- Release ID: `v2.16.0`
+- Package version: `2.16.0`
 - Deployed branch: `master`
-- Deployed commit: `7003b45` (`fix: use getDocsFromServer in publishSnapshot to prevent stale cache reads (#74)`)
+- Deployed commit: `3b17354` (`Allow compact match control scoring before assignment (#76)`)
 - Release notes:
-  - [docs/releases/v2.15.1.md](docs/releases/v2.15.1.md)
+  - [docs/releases/v2.16.0.md](docs/releases/v2.16.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-17 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-18-01-21-52.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-18-04-31-07.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-17 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.15.1`
+  - Date: 2026-04-17 20:23 CDT
+  - Package version: `2.15.1`
+  - Deployed commit: `7003b45`
+  - Release notes:
+    - [docs/releases/v2.15.1.md](docs/releases/v2.15.1.md)
 - `v2.15.0`
   - Date: 2026-04-16 22:18 CDT
   - Package version: `2.15.0`
@@ -215,7 +221,7 @@ Updated: 2026-04-17 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-17 20:23 CDT
-- Commit: `7003b45da5742c960d39bd01195981184d0552fa`
-- Message: `fix: use getDocsFromServer in publishSnapshot to prevent stale cache reads (#74)`
+- Date: 2026-04-17 23:32 CDT
+- Commit: `3b17354044ba7ba4a437d854b4f3b691934426cc`
+- Message: `Allow compact match control scoring before assignment (#76)`
 - Note: deployed via `npm run release:deploy` on 2026-04-17.
