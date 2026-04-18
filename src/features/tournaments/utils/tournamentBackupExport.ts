@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import type { Match, Category, Tournament, Court } from '@/types';
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
@@ -549,5 +549,5 @@ export function downloadTournamentBackup(
   }
 
   const date = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `backup-${safeFilename(tournament.name)}-${date}.xlsx`, { cellStyles: true });
+  XLSX.writeFile(wb, `backup-${safeFilename(tournament.name)}-${date}.xlsx`);
 }

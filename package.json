@@ -82,7 +82,8 @@
     "vuedraggable": "^4.1.0",
     "vuefire": "^3.2.2",
     "vuetify": "^3.11.7",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",
