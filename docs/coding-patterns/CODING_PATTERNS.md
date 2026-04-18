@@ -1119,6 +1119,57 @@ grep -rn ":to=.*matches.*score" src/features/ --include="*.vue" | grep -v "categ
 
 ---
 
+### CP-104: Match Control Scoring Actions Must Carry Full Match Context
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-18 |
+| **Source Bug** | Court card scoring dialog opened the wrong players when duplicate bracket match ids existed across categories |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// ❌ DON'T: Emit a bare match id from Match Control scoring actions
+emit('score', match.id);
+```
+```typescript
+// ❌ DON'T: Re-resolve Match Control scoring targets by id alone
+function openScoreDialog(matchId: string): void {
+  const match = matches.value.find((item) => item.id === matchId);
+  if (!match) return;
+  openManualScoreDialog(match);
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+// ✅ DO: Carry the full match object (or a fully scoped ref) through the score action
+emit('score', match);
+```
+```typescript
+// ✅ DO: Open the score dialog from the selected scoped match context
+function openScoreDialog(match: Match): void {
+  openManualScoreDialog(match);
+}
+```
+
+**Why This Matters:**
+- Bracket-generated `match.id` values are not globally unique across categories or levels.
+- Looking up by bare `match.id` can bind a court card or alert to a different match with the same id.
+- Score-entry actions in Match Control must preserve category and level scope all the way into the dialog.
+
+**Detection:**
+```bash
+rg -n "emit\\('score',\\s*match!?\\.id\\)|score: \\[matchId: string\\]|viewMatch: \\[matchId: string\\]|openScoreDialog\\(item\\.id\\)|openCompleteMatchDialog\\(item\\.id\\)|matches\\.value\\.find\\(m => m\\.id === matchId\\)" \
+  src/features/tournaments/views/MatchControlView.vue \
+  src/features/tournaments/components/CourtCard.vue \
+  src/features/tournaments/components/CourtGrid.vue \
+  src/features/tournaments/components/AlertsPanel.vue
+```
+
+---
+
 ### CP-013: Use Shared Composables for Repeated Display Logic
 
 | Field | Value |

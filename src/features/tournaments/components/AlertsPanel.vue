@@ -15,7 +15,7 @@ interface Alert {
     handler: () => void;
   };
   courtId?: string;
-  matchId?: string;
+  match?: Match;
 }
 
 interface AssignmentGateSummary {
@@ -51,7 +51,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   assignToCourt: [courtId: string];
-  viewMatch: [matchId: string];
+  viewMatch: [match: Match];
   releaseCourt: [courtId: string];
   goToCheckIn: [];
 }>();
@@ -101,7 +101,7 @@ const alerts = computed((): Alert[] => {
         severity: 'warning',
         title: 'Match Running Long',
         message: `${getMatchDisplayName(match)} on ${court?.name || 'Unknown Court'} - ${formatDuration(durationMinutes)}`,
-        matchId: match.id,
+        match,
       });
     }
   }
@@ -124,7 +124,7 @@ const alerts = computed((): Alert[] => {
           severity: 'warning',
           title: 'Match Waiting for Court',
           message: `${getMatchDisplayName(match)} waiting ${formatDuration(waitMinutes)}`,
-          matchId: match.id,
+          match,
         });
       }
     } else {
@@ -135,7 +135,7 @@ const alerts = computed((): Alert[] => {
         severity: 'info',
         title: 'Match Ready for Court',
         message: `${getMatchDisplayName(match)} ready to assign`,
-        matchId: match.id,
+        match,
       });
     }
   }
@@ -233,8 +233,8 @@ function handleAlertClick(alert: Alert) {
     emit('goToCheckIn');
   } else if (alert.courtId && alert.type === 'idle_court') {
     emit('assignToCourt', alert.courtId);
-  } else if (alert.matchId) {
-    emit('viewMatch', alert.matchId);
+  } else if (alert.match) {
+    emit('viewMatch', alert.match);
   }
 }
 </script>

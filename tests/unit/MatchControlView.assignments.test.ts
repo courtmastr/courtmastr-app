@@ -156,9 +156,11 @@ interface MatchControlAssignmentsVm {
   canScoreMatch: (match: Match) => boolean;
   canAdminAssignAnyway: (match: Match) => boolean;
   openAssignCourtDialog: (match: Match, options?: { ignoreCheckInGate?: boolean }) => void;
+  openScoreDialog: (match: Match) => void;
   getQueueBlockedReason: (match: Match) => string;
   getMatchParticipantLabel: (match: Match, slot: 'participant1' | 'participant2') => string;
   getMatchParticipantsTooltip: (match: Match) => string;
+  selectedMatch: Match | null;
   viewMode: 'schedule' | 'command';
   selectedCategory: string;
   scheduleViewMode: 'compact' | 'full';
@@ -376,6 +378,40 @@ describe('MatchControlView assignment actions', () => {
 
     expect(mockDeps.openDialog).not.toHaveBeenCalled();
     expect(mockDeps.showToast).toHaveBeenCalledWith('warning', 'Blocked: Players not checked-in');
+  });
+
+  it('opens scoring with the exact selected match when ids collide across categories', () => {
+    const mixedMatch = makeMatch({
+      id: 'm-dup',
+      categoryId: 'cat-mixed',
+      participant1Id: 'reg-mixed-1',
+      participant2Id: 'reg-mixed-2',
+    });
+    const womensMatch = makeMatch({
+      id: 'm-dup',
+      categoryId: 'cat-womens',
+      participant1Id: 'reg-womens-1',
+      participant2Id: 'reg-womens-2',
+      courtId: 'court-1',
+      status: 'in_progress',
+    });
+    runtimeState.matches = [mixedMatch, womensMatch];
+
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as MatchControlAssignmentsVm;
+
+    vm.openScoreDialog(womensMatch);
+
+    expect(vm.selectedMatch).toMatchObject({
+      id: 'm-dup',
+      categoryId: 'cat-womens',
+      participant1Id: 'reg-womens-1',
+      participant2Id: 'reg-womens-2',
+      courtId: 'court-1',
+      status: 'in_progress',
+    });
+    expect(mockDeps.openDialog).toHaveBeenCalledWith('score');
+    expect(mockDeps.showToast).not.toHaveBeenCalledWith('error', 'Match not found');
   });
 
   it('allows admins to open assign-anyway dialog when check-in is the only blocker', () => {

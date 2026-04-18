@@ -18,7 +18,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   assign: [courtId: string];
-  score: [matchId: string];
+  score: [match: Match];
   release: [courtId: string];
 }>();
 
@@ -190,7 +190,7 @@ const currentScore = computed(() => {
             size="small"
             class="flex-grow-1"
             prepend-icon="mdi-scoreboard"
-            @click="emit('score', match!.id)"
+            @click="emit('score', match!)"
           >
             Score
           </v-btn>
