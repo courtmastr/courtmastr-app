@@ -5468,6 +5468,69 @@ rg -n "getDoc\\(doc\\(db, `tournaments/\\$\\{tournamentId\\.value\\}/categories/
 
 ---
 
+### CP-108: Shared Manual Scoring Dialogs Must Expose Walkover Through The Same Reusable Surface
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-18 |
+| **Source Bug** | Staff scoring could submit manual game scores from Match Control and Match List, but the shared `ManualScoreDialog` had no walkover path even though the store and full scoring screen already supported `recordWalkover()` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+await matchStore.submitManualScores(
+  tournamentId,
+  match.id,
+  games,
+  match.categoryId,
+  match.levelId
+);
+```
+```vue
+<template #actions>
+  <v-btn @click="$emit('update:modelValue', false)">Cancel</v-btn>
+  <v-btn @click="submitScores">Save Scores</v-btn>
+</template>
+```
+
+**Correct Pattern (✅):**
+```ts
+async function submitWalkover(winnerId: string): Promise<void> {
+  await matchStore.recordWalkover(
+    tournamentId,
+    match.id,
+    winnerId,
+    match.categoryId,
+    match.levelId
+  );
+}
+```
+```vue
+<template #actions>
+  <v-btn color="warning" @click="showWalkoverDialog = true">Walkover</v-btn>
+  <v-btn @click="$emit('update:modelValue', false)">Cancel</v-btn>
+  <v-btn @click="submitScores">Save Scores</v-btn>
+</template>
+
+<WalkoverDialog
+  v-model="showWalkoverDialog"
+  :match="match"
+  @confirm="submitWalkover"
+/>
+```
+
+**Rule:** Any reusable staff-facing manual scoring surface must expose both score entry and walkover from the same shared dialog. Do not force parent views to invent their own ad hoc walkover affordance when they already depend on `ManualScoreDialog`, and do not fake walkovers as normal game scores when `recordWalkover()` already models the correct terminal state.
+
+**Detection:**
+```bash
+if rg -q "submitManualScores" src/features/tournaments/dialogs/ManualScoreDialog.vue && ! rg -q "recordWalkover|WalkoverDialog" src/features/tournaments/dialogs/ManualScoreDialog.vue; then
+  echo "Violation: shared manual scoring dialog cannot record walkovers"
+fi
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
