@@ -1039,13 +1039,7 @@ function openScheduleDialog(match: Match) {
 
 
 
-function openScoreDialog(matchId: string): void {
-  const match = matches.value.find(m => m.id === matchId);
-  if (!match) {
-    logger.error('[openScoreDialog] Match not found:', matchId);
-    notificationStore.showToast('error', 'Match not found');
-    return;
-  }
+function openScoreDialog(match: Match): void {
   openManualScoreDialog(match);
 }
 
@@ -1734,7 +1728,7 @@ async function confirmCompleteTournament(): Promise<void> {
                   color="primary"
                   variant="tonal"
                   prepend-icon="mdi-scoreboard"
-                  @click.stop="openScoreDialog(item.id)"
+                  @click.stop="openScoreDialog(item)"
                 >
                   Score
                 </v-btn>
@@ -1804,7 +1798,7 @@ async function confirmCompleteTournament(): Promise<void> {
                       v-if="item.status !== 'completed' && item.status !== 'walkover'"
                       prepend-icon="mdi-flag-checkered" 
                       title="Force Complete" 
-                      @click="openCompleteMatchDialog(item.id)"
+                      @click="openCompleteMatchDialog(item)"
                     />
                     <v-list-item 
                       v-if="item.status === 'scheduled' || item.status === 'ready'"
