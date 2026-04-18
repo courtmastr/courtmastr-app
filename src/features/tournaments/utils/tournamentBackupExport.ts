@@ -35,10 +35,12 @@ const ptsP2Col   = (gpm: number) => 9 + gpm * 2;     // gpm=3→15(P)
 const winnerCol  = (gpm: number) => 10 + gpm * 2;    // gpm=3→16(Q)
 const statusCol  = (gpm: number) => 11 + gpm * 2;    // gpm=3→17(R)
 
+// Columns: A=Rank B=Player C=Played D=M.Won E=M.Lost F=MP G=Win%
+//          H=Sets W I=Sets L J=Set Diff K=Pts For L=Pts Against M=Pt Diff
 const SC = {
   RANK: 0, PLAYER: 1, PLAYED: 2, WON: 3, LOST: 4,
-  WIN_PCT: 5, SETS_W: 6, SETS_L: 7, SET_DIFF: 8,
-  PTS_FOR: 9, PTS_AGAINST: 10, PT_DIFF: 11, _SCORE: 12,
+  MP: 5, WIN_PCT: 6, SETS_W: 7, SETS_L: 8, SET_DIFF: 9,
+  PTS_FOR: 10, PTS_AGAINST: 11, PT_DIFF: 12,
 };
 
 /* ─── Cell writers ───────────────────────────────────────────────────────────── */
@@ -54,8 +56,12 @@ function wv(ws: WS, r: number, c: number, v: string | number | null | undefined,
 
 function wf(ws: WS, r: number, c: number, formula: string, s?: object, fmt?: string): void {
   const cell: any = { t: 'n', f: formula };
-  if (s) cell.s = s;
-  if (fmt) cell.z = fmt;
+  // Always clone the style so xlsx-js-style cannot mutate a shared reference
+  // (setting cell.z on one cell would otherwise bleed into all cells sharing the same style object).
+  if (s || fmt) {
+    cell.s = s ? JSON.parse(JSON.stringify(s)) : {};
+    if (fmt) cell.s.numFmt = fmt;
+  }
   ws[encRef(r, c)] = cell;
 }
 
@@ -259,7 +265,7 @@ function writeStandingsSection(
   wv(ws, row, 0, label, S.sectionHead);
   row++;
 
-  const sHeaders = ['Rank', 'Player', 'Played', 'M.Won', 'M.Lost', 'Win%', 'Sets W', 'Sets L', 'Set Diff', 'Pts For', 'Pts Against', 'Pt Diff'];
+  const sHeaders = ['Rank', 'Player', 'Played', 'M.Won', 'M.Lost', 'MP', 'Win%', 'Sets W', 'Sets L', 'Set Diff', 'Pts For', 'Pts Against', 'Pt Diff'];
   sHeaders.forEach((h, c) => wv(ws, row, c, h, S.header));
   row++;
 
@@ -281,6 +287,10 @@ function writeStandingsSection(
     wf(ws, row, SC.LOST,
       `=C${er}-D${er}`,
       S.formula);
+    // MP (Match Points) = 2 × wins + 1 × losses
+    wf(ws, row, SC.MP,
+      `=D${er}*2+E${er}*1`,
+      S.formula);
     wf(ws, row, SC.WIN_PCT,
       `=IF(C${er}=0,0,D${er}/C${er})`,
       S.formula, '0%');
@@ -291,7 +301,7 @@ function writeStandingsSection(
       `=SUMIF(${p1R},${pRef},${s2R})+SUMIF(${p2R},${pRef},${s1R})`,
       S.formula);
     wf(ws, row, SC.SET_DIFF,
-      `=G${er}-H${er}`,
+      `=H${er}-I${er}`,
       S.formula);
     wf(ws, row, SC.PTS_FOR,
       `=SUMIF(${p1R},${pRef},${pf1R})+SUMIF(${p2R},${pRef},${pf2R})`,
@@ -300,14 +310,14 @@ function writeStandingsSection(
       `=SUMIF(${p1R},${pRef},${pf2R})+SUMIF(${p2R},${pRef},${pf1R})`,
       S.formula);
     wf(ws, row, SC.PT_DIFF,
-      `=J${er}-K${er}`,
+      `=K${er}-L${er}`,
       S.formula);
-    // Hidden helper score for ranking: wins*100000 + setDiff*1000 + ptDiff
-    wf(ws, row, SC._SCORE,
-      `=D${er}*100000+I${er}*1000+L${er}`);
-    // Rank
+    // Rank — inline composite key: MP desc → SW desc → SL asc (fewer losses better) → PD desc
+    // Composite: MP*1_000_000 + SW*10_000 + (−SL)*100 + PD. Count rows with strictly higher key + 1.
+    const keyRange = `$F$${sdStart}:$F$${sdEnd}*1000000+$H$${sdStart}:$H$${sdEnd}*10000-$I$${sdStart}:$I$${sdEnd}*100+$M$${sdStart}:$M$${sdEnd}`;
+    const myKey = `F${er}*1000000+H${er}*10000-I${er}*100+M${er}`;
     wf(ws, row, SC.RANK,
-      `=IFERROR(RANK(M${er},$M$${sdStart}:$M$${sdEnd},0),"")`,
+      `=IFERROR(SUMPRODUCT((${keyRange})>(${myKey}))+1,"")`,
       S.formula);
     row++;
   }
