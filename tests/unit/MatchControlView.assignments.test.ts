@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { defineComponent } from 'vue';
 import { shallowMount } from '@vue/test-utils';
 import type { Match } from '@/types';
 import MatchControlView from '@/features/tournaments/views/MatchControlView.vue';
@@ -152,6 +153,7 @@ vi.mock('@/composables/useTournamentStateAdvance', () => ({
 }));
 
 interface MatchControlAssignmentsVm {
+  canScoreMatch: (match: Match) => boolean;
   canAdminAssignAnyway: (match: Match) => boolean;
   openAssignCourtDialog: (match: Match, options?: { ignoreCheckInGate?: boolean }) => void;
   getQueueBlockedReason: (match: Match) => string;
@@ -235,6 +237,103 @@ const mountView = () =>
         'AlertsPanel',
         'StateBanner',
       ],
+    },
+  });
+
+const DataTableStub = defineComponent({
+  props: {
+    items: {
+      type: Array,
+      default: () => [],
+    },
+  },
+  template: `
+    <div class="v-data-table-stub">
+      <div
+        v-for="item in items"
+        :key="item.id"
+        class="compact-actions-row"
+      >
+        <slot name="item.actions" :item="item" />
+      </div>
+    </div>
+  `,
+});
+
+const TooltipStub = defineComponent({
+  template: `
+    <div class="v-tooltip-stub">
+      <slot name="activator" :props="{}" />
+      <slot />
+    </div>
+  `,
+});
+
+const ButtonStub = defineComponent({
+  template: `
+    <button type="button">
+      <slot />
+    </button>
+  `,
+});
+
+const MenuStub = defineComponent({
+  template: `
+    <div class="v-menu-stub">
+      <slot name="activator" :props="{}" />
+      <slot />
+    </div>
+  `,
+});
+
+const mountCompactScheduleView = () =>
+  shallowMount(MatchControlView, {
+    global: {
+      stubs: {
+        'v-container': true,
+        'v-row': true,
+        'v-col': true,
+        'v-btn': ButtonStub,
+        'v-card': true,
+        'v-card-title': true,
+        'v-card-text': true,
+        'v-card-actions': true,
+        'v-chip': true,
+        'v-icon': true,
+        'v-list': true,
+        'v-list-item': true,
+        'v-menu': MenuStub,
+        'v-dialog': true,
+        'v-select': true,
+        'v-text-field': true,
+        'v-data-table': DataTableStub,
+        'v-tooltip': TooltipStub,
+        'v-toolbar': true,
+        'v-toolbar-title': true,
+        'v-spacer': true,
+        'v-btn-toggle': true,
+        'v-progress-linear': true,
+        'v-radio-group': true,
+        'v-radio': true,
+        'v-tabs': true,
+        'v-tab': true,
+        'v-window': true,
+        'v-window-item': true,
+        'v-switch': true,
+        'v-alert': true,
+        BaseDialog: true,
+        FilterBar: true,
+        AssignCourtDialog: true,
+        SelectMatchForCourtDialog: true,
+        ScheduleMatchDialog: true,
+        ManualScoreDialog: true,
+        AutoScheduleDialog: true,
+        MatchQueueList: true,
+        CourtGrid: true,
+        ReadyQueue: true,
+        AlertsPanel: true,
+        StateBanner: true,
+      },
     },
   });
 
@@ -358,5 +457,88 @@ describe('MatchControlView assignment actions', () => {
     const vm = wrapper.vm as unknown as MatchControlAssignmentsVm;
 
     expect(vm.viewMode).toBe('command');
+  });
+
+  it('allows manual scoring for scheduled, ready, and in-progress matches', () => {
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as MatchControlAssignmentsVm;
+
+    expect(vm.canScoreMatch(makeMatch({ status: 'scheduled' }))).toBe(true);
+    expect(vm.canScoreMatch(makeMatch({ status: 'ready' }))).toBe(true);
+    expect(vm.canScoreMatch(makeMatch({ status: 'in_progress' }))).toBe(true);
+    expect(vm.canScoreMatch(makeMatch({ status: 'completed' }))).toBe(false);
+  });
+
+  it('shows Score and blocked Assign for a scheduled match in compact schedule view', () => {
+    runtimeState.routeQuery = { view: 'schedule' };
+    runtimeState.matches = [
+      makeMatch({
+        status: 'scheduled',
+        plannedStartAt: undefined,
+      }),
+    ];
+
+    const wrapper = mountCompactScheduleView();
+    const row = wrapper.get('.compact-actions-row');
+
+    expect(row.text()).toContain('Score');
+    expect(row.text()).toContain('Assign');
+  });
+
+  it('shows Score and blocked Assign for a ready match in compact schedule view', () => {
+    runtimeState.routeQuery = { view: 'schedule' };
+    runtimeState.matches = [makeMatch()];
+
+    const wrapper = mountCompactScheduleView();
+    const row = wrapper.get('.compact-actions-row');
+
+    expect(row.text()).toContain('Score');
+    expect(row.text()).toContain('Assign');
+  });
+
+  it('shows Score and Assign for an assignable ready match in compact schedule view', () => {
+    runtimeState.routeQuery = { view: 'schedule' };
+    runtimeState.registrations = [
+      { id: 'reg-1', status: 'checked_in' },
+      { id: 'reg-2', status: 'checked_in' },
+    ];
+    runtimeState.matches = [makeMatch()];
+
+    const wrapper = mountCompactScheduleView();
+    const row = wrapper.get('.compact-actions-row');
+
+    expect(row.text()).toContain('Score');
+    expect(row.text()).toContain('Assign');
+  });
+
+  it('shows only Score for an in-progress match in compact schedule view', () => {
+    runtimeState.routeQuery = { view: 'schedule' };
+    runtimeState.matches = [
+      makeMatch({
+        status: 'in_progress',
+        courtId: 'court-1',
+      }),
+    ];
+
+    const wrapper = mountCompactScheduleView();
+    const row = wrapper.get('.compact-actions-row');
+
+    expect(row.text()).toContain('Score');
+    expect(row.text()).not.toContain('Assign');
+  });
+
+  it('does not show Score for completed matches in compact schedule view', () => {
+    runtimeState.routeQuery = { view: 'schedule' };
+    runtimeState.matches = [
+      makeMatch({
+        status: 'completed',
+        winnerId: 'reg-1',
+      }),
+    ];
+
+    const wrapper = mountCompactScheduleView();
+    const row = wrapper.get('.compact-actions-row');
+
+    expect(row.text()).not.toContain('Score');
   });
 });

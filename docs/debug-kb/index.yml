@@ -1,6 +1,13 @@
+- id: 11d2c422
+  title: build:log fails in a clean worktree before root and functions dependencies are installed
+  status: "✅ fixed"
+  date: "2026-04-17"
+  fingerprint: "11d2c422"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-18-04-01-11.npm-run-check-firebase-env-vue-tsc-b-vite-build.log"
 - id: d80c1026
   title: build:log fails when production Firebase web env is missing in a worktree
-  status: "❌ unresolved"
+  status: "✅ fixed"
   date: "2026-04-12"
   fingerprint: "d80c1026"
   command: "npm run build:log"
