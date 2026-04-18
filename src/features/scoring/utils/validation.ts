@@ -84,7 +84,26 @@ export const resolveScoringConfig = (
   tournament?: TournamentScoringSource | null,
   category?: CategoryScoringSource | null
 ): ScoringConfig => {
-  const tournamentConfig = sanitizeScoringConfig(tournament?.settings ?? BADMINTON_CONFIG);
+  return resolveMatchScoringConfig(tournament?.settings, category);
+};
+
+export const resolveMatchScoringConfig = (
+  tournamentSettings?: Partial<ScoringConfig> | null,
+  category?: CategoryScoringSource | null,
+  stageId?: string | number | null
+): ScoringConfig => {
+  const tournamentConfig = sanitizeScoringConfig(tournamentSettings ?? BADMINTON_CONFIG);
+
+  if (
+    stageId != null &&
+    category?.eliminationScoringEnabled &&
+    category?.eliminationStageId != null &&
+    Number(stageId) === category.eliminationStageId &&
+    category.eliminationScoringConfig
+  ) {
+    return sanitizeScoringConfig(category.eliminationScoringConfig, tournamentConfig);
+  }
+
   const categoryConfigSource = extractCategoryScoringSource(category);
 
   if (category?.scoringOverrideEnabled && categoryConfigSource) {

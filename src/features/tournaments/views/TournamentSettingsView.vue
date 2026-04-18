@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useNotificationStore } from '@/stores/notifications';
@@ -57,7 +57,6 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
 
 const tournament = computed(() => tournamentStore.currentTournament);
 const categories = computed(() => tournamentStore.categories);
-const loading = ref(false);
 const {
   normalizedSponsors,
   tournamentLogo: normalizedTournamentLogo,
@@ -92,6 +91,25 @@ interface VolunteerAccessForm {
   pinRevision: number;
   saving: boolean;
   revealing: boolean;
+}
+
+interface BasicInfoForm {
+  name: string;
+  description: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  registrationDeadline: string;
+}
+
+interface SchedulingSettingsForm {
+  minRestTimeMinutes: number;
+  matchDurationMinutes: number;
+}
+
+interface RegistrationSettingsForm {
+  allowSelfRegistration: boolean;
+  requireApproval: boolean;
 }
 
 const cloneScoringConfig = (config: ScoringConfig): ScoringConfig => ({
@@ -214,6 +232,18 @@ const volunteerAccessForms = ref<Record<VolunteerRole, VolunteerAccessForm>>({
     revealing: false,
   },
 });
+const sectionSaving = reactive({
+  basicInfo: false,
+  scheduling: false,
+  scoring: false,
+  ranking: false,
+  registration: false,
+  branding: false,
+});
+const deletingTournament = ref(false);
+const initialBasicInfo = ref<BasicInfoForm | null>(null);
+const initialSchedulingSettings = ref<SchedulingSettingsForm | null>(null);
+const initialRegistrationSettings = ref<RegistrationSettingsForm | null>(null);
 
 const initialScoringConfig = ref<ScoringConfig>(sanitizeScoringConfig(settings.value));
 const initialRankingDefaults = ref<{
@@ -446,93 +476,425 @@ const hasTournamentScoringChanged = (): boolean => {
   );
 };
 
-// Populate form when tournament/category data loads
-watch([tournament, categories], ([t, nextCategories]) => {
-  if (t) {
-    name.value = t.name;
-    description.value = t.description || '';
-    location.value = t.location || '';
-    startDate.value = t.startDate.toISOString().split('T')[0];
-    endDate.value = t.endDate.toISOString().split('T')[0];
-    registrationDeadline.value = t.registrationDeadline
-      ? t.registrationDeadline.toISOString().split('T')[0]
-      : '';
+const getBasicInfoForm = (): BasicInfoForm => ({
+  name: name.value,
+  description: description.value,
+  location: location.value,
+  startDate: startDate.value,
+  endDate: endDate.value,
+  registrationDeadline: registrationDeadline.value,
+});
 
-    const normalizedScoringConfig = sanitizeScoringConfig(t.settings);
-    const rankingPresetDefault = t.settings.rankingPresetDefault && t.settings.rankingPresetDefault in RANKING_PRESETS
-      ? t.settings.rankingPresetDefault
-      : DEFAULT_RANKING_PRESET;
-    const progressionModeDefault = t.settings.progressionModeDefault === 'phase_reset'
-      ? 'phase_reset'
-      : DEFAULT_RANKING_PROGRESSION;
+const getSchedulingSettingsForm = (): SchedulingSettingsForm => ({
+  minRestTimeMinutes: settings.value.minRestTimeMinutes,
+  matchDurationMinutes: settings.value.matchDurationMinutes,
+});
 
-    settings.value = {
-      minRestTimeMinutes: t.settings.minRestTimeMinutes || 15,
-      matchDurationMinutes: t.settings.matchDurationMinutes || 30,
-      allowSelfRegistration: t.settings.allowSelfRegistration ?? true,
-      requireApproval: t.settings.requireApproval ?? true,
-      gamesPerMatch: normalizedScoringConfig.gamesPerMatch,
-      pointsToWin: normalizedScoringConfig.pointsToWin,
-      mustWinBy: normalizedScoringConfig.mustWinBy,
-      maxPoints: normalizedScoringConfig.maxPoints,
-      rankingPresetDefault,
-      progressionModeDefault,
-    };
+const getRegistrationSettingsForm = (): RegistrationSettingsForm => ({
+  allowSelfRegistration: settings.value.allowSelfRegistration,
+  requireApproval: settings.value.requireApproval,
+});
 
-    selectedPreset.value = detectPreset(normalizedScoringConfig);
-    initialScoringConfig.value = cloneScoringConfig(normalizedScoringConfig);
-    initialRankingDefaults.value = {
-      rankingPresetDefault,
-      progressionModeDefault,
-    };
+const isBasicInfoEqual = (left: BasicInfoForm | null, right: BasicInfoForm | null): boolean => (
+  left?.name === right?.name &&
+  left?.description === right?.description &&
+  left?.location === right?.location &&
+  left?.startDate === right?.startDate &&
+  left?.endDate === right?.endDate &&
+  left?.registrationDeadline === right?.registrationDeadline
+);
 
-    const categoryOverrides: Record<string, CategoryScoringOverrideForm> = {};
-    const categoryEliminationOverrides: Record<string, CategoryScoringOverrideForm> = {};
-    const categoryRankingOverrideValues: Record<string, CategoryRankingOverrideForm> = {};
-    nextCategories.forEach((category) => {
-      categoryOverrides[category.id] = buildCategoryScoringForm(category, normalizedScoringConfig);
-      categoryEliminationOverrides[category.id] = buildCategoryEliminationScoringForm(category, normalizedScoringConfig);
-      categoryRankingOverrideValues[category.id] = buildCategoryRankingForm(
-        category,
-        rankingPresetDefault,
-        progressionModeDefault
-      );
-    });
-    categoryScoringOverrides.value = categoryOverrides;
-    initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryOverrides);
-    categoryEliminationScoringOverrides.value = categoryEliminationOverrides;
-    initialCategoryEliminationScoringOverrides.value = cloneOverrideRecord(categoryEliminationOverrides);
-    categoryRankingOverrides.value = categoryRankingOverrideValues;
-    initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrideValues);
-    brandingSponsors.value = normalizedSponsors.value.map(cloneTournamentSponsor);
-    brandingTournamentLogo.value = cloneTournamentLogo(normalizedTournamentLogo.value);
-    brandingDraft.value = buildBrandingDraft(
-      brandingTournamentLogo.value,
-      brandingSponsors.value
+const isSchedulingSettingsEqual = (
+  left: SchedulingSettingsForm | null,
+  right: SchedulingSettingsForm | null
+): boolean => (
+  left?.minRestTimeMinutes === right?.minRestTimeMinutes &&
+  left?.matchDurationMinutes === right?.matchDurationMinutes
+);
+
+const isRegistrationSettingsEqual = (
+  left: RegistrationSettingsForm | null,
+  right: RegistrationSettingsForm | null
+): boolean => (
+  left?.allowSelfRegistration === right?.allowSelfRegistration &&
+  left?.requireApproval === right?.requireApproval
+);
+
+const areScoringOverrideRecordsEqual = (
+  left: Record<string, CategoryScoringOverrideForm>,
+  right: Record<string, CategoryScoringOverrideForm>
+): boolean => {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  return leftKeys.every((key) => {
+    const current = left[key];
+    const baseline = right[key];
+    if (!current || !baseline) return false;
+
+    return (
+      current.enabled === baseline.enabled &&
+      current.preset === baseline.preset &&
+      current.config.gamesPerMatch === baseline.config.gamesPerMatch &&
+      current.config.pointsToWin === baseline.config.pointsToWin &&
+      current.config.mustWinBy === baseline.config.mustWinBy &&
+      current.config.maxPoints === baseline.config.maxPoints
     );
-    volunteerAccessForms.value = {
-      checkin: buildVolunteerAccessForm(t.volunteerAccess?.checkin),
-      scorekeeper: buildVolunteerAccessForm(t.volunteerAccess?.scorekeeper),
-    };
-  }
-}, { immediate: true });
+  });
+};
+
+const areRankingOverrideRecordsEqual = (
+  left: Record<string, CategoryRankingOverrideForm>,
+  right: Record<string, CategoryRankingOverrideForm>
+): boolean => {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  return leftKeys.every((key) => {
+    const current = left[key];
+    const baseline = right[key];
+    if (!current || !baseline) return false;
+
+    return (
+      current.enabled === baseline.enabled &&
+      current.rankingPreset === baseline.rankingPreset &&
+      current.progressionMode === baseline.progressionMode
+    );
+  });
+};
+
+const getBrandingLogoSignature = (logo: TournamentLogo | null): string => JSON.stringify({
+  url: logo?.url ?? null,
+  storagePath: logo?.storagePath ?? null,
+});
+
+const getBrandingSponsorsSignature = (sponsors: TournamentSponsor[]): string => JSON.stringify(
+  normalizeSponsorsForSave(sponsors).map((sponsor) => ({
+    id: sponsor.id,
+    name: sponsor.name,
+    logoUrl: sponsor.logoUrl,
+    logoPath: sponsor.logoPath,
+    website: sponsor.website ?? null,
+    displayOrder: sponsor.displayOrder,
+  }))
+);
+
+const buildTournamentSettingsUpdate = (
+  updates: Partial<typeof settings.value>
+): typeof settings.value & Record<string, unknown> => {
+  const currentSettings = (tournament.value?.settings ?? {}) as Partial<typeof settings.value>;
+  const normalizedScoringConfig = sanitizeScoringConfig(currentSettings);
+  const rankingPresetDefault = currentSettings.rankingPresetDefault && currentSettings.rankingPresetDefault in RANKING_PRESETS
+    ? currentSettings.rankingPresetDefault
+    : DEFAULT_RANKING_PRESET;
+  const progressionModeDefault = currentSettings.progressionModeDefault === 'phase_reset'
+    ? 'phase_reset'
+    : DEFAULT_RANKING_PROGRESSION;
+
+  return {
+    ...currentSettings,
+    minRestTimeMinutes: currentSettings.minRestTimeMinutes || 15,
+    matchDurationMinutes: currentSettings.matchDurationMinutes || 30,
+    allowSelfRegistration: currentSettings.allowSelfRegistration ?? true,
+    requireApproval: currentSettings.requireApproval ?? true,
+    gamesPerMatch: normalizedScoringConfig.gamesPerMatch,
+    pointsToWin: normalizedScoringConfig.pointsToWin,
+    mustWinBy: normalizedScoringConfig.mustWinBy,
+    maxPoints: normalizedScoringConfig.maxPoints,
+    rankingPresetDefault,
+    progressionModeDefault,
+    ...updates,
+  };
+};
+
+const hydrateFormState = (): void => {
+  if (!tournament.value) return;
+
+  name.value = tournament.value.name;
+  description.value = tournament.value.description || '';
+  location.value = tournament.value.location || '';
+  startDate.value = tournament.value.startDate.toISOString().split('T')[0];
+  endDate.value = tournament.value.endDate.toISOString().split('T')[0];
+  registrationDeadline.value = tournament.value.registrationDeadline
+    ? tournament.value.registrationDeadline.toISOString().split('T')[0]
+    : '';
+
+  const normalizedScoringConfig = sanitizeScoringConfig(tournament.value.settings);
+  const rankingPresetDefault = tournament.value.settings.rankingPresetDefault && tournament.value.settings.rankingPresetDefault in RANKING_PRESETS
+    ? tournament.value.settings.rankingPresetDefault
+    : DEFAULT_RANKING_PRESET;
+  const progressionModeDefault = tournament.value.settings.progressionModeDefault === 'phase_reset'
+    ? 'phase_reset'
+    : DEFAULT_RANKING_PROGRESSION;
+
+  settings.value = {
+    minRestTimeMinutes: tournament.value.settings.minRestTimeMinutes || 15,
+    matchDurationMinutes: tournament.value.settings.matchDurationMinutes || 30,
+    allowSelfRegistration: tournament.value.settings.allowSelfRegistration ?? true,
+    requireApproval: tournament.value.settings.requireApproval ?? true,
+    gamesPerMatch: normalizedScoringConfig.gamesPerMatch,
+    pointsToWin: normalizedScoringConfig.pointsToWin,
+    mustWinBy: normalizedScoringConfig.mustWinBy,
+    maxPoints: normalizedScoringConfig.maxPoints,
+    rankingPresetDefault,
+    progressionModeDefault,
+  };
+
+  initialBasicInfo.value = getBasicInfoForm();
+  initialSchedulingSettings.value = getSchedulingSettingsForm();
+  initialRegistrationSettings.value = getRegistrationSettingsForm();
+  selectedPreset.value = detectPreset(normalizedScoringConfig);
+  initialScoringConfig.value = cloneScoringConfig(normalizedScoringConfig);
+  initialRankingDefaults.value = {
+    rankingPresetDefault,
+    progressionModeDefault,
+  };
+
+  const nextCategoryScoringOverrides: Record<string, CategoryScoringOverrideForm> = {};
+  const nextCategoryEliminationOverrides: Record<string, CategoryScoringOverrideForm> = {};
+  const nextCategoryRankingOverrides: Record<string, CategoryRankingOverrideForm> = {};
+
+  categories.value.forEach((category) => {
+    nextCategoryScoringOverrides[category.id] = buildCategoryScoringForm(category, normalizedScoringConfig);
+    nextCategoryEliminationOverrides[category.id] = buildCategoryEliminationScoringForm(category, normalizedScoringConfig);
+    nextCategoryRankingOverrides[category.id] = buildCategoryRankingForm(
+      category,
+      rankingPresetDefault,
+      progressionModeDefault
+    );
+  });
+
+  categoryScoringOverrides.value = nextCategoryScoringOverrides;
+  initialCategoryScoringOverrides.value = cloneOverrideRecord(nextCategoryScoringOverrides);
+  categoryEliminationScoringOverrides.value = nextCategoryEliminationOverrides;
+  initialCategoryEliminationScoringOverrides.value = cloneOverrideRecord(nextCategoryEliminationOverrides);
+  categoryRankingOverrides.value = nextCategoryRankingOverrides;
+  initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(nextCategoryRankingOverrides);
+  brandingSponsors.value = normalizedSponsors.value.map(cloneTournamentSponsor);
+  brandingTournamentLogo.value = cloneTournamentLogo(normalizedTournamentLogo.value);
+  brandingDraft.value = buildBrandingDraft(
+    brandingTournamentLogo.value,
+    brandingSponsors.value
+  );
+  volunteerAccessForms.value = {
+    checkin: buildVolunteerAccessForm(tournament.value.volunteerAccess?.checkin),
+    scorekeeper: buildVolunteerAccessForm(tournament.value.volunteerAccess?.scorekeeper),
+  };
+};
+
+const basicInfoDirty = computed(() => !isBasicInfoEqual(getBasicInfoForm(), initialBasicInfo.value));
+const schedulingDirty = computed(() => !isSchedulingSettingsEqual(
+  getSchedulingSettingsForm(),
+  initialSchedulingSettings.value
+));
+const registrationDirty = computed(() => !isRegistrationSettingsEqual(
+  getRegistrationSettingsForm(),
+  initialRegistrationSettings.value
+));
+const scoringDirty = computed(() => (
+  hasTournamentScoringChanged()
+  || !areScoringOverrideRecordsEqual(categoryScoringOverrides.value, initialCategoryScoringOverrides.value)
+  || !areScoringOverrideRecordsEqual(
+    categoryEliminationScoringOverrides.value,
+    initialCategoryEliminationScoringOverrides.value
+  )
+));
+const rankingDirty = computed(() => (
+  settings.value.rankingPresetDefault !== initialRankingDefaults.value.rankingPresetDefault
+  || settings.value.progressionModeDefault !== initialRankingDefaults.value.progressionModeDefault
+  || !areRankingOverrideRecordsEqual(categoryRankingOverrides.value, initialCategoryRankingOverrides.value)
+));
+const brandingDirty = computed(() => (
+  Boolean(brandingDraft.value.tournamentLogoFile)
+  || brandingDraft.value.removeTournamentLogo
+  || Object.values(brandingDraft.value.sponsorLogoFiles).some((file) => file != null)
+  || getBrandingLogoSignature(brandingDraft.value.tournamentLogo) !== getBrandingLogoSignature(brandingTournamentLogo.value)
+  || getBrandingSponsorsSignature(brandingDraft.value.sponsors) !== getBrandingSponsorsSignature(brandingSponsors.value)
+));
 
 onMounted(async () => {
-  if (!tournament.value) {
-    await tournamentStore.fetchTournament(tournamentId.value);
-  }
+  await tournamentStore.fetchTournament(tournamentId.value);
+  hydrateFormState();
   if (canManageOrganizers.value) {
     await userStore.fetchUsers();
   }
 });
 
-async function saveSettings() {
-  loading.value = true;
+async function saveBasicInfoSection(): Promise<void> {
+  if (!tournament.value || !basicInfoDirty.value) return;
+
+  sectionSaving.basicInfo = true;
   try {
-    if (hasTournamentScoringChanged() && tournament.value) {
+    await tournamentStore.updateTournament(tournamentId.value, {
+      name: name.value,
+      description: description.value,
+      location: location.value,
+      startDate: new Date(startDate.value + 'T00:00:00'),
+      endDate: new Date(endDate.value + 'T23:59:59'),
+      registrationDeadline: registrationDeadline.value
+        ? new Date(registrationDeadline.value)
+        : undefined,
+    });
+    initialBasicInfo.value = getBasicInfoForm();
+    notificationStore.showToast('success', 'Basic information saved');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save basic information';
+    notificationStore.showToast('error', message);
+  } finally {
+    sectionSaving.basicInfo = false;
+  }
+}
+
+async function saveSchedulingSection(): Promise<void> {
+  if (!tournament.value || !schedulingDirty.value) return;
+
+  sectionSaving.scheduling = true;
+  try {
+    await tournamentStore.updateTournament(tournamentId.value, {
+      settings: buildTournamentSettingsUpdate({
+        minRestTimeMinutes: settings.value.minRestTimeMinutes,
+        matchDurationMinutes: settings.value.matchDurationMinutes,
+      }),
+    });
+    initialSchedulingSettings.value = getSchedulingSettingsForm();
+    notificationStore.showToast('success', 'Scheduling settings saved');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save scheduling settings';
+    notificationStore.showToast('error', message);
+  } finally {
+    sectionSaving.scheduling = false;
+  }
+}
+
+async function saveScoringSection(): Promise<void> {
+  if (!tournament.value || !scoringDirty.value) return;
+
+  sectionSaving.scoring = true;
+  try {
+    if (hasTournamentScoringChanged()) {
       assertCanEditScoring(tournamentState.value);
+      await tournamentStore.updateTournament(tournamentId.value, {
+        settings: buildTournamentSettingsUpdate({
+          gamesPerMatch: settings.value.gamesPerMatch,
+          pointsToWin: settings.value.pointsToWin,
+          mustWinBy: settings.value.mustWinBy,
+          maxPoints: settings.value.maxPoints,
+        }),
+      });
     }
 
+    const tournamentScoringConfig = sanitizeScoringConfig(settings.value);
+    await Promise.all(
+      categories.value.map(async (category) => {
+        const scoringOverride = categoryScoringOverrides.value[category.id];
+        const eliminationOverride = categoryEliminationScoringOverrides.value[category.id];
+        if (!scoringOverride || !eliminationOverride) return;
+
+        const overrideConfig = sanitizeScoringConfig(
+          scoringOverride.config,
+          tournamentScoringConfig
+        );
+        const eliminationConfig = sanitizeScoringConfig(
+          eliminationOverride.config,
+          tournamentScoringConfig
+        );
+
+        await tournamentStore.updateCategory(tournamentId.value, category.id, {
+          scoringOverrideEnabled: scoringOverride.enabled,
+          scoringConfig: scoringOverride.enabled ? overrideConfig : null,
+          eliminationScoringEnabled: eliminationOverride.enabled,
+          eliminationScoringConfig: eliminationOverride.enabled ? eliminationConfig : null,
+        });
+      })
+    );
+
+    initialScoringConfig.value = sanitizeScoringConfig(settings.value);
+    initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryScoringOverrides.value);
+    initialCategoryEliminationScoringOverrides.value = cloneOverrideRecord(
+      categoryEliminationScoringOverrides.value
+    );
+    notificationStore.showToast('success', 'Scoring settings saved');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save scoring settings';
+    notificationStore.showToast('error', message);
+  } finally {
+    sectionSaving.scoring = false;
+  }
+}
+
+async function saveRankingSection(): Promise<void> {
+  if (!tournament.value || !rankingDirty.value) return;
+
+  sectionSaving.ranking = true;
+  try {
+    if (
+      settings.value.rankingPresetDefault !== initialRankingDefaults.value.rankingPresetDefault
+      || settings.value.progressionModeDefault !== initialRankingDefaults.value.progressionModeDefault
+    ) {
+      await tournamentStore.updateTournament(tournamentId.value, {
+        settings: buildTournamentSettingsUpdate({
+          rankingPresetDefault: settings.value.rankingPresetDefault,
+          progressionModeDefault: settings.value.progressionModeDefault,
+        }),
+      });
+    }
+
+    await Promise.all(
+      categories.value.map(async (category) => {
+        const rankingOverride = categoryRankingOverrides.value[category.id];
+        if (!rankingOverride) return;
+
+        await tournamentStore.updateCategory(tournamentId.value, category.id, {
+          rankingPresetOverride: rankingOverride.enabled ? rankingOverride.rankingPreset : null,
+          progressionModeOverride: rankingOverride.enabled ? rankingOverride.progressionMode : null,
+        });
+      })
+    );
+
+    initialRankingDefaults.value = {
+      rankingPresetDefault: settings.value.rankingPresetDefault,
+      progressionModeDefault: settings.value.progressionModeDefault,
+    };
+    initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrides.value);
+    notificationStore.showToast('success', 'Leaderboard ranking settings saved');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save leaderboard ranking settings';
+    notificationStore.showToast('error', message);
+  } finally {
+    sectionSaving.ranking = false;
+  }
+}
+
+async function saveRegistrationSection(): Promise<void> {
+  if (!tournament.value || !registrationDirty.value) return;
+
+  sectionSaving.registration = true;
+  try {
+    await tournamentStore.updateTournament(tournamentId.value, {
+      settings: buildTournamentSettingsUpdate({
+        allowSelfRegistration: settings.value.allowSelfRegistration,
+        requireApproval: settings.value.requireApproval,
+      }),
+    });
+    initialRegistrationSettings.value = getRegistrationSettingsForm();
+    notificationStore.showToast('success', 'Registration settings saved');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save registration settings';
+    notificationStore.showToast('error', message);
+  } finally {
+    sectionSaving.registration = false;
+  }
+}
+
+async function saveBrandingSection(): Promise<void> {
+  if (!tournament.value || !brandingDirty.value) return;
+
+  sectionSaving.branding = true;
+  try {
     const brandingError = validateBrandingDraft(brandingDraft.value);
     if (brandingError) {
       notificationStore.showToast('error', brandingError);
@@ -601,53 +963,9 @@ async function saveSettings() {
     });
 
     await tournamentStore.updateTournament(tournamentId.value, {
-      name: name.value,
-      description: description.value,
-      location: location.value,
-      // Append time strings to force local-time parsing (bare "YYYY-MM-DD" parses as UTC midnight)
-      startDate: new Date(startDate.value + 'T00:00:00'),
-      endDate: new Date(endDate.value + 'T23:59:59'),
-      registrationDeadline: registrationDeadline.value
-        ? new Date(registrationDeadline.value)
-        : undefined,
-      settings: settings.value,
       tournamentLogo: nextTournamentLogo,
       sponsors: nextSponsors,
     });
-
-    await Promise.all(
-      categories.value.map(async (category) => {
-        const scoringOverride = categoryScoringOverrides.value[category.id];
-        const rankingOverride = categoryRankingOverrides.value[category.id];
-        const elimOverride = categoryEliminationScoringOverrides.value[category.id];
-        if (!scoringOverride || !rankingOverride) return;
-
-        const overrideConfig = sanitizeScoringConfig(
-          scoringOverride.config,
-          sanitizeScoringConfig(settings.value)
-        );
-        const elimOverrideConfig = elimOverride
-          ? sanitizeScoringConfig(elimOverride.config, sanitizeScoringConfig(settings.value))
-          : null;
-        await tournamentStore.updateCategory(tournamentId.value, category.id, {
-          scoringOverrideEnabled: scoringOverride.enabled,
-          scoringConfig: scoringOverride.enabled ? overrideConfig : null,
-          rankingPresetOverride: rankingOverride.enabled ? rankingOverride.rankingPreset : null,
-          progressionModeOverride: rankingOverride.enabled ? rankingOverride.progressionMode : null,
-          eliminationScoringEnabled: elimOverride?.enabled ?? false,
-          eliminationScoringConfig: (elimOverride?.enabled && elimOverrideConfig) ? elimOverrideConfig : null,
-        });
-      })
-    );
-
-    initialScoringConfig.value = sanitizeScoringConfig(settings.value);
-    initialRankingDefaults.value = {
-      rankingPresetDefault: settings.value.rankingPresetDefault,
-      progressionModeDefault: settings.value.progressionModeDefault,
-    };
-    initialCategoryScoringOverrides.value = cloneOverrideRecord(categoryScoringOverrides.value);
-    initialCategoryEliminationScoringOverrides.value = cloneOverrideRecord(categoryEliminationScoringOverrides.value);
-    initialCategoryRankingOverrides.value = cloneCategoryRankingOverrides(categoryRankingOverrides.value);
 
     brandingSponsors.value = nextSponsors.map(cloneTournamentSponsor);
     brandingTournamentLogo.value = cloneTournamentLogo(nextTournamentLogo);
@@ -671,12 +989,12 @@ async function saveSettings() {
       }
     });
 
-    notificationStore.showToast('success', 'Settings saved successfully!');
+    notificationStore.showToast('success', 'Branding saved');
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to save settings';
+    const message = error instanceof Error ? error.message : 'Failed to save branding';
     notificationStore.showToast('error', message);
   } finally {
-    loading.value = false;
+    sectionSaving.branding = false;
   }
 }
 
@@ -872,7 +1190,7 @@ function deleteTournament() {
 }
 
 async function confirmDelete() {
-  loading.value = true;
+  deletingTournament.value = true;
   try {
     await tournamentStore.deleteTournament(tournamentId.value);
     showDeleteDialog.value = false;
@@ -881,7 +1199,7 @@ async function confirmDelete() {
   } catch (error) {
     notificationStore.showToast('error', 'Failed to delete tournament');
   } finally {
-    loading.value = false;
+    deletingTournament.value = false;
   }
 }
 </script>
@@ -985,6 +1303,17 @@ async function confirmDelete() {
               </v-col>
             </v-row>
           </v-card-text>
+          <v-card-actions class="px-4 pb-4">
+            <v-spacer />
+            <v-btn
+              color="primary"
+              :disabled="!basicInfoDirty"
+              :loading="sectionSaving.basicInfo"
+              @click="saveBasicInfoSection"
+            >
+              Save Basic Information
+            </v-btn>
+          </v-card-actions>
         </v-card>
 
         <!-- Scheduling Settings -->
@@ -1022,6 +1351,17 @@ async function confirmDelete() {
               </v-col>
             </v-row>
           </v-card-text>
+          <v-card-actions class="px-4 pb-4">
+            <v-spacer />
+            <v-btn
+              color="primary"
+              :disabled="!schedulingDirty"
+              :loading="sectionSaving.scheduling"
+              @click="saveSchedulingSection"
+            >
+              Save Scheduling
+            </v-btn>
+          </v-card-actions>
         </v-card>
 
         <!-- Scoring Settings -->
@@ -1333,7 +1673,10 @@ async function confirmDelete() {
                       />
 
                       <v-row>
-                        <v-col cols="12" md="6">
+                        <v-col
+                          cols="12"
+                          md="6"
+                        >
                           <v-select
                             v-model="categoryEliminationScoringOverrides[category.id].config.gamesPerMatch"
                             :items="gamesOptions"
@@ -1345,7 +1688,10 @@ async function confirmDelete() {
                             @update:model-value="categoryEliminationScoringOverrides[category.id].preset = 'custom'"
                           />
                         </v-col>
-                        <v-col cols="12" md="6">
+                        <v-col
+                          cols="12"
+                          md="6"
+                        >
                           <v-text-field
                             v-model.number="categoryEliminationScoringOverrides[category.id].config.pointsToWin"
                             label="Points to Win"
@@ -1359,7 +1705,10 @@ async function confirmDelete() {
                       </v-row>
 
                       <v-row>
-                        <v-col cols="12" md="6">
+                        <v-col
+                          cols="12"
+                          md="6"
+                        >
                           <v-text-field
                             v-model.number="categoryEliminationScoringOverrides[category.id].config.mustWinBy"
                             label="Win By"
@@ -1370,7 +1719,10 @@ async function confirmDelete() {
                             @update:model-value="categoryEliminationScoringOverrides[category.id].preset = 'custom'"
                           />
                         </v-col>
-                        <v-col cols="12" md="6">
+                        <v-col
+                          cols="12"
+                          md="6"
+                        >
                           <v-text-field
                             :model-value="categoryEliminationScoringOverrides[category.id].config.maxPoints ?? ''"
                             label="Max Points Cap"
@@ -1388,6 +1740,17 @@ async function confirmDelete() {
               </v-expansion-panel>
             </v-expansion-panels>
           </v-card-text>
+          <v-card-actions class="px-4 pb-4">
+            <v-spacer />
+            <v-btn
+              color="primary"
+              :disabled="!scoringDirty"
+              :loading="sectionSaving.scoring"
+              @click="saveScoringSection"
+            >
+              Save Scoring
+            </v-btn>
+          </v-card-actions>
         </v-card>
 
         <!-- Leaderboard Ranking Settings -->
@@ -1525,6 +1888,17 @@ async function confirmDelete() {
               </v-expansion-panel>
             </v-expansion-panels>
           </v-card-text>
+          <v-card-actions class="px-4 pb-4">
+            <v-spacer />
+            <v-btn
+              color="primary"
+              :disabled="!rankingDirty"
+              :loading="sectionSaving.ranking"
+              @click="saveRankingSection"
+            >
+              Save Leaderboard Ranking
+            </v-btn>
+          </v-card-actions>
         </v-card>
 
         <!-- Registration Settings -->
@@ -1547,6 +1921,17 @@ async function confirmDelete() {
               :disabled="!settings.allowSelfRegistration"
             />
           </v-card-text>
+          <v-card-actions class="px-4 pb-4">
+            <v-spacer />
+            <v-btn
+              color="primary"
+              :disabled="!registrationDirty"
+              :loading="sectionSaving.registration"
+              @click="saveRegistrationSection"
+            >
+              Save Registration
+            </v-btn>
+          </v-card-actions>
         </v-card>
         <TournamentBrandingCard
           :tournament-id="tournamentId"
@@ -1554,6 +1939,16 @@ async function confirmDelete() {
           :tournament-logo="brandingTournamentLogo"
           @update-branding="handleBrandingUpdate"
         />
+        <div class="d-flex justify-end mb-4">
+          <v-btn
+            color="primary"
+            :disabled="!brandingDirty"
+            :loading="sectionSaving.branding"
+            @click="saveBrandingSection"
+          >
+            Save Branding
+          </v-btn>
+        </div>
 
         <v-card class="mb-4">
           <v-card-title>
@@ -1664,17 +2059,6 @@ async function confirmDelete() {
         </v-card>
 
 
-        <!-- Actions -->
-        <div class="d-flex justify-end">
-          <v-btn
-            color="primary"
-            :loading="loading"
-            @click="saveSettings"
-          >
-            Save Changes
-          </v-btn>
-        </div>
-
         <!-- Co-Organizers -->
         <v-card
           v-if="canManageOrganizers"
@@ -1780,7 +2164,7 @@ async function confirmDelete() {
                 variant="elevated"
                 prepend-icon="mdi-delete"
                 data-testid="delete-tournament-btn"
-                :loading="loading"
+                :loading="deletingTournament"
                 @click="deleteTournament"
               >
                 Delete Tournament
@@ -1834,7 +2218,7 @@ async function confirmDelete() {
           <v-spacer />
           <v-btn
             variant="text"
-            :disabled="loading"
+            :disabled="deletingTournament"
             @click="showDeleteDialog = false"
           >
             Cancel
@@ -1842,8 +2226,8 @@ async function confirmDelete() {
           <v-btn
             color="error"
             variant="elevated"
-            :loading="loading"
-            :disabled="!deleteConfirmEnabled"
+            :loading="deletingTournament"
+            :disabled="!deleteConfirmEnabled || deletingTournament"
             @click="confirmDelete"
           >
             Delete Permanently

@@ -12,8 +12,8 @@ import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
 import FilterBar from '@/components/common/FilterBar.vue';
 import ManualScoreDialog from '@/features/tournaments/dialogs/ManualScoreDialog.vue';
 import ScoreCorrectionDialog from '@/features/scoring/components/ScoreCorrectionDialog.vue';
-import { BADMINTON_CONFIG } from '@/types';
 import type { Match } from '@/types';
+import { resolveMatchScoringConfig } from '@/features/scoring/utils/validation';
 
 const route = useRoute();
 const router = useRouter();
@@ -47,6 +47,14 @@ const isVolunteerScorekeeperMode = computed(() => (
 const totalCompletedMatches = computed(() => allMatches.value.filter((match) => (
   match.status === 'completed' || match.status === 'walkover'
 )));
+const selectedMatchScoringConfig = computed(() => {
+  const category = tournamentStore.categories.find((item) => item.id === selectedMatch.value?.categoryId);
+  return resolveMatchScoringConfig(
+    tournament.value?.settings,
+    category,
+    selectedMatch.value?.stageId
+  );
+});
 
 onMounted(async () => {
   if (!tournament.value) {
@@ -743,7 +751,7 @@ function clearFilters() {
         :match="selectedMatch"
         :tournament-id="tournamentId"
         :category-id="selectedMatch?.categoryId"
-        :scoring-config="selectedMatch?.scoringConfig || BADMINTON_CONFIG"
+        :scoring-config="selectedMatchScoringConfig"
         @corrected="showCorrectionDialog = false"
       />
     </div>

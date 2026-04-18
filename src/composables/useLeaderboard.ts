@@ -51,7 +51,7 @@ import { exportLeaderboard } from '@/services/leaderboardExport';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useTournamentStore } from '@/stores/tournaments';
-import { getGamesNeeded, resolveScoringConfig } from '@/features/scoring/utils/validation';
+import { getGamesNeeded, resolveMatchScoringConfig } from '@/features/scoring/utils/validation';
 import {
   DEFAULT_RANKING_PROGRESSION,
   RANKING_PRESETS,
@@ -275,7 +275,7 @@ export function aggregateStats(
     p2.matchesPlayed++;
 
     const matchCategory = categoryMap.get(match.categoryId);
-    const scoringConfig = resolveScoringConfig(undefined, matchCategory);
+    const scoringConfig = resolveMatchScoringConfig(undefined, matchCategory, match.stageId);
     const gamesNeeded = getGamesNeeded(scoringConfig);
     let p1GamesWonInMatch = 0;
     let p2GamesWonInMatch = 0;
