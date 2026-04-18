@@ -2,17 +2,17 @@
 
 Current policy note: production infrastructure is Terraform-managed and production application rollout is expected to happen through the `master` CI/CD workflow. Older entries below may reference the previous local release command path because they are historical records.
 
-Updated: 2026-04-17 (America/Chicago)
+Updated: 2026-04-18 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-17 23:43 CDT
-- Release ID: `v2.16.1`
-- Package version: `2.16.1`
+- Date: 2026-04-18 00:46 CDT
+- Release ID: `v2.16.2`
+- Package version: `2.16.2`
 - Deployed branch: `master`
-- Deployed commit: `df85b6a` (`fix: correct Firestore path in updatePlayer/deletePlayer and add singles reassign button (#77)`)
+- Deployed commit: `7d2efb5` (`fix: correct player update paths and add singles reassign button (#80)`)
 - Release notes:
-  - [docs/releases/v2.16.1.md](docs/releases/v2.16.1.md)
+  - [docs/releases/v2.16.2.md](docs/releases/v2.16.2.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-17 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-18-04-42-03.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-18-05-45-34.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-17 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.16.1`
+  - Date: 2026-04-17 23:43 CDT
+  - Package version: `2.16.1`
+  - Deployed commit: `df85b6a`
+  - Release notes:
+    - [docs/releases/v2.16.1.md](docs/releases/v2.16.1.md)
 - `v2.16.0`
   - Date: 2026-04-17 23:32 CDT
   - Package version: `2.16.0`
@@ -227,7 +233,7 @@ Updated: 2026-04-17 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-17 23:43 CDT
-- Commit: `df85b6a513b458a285d902d66deb7f7bc5592387`
-- Message: `fix: correct Firestore path in updatePlayer/deletePlayer and add singles reassign button (#77)`
-- Note: deployed via `npm run release:deploy` on 2026-04-17.
+- Date: 2026-04-18 00:46 CDT
+- Commit: `7d2efb5f240eccc584aa0b63a8b2ad4afaee0d1b`
+- Message: `fix: correct player update paths and add singles reassign button (#80)`
+- Note: deployed via `npm run release:deploy` on 2026-04-18.
