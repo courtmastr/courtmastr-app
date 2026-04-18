@@ -10,6 +10,7 @@ import { useCategoryStageStatus } from '@/composables/useCategoryStageStatus';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import { exportTournamentMatchesToCSV } from '../utils/export';
+import { downloadTournamentBackup } from '../utils/tournamentBackupExport';
 import OrganizerChecklist from '../components/OrganizerChecklist.vue';
 import ActiveMatchesSection from '../components/ActiveMatchesSection.vue';
 import ReadyQueue from '../components/ReadyQueue.vue';
@@ -350,6 +351,18 @@ function handleExport() {
   );
   notificationStore.showToast('success', 'Tournament data exported successfully');
 }
+
+function handleBackupExport() {
+  if (!tournament.value) return;
+  downloadTournamentBackup(
+    tournament.value,
+    matches.value,
+    categories.value,
+    courts.value,
+    getParticipantName,
+  );
+  notificationStore.showToast('success', 'Backup exported');
+}
 </script>
 
 <template>
@@ -501,6 +514,18 @@ function handleExport() {
               <template #prepend>
                 <v-icon
                   icon="mdi-download"
+                  size="18"
+                  class="mr-3 text-grey-darken-1"
+                />
+              </template>
+            </v-list-item>
+            <v-list-item
+              title="Export Backup (.xlsx)"
+              @click="handleBackupExport"
+            >
+              <template #prepend>
+                <v-icon
+                  icon="mdi-table-arrow-down"
                   size="18"
                   class="mr-3 text-grey-darken-1"
                 />
