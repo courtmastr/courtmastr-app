@@ -253,7 +253,7 @@ async function confirmDeletePlayer() {
   if (!playerToDeleteId.value) return;
   showDeletePlayerDialog.value = false;
   try {
-    await registrationStore.deletePlayer(tournamentId.value, playerToDeleteId.value);
+    await registrationStore.deletePlayer(playerToDeleteId.value);
     notificationStore.showToast('success', 'Player deleted');
   } catch (error) {
     notificationStore.showToast('error', 'Failed to delete player');
