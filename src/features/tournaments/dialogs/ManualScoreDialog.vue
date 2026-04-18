@@ -8,7 +8,7 @@ import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import BaseDialog from '@/components/common/BaseDialog.vue';
 import {
   getGamesNeeded,
-  resolveScoringConfig,
+  resolveMatchScoringConfig,
   validateCompletedGameScore,
 } from '@/features/scoring/utils/validation';
 import type { Match, Tournament, Category, ScoringConfig } from '@/types';
@@ -55,7 +55,7 @@ const hasInvalidScores = computed(() =>
 
 const scoringConfig = computed<ScoringConfig>(() => {
   const category = props.categories.find(c => c.id === props.match?.categoryId);
-  return resolveScoringConfig(props.tournament, category);
+  return resolveMatchScoringConfig(props.tournament.settings, category, props.match?.stageId);
 });
 
 function createScoreRows(count: number) {

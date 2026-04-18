@@ -11,8 +11,7 @@ import { useVolunteerAccessStore } from '@/stores/volunteerAccess';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useTournamentBranding } from '@/composables/useTournamentBranding';
 import TournamentBrandMark from '@/components/common/TournamentBrandMark.vue';
-import { BADMINTON_CONFIG } from '@/types';
-import { validateCompletedGameScore } from '../utils/validation';
+import { getGamesNeeded, resolveMatchScoringConfig, validateCompletedGameScore } from '../utils/validation';
 import ScoreCorrectionDialog from '../components/ScoreCorrectionDialog.vue';
 import { logger } from '@/utils/logger';
 
@@ -135,6 +134,11 @@ const participant2Name = computed(() => {
   if (!match.value?.participant2Id) return 'TBD';
   return getParticipantName(match.value.participant2Id);
 });
+const currentCategory = computed(() => {
+  const currentCategoryId = match.value?.categoryId ?? (route.query.category as string | undefined);
+  if (!currentCategoryId) return undefined;
+  return tournamentStore.categories.find((category) => category.id === currentCategoryId);
+});
 
 // Current game
 const currentGame = computed(() => {
@@ -142,7 +146,11 @@ const currentGame = computed(() => {
   return match.value.scores[match.value.scores.length - 1];
 });
 
-const scoringConfig = computed(() => match.value?.scoringConfig ?? BADMINTON_CONFIG);
+const scoringConfig = computed(() => resolveMatchScoringConfig(
+  tournament.value?.settings,
+  currentCategory.value,
+  match.value?.stageId
+));
 const currentGameReadyToComplete = computed(() => {
   if (!currentGame.value || currentGame.value.isComplete) return false;
 
@@ -197,6 +205,7 @@ onMounted(async () => {
 
   try {
     await tournamentStore.fetchTournament(tournamentId.value);
+    tournamentStore.subscribeTournament(tournamentId.value);
     await matchStore.fetchMatch(tournamentId.value, matchId.value, categoryId, levelId);
     matchStore.subscribeMatch(tournamentId.value, matchId.value, categoryId, levelId);
     registrationStore.subscribeRegistrations(tournamentId.value);
@@ -222,6 +231,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  tournamentStore.unsubscribeAll();
   matchStore.clearCurrentMatch();
 });
 
@@ -454,7 +464,7 @@ async function submitManualScores() {
     notificationStore.showToast('success', 'Scores submitted successfully');
 
     // If match is complete, go back
-    const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+    const gamesNeeded = getGamesNeeded(scoringConfig.value);
     if (p1GamesWon >= gamesNeeded || p2GamesWon >= gamesNeeded) {
       returnToMatchList();
     }
@@ -1099,7 +1109,7 @@ const goBack = (): void => {
           density="compact"
         >
           <div class="text-caption">
-            Enter complete game scores. The match winner will be determined automatically (best of 3).
+            Enter complete game scores. The match winner will be determined automatically using the active scoring format.
           </div>
         </v-alert>
       </v-card-text>
@@ -1128,7 +1138,7 @@ const goBack = (): void => {
     :match="match"
     :tournament-id="tournamentId"
     :category-id="match?.categoryId"
-    :scoring-config="match?.scoringConfig || BADMINTON_CONFIG"
+    :scoring-config="scoringConfig"
     @corrected="onScoreCorrected"
   />
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { shallowMount } from '@vue/test-utils';
+import { flushPromises, shallowMount } from '@vue/test-utils';
 import TournamentSettingsView from '@/features/tournaments/views/TournamentSettingsView.vue';
 
 const mockDeps = vi.hoisted(() => ({
@@ -18,6 +18,7 @@ const mockDeps = vi.hoisted(() => ({
   callableFactory: vi.fn(),
   setVolunteerPin: vi.fn(),
   revealVolunteerPin: vi.fn(),
+  assertCanEditScoring: vi.fn(),
 }));
 
 const runtime = {
@@ -55,6 +56,7 @@ const runtime = {
     createdAt: new Date('2026-03-01T00:00:00.000Z'),
     updatedAt: new Date('2026-03-01T00:00:00.000Z'),
   },
+  categories: [] as Array<Record<string, unknown>>,
 };
 
 vi.mock('vue-router', () => ({
@@ -69,8 +71,12 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/stores/tournaments', () => ({
   useTournamentStore: () => ({
-    currentTournament: runtime.currentTournament,
-    categories: [],
+    get currentTournament() {
+      return runtime.currentTournament;
+    },
+    get categories() {
+      return runtime.categories;
+    },
     fetchTournament: mockDeps.fetchTournament,
     updateTournament: mockDeps.updateTournament,
     updateCategory: mockDeps.updateCategory,
@@ -110,10 +116,10 @@ vi.mock('@/composables/useTournamentStateAdvance', () => ({
 }));
 
 vi.mock('@/guards/tournamentState', () => ({
-  getTournamentStateLabel: () => 'Draft',
-  normalizeTournamentState: () => 'DRAFT',
-  assertCanEditScoring: vi.fn(),
-  isScoringLocked: () => false,
+  getTournamentStateLabel: () => runtime.currentTournament.state === 'LIVE' ? 'Live' : 'Draft',
+  normalizeTournamentState: () => runtime.currentTournament.state,
+  assertCanEditScoring: mockDeps.assertCanEditScoring,
+  isScoringLocked: () => runtime.currentTournament.state === 'LIVE',
 }));
 
 vi.mock('@/features/scoring/utils/validation', () => ({
@@ -170,6 +176,8 @@ const mountView = () => shallowMount(TournamentSettingsView, {
 
 describe('TournamentSettingsView volunteer access', () => {
   beforeEach(() => {
+    runtime.currentTournament.state = 'DRAFT';
+    runtime.categories = [];
     mockDeps.fetchTournament.mockReset().mockResolvedValue(undefined);
     mockDeps.updateTournament.mockReset().mockResolvedValue(undefined);
     mockDeps.updateCategory.mockReset().mockResolvedValue(undefined);
@@ -182,6 +190,7 @@ describe('TournamentSettingsView volunteer access', () => {
     mockDeps.back.mockReset();
     mockDeps.advanceState.mockReset();
     mockDeps.transitionTo.mockReset();
+    mockDeps.assertCanEditScoring.mockReset();
     mockDeps.setVolunteerPin.mockReset().mockResolvedValue({
       data: {
         role: 'checkin',
@@ -206,13 +215,14 @@ describe('TournamentSettingsView volunteer access', () => {
 
   it('parses startDate as local midnight and endDate as local end-of-day on save', async () => {
     const wrapper = mountView();
+    await flushPromises();
     const vm = wrapper.vm as any;
 
     // Simulate user picking dates from the date input (bare YYYY-MM-DD strings)
     vm.startDate = '2026-04-18';
     vm.endDate = '2026-04-20';
 
-    await vm.saveSettings();
+    await vm.saveBasicInfoSection();
 
     const call = mockDeps.updateTournament.mock.calls[0][1];
     const start: Date = call.startDate;
@@ -234,8 +244,66 @@ describe('TournamentSettingsView volunteer access', () => {
     expect(end.getSeconds()).toBe(59);
   });
 
+  it('saves LIVE category scoring overrides without touching tournament defaults or branding validation', async () => {
+    runtime.currentTournament.state = 'LIVE';
+    runtime.categories = [{
+      id: 'cat-1',
+      name: 'Mixed Doubles',
+      format: 'single_elimination',
+      scoringOverrideEnabled: false,
+      scoringConfig: null,
+      eliminationScoringEnabled: false,
+      eliminationScoringConfig: null,
+    }];
+
+    const wrapper = mountView();
+    await flushPromises();
+    const vm = wrapper.vm as any;
+
+    vm.brandingDraft = {
+      ...vm.brandingDraft,
+      sponsors: [{
+        id: 'sponsor-1',
+        name: 'Broken Sponsor',
+        logoUrl: '',
+        logoPath: null,
+        displayOrder: 0,
+      }],
+    };
+    vm.categoryScoringOverrides['cat-1'].enabled = true;
+    vm.categoryScoringOverrides['cat-1'].preset = 'custom';
+    vm.categoryScoringOverrides['cat-1'].config.pointsToWin = 15;
+    vm.categoryScoringOverrides['cat-1'].config.maxPoints = null;
+
+    await vm.saveScoringSection();
+
+    expect(mockDeps.assertCanEditScoring).not.toHaveBeenCalled();
+    expect(mockDeps.updateTournament).not.toHaveBeenCalled();
+    expect(mockDeps.updateCategory).toHaveBeenCalledWith(
+      't1',
+      'cat-1',
+      expect.objectContaining({
+        scoringOverrideEnabled: true,
+        scoringConfig: expect.objectContaining({
+          gamesPerMatch: 3,
+          pointsToWin: 15,
+          mustWinBy: 2,
+          maxPoints: null,
+        }),
+        eliminationScoringEnabled: false,
+        eliminationScoringConfig: null,
+      })
+    );
+    expect(mockDeps.showToast).toHaveBeenCalledWith('success', 'Scoring settings saved');
+    expect(mockDeps.showToast).not.toHaveBeenCalledWith(
+      'error',
+      expect.stringContaining('Sponsor')
+    );
+  });
+
   it('saves a check-in PIN through the callable and refreshes the tournament', async () => {
     const wrapper = mountView();
+    await flushPromises();
     const vm = wrapper.vm as unknown as TournamentSettingsVm;
 
     vm.volunteerAccessForms.checkin.pin = '4829';

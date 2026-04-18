@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ref } from 'vue';
+import { nextTick, ref } from 'vue';
 import { shallowMount } from '@vue/test-utils';
 import ScoringInterfaceView from '@/features/scoring/views/ScoringInterfaceView.vue';
 import type { Match, VolunteerSession } from '@/types';
@@ -15,6 +15,8 @@ const mockDeps = vi.hoisted(() => ({
   routerPush: vi.fn(),
   routerBack: vi.fn(),
   fetchTournament: vi.fn(),
+  subscribeTournament: vi.fn(),
+  unsubscribeTournament: vi.fn(),
   fetchMatch: vi.fn(),
   subscribeMatch: vi.fn(),
   clearCurrentMatch: vi.fn(),
@@ -36,6 +38,24 @@ const volunteerSession: VolunteerSession = {
   pinRevision: 1,
   expiresAtMs: Date.now() + 60_000,
 };
+
+const tournamentRef = ref({
+  id: 't1',
+  name: 'Spring Open',
+  settings: {
+    gamesPerMatch: 3,
+    pointsToWin: 21,
+    mustWinBy: 2,
+    maxPoints: 30,
+  },
+});
+const categoriesRef = ref<Array<Record<string, unknown>>>([{
+  id: 'cat-1',
+  name: 'Mixed Doubles',
+  scoringOverrideEnabled: false,
+  scoringConfig: null,
+}]);
+const courtsRef = ref([{ id: 'court-1', name: 'Court 1' }]);
 
 const inProgressMatch: Match = {
   id: 'm1',
@@ -93,9 +113,18 @@ vi.mock('@/stores/matches', () => ({
 
 vi.mock('@/stores/tournaments', () => ({
   useTournamentStore: () => ({
-    courts: [{ id: 'court-1', name: 'Court 1' }],
-    categories: [{ id: 'cat-1', name: 'Mixed Doubles' }],
+    get currentTournament() {
+      return tournamentRef.value;
+    },
+    get courts() {
+      return courtsRef.value;
+    },
+    get categories() {
+      return categoriesRef.value;
+    },
     fetchTournament: mockDeps.fetchTournament,
+    subscribeTournament: mockDeps.subscribeTournament,
+    unsubscribeAll: mockDeps.unsubscribeTournament,
   }),
 }));
 
@@ -184,10 +213,29 @@ describe('ScoringInterfaceView volunteer mode', () => {
   beforeEach(() => {
     routeState.meta = {};
     routeState.query = { category: 'cat-1' };
+    tournamentRef.value = {
+      id: 't1',
+      name: 'Spring Open',
+      settings: {
+        gamesPerMatch: 3,
+        pointsToWin: 21,
+        mustWinBy: 2,
+        maxPoints: 30,
+      },
+    };
+    categoriesRef.value = [{
+      id: 'cat-1',
+      name: 'Mixed Doubles',
+      scoringOverrideEnabled: false,
+      scoringConfig: null,
+    }];
+    courtsRef.value = [{ id: 'court-1', name: 'Court 1' }];
     matchRef.value = inProgressMatch;
     mockDeps.routerPush.mockReset();
     mockDeps.routerBack.mockReset();
     mockDeps.fetchTournament.mockReset().mockResolvedValue(undefined);
+    mockDeps.subscribeTournament.mockReset();
+    mockDeps.unsubscribeTournament.mockReset();
     mockDeps.fetchMatch.mockReset().mockResolvedValue(undefined);
     mockDeps.subscribeMatch.mockReset();
     mockDeps.clearCurrentMatch.mockReset();
@@ -274,6 +322,43 @@ describe('ScoringInterfaceView volunteer mode', () => {
 
     await vm.removePoint('participant1');
     expect(mockDeps.decrementScore).toHaveBeenCalledTimes(1);
+
+    await vm.completeCurrentGame();
+    expect(mockDeps.completeCurrentGame).toHaveBeenCalledTimes(1);
+  });
+
+  it('reacts to category override updates and allows game completion at the new target', async () => {
+    matchRef.value = {
+      ...inProgressMatch,
+      scores: [{
+        gameNumber: 1,
+        score1: 15,
+        score2: 13,
+        isComplete: false,
+      }],
+    };
+
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as ScoringVm;
+
+    expect(vm.currentGameReadyToComplete).toBe(false);
+    expect(vm.scoreEntryLocked).toBe(false);
+
+    categoriesRef.value = [{
+      id: 'cat-1',
+      name: 'Mixed Doubles',
+      scoringOverrideEnabled: true,
+      scoringConfig: {
+        gamesPerMatch: 3,
+        pointsToWin: 15,
+        mustWinBy: 2,
+        maxPoints: null,
+      },
+    }];
+    await nextTick();
+
+    expect(vm.currentGameReadyToComplete).toBe(true);
+    expect(vm.scoreEntryLocked).toBe(true);
 
     await vm.completeCurrentGame();
     expect(mockDeps.completeCurrentGame).toHaveBeenCalledTimes(1);

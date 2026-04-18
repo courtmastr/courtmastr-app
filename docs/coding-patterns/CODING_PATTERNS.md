@@ -5383,6 +5383,91 @@ rg -n "batch\\.update\\(doc\\(db, matchScoresPath, matchId\\)|if \\(scoreData\\.
 
 ---
 
+### CP-106: Match Scoring Must Resolve Effective Config From Tournament + Category + Stage
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-17 |
+| **Source Bug** | Category scoring overrides saved successfully but live scorer pages, correction dialogs, and fallback score entry paths still behaved like 21-point badminton because they trusted cached `match.scoringConfig` or `BADMINTON_CONFIG` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+const scoringConfig = computed(() => match.value?.scoringConfig ?? BADMINTON_CONFIG);
+
+const correctionConfig = selectedMatch.value?.scoringConfig || BADMINTON_CONFIG;
+
+const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+```
+
+**Correct Pattern (✅):**
+```ts
+const currentCategory = computed(() => (
+  tournamentStore.categories.find((category) => category.id === match.value?.categoryId)
+));
+
+const scoringConfig = computed(() => resolveMatchScoringConfig(
+  tournament.value?.settings,
+  currentCategory.value,
+  match.value?.stageId
+));
+
+const gamesNeeded = getGamesNeeded(scoringConfig.value);
+```
+
+**Rule:** Any scoring UI, store mutation, leaderboard calculation, or correction path must resolve the effective scoring rule from tournament defaults plus category and elimination-stage overrides. Do not trust cached `match.scoringConfig` for live behavior, and do not fall back straight to `BADMINTON_CONFIG` when tournament/category context is available.
+
+**Detection:**
+```bash
+rg -n "match\\.scoringConfig|selectedMatch\\?\\.scoringConfig|\\|\\| BADMINTON_CONFIG|\\?\\? BADMINTON_CONFIG" src/features/scoring src/features/tournaments/dialogs/ManualScoreDialog.vue src/composables/useLeaderboard.ts --glob '!src/features/scoring/utils/validation.ts'
+```
+
+---
+
+### CP-107: Court Scorer Scope Resolution Must Rank Operational Match Data, Not First Match-ID Hit
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-18 |
+| **Source Bug** | Court scorer route resolved `matchId=3` to the wrong category because multiple categories reused the same bracket match id and the resolver returned the first `/match/{id}` document it found |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+for (const category of tournamentStore.categories) {
+  const matchSnap = await getDoc(doc(db, `tournaments/${tournamentId}/categories/${category.id}/match/${matchId}`));
+  if (matchSnap.exists()) {
+    return { categoryId: category.id };
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```ts
+const candidate = await buildMatchScopeCandidate(matchId, category.id);
+
+const bestCandidate = candidates.sort((left, right) =>
+  Number(right.courtMatches) - Number(left.courtMatches)
+  || right.statusRank - left.statusRank
+  || right.updatedAtMs - left.updatedAtMs
+)[0];
+
+return bestCandidate
+  ? { categoryId: bestCandidate.categoryId, levelId: bestCandidate.levelId }
+  : {};
+```
+
+**Rule:** Court-based scoring links must not infer category scope from the first bracket `match/{matchId}` hit because bracket match ids are only category-local. Resolve candidates from operational `match_scores` metadata and rank them using court match, active status, and freshest assignment/update timestamps before injecting `category` / `level` into the scorer route.
+
+**Detection:**
+```bash
+rg -n "getDoc\\(doc\\(db, `tournaments/\\$\\{tournamentId\\.value\\}/categories/\\$\\{category\\.id\\}/match/\\$\\{matchId\\}`\\)\\)|courtMatches|statusRank|updatedAtMs" src/features/scoring/views/CourtScorerView.vue
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
