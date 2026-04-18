@@ -14,7 +14,7 @@
           variant="tonal"
           class="mb-4"
         >
-          Records 21-0 score and advances winner. Court will be freed immediately.
+          Records a walkover result, advances the winner, and frees the court immediately.
         </v-alert>
 
         <div class="text-subtitle-1 mb-2">
