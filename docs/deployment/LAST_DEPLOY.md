@@ -6,13 +6,13 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-18 00:46 CDT
-- Release ID: `v2.16.2`
-- Package version: `2.16.2`
+- Date: 2026-04-18 00:56 CDT
+- Release ID: `v2.17.0`
+- Package version: `2.17.0`
 - Deployed branch: `master`
-- Deployed commit: `7d2efb5` (`fix: correct player update paths and add singles reassign button (#80)`)
+- Deployed commit: `0a037dd` (`fix: support live scoring overrides by category (#82)`)
 - Release notes:
-  - [docs/releases/v2.16.2.md](docs/releases/v2.16.2.md)
+  - [docs/releases/v2.17.0.md](docs/releases/v2.17.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-18 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-18-05-45-34.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-18-05-55-29.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.16.2`
+  - Date: 2026-04-18 00:46 CDT
+  - Package version: `2.16.2`
+  - Deployed commit: `7d2efb5`
+  - Release notes:
+    - [docs/releases/v2.16.2.md](docs/releases/v2.16.2.md)
 - `v2.16.1`
   - Date: 2026-04-17 23:43 CDT
   - Package version: `2.16.1`
@@ -233,7 +239,7 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-18 00:46 CDT
-- Commit: `7d2efb5f240eccc584aa0b63a8b2ad4afaee0d1b`
-- Message: `fix: correct player update paths and add singles reassign button (#80)`
+- Date: 2026-04-18 00:56 CDT
+- Commit: `0a037dd69c73ab84f5059a68f3eaaea3eda89202`
+- Message: `fix: support live scoring overrides by category (#82)`
 - Note: deployed via `npm run release:deploy` on 2026-04-18.
