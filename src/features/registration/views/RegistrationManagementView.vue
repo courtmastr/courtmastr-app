@@ -615,7 +615,7 @@ async function confirmDeletePlayer() {
   if (!playerToDeleteId.value) return;
   showDeletePlayerDialog.value = false;
   try {
-    await registrationStore.deletePlayer(tournamentId.value, playerToDeleteId.value);
+    await registrationStore.deletePlayer(playerToDeleteId.value);
     notificationStore.showToast('success', 'Player deleted');
   } catch (error) {
     notificationStore.showToast('error', 'Failed to delete player');
@@ -1513,6 +1513,15 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
                     </template>
                     <template v-else>
                       {{ getPlayerName(item.playerId) }}
+                      <v-btn
+                        v-if="item.playerId"
+                        icon="mdi-account-switch"
+                        size="x-small"
+                        variant="text"
+                        density="compact"
+                        title="Reassign player"
+                        @click.stop="openReassignDialog(item.id, 'player', item.playerId!)"
+                      />
                       <v-btn
                         v-if="item.playerId"
                         icon="mdi-pencil"
