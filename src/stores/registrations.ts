@@ -325,7 +325,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
           : reg.teamName;
 
       const docUpdates: Record<string, unknown> = {
-        teamName: newTeamName,
+        ...(newTeamName !== undefined ? { teamName: newTeamName } : {}),
         updatedAt: serverTimestamp(),
       };
       if (slot === 'player') docUpdates.playerId = newPlayerId;
