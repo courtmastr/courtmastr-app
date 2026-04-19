@@ -252,7 +252,7 @@ function buildStandings(
   ).map((entry, index) => ({
     rank: index + 1,
     name: entry.participantName,
-    mp: entry.played,
+    mp: entry.matchPoints,
     wins: entry.matchesWon,
     losses: entry.matchesLost,
     setWins: entry.gamesWon,

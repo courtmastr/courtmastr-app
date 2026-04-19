@@ -1,3 +1,17 @@
+- id: 905376fb
+  title: test:log fails when public snapshot standings assertions model the wrong pool results
+  status: "✅ fixed"
+  date: "2026-04-19"
+  fingerprint: "905376fb"
+  command: "npm run test:log -- --run tests/unit/usePublishSnapshot.standings.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-19-07-02-11.vitest-run-tests-unit-usePublishSnapshot-standings.log"
+- id: 00b4b3f3
+  title: test:log fails when the Firebase mock omits Timestamp in public snapshot tests
+  status: "✅ fixed"
+  date: "2026-04-19"
+  fingerprint: "00b4b3f3"
+  command: "npm run test:log -- --run tests/unit/usePublishSnapshot.standings.test.ts"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-19-07-01-27.vitest-run-tests-unit-usePublishSnapshot-standings.log"
 - id: ae4631c9
   title: lint:log fails when a hoisted Vitest mock uses bare require('vue')
   status: "✅ fixed"

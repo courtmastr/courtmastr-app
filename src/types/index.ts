@@ -172,7 +172,7 @@ export interface PoolSnapshot {
 export interface PlayerStanding {
   rank: number;
   name: string;
-  mp: number;        // matches played
+  mp: number;        // match points
   wins: number;
   losses: number;
   setWins: number;
