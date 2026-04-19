@@ -1,3 +1,24 @@
+- id: ae4631c9
+  title: lint:log fails when a hoisted Vitest mock uses bare require('vue')
+  status: "✅ fixed"
+  date: "2026-04-19"
+  fingerprint: "ae4631c9"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-19-06-13-11.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 20c982e5
+  title: lint:log fails when a hoisted Vitest runtime uses raw require('vue')
+  status: "✅ fixed"
+  date: "2026-04-19"
+  fingerprint: "20c982e5"
+  command: "npm run lint:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-19-05-14-36.eslint-ext-vue-js-jsx-cjs-mjs-ts-tsx-cts-mts-fix-i.log"
+- id: 6e968982
+  title: build:log fails when a hoisted Vue test import is left untyped
+  status: "✅ fixed"
+  date: "2026-04-19"
+  fingerprint: "6e968982"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-19-05-14-36.npm-run-check-firebase-env-vue-tsc-b-vite-build.log"
 - id: 11d2c422
   title: build:log fails in a clean worktree before root and functions dependencies are installed
   status: "✅ fixed"
