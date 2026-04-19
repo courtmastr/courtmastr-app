@@ -25,8 +25,7 @@ import type { Match, GameScore, Registration, ScoringConfig } from '@/types';
 import { BADMINTON_CONFIG } from '@/types';
 import {
   getGamesNeeded,
-  resolveScoringConfig,
-  sanitizeScoringConfig,
+  resolveMatchScoringConfig,
   validateCompletedGameScore,
   type CategoryScoringSource,
 } from '@/features/scoring/utils/validation';
@@ -429,21 +428,10 @@ export const useMatchStore = defineStore('matches', () => {
         }
       }
 
-      // Phase routing: if this match is in the elimination stage and elimination scoring is configured, use it
-      if (
-        stageId != null &&
-        categoryData?.eliminationScoringEnabled &&
-        categoryData?.eliminationStageId != null &&
-        Number(stageId) === categoryData.eliminationStageId &&
-        categoryData.eliminationScoringConfig
-      ) {
-        const tournamentConfig = sanitizeScoringConfig(tournamentSettings ?? BADMINTON_CONFIG);
-        return sanitizeScoringConfig(categoryData.eliminationScoringConfig, tournamentConfig);
-      }
-
-      return resolveScoringConfig(
-        { settings: tournamentSettings ?? BADMINTON_CONFIG },
-        categoryData
+      return resolveMatchScoringConfig(
+        tournamentSettings ?? BADMINTON_CONFIG,
+        categoryData,
+        stageId
       );
     } catch (err) {
       logger.error('Error resolving scoring config:', err);
@@ -1198,7 +1186,11 @@ export const useMatchStore = defineStore('matches', () => {
     if (!match.participant1Id || !match.participant2Id) {
       throw new Error('Match participants are required');
     }
-    const config = match.scoringConfig ?? await getScoringConfigForMatch(tournamentId, categoryId);
+    const config = await getScoringConfigForMatch(
+      tournamentId,
+      categoryId ?? match.categoryId,
+      match.stageId
+    );
 
     const scores = [...match.scores];
     const currentGame = scores[scores.length - 1];
@@ -1298,7 +1290,11 @@ export const useMatchStore = defineStore('matches', () => {
       throw new Error('Match participants are required');
     }
 
-    const config = match.scoringConfig ?? await getScoringConfigForMatch(tournamentId, categoryId);
+    const config = await getScoringConfigForMatch(
+      tournamentId,
+      categoryId ?? match.categoryId,
+      match.stageId
+    );
     const scores = [...match.scores];
     const currentGame = scores[scores.length - 1];
 
@@ -1577,8 +1573,11 @@ export const useMatchStore = defineStore('matches', () => {
       throw new Error('Match is missing participants');
     }
 
-    const scoringConfig = matchData.scoringConfig
-      ?? await getScoringConfigForMatch(tournamentId, categoryId);
+    const scoringConfig = await getScoringConfigForMatch(
+      tournamentId,
+      categoryId ?? matchData.categoryId,
+      matchData.stageId
+    );
 
     const result = determineWinner(matchData.scores, matchData.participant1Id, matchData.participant2Id, scoringConfig);
     if (!result.winnerId) {
@@ -1603,8 +1602,11 @@ export const useMatchStore = defineStore('matches', () => {
       throw new Error('Match is missing participants');
     }
 
-    const scoringConfig = matchData.scoringConfig
-      ?? await getScoringConfigForMatch(tournamentId, categoryId);
+    const scoringConfig = await getScoringConfigForMatch(
+      tournamentId,
+      categoryId ?? matchData.categoryId,
+      matchData.stageId
+    );
 
     const result = determineWinner(games, matchData.participant1Id, matchData.participant2Id, scoringConfig);
 

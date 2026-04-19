@@ -15,7 +15,7 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   assign: [courtId: string];
-  score: [matchId: string];
+  score: [match: Match];
   release: [courtId: string];
 }>();
 

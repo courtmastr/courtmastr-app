@@ -1,27 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeScoringConfig, resolveScoringConfig } from '@/features/scoring/utils/validation';
+import { resolveMatchScoringConfig } from '@/features/scoring/utils/validation';
 import type { CategoryScoringSource } from '@/features/scoring/utils/validation';
-import { BADMINTON_CONFIG } from '@/types';
 import type { ScoringConfig } from '@/types';
-
-// Mirrors the phase-routing logic inside getScoringConfigForMatch
-function resolveMatchScoringConfig(
-  tournamentSettings: Partial<ScoringConfig>,
-  categoryData: CategoryScoringSource | undefined,
-  stageId: string | undefined
-): ScoringConfig {
-  if (
-    stageId != null &&
-    categoryData?.eliminationScoringEnabled &&
-    categoryData?.eliminationStageId != null &&
-    Number(stageId) === categoryData.eliminationStageId &&
-    categoryData.eliminationScoringConfig
-  ) {
-    const tournamentConfig = sanitizeScoringConfig(tournamentSettings ?? BADMINTON_CONFIG);
-    return sanitizeScoringConfig(categoryData.eliminationScoringConfig, tournamentConfig);
-  }
-  return resolveScoringConfig({ settings: tournamentSettings }, categoryData);
-}
 
 const POOL_CONFIG: ScoringConfig = { gamesPerMatch: 1, pointsToWin: 15, mustWinBy: 2, maxPoints: null };
 const ELIM_CONFIG: ScoringConfig = { gamesPerMatch: 3, pointsToWin: 21, mustWinBy: 2, maxPoints: 30 };

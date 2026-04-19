@@ -266,7 +266,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
     try {
       const normalizedEmail = updates.email?.toLowerCase().trim();
       await updateDoc(
-        doc(db, `tournaments/${tournamentId}/players`, playerId),
+        doc(db, 'players', playerId),
         {
           ...updates,
           ...(normalizedEmail !== undefined ? { emailNormalized: normalizedEmail } : {}),
@@ -325,7 +325,7 @@ export const useRegistrationStore = defineStore('registrations', () => {
           : reg.teamName;
 
       const docUpdates: Record<string, unknown> = {
-        teamName: newTeamName,
+        ...(newTeamName !== undefined ? { teamName: newTeamName } : {}),
         updatedAt: serverTimestamp(),
       };
       if (slot === 'player') docUpdates.playerId = newPlayerId;
@@ -351,9 +351,9 @@ export const useRegistrationStore = defineStore('registrations', () => {
   }
 
   // Delete a player
-  async function deletePlayer(tournamentId: string, playerId: string): Promise<void> {
+  async function deletePlayer(playerId: string): Promise<void> {
     try {
-      await deleteDoc(doc(db, `tournaments/${tournamentId}/players`, playerId));
+      await deleteDoc(doc(db, 'players', playerId));
       players.value = players.value.filter((p) => p.id !== playerId);
     } catch (err) {
       logger.error('Error deleting player:', err);

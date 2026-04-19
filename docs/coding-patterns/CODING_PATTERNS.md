@@ -1119,6 +1119,57 @@ grep -rn ":to=.*matches.*score" src/features/ --include="*.vue" | grep -v "categ
 
 ---
 
+### CP-104: Match Control Scoring Actions Must Carry Full Match Context
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-18 |
+| **Source Bug** | Court card scoring dialog opened the wrong players when duplicate bracket match ids existed across categories |
+| **Severity** | Critical |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// ❌ DON'T: Emit a bare match id from Match Control scoring actions
+emit('score', match.id);
+```
+```typescript
+// ❌ DON'T: Re-resolve Match Control scoring targets by id alone
+function openScoreDialog(matchId: string): void {
+  const match = matches.value.find((item) => item.id === matchId);
+  if (!match) return;
+  openManualScoreDialog(match);
+}
+```
+
+**Correct Pattern (✅):**
+```typescript
+// ✅ DO: Carry the full match object (or a fully scoped ref) through the score action
+emit('score', match);
+```
+```typescript
+// ✅ DO: Open the score dialog from the selected scoped match context
+function openScoreDialog(match: Match): void {
+  openManualScoreDialog(match);
+}
+```
+
+**Why This Matters:**
+- Bracket-generated `match.id` values are not globally unique across categories or levels.
+- Looking up by bare `match.id` can bind a court card or alert to a different match with the same id.
+- Score-entry actions in Match Control must preserve category and level scope all the way into the dialog.
+
+**Detection:**
+```bash
+rg -n "emit\\('score',\\s*match!?\\.id\\)|score: \\[matchId: string\\]|viewMatch: \\[matchId: string\\]|openScoreDialog\\(item\\.id\\)|openCompleteMatchDialog\\(item\\.id\\)|matches\\.value\\.find\\(m => m\\.id === matchId\\)" \
+  src/features/tournaments/views/MatchControlView.vue \
+  src/features/tournaments/components/CourtCard.vue \
+  src/features/tournaments/components/CourtGrid.vue \
+  src/features/tournaments/components/AlertsPanel.vue
+```
+
+---
+
 ### CP-013: Use Shared Composables for Repeated Display Logic
 
 | Field | Value |
@@ -2464,12 +2515,13 @@ fi
 
 ---
 
-### CP-038: Match Control Schedule Table Must Use Public-State Quick Filters, Time-First Sort, and One Primary Row Action
+### CP-038: Match Control Schedule Table Must Use Public-State Quick Filters, Time-First Sort, and Keep Manual Score Visible For Pre-Match Rows
 
 | Field | Value |
 |-------|-------|
 | **Added** | 2026-02-22 |
-| **Source Bug** | All Matches view buried public visibility state, defaulted to non-time sorting, and showed cramped dual action buttons |
+| **Updated** | 2026-04-17 |
+| **Source Bug** | Compact All Matches rows hid manual score entry behind assignment state, blocking organizers from entering pre-match scores |
 | **Severity** | Medium |
 | **Status** | ✅ Active |
 
@@ -2502,27 +2554,53 @@ const scheduleFilters = ref({
 ```
 ```typescript
 function getPrimaryRowAction(match: Match): 'score' | 'assign' | null {
-  if (!match.courtId && (match.status === 'scheduled' || match.status === 'ready')) return 'assign';
-  if (match.status === 'ready' || match.status === 'in_progress') return 'score';
+  if (canAssignCourtToMatch(match)) return 'assign';
+  if (canScoreMatch(match)) return 'score';
   return null;
 }
 ```
 ```vue
-<!-- High-contrast public chip + quick filter toggle -->
-<v-btn-toggle v-model="scheduleFilters.publicState" mandatory />
-<v-chip variant="flat" :color="getMatchScheduleStateColor(item)" :prepend-icon="getMatchScheduleStateIcon(item)">
-  {{ getMatchScheduleStateLabel(item) }}
-</v-chip>
+<!-- Mutually exclusive CTA hides score entry for pre-match rows -->
+<v-btn v-if="getPrimaryRowAction(item) === 'score'">Score</v-btn>
+<v-btn v-else-if="getPrimaryRowAction(item) === 'assign'">Assign</v-btn>
 ```
 
 **Rule:** In Match Control → All Matches, default sorting must be planned time ascending (`plannedStartAt` fallback), public state must be filterable with quick toggles (`All/Published/Draft/Not Scheduled`), and each row must expose only one visible primary CTA (`Score` or `Assign`) with secondary actions in the overflow menu.
 
 **Detection:**
 ```bash
-rg -n "sortBy:\\s*'round'" src/features/tournaments/views/MatchControlView.vue
-rg -n "v-if=\"item\\.status === 'ready' \\|\\| item\\.status === 'in_progress'\"|v-if=\"!item\\.courtId && \\(item\\.status === 'scheduled' \\|\\| item\\.status === 'ready'\\)\"" src/features/tournaments/views/MatchControlView.vue
-rg -n "scheduleFilters\\.publicState|getPrimaryRowAction|getMatchScheduleStateIcon" src/features/tournaments/views/MatchControlView.vue
+if rg -n "getPrimaryRowAction" src/features/tournaments/views/MatchControlView.vue; then
+  echo "Violation: compact Match Control rows still gate Score behind a single primary-action helper"
+fi
+rg -n "function canScoreMatch\\(match: Match\\): boolean \\{|return match\\.status === 'scheduled' \\|\\| match\\.status === 'ready' \\|\\| match\\.status === 'in_progress'" src/features/tournaments/views/MatchControlView.vue
+rg -n "scheduleFilters\\.publicState|sortBy:\\s*'time'|v-if=\"canScoreMatch\\(item\\)\"|v-if=\"canAssignCourtToMatch\\(item\\)\"|v-else-if=\"shouldShowBlockedAssign\\(item\\)\"" src/features/tournaments/views/MatchControlView.vue
 ```
+
+**Correct Pattern (✅):**
+```typescript
+const scheduleFilters = ref({
+  status: 'all',
+  publicState: 'all',
+  sortBy: 'time',
+  sortDesc: false,
+});
+
+function canScoreMatch(match: Match): boolean {
+  return match.status === 'scheduled' || match.status === 'ready' || match.status === 'in_progress';
+}
+```
+```vue
+<!-- Keep Score available for pre-match rows, and gate Assign independently -->
+<v-btn v-if="canScoreMatch(item)">Score</v-btn>
+<v-btn v-if="canAssignCourtToMatch(item)">Assign</v-btn>
+<v-tooltip v-else-if="shouldShowBlockedAssign(item)">
+  <template #activator="{ props }">
+    <span v-bind="props"><v-btn disabled>Assign</v-btn></span>
+  </template>
+</v-tooltip>
+```
+
+**Rule:** In Match Control → All Matches, default sorting must be planned time ascending (`plannedStartAt` fallback), public state must be filterable with quick toggles (`All/Published/Draft/Not Scheduled`), and compact rows must keep manual `Score` visible for `scheduled`, `ready`, and `in_progress` matches. `Assign` must remain independently gated by the existing assignment checks, with blocked pre-match rows still surfacing disabled assign UI and tooltip reasons.
 
 ---
 
@@ -5443,6 +5521,154 @@ if (Object.prototype.hasOwnProperty.call(scoreData, 'courtId')) {
 **Detection:**
 ```bash
 rg -n "batch\\.update\\(doc\\(db, matchScoresPath, matchId\\)|if \\(scoreData\\.courtId\\)" src/stores/matches.ts
+```
+
+---
+
+### CP-106: Match Scoring Must Resolve Effective Config From Tournament + Category + Stage
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-17 |
+| **Source Bug** | Category scoring overrides saved successfully but live scorer pages, correction dialogs, and fallback score entry paths still behaved like 21-point badminton because they trusted cached `match.scoringConfig` or `BADMINTON_CONFIG` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+const scoringConfig = computed(() => match.value?.scoringConfig ?? BADMINTON_CONFIG);
+
+const correctionConfig = selectedMatch.value?.scoringConfig || BADMINTON_CONFIG;
+
+const gamesNeeded = Math.ceil(BADMINTON_CONFIG.gamesPerMatch / 2);
+```
+
+**Correct Pattern (✅):**
+```ts
+const currentCategory = computed(() => (
+  tournamentStore.categories.find((category) => category.id === match.value?.categoryId)
+));
+
+const scoringConfig = computed(() => resolveMatchScoringConfig(
+  tournament.value?.settings,
+  currentCategory.value,
+  match.value?.stageId
+));
+
+const gamesNeeded = getGamesNeeded(scoringConfig.value);
+```
+
+**Rule:** Any scoring UI, store mutation, leaderboard calculation, or correction path must resolve the effective scoring rule from tournament defaults plus category and elimination-stage overrides. Do not trust cached `match.scoringConfig` for live behavior, and do not fall back straight to `BADMINTON_CONFIG` when tournament/category context is available.
+
+**Detection:**
+```bash
+rg -n "match\\.scoringConfig|selectedMatch\\?\\.scoringConfig|\\|\\| BADMINTON_CONFIG|\\?\\? BADMINTON_CONFIG" src/features/scoring src/features/tournaments/dialogs/ManualScoreDialog.vue src/composables/useLeaderboard.ts --glob '!src/features/scoring/utils/validation.ts'
+```
+
+---
+
+### CP-107: Court Scorer Scope Resolution Must Rank Operational Match Data, Not First Match-ID Hit
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-18 |
+| **Source Bug** | Court scorer route resolved `matchId=3` to the wrong category because multiple categories reused the same bracket match id and the resolver returned the first `/match/{id}` document it found |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+for (const category of tournamentStore.categories) {
+  const matchSnap = await getDoc(doc(db, `tournaments/${tournamentId}/categories/${category.id}/match/${matchId}`));
+  if (matchSnap.exists()) {
+    return { categoryId: category.id };
+  }
+}
+```
+
+**Correct Pattern (✅):**
+```ts
+const candidate = await buildMatchScopeCandidate(matchId, category.id);
+
+const bestCandidate = candidates.sort((left, right) =>
+  Number(right.courtMatches) - Number(left.courtMatches)
+  || right.statusRank - left.statusRank
+  || right.updatedAtMs - left.updatedAtMs
+)[0];
+
+return bestCandidate
+  ? { categoryId: bestCandidate.categoryId, levelId: bestCandidate.levelId }
+  : {};
+```
+
+**Rule:** Court-based scoring links must not infer category scope from the first bracket `match/{matchId}` hit because bracket match ids are only category-local. Resolve candidates from operational `match_scores` metadata and rank them using court match, active status, and freshest assignment/update timestamps before injecting `category` / `level` into the scorer route.
+
+**Detection:**
+```bash
+rg -n "getDoc\\(doc\\(db, `tournaments/\\$\\{tournamentId\\.value\\}/categories/\\$\\{category\\.id\\}/match/\\$\\{matchId\\}`\\)\\)|courtMatches|statusRank|updatedAtMs" src/features/scoring/views/CourtScorerView.vue
+```
+
+---
+
+### CP-108: Shared Manual Scoring Dialogs Must Expose Walkover Through The Same Reusable Surface
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-18 |
+| **Source Bug** | Staff scoring could submit manual game scores from Match Control and Match List, but the shared `ManualScoreDialog` had no walkover path even though the store and full scoring screen already supported `recordWalkover()` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+await matchStore.submitManualScores(
+  tournamentId,
+  match.id,
+  games,
+  match.categoryId,
+  match.levelId
+);
+```
+```vue
+<template #actions>
+  <v-btn @click="$emit('update:modelValue', false)">Cancel</v-btn>
+  <v-btn @click="submitScores">Save Scores</v-btn>
+</template>
+```
+
+**Correct Pattern (✅):**
+```ts
+async function submitWalkover(winnerId: string): Promise<void> {
+  await matchStore.recordWalkover(
+    tournamentId,
+    match.id,
+    winnerId,
+    match.categoryId,
+    match.levelId
+  );
+}
+```
+```vue
+<template #actions>
+  <v-btn color="warning" @click="showWalkoverDialog = true">Walkover</v-btn>
+  <v-btn @click="$emit('update:modelValue', false)">Cancel</v-btn>
+  <v-btn @click="submitScores">Save Scores</v-btn>
+</template>
+
+<WalkoverDialog
+  v-model="showWalkoverDialog"
+  :match="match"
+  @confirm="submitWalkover"
+/>
+```
+
+**Rule:** Any reusable staff-facing manual scoring surface must expose both score entry and walkover from the same shared dialog. Do not force parent views to invent their own ad hoc walkover affordance when they already depend on `ManualScoreDialog`, and do not fake walkovers as normal game scores when `recordWalkover()` already models the correct terminal state.
+
+**Detection:**
+```bash
+if rg -q "submitManualScores" src/features/tournaments/dialogs/ManualScoreDialog.vue && ! rg -q "recordWalkover|WalkoverDialog" src/features/tournaments/dialogs/ManualScoreDialog.vue; then
+  echo "Violation: shared manual scoring dialog cannot record walkovers"
+fi
 ```
 
 ---

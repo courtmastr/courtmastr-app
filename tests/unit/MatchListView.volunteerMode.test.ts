@@ -30,6 +30,30 @@ const volunteerSession: VolunteerSession = {
   expiresAtMs: Date.now() + 60_000,
 };
 
+const runtime = {
+  currentTournament: {
+    id: 't1',
+    name: 'Spring Open',
+    settings: {
+      gamesPerMatch: 3,
+      pointsToWin: 21,
+      mustWinBy: 2,
+      maxPoints: 30,
+    },
+  },
+  categories: [{
+    id: 'cat-1',
+    name: 'Mixed Doubles',
+    scoringOverrideEnabled: true,
+    scoringConfig: {
+      gamesPerMatch: 3,
+      pointsToWin: 15,
+      mustWinBy: 2,
+      maxPoints: null,
+    },
+  }],
+};
+
 const sampleMatch: Match = {
   id: 'm1',
   tournamentId: 't1',
@@ -71,9 +95,13 @@ vi.mock('@/stores/matches', () => ({
 
 vi.mock('@/stores/tournaments', () => ({
   useTournamentStore: () => ({
-    currentTournament: { id: 't1', name: 'Spring Open' },
+    get currentTournament() {
+      return runtime.currentTournament;
+    },
     courts: [{ id: 'court-1', name: 'Court 1' }],
-    categories: [{ id: 'cat-1', name: 'Mixed Doubles' }],
+    get categories() {
+      return runtime.categories;
+    },
     fetchTournament: mockDeps.fetchTournament,
     subscribeTournament: mockDeps.subscribeTournament,
     unsubscribeAll: mockDeps.tournamentUnsubscribe,
@@ -113,6 +141,11 @@ vi.mock('@/composables/useParticipantResolver', () => ({
 
 interface MatchListVm {
   showManualScoreDialog: boolean;
+  showCorrectionDialog: boolean;
+  selectedMatchScoringConfig: {
+    pointsToWin: number;
+    gamesPerMatch: number;
+  };
   openScoreDialog: (match: Match) => void;
 }
 
@@ -142,6 +175,27 @@ const mountView = () => shallowMount(MatchListView, {
 describe('MatchListView volunteer scoring mode', () => {
   beforeEach(() => {
     routeState.meta = {};
+    runtime.currentTournament = {
+      id: 't1',
+      name: 'Spring Open',
+      settings: {
+        gamesPerMatch: 3,
+        pointsToWin: 21,
+        mustWinBy: 2,
+        maxPoints: 30,
+      },
+    };
+    runtime.categories = [{
+      id: 'cat-1',
+      name: 'Mixed Doubles',
+      scoringOverrideEnabled: true,
+      scoringConfig: {
+        gamesPerMatch: 3,
+        pointsToWin: 15,
+        mustWinBy: 2,
+        maxPoints: null,
+      },
+    }];
     mockDeps.routerPush.mockReset();
     mockDeps.routerBack.mockReset();
     mockDeps.fetchTournament.mockReset().mockResolvedValue(undefined);
@@ -184,5 +238,34 @@ describe('MatchListView volunteer scoring mode', () => {
 
     expect(mockDeps.routerPush).not.toHaveBeenCalled();
     expect(vm.showManualScoreDialog).toBe(true);
+  });
+
+  it('uses category-specific scoring rules when correcting a completed match', () => {
+    const wrapper = mountView();
+    const vm = wrapper.vm as unknown as MatchListVm;
+    const completedMatch: Match = {
+      ...sampleMatch,
+      status: 'completed',
+      winnerId: 'reg-1',
+      scores: [{
+        gameNumber: 1,
+        score1: 15,
+        score2: 10,
+        winnerId: 'reg-1',
+        isComplete: true,
+      }, {
+        gameNumber: 2,
+        score1: 15,
+        score2: 12,
+        winnerId: 'reg-1',
+        isComplete: true,
+      }],
+    };
+
+    vm.openScoreDialog(completedMatch);
+
+    expect(vm.showCorrectionDialog).toBe(true);
+    expect(vm.selectedMatchScoringConfig.gamesPerMatch).toBe(3);
+    expect(vm.selectedMatchScoringConfig.pointsToWin).toBe(15);
   });
 });

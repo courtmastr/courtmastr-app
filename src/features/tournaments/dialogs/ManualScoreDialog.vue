@@ -6,9 +6,10 @@ import { useActivityStore } from '@/stores/activities';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import BaseDialog from '@/components/common/BaseDialog.vue';
+import WalkoverDialog from '@/features/tournaments/components/WalkoverDialog.vue';
 import {
   getGamesNeeded,
-  resolveScoringConfig,
+  resolveMatchScoringConfig,
   validateCompletedGameScore,
 } from '@/features/scoring/utils/validation';
 import type { Match, Tournament, Category, ScoringConfig } from '@/types';
@@ -35,6 +36,7 @@ const { getParticipantName } = useParticipantResolver();
 
 const loading = ref(false);
 const manualScores = ref<Array<{ score1: number; score2: number }>>([]);
+const showWalkoverDialog = ref(false);
 
 // Per-game inline validation — only validates games where at least one score > 0
 const gameValidations = computed(() => {
@@ -55,7 +57,7 @@ const hasInvalidScores = computed(() =>
 
 const scoringConfig = computed<ScoringConfig>(() => {
   const category = props.categories.find(c => c.id === props.match?.categoryId);
-  return resolveScoringConfig(props.tournament, category);
+  return resolveMatchScoringConfig(props.tournament.settings, category, props.match?.stageId);
 });
 
 function createScoreRows(count: number) {
@@ -63,23 +65,34 @@ function createScoreRows(count: number) {
 }
 
 watch(() => props.modelValue, (isOpen) => {
-  if (isOpen && props.match) {
-    const config = scoringConfig.value;
-    const rows = createScoreRows(config.gamesPerMatch);
-    
-    // Pre-fill existing scores
-    if (props.match.scores?.length) {
-      props.match.scores.slice(0, config.gamesPerMatch).forEach((game, index) => {
-        rows[index] = {
-          score1: game.score1 || 0,
-          score2: game.score2 || 0
-        };
-      });
-    }
-    
-    manualScores.value = rows;
+  if (!isOpen) {
+    showWalkoverDialog.value = false;
+    return;
   }
+
+  if (!props.match) return;
+
+  const config = scoringConfig.value;
+  const rows = createScoreRows(config.gamesPerMatch);
+
+  // Pre-fill existing scores
+  if (props.match.scores?.length) {
+    props.match.scores.slice(0, config.gamesPerMatch).forEach((game, index) => {
+      rows[index] = {
+        score1: game.score1 || 0,
+        score2: game.score2 || 0,
+      };
+    });
+  }
+
+  manualScores.value = rows;
 });
+
+const getErrorMessage = (error: unknown): string => (
+  error instanceof Error && error.message
+    ? error.message
+    : 'Failed to save scores'
+);
 
 async function submitScores() {
   if (!props.match) return;
@@ -139,8 +152,32 @@ async function submitScores() {
     notificationStore.showToast('success', 'Scores saved');
     emit('saved');
     emit('update:modelValue', false);
-  } catch (error: any) {
-    notificationStore.showToast('error', error.message || 'Failed to save scores');
+  } catch (error: unknown) {
+    notificationStore.showToast('error', getErrorMessage(error));
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function submitWalkover(winnerId: string): Promise<void> {
+  if (!props.match) return;
+
+  loading.value = true;
+  try {
+    await matchStore.recordWalkover(
+      props.tournamentId,
+      props.match.id,
+      winnerId,
+      props.match.categoryId,
+      props.match.levelId
+    );
+
+    showWalkoverDialog.value = false;
+    notificationStore.showToast('success', 'Walkover recorded');
+    emit('saved');
+    emit('update:modelValue', false);
+  } catch (error: unknown) {
+    notificationStore.showToast('error', getErrorMessage(error));
   } finally {
     loading.value = false;
   }
@@ -230,6 +267,14 @@ async function submitScores() {
     </v-form>
 
     <template #actions>
+      <v-btn
+        color="warning"
+        variant="text"
+        :disabled="loading || !match"
+        @click="showWalkoverDialog = true"
+      >
+        Walkover
+      </v-btn>
       <v-spacer />
       <v-btn
         variant="text"
@@ -249,6 +294,12 @@ async function submitScores() {
       </v-btn>
     </template>
   </BaseDialog>
+
+  <WalkoverDialog
+    v-model="showWalkoverDialog"
+    :match="match"
+    @confirm="submitWalkover"
+  />
 </template>
 
 <style scoped>

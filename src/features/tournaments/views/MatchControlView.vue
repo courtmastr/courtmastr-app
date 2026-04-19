@@ -738,7 +738,7 @@ function getMatchParticipantsTooltip(match: Match): string {
 }
 
 function canScoreMatch(match: Match): boolean {
-  return match.status === 'in_progress';
+  return match.status === 'scheduled' || match.status === 'ready' || match.status === 'in_progress';
 }
 
 function hasAssignmentEligibleStatus(match: Match): boolean {
@@ -823,12 +823,6 @@ function canAdminAssignAnyway(match: Match): boolean {
 
   const blockers = getMatchAssignBlockers(match);
   return blockers.length === 1 && blockers[0] === 'Blocked: Players not checked-in';
-}
-
-function getPrimaryRowAction(match: Match): 'score' | 'assign' | null {
-  if (canAssignCourtToMatch(match)) return 'assign';
-  if (canScoreMatch(match)) return 'score';
-  return null;
 }
 
 function openPublicSchedulePage(): void {
@@ -1045,13 +1039,7 @@ function openScheduleDialog(match: Match) {
 
 
 
-function openScoreDialog(matchId: string): void {
-  const match = matches.value.find(m => m.id === matchId);
-  if (!match) {
-    logger.error('[openScoreDialog] Match not found:', matchId);
-    notificationStore.showToast('error', 'Match not found');
-    return;
-  }
+function openScoreDialog(match: Match): void {
   openManualScoreDialog(match);
 }
 
@@ -1735,17 +1723,17 @@ async function confirmCompleteTournament(): Promise<void> {
             <template #item.actions="{ item }">
               <div class="d-flex justify-end gap-1">
                 <v-btn
-                  v-if="getPrimaryRowAction(item) === 'score'"
+                  v-if="canScoreMatch(item)"
                   size="small"
                   color="primary"
                   variant="tonal"
                   prepend-icon="mdi-scoreboard"
-                  @click.stop="openScoreDialog(item.id)"
+                  @click.stop="openScoreDialog(item)"
                 >
                   Score
                 </v-btn>
                 <v-btn
-                  v-else-if="getPrimaryRowAction(item) === 'assign'"
+                  v-if="canAssignCourtToMatch(item)"
                   size="small"
                   color="secondary"
                   variant="tonal"
@@ -1784,18 +1772,6 @@ async function confirmCompleteTournament(): Promise<void> {
                   </template>
                   <v-list density="compact">
                     <v-list-item
-                      v-if="canScoreMatch(item) && getPrimaryRowAction(item) !== 'score'"
-                      prepend-icon="mdi-scoreboard"
-                      title="Score"
-                      @click="openScoreDialog(item.id)"
-                    />
-                    <v-list-item
-                      v-if="canAssignCourtToMatch(item) && getPrimaryRowAction(item) !== 'assign'"
-                      prepend-icon="mdi-court-sport"
-                      title="Assign Court"
-                      @click="openAssignCourtDialog(item)"
-                    />
-                    <v-list-item
                       v-if="canAdminAssignAnyway(item)"
                       prepend-icon="mdi-alert-decagram-outline"
                       title="Assign Anyway (Admin)"
@@ -1822,7 +1798,7 @@ async function confirmCompleteTournament(): Promise<void> {
                       v-if="item.status !== 'completed' && item.status !== 'walkover'"
                       prepend-icon="mdi-flag-checkered" 
                       title="Force Complete" 
-                      @click="openCompleteMatchDialog(item.id)"
+                      @click="openCompleteMatchDialog(item)"
                     />
                     <v-list-item 
                       v-if="item.status === 'scheduled' || item.status === 'ready'"
