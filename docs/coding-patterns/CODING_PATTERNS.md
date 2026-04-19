@@ -5710,6 +5710,44 @@ fi
 
 ---
 
+### CP-109: Published Standings Snapshots Must Serialize Match Points, Not Matches Played
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-19 |
+| **Source Bug** | Public `/t/:slug` standings showed `MP` values like `3/2/1` and misordered rows because the snapshot export wrote `played` into the `mp` field instead of the canonical pool `matchPoints` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+return buildPoolStandingsEntries(participants, matches).map((entry, index) => ({
+  rank: index + 1,
+  name: entry.participantName,
+  mp: entry.played,
+  wins: entry.matchesWon,
+}));
+```
+
+**Correct Pattern (✅):**
+```ts
+return buildPoolStandingsEntries(participants, matches).map((entry, index) => ({
+  rank: index + 1,
+  name: entry.participantName,
+  mp: entry.matchPoints,
+  wins: entry.matchesWon,
+}));
+```
+
+**Rule:** Any published standings payload that reuses canonical pool standings must preserve semantic field meanings during serialization. If the public contract exposes `mp`, it must contain match points, not matches played. Snapshot builders must not rename or remap shared standings fields into lookalike values.
+
+**Detection:**
+```bash
+rg -n "mp:\\s*entry\\.played" src/composables/usePublishSnapshot.ts tests
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:
