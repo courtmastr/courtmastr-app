@@ -88,9 +88,20 @@ const poolsWithMeta = computed(() =>
 </script>
 
 <template>
-  <div ref="tabRef" class="pools-tab">
-    <div v-if="pools.length === 0" class="pools-tab__empty">
-      <v-icon size="32" color="grey">mdi-account-group</v-icon>
+  <div
+    ref="tabRef"
+    class="pools-tab"
+  >
+    <div
+      v-if="pools.length === 0"
+      class="pools-tab__empty"
+    >
+      <v-icon
+        size="32"
+        color="grey"
+      >
+        mdi-account-group
+      </v-icon>
       <p>No pool data available</p>
     </div>
 
@@ -113,7 +124,10 @@ const poolsWithMeta = computed(() =>
       </div>
 
       <!-- Standings -->
-      <div v-if="pool.standings.length" class="pool-standings">
+      <div
+        v-if="pool.standings.length"
+        class="pool-standings"
+      >
         <div class="pool-standings__head">
           <span class="col-r">#</span>
           <span class="col-n">Team</span>
@@ -128,22 +142,40 @@ const poolsWithMeta = computed(() =>
           :class="{ 'pool-standings__row--leader': i === 0 }"
           :style="{ '--row-delay': `${pi * 60 + i * 40}ms` }"
         >
-          <span class="col-r col-r--val" :class="{ 'col-r--leader': i === 0 }">{{ i + 1 }}</span>
+          <span
+            class="col-r col-r--val"
+            :class="{ 'col-r--leader': i === 0 }"
+          >{{ i + 1 }}</span>
           <span class="col-n col-n--val">{{ s.name }}</span>
           <span class="col-s col-s--w">{{ s.w }}</span>
           <span class="col-s col-s--l">{{ s.l }}</span>
-          <span class="col-s" :class="s.pd >= 0 ? 'col-s--pos' : 'col-s--neg'">
+          <span
+            class="col-s"
+            :class="s.pd >= 0 ? 'col-s--pos' : 'col-s--neg'"
+          >
             {{ s.pd >= 0 ? `+${s.pd}` : s.pd }}
           </span>
         </div>
       </div>
 
       <!-- Upcoming -->
-      <div v-if="pool.upcoming.length" class="pool-upcoming">
+      <div
+        v-if="pool.upcoming.length"
+        class="pool-upcoming"
+      >
         <div class="pool-upcoming__label">
-          <v-icon size="10" class="mr-1">mdi-clock-outline</v-icon>Upcoming
+          <v-icon
+            size="10"
+            class="mr-1"
+          >
+            mdi-clock-outline
+          </v-icon>Upcoming
         </div>
-        <div v-for="m in pool.upcoming" :key="m.id" class="pool-upcoming__row">
+        <div
+          v-for="m in pool.upcoming"
+          :key="m.id"
+          class="pool-upcoming__row"
+        >
           <span class="pool-upcoming__time">{{ m.time ?? '—' }}</span>
           <span class="pool-upcoming__vs">
             {{ m.player1 }}<em> vs </em>{{ m.player2 }}

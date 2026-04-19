@@ -156,12 +156,16 @@ describe('bracket generation integration', () => {
     const generator = useBracketGenerator();
 
     await expect(
-      generator.generateEliminationFromPool('t-1', 'cat-1')
+      generator.generateEliminationFromPool('t-1', 'cat-1', {
+        precomputedQualifierRegistrationIds: ['reg-1', 'reg-2'],
+      })
     ).rejects.toThrow(/still pending/i);
     expect(mockDeps.managerCreateStage).not.toHaveBeenCalled();
 
     state.matchScoreStatus = 'completed';
-    const result = await generator.generateEliminationFromPool('t-1', 'cat-1');
+    const result = await generator.generateEliminationFromPool('t-1', 'cat-1', {
+      precomputedQualifierRegistrationIds: ['reg-1', 'reg-2'],
+    });
 
     expect(result).toMatchObject({
       success: true,

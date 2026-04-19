@@ -6,6 +6,7 @@ import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
 import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import { useMatchDisplay } from '@/composables/useMatchDisplay';
+import { buildPoolStandingsEntries, toPoolStandingsParticipants } from '@/utils/poolStandings';
 
 const props = defineProps<{
   tournamentId: string;
@@ -22,21 +23,6 @@ interface StoredGroup {
   id: string;
   number?: number | string;
   stage_id?: number | string;
-}
-
-interface StandingEntry {
-  registrationId: string;
-  name: string;
-  played: number;
-  matchesWon: number;
-  matchesLost: number;
-  matchPoints: number;
-  gamesWon: number;
-  gamesLost: number;
-  gameDifference: number;
-  pointsFor: number;
-  pointsAgainst: number;
-  pointDifference: number;
 }
 
 const loading = ref(true);
@@ -151,98 +137,22 @@ const matchesByGroup = computed(() => {
 
 // Per-group standings computed from group-filtered matches + group players only
 const standingsByGroup = computed(() => {
-  const result = new Map<string, StandingEntry[]>();
+  const result = new Map<string, Array<ReturnType<typeof buildPoolStandingsEntries>[number] & { name: string }>>();
 
   for (const pool of pools.value) {
     const groupMatches = matchesByGroup.value.get(pool.groupId) ?? [];
-    const standingsMap = new Map<string, StandingEntry>();
-
-    for (const player of pool.players) {
-      standingsMap.set(player.registrationId, {
-        registrationId: player.registrationId,
-        name: player.name,
-        played: 0,
-        matchesWon: 0,
-        matchesLost: 0,
-        matchPoints: 0,
-        gamesWon: 0,
-        gamesLost: 0,
-        gameDifference: 0,
-        pointsFor: 0,
-        pointsAgainst: 0,
-        pointDifference: 0,
-      });
-    }
-
-    for (const match of groupMatches) {
-      const isFinished =
-        (match.status === 'completed' || match.status === 'walkover') && match.winnerId;
-      if (!isFinished) continue;
-
-      const p1 = standingsMap.get(match.participant1Id || '');
-      const p2 = standingsMap.get(match.participant2Id || '');
-
-      if (p1 && p2) {
-        p1.played++;
-        p2.played++;
-
-        let p1Points = 0;
-        let p2Points = 0;
-        let p1Games = 0;
-        let p2Games = 0;
-
-        if (match.status !== 'walkover') {
-          for (const score of match.scores) {
-            p1Points += score.score1;
-            p2Points += score.score2;
-            if (score.score1 > score.score2) p1Games++;
-            else if (score.score2 > score.score1) p2Games++;
-          }
-        }
-
-        p1.gamesWon += p1Games;
-        p1.gamesLost += p2Games;
-        p2.gamesWon += p2Games;
-        p2.gamesLost += p1Games;
-        p1.gameDifference = p1.gamesWon - p1.gamesLost;
-        p2.gameDifference = p2.gamesWon - p2.gamesLost;
-
-        p1.pointsFor += p1Points;
-        p1.pointsAgainst += p2Points;
-        p2.pointsFor += p2Points;
-        p2.pointsAgainst += p1Points;
-
-        if (match.winnerId === match.participant1Id) {
-          p1.matchesWon++;
-          p1.matchPoints += 2;
-          p2.matchesLost++;
-          p2.matchPoints += 1;
-        } else {
-          p2.matchesWon++;
-          p2.matchPoints += 2;
-          p1.matchesLost++;
-          p1.matchPoints += 1;
-        }
-
-        p1.pointDifference = p1.pointsFor - p1.pointsAgainst;
-        p2.pointDifference = p2.pointsFor - p2.pointsAgainst;
-      } else if (match.status === 'walkover' && match.winnerId) {
-        const winner = standingsMap.get(match.winnerId);
-        if (winner) {
-          winner.played++;
-          winner.matchesWon++;
-          winner.matchPoints += 2;
-        }
-      }
-    }
-
-    const sorted = Array.from(standingsMap.values()).sort((a, b) => {
-      if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
-      if (b.matchesWon !== a.matchesWon) return b.matchesWon - a.matchesWon;
-      if (b.gameDifference !== a.gameDifference) return b.gameDifference - a.gameDifference;
-      if (b.pointDifference !== a.pointDifference) return b.pointDifference - a.pointDifference;
-      return b.gamesWon - a.gamesWon;
-    });
+    const sorted = buildPoolStandingsEntries(
+      toPoolStandingsParticipants(
+        registrationStore.registrations.filter((registration) =>
+          pool.players.some((player) => player.registrationId === registration.id)
+        ),
+        (registration) => getParticipantName(registration.id),
+      ),
+      groupMatches,
+    ).map((entry) => ({
+      ...entry,
+      name: entry.participantName,
+    }));
 
     result.set(pool.groupId, sorted);
   }

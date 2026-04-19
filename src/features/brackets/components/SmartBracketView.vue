@@ -4,12 +4,14 @@ import { useRoute, useRouter } from 'vue-router';
 import { useTournamentStore } from '@/stores/tournaments';
 import { useMatchStore } from '@/stores/matches';
 import { useRegistrationStore } from '@/stores/registrations';
-import { useLeaderboard } from '@/composables/useLeaderboard';
+import { useParticipantResolver } from '@/composables/useParticipantResolver';
 import RoundRobinStandings from './RoundRobinStandings.vue';
 import PoolDrawTab from './PoolDrawTab.vue';
 import StandingsTab from './StandingsTab.vue';
 import MatchesByRoundTab from './MatchesByRoundTab.vue';
 import { FORMAT_LABELS } from '@/types';
+import type { LeaderboardEntry, TiebreakerResolution } from '@/types/leaderboard';
+import { buildPoolStandingsEntries, toPoolStandingsParticipants } from '@/utils/poolStandings';
 
 const props = defineProps<{
   tournamentId: string;
@@ -22,17 +24,17 @@ const router = useRouter();
 const tournamentStore = useTournamentStore();
 const matchStore = useMatchStore();
 const registrationStore = useRegistrationStore();
-const { leaderboard, generate: generateSnapshot, stage: snapshotStage } = useLeaderboard();
+const { getParticipantName } = useParticipantResolver();
 
 const categories = computed(() => tournamentStore.categories);
 const category = computed(() =>
   tournamentStore.categories.find((c) => c.id === props.categoryId)
 );
 const format = computed(() => category.value?.format || 'single_elimination');
-const isPoolPhase = computed(
-  () => format.value === 'pool_to_elimination' && category.value?.poolPhase !== 'elimination'
-);
 const isPoolToElimFormat = computed(() => format.value === 'pool_to_elimination');
+const shouldShowSnapshot = computed(
+  () => isPoolToElimFormat.value && category.value?.poolPhase === 'elimination'
+);
 
 // Pool-only matches — filter by poolStageId if available, fallback to groupId check
 const poolMatches = computed(() => {
@@ -56,21 +58,83 @@ const bracketParticipantIds = computed(() => {
   return ids;
 });
 
-const snapshotEntries = computed(() => leaderboard.value?.entries ?? []);
-const snapshotTiebreakerResolutions = computed(() => leaderboard.value?.tiebreakerResolutions ?? []);
-const snapshotLoading = computed(
-  () => snapshotStage.value === 'fetching' || snapshotStage.value === 'calculating'
+const snapshotLoading = ref(false);
+const registrationsById = computed(() =>
+  new Map(
+    registrationStore.registrations
+      .filter((registration) => registration.categoryId === props.categoryId)
+      .map((registration) => [registration.id, registration])
+  )
 );
+
+const snapshotEntries = computed<LeaderboardEntry[]>(() => {
+  if (!shouldShowSnapshot.value) return [];
+
+  const categoryRegistrations = registrationStore.registrations.filter(
+    (registration) =>
+      registration.categoryId === props.categoryId &&
+      (registration.status === 'approved' || registration.status === 'checked_in')
+  );
+
+  const standings = buildPoolStandingsEntries(
+    toPoolStandingsParticipants(
+      categoryRegistrations,
+      (registration) => getParticipantName(registration.id),
+    ),
+    poolMatches.value,
+  );
+
+  return standings.map((entry, index) => {
+    const registration = registrationsById.value.get(entry.registrationId);
+    return {
+      rank: index + 1,
+      registrationId: entry.registrationId,
+      participantName: entry.participantName,
+      participantType: registration?.teamId || registration?.partnerPlayerId ? 'team' : 'player',
+      categoryId: props.categoryId,
+      categoryName: category.value?.name ?? 'Unknown',
+      matchesPlayed: entry.played,
+      matchesWon: entry.matchesWon,
+      matchesLost: entry.matchesLost,
+      matchPoints: entry.matchPoints,
+      gamesWon: entry.gamesWon,
+      gamesLost: entry.gamesLost,
+      gameDifference: entry.gameDifference,
+      pointsFor: entry.pointsFor,
+      pointsAgainst: entry.pointsAgainst,
+      pointDifference: entry.pointDifference,
+      winRate: entry.played > 0
+        ? Math.round((entry.matchesWon / entry.played) * 10000) / 100
+        : 0,
+      eliminated: false,
+    };
+  });
+});
+const snapshotTiebreakerResolutions = computed<TiebreakerResolution[]>(() => []);
 
 // Active outer tab
 const activeTab = ref<'draw' | 'standings' | 'matches'>('draw');
 
-// Trigger snapshot generation on phase transition to elimination
-watch(isPoolPhase, async (nowPool) => {
-  if (!nowPool && isPoolToElimFormat.value) {
-    await generateSnapshot(props.tournamentId, props.categoryId, { phaseScope: 'pool' });
+async function ensureTournamentLoaded(): Promise<void> {
+  if (tournamentStore.currentTournament?.id !== props.tournamentId || !category.value) {
+    await tournamentStore.fetchTournament(props.tournamentId);
   }
-});
+}
+
+async function loadCategoryData(): Promise<void> {
+  if (format.value === 'round_robin') return;
+
+  snapshotLoading.value = true;
+  try {
+    await Promise.all([
+      matchStore.fetchMatches(props.tournamentId, props.categoryId),
+      registrationStore.fetchRegistrations(props.tournamentId),
+      registrationStore.fetchPlayers(props.tournamentId),
+    ]);
+  } finally {
+    snapshotLoading.value = false;
+  }
+}
 
 // Navigate to new category without losing tournament context
 const selectedCategoryId = computed<string>({
@@ -86,25 +150,17 @@ const selectedCategoryId = computed<string>({
 });
 
 onMounted(async () => {
-  // Ensure tournament/categories are loaded
-  if (categories.value.length === 0 || !tournamentStore.currentTournament) {
-    await tournamentStore.fetchTournament(props.tournamentId);
-  }
-
-  if (!isPoolPhase.value && isPoolToElimFormat.value) {
-    // Elimination phase: generateSnapshot fetches matches + registrations + players internally.
-    // This populates matchStore.matches for poolMatches/bracketParticipantIds computeds.
-    // phaseScope:'pool' uses poolStageId/groupId filter — snapshot data is pool-only.
-    await generateSnapshot(props.tournamentId, props.categoryId, { phaseScope: 'pool' });
-  } else {
-    // Pool phase or non-pool format: fetch manually (generateSnapshot won't run).
-    await Promise.all([
-      matchStore.fetchMatches(props.tournamentId, props.categoryId),
-      registrationStore.fetchRegistrations(props.tournamentId),
-      registrationStore.fetchPlayers(props.tournamentId),
-    ]);
-  }
+  await ensureTournamentLoaded();
+  await loadCategoryData();
 });
+
+watch(
+  () => [props.tournamentId, props.categoryId] as const,
+  async () => {
+    await ensureTournamentLoaded();
+    await loadCategoryData();
+  }
+);
 </script>
 
 <template>

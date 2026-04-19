@@ -162,11 +162,17 @@ watch(() => props.tournamentId, async (newId) => {
 </script>
 
 <template>
-  <v-card variant="outlined" class="pub-panel">
+  <v-card
+    variant="outlined"
+    class="pub-panel"
+  >
     <v-card-title class="pub-panel__header">
       <div class="d-flex align-center justify-space-between w-100">
         <span>
-          <v-icon size="18" class="mr-1">mdi-web</v-icon>
+          <v-icon
+            size="18"
+            class="mr-1"
+          >mdi-web</v-icon>
           Public Page
         </span>
         <v-chip
@@ -175,7 +181,12 @@ watch(() => props.tournamentId, async (newId) => {
           color="success"
           variant="flat"
         >
-          <v-icon start size="10">mdi-circle</v-icon>
+          <v-icon
+            start
+            size="10"
+          >
+            mdi-circle
+          </v-icon>
           {{ lastPushedAt ? 'Live' : 'Not published' }}
         </v-chip>
       </div>
@@ -183,7 +194,10 @@ watch(() => props.tournamentId, async (newId) => {
 
     <v-card-text class="pa-3">
       <!-- Slug editor -->
-      <div v-if="editingSlug" class="pub-panel__slug-edit">
+      <div
+        v-if="editingSlug"
+        class="pub-panel__slug-edit"
+      >
         <span class="pub-panel__slug-prefix">{{ `${origin}/t/` }}</span>
         <input
           v-model="slugDraft"
@@ -191,12 +205,35 @@ watch(() => props.tournamentId, async (newId) => {
           autofocus
           @keydown.enter="saveSlug"
           @keydown.esc="editingSlug = false"
-        />
-        <v-btn size="x-small" color="primary" variant="flat" :loading="savingSlug" @click="saveSlug">Save</v-btn>
-        <v-btn size="x-small" variant="text" @click="editingSlug = false">Cancel</v-btn>
+        >
+        <v-btn
+          size="x-small"
+          color="primary"
+          variant="flat"
+          :loading="savingSlug"
+          @click="saveSlug"
+        >
+          Save
+        </v-btn>
+        <v-btn
+          size="x-small"
+          variant="text"
+          @click="editingSlug = false"
+        >
+          Cancel
+        </v-btn>
       </div>
-      <div v-else class="pub-panel__url">
-        <v-icon size="14" color="primary" class="mr-1">mdi-link</v-icon>
+      <div
+        v-else
+        class="pub-panel__url"
+      >
+        <v-icon
+          size="14"
+          color="primary"
+          class="mr-1"
+        >
+          mdi-link
+        </v-icon>
         <span class="pub-panel__url-text">{{ publicUrl ?? `${origin}/t/…` }}</span>
         <v-btn
           icon="mdi-pencil-outline"
@@ -206,7 +243,10 @@ watch(() => props.tournamentId, async (newId) => {
           @click="startEditSlug"
         />
       </div>
-      <div v-if="lastPushedAt" class="pub-panel__meta">
+      <div
+        v-if="lastPushedAt"
+        class="pub-panel__meta"
+      >
         Last updated: {{ lastPushedLabel }}
       </div>
 
@@ -246,7 +286,10 @@ watch(() => props.tournamentId, async (newId) => {
     <v-card-text class="pa-3">
       <div class="pub-panel__section-header">
         <span class="pub-panel__section-title">
-          <v-icon size="16" class="mr-1">mdi-calendar-clock</v-icon>
+          <v-icon
+            size="16"
+            class="mr-1"
+          >mdi-calendar-clock</v-icon>
           TBD Schedule
         </span>
         <v-btn
@@ -265,7 +308,10 @@ watch(() => props.tournamentId, async (newId) => {
 
       <!-- Add form -->
       <v-expand-transition>
-        <div v-if="showAddForm" class="pub-panel__add-form mt-2">
+        <div
+          v-if="showAddForm"
+          class="pub-panel__add-form mt-2"
+        >
           <v-select
             v-model="newEntry.categoryId"
             :items="[{ title: 'All Divisions', value: '__all__' }, ...categories.map(c => ({ title: c.name, value: c.id }))]"
@@ -306,17 +352,39 @@ watch(() => props.tournamentId, async (newId) => {
             class="mb-2"
           />
           <div class="d-flex gap-2">
-            <v-btn size="small" color="primary" variant="flat" @click="handleAddTbd">Save</v-btn>
-            <v-btn size="small" variant="text" @click="showAddForm = false">Cancel</v-btn>
+            <v-btn
+              size="small"
+              color="primary"
+              variant="flat"
+              @click="handleAddTbd"
+            >
+              Save
+            </v-btn>
+            <v-btn
+              size="small"
+              variant="text"
+              @click="showAddForm = false"
+            >
+              Cancel
+            </v-btn>
           </div>
         </div>
       </v-expand-transition>
 
       <!-- Existing entries -->
-      <div v-if="tbdLoading" class="pub-panel__tbd-loading">
-        <v-progress-linear indeterminate color="primary" />
+      <div
+        v-if="tbdLoading"
+        class="pub-panel__tbd-loading"
+      >
+        <v-progress-linear
+          indeterminate
+          color="primary"
+        />
       </div>
-      <div v-else-if="tbdEntries.length === 0 && !showAddForm" class="pub-panel__tbd-empty">
+      <div
+        v-else-if="tbdEntries.length === 0 && !showAddForm"
+        class="pub-panel__tbd-empty"
+      >
         No TBD entries yet
       </div>
       <div
@@ -330,7 +398,10 @@ watch(() => props.tournamentId, async (newId) => {
           </span>
           <span class="pub-panel__tbd-round">{{ entry.roundLabel }}</span>
           <span class="pub-panel__tbd-time">{{ entry.startTime }} – {{ entry.endTime }}</span>
-          <span v-if="entry.court" class="pub-panel__tbd-court">{{ entry.court }}</span>
+          <span
+            v-if="entry.court"
+            class="pub-panel__tbd-court"
+          >{{ entry.court }}</span>
         </div>
         <v-btn
           icon="mdi-delete-outline"
@@ -344,18 +415,39 @@ watch(() => props.tournamentId, async (newId) => {
   </v-card>
 
   <!-- QR Dialog -->
-  <v-dialog v-model="showQrDialog" max-width="320">
+  <v-dialog
+    v-model="showQrDialog"
+    max-width="320"
+  >
     <v-card>
-      <v-card-title class="text-h6 pa-4">Share Public Page</v-card-title>
+      <v-card-title class="text-h6 pa-4">
+        Share Public Page
+      </v-card-title>
       <v-card-text class="text-center pa-4">
-        <img v-if="qrDataUrl" :src="qrDataUrl" alt="QR Code" class="pub-panel__qr-img" />
-        <div class="pub-panel__qr-url mt-2">{{ publicUrl }}</div>
+        <img
+          v-if="qrDataUrl"
+          :src="qrDataUrl"
+          alt="QR Code"
+          class="pub-panel__qr-img"
+        >
+        <div class="pub-panel__qr-url mt-2">
+          {{ publicUrl }}
+        </div>
       </v-card-text>
       <v-card-actions class="pa-3">
-        <v-btn color="primary" variant="flat" prepend-icon="mdi-download" @click="downloadQr">
+        <v-btn
+          color="primary"
+          variant="flat"
+          prepend-icon="mdi-download"
+          @click="downloadQr"
+        >
           Download QR
         </v-btn>
-        <v-btn variant="outlined" prepend-icon="mdi-content-copy" @click="copyLink">
+        <v-btn
+          variant="outlined"
+          prepend-icon="mdi-content-copy"
+          @click="copyLink"
+        >
           Copy Link
         </v-btn>
       </v-card-actions>

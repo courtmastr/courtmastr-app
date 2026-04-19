@@ -15,9 +15,13 @@ import type {
   Registration,
   Player,
 } from '@/types';
-import type { ResolvedMatch } from '@/types/leaderboard';
-import { aggregateStats, sortWithBWFTiebreaker } from '@/composables/useLeaderboard';
 import { logger } from '@/utils/logger';
+import {
+  buildPoolStandingsEntries,
+  type PoolStandingsEntry,
+  type PoolStandingsMatch,
+  toPoolStandingsParticipants,
+} from '@/utils/poolStandings';
 
 interface StoredStage {
   id: number | string;
@@ -80,19 +84,13 @@ export interface PoolMapping {
   rank3PlusLevelId: string;
 }
 
-export interface PoolLevelParticipant {
-  registrationId: string;
-  participantName: string;
+export interface PoolLevelParticipant extends PoolStandingsEntry {
   poolId: string;
   poolLabel: string;
   poolRank: number;
   globalRank: number;
   seed: number | null;
-  matchesWon: number;
-  matchPoints: number;
   winRate: number;
-  pointDifference: number;
-  pointsFor: number;
 }
 
 export interface PoolLevelPreview {
@@ -313,12 +311,11 @@ function isCompletedPoolMatch(match: StoredMatch, score: StoredScore | undefined
 }
 
 function buildResolvedPoolMatches(
-  categoryId: string,
   matches: StoredMatch[],
   scoresByMatchId: Map<string, StoredScore>,
   participantById: Map<number, string>
-): { matches: ResolvedMatch[]; pendingMatches: number } {
-  const resolved: ResolvedMatch[] = [];
+): { matches: PoolStandingsMatch[]; pendingMatches: number } {
+  const resolved: PoolStandingsMatch[] = [];
   let pendingMatches = 0;
 
   for (const match of matches) {
@@ -334,16 +331,21 @@ function buildResolvedPoolMatches(
         ? Number(match.opponent2.id)
         : null;
 
-    if (p1ParticipantId === null || p2ParticipantId === null) continue;
-
     if (!completed) {
-      pendingMatches += 1;
+      if (p1ParticipantId !== null && p2ParticipantId !== null) {
+        pendingMatches += 1;
+      }
       continue;
     }
 
-    const p1RegistrationId = participantById.get(p1ParticipantId);
-    const p2RegistrationId = participantById.get(p2ParticipantId);
-    if (!p1RegistrationId || !p2RegistrationId) continue;
+    const p1RegistrationId =
+      p1ParticipantId !== null ? participantById.get(p1ParticipantId) : undefined;
+    const p2RegistrationId =
+      p2ParticipantId !== null ? participantById.get(p2ParticipantId) : undefined;
+
+    if ((p1ParticipantId !== null && !p1RegistrationId) || (p2ParticipantId !== null && !p2RegistrationId)) {
+      continue;
+    }
 
     const winnerId =
       score?.winnerId ||
@@ -356,21 +358,17 @@ function buildResolvedPoolMatches(
     if (!winnerId) continue;
 
     resolved.push({
-      id: String(match.id),
-      categoryId,
       participant1Id: p1RegistrationId,
       participant2Id: p2RegistrationId,
       winnerId,
-      scores: (score?.scores || []).map((game, index) => ({
-        gameNumber: game.gameNumber || index + 1,
+      status:
+        score?.status === 'walkover' || p1ParticipantId === null || p2ParticipantId === null
+          ? 'walkover'
+          : 'completed',
+      scores: (score?.scores || []).map((game) => ({
         score1: game.score1,
         score2: game.score2,
-        winnerId: game.winnerId,
-        isComplete: game.isComplete ?? true,
       })),
-      round: 0,
-      bracket: 'winners',
-      completedAt: undefined,
     });
   }
 
@@ -378,17 +376,26 @@ function buildResolvedPoolMatches(
 }
 
 function rankPools(
-  category: Category,
   registrations: Registration[],
   players: Player[],
   pools: PoolSummary[],
   participantPoolByRegistrationId: Map<string, string>,
-  resolvedPoolMatches: ResolvedMatch[],
+  resolvedPoolMatches: PoolStandingsMatch[],
   poolLabelById: Map<string, string>
 ): PoolLevelParticipant[] {
-  const categoryMap = new Map<string, Category>([[category.id, category]]);
   const playersById = new Map(players.map((player) => [player.id, player]));
+  const registrationsById = new Map(registrations.map((registration) => [registration.id, registration]));
   const participants: PoolLevelParticipant[] = [];
+  const rankedCategoryParticipants = buildPoolStandingsEntries(
+    toPoolStandingsParticipants(
+      registrations.filter((registration) => participantPoolByRegistrationId.has(registration.id)),
+      (registration) => resolveParticipantName(registration, playersById),
+    ),
+    resolvedPoolMatches,
+  );
+  const globalRankByRegistrationId = new Map<string, number>(
+    rankedCategoryParticipants.map((entry, index) => [entry.registrationId, index + 1]),
+  );
 
   for (const pool of pools) {
     const registrationIds = registrations
@@ -398,48 +405,36 @@ function rankPools(
     const poolRegistrations = registrations.filter((registration) => registrationIds.includes(registration.id));
     const poolMatches = resolvedPoolMatches.filter(
       (match) =>
-        registrationIds.includes(match.participant1Id) &&
-        registrationIds.includes(match.participant2Id)
+        (!match.participant1Id || registrationIds.includes(match.participant1Id)) &&
+        (!match.participant2Id || registrationIds.includes(match.participant2Id))
     );
 
-    const stats = aggregateStats(poolRegistrations, poolMatches, categoryMap, players);
-    const entries = Array.from(stats.values());
-    const sorted = sortWithBWFTiebreaker(entries, poolMatches).sorted;
+    const sorted = buildPoolStandingsEntries(
+      toPoolStandingsParticipants(
+        poolRegistrations,
+        (registration) => resolveParticipantName(registration, playersById),
+      ),
+      poolMatches,
+    );
 
     sorted.forEach((entry, index) => {
-      const registration = poolRegistrations.find((item) => item.id === entry.registrationId);
+      const registration = registrationsById.get(entry.registrationId);
       participants.push({
+        ...entry,
         registrationId: entry.registrationId,
-        participantName: registration ? resolveParticipantName(registration, playersById) : entry.participantName,
         poolId: pool.id,
         poolLabel: poolLabelById.get(pool.id) || pool.label,
         poolRank: index + 1,
-        globalRank: 0,
+        globalRank: globalRankByRegistrationId.get(entry.registrationId) ?? 0,
         seed: registration?.seed ?? null,
-        matchesWon: entry.matchesWon,
-        matchPoints: entry.matchPoints,
-        winRate: entry.winRate,
-        pointDifference: entry.pointDifference,
-        pointsFor: entry.pointsFor,
+        winRate: entry.played > 0
+          ? Math.round((entry.matchesWon / entry.played) * 10000) / 100
+          : 0,
       });
     });
   }
 
-  const globallySorted = participants
-    .slice()
-    .sort((a, b) => {
-      if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
-      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-      if (b.pointDifference !== a.pointDifference) return b.pointDifference - a.pointDifference;
-      if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
-      return a.participantName.localeCompare(b.participantName);
-    });
-
-  globallySorted.forEach((participant, index) => {
-    participant.globalRank = index + 1;
-  });
-
-  return participants.sort((a, b) => a.globalRank - b.globalRank);
+  return participants.sort((a, b) => a.globalRank - b.globalRank || a.poolRank - b.poolRank);
 }
 
 function recommendMode(pools: PoolSummary[]): { mode: LevelingMode; reason: string } {
@@ -577,7 +572,6 @@ export function usePoolLeveling() {
       );
 
       const { matches: resolvedMatches, pendingMatches } = buildResolvedPoolMatches(
-        poolData.category.id,
         poolData.matches,
         poolData.scoresByMatchId,
         participantById
@@ -591,7 +585,6 @@ export function usePoolLeveling() {
       });
 
       const rankedParticipants = rankPools(
-        poolData.category,
         poolData.registrations,
         poolData.players,
         pools,

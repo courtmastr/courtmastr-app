@@ -23,7 +23,6 @@ import {
   createSeedingArrayWithExistingOrder,
   resolvePoolStage,
   isCompletedMatch,
-  extractPoolQualifiers,
   createStandardStage,
   createPoolStage,
   createStageWithStats,
@@ -227,13 +226,6 @@ export async function createEliminationFromPool(
   const poolMatches = asArray(
     await storage.select<StoredMatch>('match', { stage_id: poolStageId })
   );
-  const poolRounds = asArray(
-    await storage.select('round', { stage_id: poolStageId }) as any
-  );
-  const poolGroups = asArray(
-    await storage.select('group', { stage_id: poolStageId }) as any
-  );
-
   if (participants.length < 2) throw new Error('Need at least 2 participants to generate elimination');
   if (poolMatches.length === 0) throw new Error('No pool matches found. Generate pool play first.');
 
@@ -261,37 +253,19 @@ export async function createEliminationFromPool(
     );
   }
 
-  // Resolve qualifiers
-  let qualifierParticipantIds: (number | string)[];
-  let qualifierRegistrationIds: string[];
-  let resolvedGroupCount: number;
-  let resolvedQualifiersPerGroup: number;
-
-  if (options.precomputedQualifierRegistrationIds?.length) {
-    const participantByRegistrationId = new Map<string, string | number>(
-      participants.map((p) => [p.name, p.id])
-    );
-    qualifierParticipantIds = options.precomputedQualifierRegistrationIds
-      .map((rid) => participantByRegistrationId.get(rid))
-      .filter((id): id is string | number => id !== undefined);
-    qualifierRegistrationIds = options.precomputedQualifierRegistrationIds;
-    resolvedGroupCount = 0;
-    resolvedQualifiersPerGroup = 0;
-  } else {
-    const qualifiers = extractPoolQualifiers({
-      participants,
-      matches: poolMatches,
-      rounds: poolRounds,
-      groups: poolGroups,
-      matchScores: matchScoresMap,
-      requestedQualifiersPerGroup:
-        options.qualifiersPerGroup ?? category.poolQualifiersPerGroup ?? 2,
-    });
-    qualifierParticipantIds = qualifiers.participantIds;
-    qualifierRegistrationIds = qualifiers.registrationIds;
-    resolvedGroupCount = qualifiers.groupCount;
-    resolvedQualifiersPerGroup = qualifiers.qualifiersPerGroup;
+  if (!options.precomputedQualifierRegistrationIds?.length) {
+    throw new Error('Pool qualifier order is required to generate elimination stage.');
   }
+
+  const participantByRegistrationId = new Map<string, string | number>(
+    participants.map((participant) => [participant.name, participant.id])
+  );
+  const qualifierParticipantIds = options.precomputedQualifierRegistrationIds
+    .map((registrationId) => participantByRegistrationId.get(registrationId))
+    .filter((participantId): participantId is string | number => participantId !== undefined);
+  const qualifierRegistrationIds = options.precomputedQualifierRegistrationIds;
+  const resolvedGroupCount = 0;
+  const resolvedQualifiersPerGroup = 0;
 
   if (qualifierParticipantIds.length < 2) {
     throw new Error('Not enough qualifiers to generate elimination stage.');

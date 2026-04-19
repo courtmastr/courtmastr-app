@@ -2388,10 +2388,15 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
     </v-dialog>
 
     <!-- Reassign Player Slot Dialog -->
-    <v-dialog v-model="showReassignDialog" max-width="480">
+    <v-dialog
+      v-model="showReassignDialog"
+      max-width="480"
+    >
       <v-card v-if="reassignTarget">
         <v-card-title>
-          <v-icon start>mdi-account-switch</v-icon>
+          <v-icon start>
+            mdi-account-switch
+          </v-icon>
           Reassign {{ reassignTarget.slot === 'player' ? 'Player 1' : 'Player 2' }}
         </v-card-title>
         <v-card-text>
@@ -2406,8 +2411,19 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showReassignDialog = false">Cancel</v-btn>
-          <v-btn color="primary" :disabled="!reassignSelectedPlayerId" @click="saveReassign">Save</v-btn>
+          <v-btn
+            variant="text"
+            @click="showReassignDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            :disabled="!reassignSelectedPlayerId"
+            @click="saveReassign"
+          >
+            Save
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -2419,7 +2435,9 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
     >
       <v-card v-if="editingPlayerInline">
         <v-card-title>
-          <v-icon start>mdi-account-edit</v-icon>
+          <v-icon start>
+            mdi-account-edit
+          </v-icon>
           Edit Player Name
         </v-card-title>
         <v-card-text>
@@ -2443,8 +2461,18 @@ const { advanceState, getNextState, transitionTo } = useTournamentStateAdvance(t
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showInlinePlayerEditDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="saveInlinePlayerEdit">Save</v-btn>
+          <v-btn
+            variant="text"
+            @click="showInlinePlayerEditDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="saveInlinePlayerEdit"
+          >
+            Save
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

@@ -44,8 +44,7 @@ export interface BracketOptions {
   qualifiersPerGroup?: number;
   teamsPerPool?: number;
   poolSeedingMethod?: PoolSeedingMethod;
-  /** Pre-sorted registration IDs from the Advance to Elimination dialog. When provided,
-   *  extractPoolQualifiers is skipped and these IDs are used directly in order. */
+  /** Pre-sorted registration IDs from the Advance to Elimination dialog. */
   precomputedQualifierRegistrationIds?: string[];
   /** Override the bracket type for pool→elimination. Defaults to 'single_elimination'. */
   eliminationFormat?: 'single_elimination' | 'double_elimination';
@@ -105,18 +104,6 @@ interface StoredMatchScore {
   status?: string;
   winnerId?: string;
   scores?: Array<{ score1: number; score2: number }>;
-}
-
-interface PoolStanding {
-  participantId: number;
-  registrationId: string;
-  groupId: string;
-  matchesPlayed: number;
-  matchesWon: number;
-  matchesLost: number;
-  matchPoints: number;
-  pointsFor: number;
-  pointsAgainst: number;
 }
 
 // ============================================
@@ -358,13 +345,6 @@ export function useBracketGenerator() {
       const poolMatches = asArray(
         await storage.select<StoredMatch>('match', { stage_id: poolStageId })
       );
-      const poolRounds = asArray(
-        await storage.select<StoredRound>('round', { stage_id: poolStageId })
-      );
-      const poolGroups = asArray(
-        await storage.select<StoredGroup>('group', { stage_id: poolStageId })
-      );
-
       if (participants.length < 2) {
         throw new Error('Need at least 2 participants to generate elimination');
       }
@@ -397,41 +377,19 @@ export function useBracketGenerator() {
 
       progress.value = 45;
 
-      // Resolve who advances: either from pre-computed dialog selection or legacy per-group logic.
-      let qualifierParticipantIds: number[];
-      let qualifierRegistrationIds: string[];
-      let resolvedGroupCount: number;
-      let resolvedQualifiersPerGroup: number;
-
-      if (options.precomputedQualifierRegistrationIds?.length) {
-        // New path: dialog pre-computed the ordered list of advancing registration IDs.
-        const participantByRegistrationId = new Map<string, number>(
-          participants.map((p) => [p.name, p.id])
-        );
-        qualifierParticipantIds = options.precomputedQualifierRegistrationIds
-          .map((rid) => participantByRegistrationId.get(rid))
-          .filter((id): id is number => id !== undefined);
-        qualifierRegistrationIds = options.precomputedQualifierRegistrationIds;
-        resolvedGroupCount = 0; // not applicable for global-rank modes
-        resolvedQualifiersPerGroup = 0;
-      } else {
-        // Legacy path: top N per pool.
-        const qualifiers = extractPoolQualifiers({
-          participants,
-          matches: poolMatches,
-          rounds: poolRounds,
-          groups: poolGroups,
-          matchScores: matchScoresMap,
-          requestedQualifiersPerGroup:
-            options.qualifiersPerGroup ??
-            category.poolQualifiersPerGroup ??
-            2,
-        });
-        qualifierParticipantIds = qualifiers.participantIds;
-        qualifierRegistrationIds = qualifiers.registrationIds;
-        resolvedGroupCount = qualifiers.groupCount;
-        resolvedQualifiersPerGroup = qualifiers.qualifiersPerGroup;
+      if (!options.precomputedQualifierRegistrationIds?.length) {
+        throw new Error('Pool qualifier order is required to generate elimination stage.');
       }
+
+      const participantByRegistrationId = new Map<string, number>(
+        participants.map((participant) => [participant.name, participant.id])
+      );
+      const qualifierParticipantIds = options.precomputedQualifierRegistrationIds
+        .map((registrationId) => participantByRegistrationId.get(registrationId))
+        .filter((participantId): participantId is number => participantId !== undefined);
+      const qualifierRegistrationIds = options.precomputedQualifierRegistrationIds;
+      const resolvedGroupCount = 0;
+      const resolvedQualifiersPerGroup = 0;
 
       if (qualifierParticipantIds.length < 2) {
         throw new Error('Not enough qualifiers to generate elimination stage.');
@@ -884,185 +842,6 @@ function createSeedingArrayWithExistingOrder(
   }
 
   return seeding;
-}
-
-function extractPoolQualifiers(params: {
-  participants: StoredParticipant[];
-  matches: StoredMatch[];
-  rounds: StoredRound[];
-  groups: StoredGroup[];
-  matchScores: Map<string, StoredMatchScore>;
-  requestedQualifiersPerGroup: number;
-}): { participantIds: number[]; registrationIds: string[]; groupCount: number; qualifiersPerGroup: number } {
-  const roundToGroupMap = new Map<string, string>();
-  for (const round of params.rounds) {
-    if (round.group_id !== undefined && round.group_id !== null) {
-      roundToGroupMap.set(String(round.id), String(round.group_id));
-    }
-  }
-
-  const participantToGroupMap = new Map<number, string>();
-  for (const match of params.matches) {
-    const groupId = match.group_id !== undefined && match.group_id !== null
-      ? String(match.group_id)
-      : roundToGroupMap.get(String(match.round_id || '')) || 'group-1';
-
-    const p1Id = toNumberId(match.opponent1?.id ?? null);
-    const p2Id = toNumberId(match.opponent2?.id ?? null);
-    if (p1Id !== null && !participantToGroupMap.has(p1Id)) {
-      participantToGroupMap.set(p1Id, groupId);
-    }
-    if (p2Id !== null && !participantToGroupMap.has(p2Id)) {
-      participantToGroupMap.set(p2Id, groupId);
-    }
-  }
-
-  const registrationByParticipantId = new Map<number, string>(
-    params.participants.map((participant) => [participant.id, participant.name])
-  );
-  const participantByRegistrationId = new Map<string, number>(
-    params.participants.map((participant) => [participant.name, participant.id])
-  );
-
-  const standings = new Map<number, PoolStanding>();
-  for (const participant of params.participants) {
-    const groupId = participantToGroupMap.get(participant.id) || 'group-1';
-    standings.set(participant.id, {
-      participantId: participant.id,
-      registrationId: participant.name,
-      groupId,
-      matchesPlayed: 0,
-      matchesWon: 0,
-      matchesLost: 0,
-      matchPoints: 0,
-      pointsFor: 0,
-      pointsAgainst: 0,
-    });
-  }
-
-  for (const match of params.matches) {
-    const p1Id = toNumberId(match.opponent1?.id ?? null);
-    const p2Id = toNumberId(match.opponent2?.id ?? null);
-    if (p1Id === null || p2Id === null) continue;
-
-    const p1Standing = standings.get(p1Id);
-    const p2Standing = standings.get(p2Id);
-    if (!p1Standing || !p2Standing) continue;
-
-    const score = params.matchScores.get(String(match.id));
-
-    const winnerRegistrationId = score?.winnerId;
-    const winnerParticipantId =
-      winnerRegistrationId
-        ? participantByRegistrationId.get(winnerRegistrationId)
-        : match.opponent1?.result === 'win'
-          ? p1Id
-          : match.opponent2?.result === 'win'
-            ? p2Id
-            : undefined;
-
-    p1Standing.matchesPlayed += 1;
-    p2Standing.matchesPlayed += 1;
-
-    for (const game of score?.scores || []) {
-      p1Standing.pointsFor += game.score1;
-      p1Standing.pointsAgainst += game.score2;
-      p2Standing.pointsFor += game.score2;
-      p2Standing.pointsAgainst += game.score1;
-    }
-
-    if (winnerParticipantId === p1Id) {
-      p1Standing.matchesWon += 1;
-      p1Standing.matchPoints += 2;
-      p2Standing.matchesLost += 1;
-      p2Standing.matchPoints += 1;
-    } else if (winnerParticipantId === p2Id) {
-      p2Standing.matchesWon += 1;
-      p2Standing.matchPoints += 2;
-      p1Standing.matchesLost += 1;
-      p1Standing.matchPoints += 1;
-    }
-  }
-
-  // Grant walkover wins to players whose opponent was a BYE (null opponent).
-  // The main loop above already skips these via the (p1Id === null || p2Id === null) guard.
-  for (const match of params.matches) {
-    const p1Id = toNumberId(match.opponent1?.id ?? null);
-    const p2Id = toNumberId(match.opponent2?.id ?? null);
-    if (p1Id !== null && p2Id !== null) continue; // real match — already handled above
-    if (p1Id === null && p2Id === null) continue;  // no players (shouldn't happen)
-
-    const realPlayerId = p1Id ?? p2Id;
-    if (realPlayerId === null) continue;
-
-    const standing = standings.get(realPlayerId);
-    if (!standing) continue;
-
-    standing.matchesPlayed += 1;
-    standing.matchesWon += 1;
-    standing.matchPoints += 2; // Win = 2 pts; WO scored 0-0, no pointsFor/Against added
-  }
-
-  const standingsByGroup = new Map<string, PoolStanding[]>();
-  for (const standing of standings.values()) {
-    if (!standingsByGroup.has(standing.groupId)) {
-      standingsByGroup.set(standing.groupId, []);
-    }
-    standingsByGroup.get(standing.groupId)?.push(standing);
-  }
-
-  for (const groupStandings of standingsByGroup.values()) {
-    groupStandings.sort((a, b) => {
-      if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
-      if (b.matchesWon !== a.matchesWon) return b.matchesWon - a.matchesWon;
-
-      const aPointDiff = a.pointsFor - a.pointsAgainst;
-      const bPointDiff = b.pointsFor - b.pointsAgainst;
-      if (bPointDiff !== aPointDiff) return bPointDiff - aPointDiff;
-      if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
-
-      return a.registrationId.localeCompare(b.registrationId);
-    });
-  }
-
-  const minGroupSize = Math.min(...Array.from(standingsByGroup.values()).map((value) => value.length));
-  const qualifiersPerGroup = Math.max(
-    1,
-    Math.min(
-      Math.floor(params.requestedQualifiersPerGroup),
-      Number.isFinite(minGroupSize) ? minGroupSize : 1
-    )
-  );
-
-  const groupOrder = params.groups
-    .slice()
-    .sort((a, b) => Number(a.number || 0) - Number(b.number || 0))
-    .map((group) => String(group.id));
-
-  if (groupOrder.length === 0) {
-    groupOrder.push(...Array.from(standingsByGroup.keys()).sort());
-  }
-
-  const qualifiedParticipantIds: number[] = [];
-  for (let rankIndex = 0; rankIndex < qualifiersPerGroup; rankIndex++) {
-    for (const groupId of groupOrder) {
-      const qualifier = standingsByGroup.get(groupId)?.[rankIndex];
-      if (qualifier) {
-        qualifiedParticipantIds.push(qualifier.participantId);
-      }
-    }
-  }
-
-  const qualifiedRegistrationIds = qualifiedParticipantIds
-    .map((participantId) => registrationByParticipantId.get(participantId))
-    .filter((value): value is string => typeof value === 'string');
-
-  return {
-    participantIds: qualifiedParticipantIds,
-    registrationIds: qualifiedRegistrationIds,
-    groupCount: standingsByGroup.size,
-    qualifiersPerGroup,
-  };
 }
 
 function convertBracketsStatus(status: number): MatchStatus {

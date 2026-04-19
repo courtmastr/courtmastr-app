@@ -23,7 +23,12 @@
 
 import { test, expect } from './fixtures/auth-fixtures';
 import type { Page } from '@playwright/test';
-import { seedPoolCutScenario, seedPoolCutGenerateScenario, type PoolCutScenario } from './utils/pool-cut-scenarios';
+import {
+  readQualifiedRegistrationIds,
+  seedPoolCutScenario,
+  seedPoolCutGenerateScenario,
+  type PoolCutScenario,
+} from './utils/pool-cut-scenarios';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -80,6 +85,16 @@ test.describe('Pool Cut — Dialog', () => {
   test('clicking "Advance to Elimination" opens the dialog', async ({ page }) => {
     const dialog = await openDialog(page, scenario.tournamentId);
     await expect(dialog.getByText(/Advance to Elimination/)).toBeVisible();
+  });
+
+  test('default global ranking matches the smart-bracket standings order', async ({ page }) => {
+    const dialog = await openDialog(page, scenario.tournamentId);
+    const rows = dialog.locator('tbody tr');
+
+    await expect(rows.nth(0).locator('td').nth(1)).toContainText('Alice');
+    await expect(rows.nth(1).locator('td').nth(1)).toContainText('Eva');
+    await expect(rows.nth(2).locator('td').nth(1)).toContainText('Ivan');
+    await expect(rows.nth(3).locator('td').nth(1)).toContainText('Ben');
   });
 
   test('Cancel button closes the dialog without generating a bracket', async ({ page }) => {
@@ -229,6 +244,20 @@ test.describe('Pool Cut — Generate Bracket', () => {
 
     // Dialog auto-closes
     await expect(dialog).not.toBeVisible({ timeout: 10000 });
+
+    await expect.poll(
+      () => readQualifiedRegistrationIds(genScenario.tournamentId, genScenario.categoryId),
+      { timeout: 15000 }
+    ).toEqual([
+      'reg-01',
+      'reg-05',
+      'reg-09',
+      'reg-02',
+      'reg-06',
+      'reg-10',
+      'reg-11',
+      'reg-03',
+    ]);
   });
 
   test('banner disappears after bracket is generated (eliminationStageId now set)', async ({ page }) => {

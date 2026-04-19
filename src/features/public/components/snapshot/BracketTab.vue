@@ -5,7 +5,9 @@ interface Props {
   bracket?: BracketSnapshot;
 }
 
-defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  bracket: undefined,
+});
 
 function matchColor(match: MatchSnapshot): string {
   if (match.status === 'completed') return '#4caf50';
@@ -16,34 +18,66 @@ function matchColor(match: MatchSnapshot): string {
 
 <template>
   <div class="bracket-tab">
-    <div v-if="!bracket || bracket.rounds.length === 0" class="bracket-tab__empty">
-      <v-icon size="32" color="grey">mdi-tournament</v-icon>
+    <div
+      v-if="!props.bracket"
+      class="bracket-tab__empty"
+    >
+      <v-icon
+        size="32"
+        color="grey"
+      >
+        mdi-tournament
+      </v-icon>
       <p>Bracket not available yet</p>
     </div>
 
-    <div v-else class="bracket-rounds">
+    <div
+      v-else
+      class="bracket-rounds"
+    >
       <div
-        v-for="round in bracket.rounds"
+        v-for="round in props.bracket.rounds"
         :key="round.label"
         class="bracket-round"
       >
-        <div class="bracket-round__label">{{ round.label }}</div>
+        <div class="bracket-round__label">
+          {{ round.label }}
+        </div>
         <div
           v-for="match in round.matches"
           :key="match.id"
           class="bracket-match"
         >
-          <div class="bracket-match__accent" :style="{ background: matchColor(match) }" />
+          <div
+            class="bracket-match__accent"
+            :style="{ background: matchColor(match) }"
+          />
           <div class="bracket-match__body">
-            <div class="bracket-match__player" :class="{ 'bracket-match__player--winner': match.winnerId === match.player1 }">
+            <div
+              class="bracket-match__player"
+              :class="{ 'bracket-match__player--winner': match.winnerId === match.player1 }"
+            >
               {{ match.player1 }}
             </div>
             <div class="bracket-match__divider" />
-            <div class="bracket-match__player" :class="{ 'bracket-match__player--winner': match.winnerId === match.player2 }">
+            <div
+              class="bracket-match__player"
+              :class="{ 'bracket-match__player--winner': match.winnerId === match.player2 }"
+            >
               {{ match.player2 }}
             </div>
-            <div v-if="match.time" class="bracket-match__time">{{ match.time }}</div>
-            <div v-if="match.score" class="bracket-match__score">{{ match.score }}</div>
+            <div
+              v-if="match.time"
+              class="bracket-match__time"
+            >
+              {{ match.time }}
+            </div>
+            <div
+              v-if="match.score"
+              class="bracket-match__score"
+            >
+              {{ match.score }}
+            </div>
           </div>
         </div>
       </div>

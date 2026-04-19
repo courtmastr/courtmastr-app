@@ -154,7 +154,9 @@ describe('useBracketGenerator.generateEliminationFromPool', () => {
     const generator = useBracketGenerator();
 
     await expect(
-      generator.generateEliminationFromPool('t-1', 'cat-1')
+      generator.generateEliminationFromPool('t-1', 'cat-1', {
+        precomputedQualifierRegistrationIds: ['reg-1', 'reg-2'],
+      })
     ).rejects.toThrow(/still pending/i);
     expect(mockDeps.managerCreateStage).not.toHaveBeenCalled();
     expect(mockDeps.setDoc).not.toHaveBeenCalled();
@@ -213,7 +215,9 @@ describe('useBracketGenerator.generateEliminationFromPool', () => {
     });
 
     const generator = useBracketGenerator();
-    const result = await generator.generateEliminationFromPool('t-1', 'cat-1');
+    const result = await generator.generateEliminationFromPool('t-1', 'cat-1', {
+      precomputedQualifierRegistrationIds: ['reg-1', 'reg-2'],
+    });
 
     expect(mockDeps.managerCreateStage).toHaveBeenCalledWith(
       expect.objectContaining({

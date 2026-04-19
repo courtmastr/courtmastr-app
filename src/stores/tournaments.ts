@@ -1099,20 +1099,24 @@ export const useTournamentStore = defineStore('tournaments', () => {
     options: {
       consolationFinal?: boolean;
       /** Pre-sorted advancing registration IDs from AdvanceToEliminationDialog. */
-      advancingRegistrationIds?: string[];
+      advancingRegistrationIds: string[];
       /** Bracket format chosen by the director. */
       eliminationFormat?: 'single_elimination' | 'double_elimination';
       /** Number of qualifiers (for audit/display). */
       qualifierCount?: number;
       /** Cut mode used (for audit/display). */
       qualifierCutMode?: QualifierCutMode;
-    } = {}
+    }
   ): Promise<{ success: boolean; matchCount: number }> {
     const bracketGen = useBracketGenerator();
     loading.value = true;
     error.value = null;
 
     try {
+      if (options.advancingRegistrationIds.length < 2) {
+        throw new Error('Pool qualifier order is required to generate elimination stage.');
+      }
+
       let result: { success: boolean; matchCount: number };
       if (USE_CLOUD_BRACKETS) {
         const fn = httpsCallable<object, { success: boolean; matchCount: number }>(functions, 'generateEliminationFromPool');
