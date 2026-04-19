@@ -4,6 +4,7 @@ const collectionMock = vi.fn((_db: unknown, path: string) => ({ path }));
 const docMock = vi.fn((_db: unknown, ...segments: string[]) => ({ path: segments.join('/') }));
 const getDocMock = vi.fn();
 const getDocsMock = vi.fn();
+const getDocsFromServerMock = vi.fn();
 const updateDocMock = vi.fn();
 const queryMock = vi.fn((target: { path: string }, ...constraints: unknown[]) => ({
   path: target.path,
@@ -30,6 +31,7 @@ vi.mock('@/services/firebase', () => ({
   doc: docMock,
   getDoc: getDocMock,
   getDocs: getDocsMock,
+  getDocsFromServer: getDocsFromServerMock,
   updateDoc: updateDocMock,
   query: queryMock,
   where: whereMock,
@@ -211,6 +213,9 @@ describe('usePublishSnapshot standings', () => {
     };
 
     getDocsMock.mockImplementation(async (ref: { path: string }) => {
+      return createSnapshot(docsByPath[ref.path] ?? []);
+    });
+    getDocsFromServerMock.mockImplementation(async (ref: { path: string }) => {
       return createSnapshot(docsByPath[ref.path] ?? []);
     });
 
