@@ -6,13 +6,13 @@ Updated: 2026-04-19 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-19 01:51 CDT
-- Release ID: `v2.18.0+deploy.2`
-- Package version: `2.18.0`
+- Date: 2026-04-19 02:58 CDT
+- Release ID: `v2.18.1`
+- Package version: `2.18.1`
 - Deployed branch: `master`
-- Deployed commit: `fc2ebbc` (`Fix pool standings and public bracket routing (#90)`)
+- Deployed commit: `baaa629` (`Fix public snapshot standings match points (#92)`)
 - Release notes:
-  - [docs/releases/v2.18.0+deploy.2.md](docs/releases/v2.18.0+deploy.2.md)
+  - [docs/releases/v2.18.1.md](docs/releases/v2.18.1.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-19 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-19-06-48-38.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-19-07-56-43.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-19 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.18.0+deploy.2`
+  - Date: 2026-04-19 01:51 CDT
+  - Package version: `2.18.0`
+  - Deployed commit: `fc2ebbc`
+  - Release notes:
+    - [docs/releases/v2.18.0+deploy.2.md](docs/releases/v2.18.0+deploy.2.md)
 - `v2.18.0`
   - Date: 2026-04-18 10:37 CDT
   - Package version: `2.18.0`
@@ -257,7 +263,7 @@ Updated: 2026-04-19 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-19 01:51 CDT
-- Commit: `fc2ebbc96ee516584e6c6cb96e2db17322481d43`
-- Message: `Fix pool standings and public bracket routing (#90)`
+- Date: 2026-04-19 02:58 CDT
+- Commit: `baaa6294e4cc917555781a4435a69237fcea3ebc`
+- Message: `Fix public snapshot standings match points (#92)`
 - Note: deployed via `npm run release:deploy` on 2026-04-19.
