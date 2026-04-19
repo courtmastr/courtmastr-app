@@ -5172,6 +5172,43 @@ rg -n "release-metadata/\\$\\{GITHUB_RUN_ID\\}-\\$\\{GITHUB_RUN_ATTEMPT\\}|gh pr
 
 ---
 
+### CP-109: Release Metadata PRs Must Take The Metadata-Only CI Fast Path
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-19 |
+| **Source Bug** | CI-created release metadata PRs (`#85`, `#87`, `#89`) were forced through the normal app lint/test/build gate even though `release:deploy` had already completed the full release guardrails |
+| **Severity** | Medium |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```yaml
+# package.json/package-lock.json changes trigger the normal CI path
+if printf '%s\n' "$changed_files" | grep -qE '^(src/|functions/|public/|tests/|index\.html$|vite\.config\.|vitest\.config\.|tsconfig|package\.json$|package-lock\.json$|eslint\.config\.)'; then
+  echo "should_ci=true" >> "$GITHUB_OUTPUT"
+fi
+```
+
+**Correct Pattern (✅):**
+```yaml
+metadata_only_pattern='^(package\.json|package-lock\.json|docs/deployment/LAST_DEPLOY\.md|docs/releases/.*|docs/testing/TEST_CATALOG\.md|docs/testing/TEST_CATALOG\.html|docs/testing/test-run-summary\.json)$'
+
+if [[ "${GITHUB_EVENT_NAME}" == "pull_request" && "${{ github.head_ref }}" == release-metadata/* && "$metadata_files_only" == "true" ]]; then
+  ci_mode="metadata"
+elif [[ "${GITHUB_EVENT_NAME}" == "push" && "${{ github.event.head_commit.message }}" == *"[skip release]"* && "$metadata_files_only" == "true" ]]; then
+  ci_mode="metadata"
+fi
+```
+
+**Rule:** CI-owned release metadata branches and metadata-only `[skip release]` merge commits must keep the existing required check name but switch it into a lightweight metadata validation mode. That mode validates allowed files only plus release-note/version consistency, and must not rerun the full app lint/test/build pipeline.
+
+**Detection:**
+```bash
+rg -n "ci_mode|metadata_only_pattern|Validate release metadata changes" .github/workflows/ci-cd.yml
+```
+
+---
+
 ### CP-101: Frontend Trace Logs Must Use The Shared Logger
 
 | Field | Value |

@@ -38,6 +38,12 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.17.1`
+  - Date: 2026-04-18 08:03 CDT
+  - Package version: `2.17.1`
+  - Deployed commit: `873d213`
+  - Release notes:
+    - [docs/releases/v2.17.1.md](docs/releases/v2.17.1.md)
 - `v2.17.0`
   - Date: 2026-04-18 00:56 CDT
   - Package version: `2.17.0`
