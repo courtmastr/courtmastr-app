@@ -2,17 +2,17 @@
 
 Current policy note: production infrastructure is Terraform-managed and production application rollout is expected to happen through the `master` CI/CD workflow. Older entries below may reference the previous local release command path because they are historical records.
 
-Updated: 2026-04-18 (America/Chicago)
+Updated: 2026-04-19 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-18 00:56 CDT
-- Release ID: `v2.17.0`
-- Package version: `2.17.0`
+- Date: 2026-04-19 01:51 CDT
+- Release ID: `v2.18.0`
+- Package version: `2.18.0`
 - Deployed branch: `master`
-- Deployed commit: `0a037dd` (`fix: support live scoring overrides by category (#82)`)
+- Deployed commit: `fc2ebbc` (`Fix pool standings and public bracket routing (#90)`)
 - Release notes:
-  - [docs/releases/v2.17.0.md](docs/releases/v2.17.0.md)
+  - [docs/releases/v2.18.0.md](docs/releases/v2.18.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-18 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-18-05-55-29.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-19-06-48-38.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.17.0`
+  - Date: 2026-04-18 00:56 CDT
+  - Package version: `2.17.0`
+  - Deployed commit: `0a037dd`
+  - Release notes:
+    - [docs/releases/v2.17.0.md](docs/releases/v2.17.0.md)
 - `v2.16.2`
   - Date: 2026-04-18 00:46 CDT
   - Package version: `2.16.2`
@@ -239,7 +245,7 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-18 00:56 CDT
-- Commit: `0a037dd69c73ab84f5059a68f3eaaea3eda89202`
-- Message: `fix: support live scoring overrides by category (#82)`
-- Note: deployed via `npm run release:deploy` on 2026-04-18.
+- Date: 2026-04-19 01:51 CDT
+- Commit: `fc2ebbc96ee516584e6c6cb96e2db17322481d43`
+- Message: `Fix pool standings and public bracket routing (#90)`
+- Note: deployed via `npm run release:deploy` on 2026-04-19.
