@@ -39,6 +39,18 @@ On every push to `master` that is not a release-metadata bot commit, GitHub Acti
      - `chore: record release metadata [skip release]`
    - pushes that metadata commit without retriggering the release loop
 
+Release metadata fast path:
+
+1. PRs from `release-metadata/*` branches run the existing `Lint, Test, Build` check name in metadata mode.
+2. Metadata mode validates only the release artifact payload:
+   - allowed file set only
+   - `package.json` and `package-lock.json` stay in sync
+   - the release note named by `LAST_DEPLOY.md` exists
+   - that release note records the current package version
+   - `LAST_DEPLOY.md` links to that release note
+3. Merge commits with `[skip release]` and metadata-only diffs take the same fast path on `master`.
+4. Full lint, unit test, and build execution remains required for normal app/function changes.
+
 `release:deploy` will:
 - classify the release as patch, minor, or major
 - auto-bump the semantic version

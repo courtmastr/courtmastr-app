@@ -7,12 +7,12 @@ Updated: 2026-04-19 (America/Chicago)
 ## Latest Production Deploy
 
 - Date: 2026-04-19 01:51 CDT
-- Release ID: `v2.18.0`
+- Release ID: `v2.18.0+deploy.2`
 - Package version: `2.18.0`
 - Deployed branch: `master`
 - Deployed commit: `fc2ebbc` (`Fix pool standings and public bracket routing (#90)`)
 - Release notes:
-  - [docs/releases/v2.18.0.md](docs/releases/v2.18.0.md)
+  - [docs/releases/v2.18.0+deploy.2.md](docs/releases/v2.18.0+deploy.2.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -38,6 +38,18 @@ Updated: 2026-04-19 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.18.0`
+  - Date: 2026-04-18 10:37 CDT
+  - Package version: `2.18.0`
+  - Deployed commit: `fcaf3be`
+  - Release notes:
+    - [docs/releases/v2.18.0.md](docs/releases/v2.18.0.md)
+- `v2.17.1`
+  - Date: 2026-04-18 08:03 CDT
+  - Package version: `2.17.1`
+  - Deployed commit: `873d213`
+  - Release notes:
+    - [docs/releases/v2.17.1.md](docs/releases/v2.17.1.md)
 - `v2.17.0`
   - Date: 2026-04-18 00:56 CDT
   - Package version: `2.17.0`
