@@ -45,28 +45,55 @@ onUnmounted(() => { ctx?.revert(); });
 </script>
 
 <template>
-  <div ref="tabRef" class="standings-tab">
-    <div v-if="standings.length === 0" class="standings-tab__empty">
-      <v-icon size="32" color="grey">mdi-podium</v-icon>
+  <div
+    ref="tabRef"
+    class="standings-tab"
+  >
+    <div
+      v-if="standings.length === 0"
+      class="standings-tab__empty"
+    >
+      <v-icon
+        size="32"
+        color="grey"
+      >
+        mdi-podium
+      </v-icon>
       <p>No standings yet</p>
     </div>
 
     <template v-else>
       <!-- Search -->
       <div class="standings-search">
-        <v-icon size="16" color="grey" class="standings-search__icon">mdi-magnify</v-icon>
+        <v-icon
+          size="16"
+          color="grey"
+          class="standings-search__icon"
+        >
+          mdi-magnify
+        </v-icon>
         <input
           v-model="search"
           class="standings-search__input"
           placeholder="Search player..."
           type="search"
-        />
-        <button v-if="search" class="standings-search__clear" aria-label="Clear search" @click="search = ''">
-          <v-icon size="14">mdi-close</v-icon>
+        >
+        <button
+          v-if="search"
+          class="standings-search__clear"
+          aria-label="Clear search"
+          @click="search = ''"
+        >
+          <v-icon size="14">
+            mdi-close
+          </v-icon>
         </button>
       </div>
 
-      <div v-if="filtered.length === 0" class="standings-tab__empty">
+      <div
+        v-if="filtered.length === 0"
+        class="standings-tab__empty"
+      >
         <p>No players match "{{ search }}"</p>
       </div>
 
@@ -89,7 +116,10 @@ onUnmounted(() => { ctx?.revert(); });
           class="s-row"
           :class="{ 's-row--top': entry.rank === 1, 's-row--alt': entry.rank % 2 === 0 }"
         >
-          <span class="s-col s-col--rank" :class="{ 's-col--gold': entry.rank === 1, 's-col--silver': entry.rank === 2, 's-col--bronze': entry.rank === 3 }">
+          <span
+            class="s-col s-col--rank"
+            :class="{ 's-col--gold': entry.rank === 1, 's-col--silver': entry.rank === 2, 's-col--bronze': entry.rank === 3 }"
+          >
             {{ entry.rank }}
           </span>
           <span class="s-col s-col--name s-col--name-val">{{ entry.name }}</span>

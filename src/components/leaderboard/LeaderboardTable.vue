@@ -9,9 +9,12 @@ const props = defineProps<{
   loading: boolean;
   tiebreakerResolutions: TiebreakerResolution[];
   showCategory?: boolean;
+  showStatus?: boolean;
   dense?: boolean;
   bracketParticipantIds?: Set<string>;
 }>();
+
+const showStatus = computed(() => props.showStatus ?? true);
 
 const resolutionMap = computed(() => {
   const map = new Map<string, TiebreakerResolution>();
@@ -30,7 +33,9 @@ const compactHeaders = computed(() => {
     ...(props.showCategory
       ? [{ key: 'category', title: 'Category', width: '130px' }]
       : []),
-    { key: 'status', title: 'Status', width: '110px' },
+    ...(showStatus.value
+      ? [{ key: 'status', title: 'Status', width: '110px' }]
+      : []),
     { key: 'matchPoints', title: 'MP', width: '68px', align: 'center' as const },
     { key: 'record', title: 'W-L', width: '72px', align: 'center' as const },
     { key: 'played', title: 'Played', width: '80px', align: 'center' as const },
@@ -237,7 +242,10 @@ function statusColor(entry: LeaderboardEntry): string {
       </v-chip>
     </template>
 
-    <template #item.status="{ item }">
+    <template
+      v-if="showStatus"
+      #item.status="{ item }"
+    >
       <v-chip
         size="small"
         :color="statusColor(item)"

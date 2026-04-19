@@ -75,33 +75,68 @@ const groupedByDate = computed(() => {
 </script>
 
 <template>
-  <div ref="tabRef" class="schedule-tab">
+  <div
+    ref="tabRef"
+    class="schedule-tab"
+  >
     <!-- Search -->
     <div class="schedule-search">
-      <v-icon size="16" class="schedule-search__icon">mdi-magnify</v-icon>
+      <v-icon
+        size="16"
+        class="schedule-search__icon"
+      >
+        mdi-magnify
+      </v-icon>
       <input
         v-model="search"
         class="schedule-search__input"
         placeholder="Search player, round, pool…"
         type="search"
-      />
-      <button v-if="search" class="schedule-search__clear" aria-label="Clear search" @click="search = ''">
-        <v-icon size="14">mdi-close</v-icon>
+      >
+      <button
+        v-if="search"
+        class="schedule-search__clear"
+        aria-label="Clear search"
+        @click="search = ''"
+      >
+        <v-icon size="14">
+          mdi-close
+        </v-icon>
       </button>
     </div>
 
     <!-- Empty -->
-    <div v-if="matches.length === 0" class="schedule-empty">
-      <v-icon size="40" color="grey">mdi-calendar-blank-outline</v-icon>
+    <div
+      v-if="matches.length === 0"
+      class="schedule-empty"
+    >
+      <v-icon
+        size="40"
+        color="grey"
+      >
+        mdi-calendar-blank-outline
+      </v-icon>
       <p>No schedule published yet</p>
     </div>
-    <div v-else-if="filtered.length === 0" class="schedule-empty">
-      <v-icon size="32" color="grey">mdi-account-search</v-icon>
+    <div
+      v-else-if="filtered.length === 0"
+      class="schedule-empty"
+    >
+      <v-icon
+        size="32"
+        color="grey"
+      >
+        mdi-account-search
+      </v-icon>
       <p>No matches found for "{{ search }}"</p>
     </div>
 
     <!-- Date groups -->
-    <div v-for="[date, dayMatches] in groupedByDate" :key="date" class="schedule-day">
+    <div
+      v-for="[date, dayMatches] in groupedByDate"
+      :key="date"
+      class="schedule-day"
+    >
       <!-- Day header -->
       <div class="schedule-day__header">
         <span class="schedule-day__date">{{ date }}</span>
@@ -124,16 +159,35 @@ const groupedByDate = computed(() => {
           <!-- Top row: time + badges + status -->
           <div class="match-card__meta">
             <span class="match-card__time">
-              <v-icon size="11" class="mr-1" style="opacity:0.5">mdi-clock-outline</v-icon>
+              <v-icon
+                size="11"
+                class="mr-1"
+                style="opacity:0.5"
+              >mdi-clock-outline</v-icon>
               {{ extractTime(match.time) }}
             </span>
             <div class="match-card__badges">
-              <span v-if="match.court" class="badge badge--court">
-                <v-icon size="9" class="mr-1">mdi-map-marker</v-icon>{{ match.court }}
+              <span
+                v-if="match.court"
+                class="badge badge--court"
+              >
+                <v-icon
+                  size="9"
+                  class="mr-1"
+                >mdi-map-marker</v-icon>{{ match.court }}
               </span>
-              <span v-if="match.poolLabel" class="badge badge--pool">{{ match.poolLabel }}</span>
-              <span v-if="match.round && !match.isTbd" class="badge badge--round">{{ match.round }}</span>
-              <span v-if="match.isTbd" class="badge badge--tbd">PLACEHOLDER</span>
+              <span
+                v-if="match.poolLabel"
+                class="badge badge--pool"
+              >{{ match.poolLabel }}</span>
+              <span
+                v-if="match.round && !match.isTbd"
+                class="badge badge--round"
+              >{{ match.round }}</span>
+              <span
+                v-if="match.isTbd"
+                class="badge badge--tbd"
+              >PLACEHOLDER</span>
             </div>
             <!-- Status pill -->
             <span
@@ -142,18 +196,36 @@ const groupedByDate = computed(() => {
             >
               <span class="live-dot" />LIVE
             </span>
-            <span v-else-if="match.status === 'completed'" class="status-pill status-pill--done">
-              <v-icon size="10" class="mr-1">mdi-check</v-icon>DONE
+            <span
+              v-else-if="match.status === 'completed'"
+              class="status-pill status-pill--done"
+            >
+              <v-icon
+                size="10"
+                class="mr-1"
+              >mdi-check</v-icon>DONE
             </span>
           </div>
 
           <!-- Players row -->
-          <div v-if="match.isTbd" class="match-card__tbd-block">
-            <v-icon size="18" class="mr-2" style="color:#f59e0b">mdi-help-circle</v-icon>
+          <div
+            v-if="match.isTbd"
+            class="match-card__tbd-block"
+          >
+            <v-icon
+              size="18"
+              class="mr-2"
+              style="color:#f59e0b"
+            >
+              mdi-help-circle
+            </v-icon>
             <span class="match-card__tbd-title">{{ match.round ?? 'TBD Match' }}</span>
             <span class="match-card__tbd-sub">Matchup to be determined</span>
           </div>
-          <div v-else class="match-card__players">
+          <div
+            v-else
+            class="match-card__players"
+          >
             <span
               class="player"
               :class="{ 'player--winner': match.winnerId === match.player1 }"
@@ -166,7 +238,10 @@ const groupedByDate = computed(() => {
           </div>
 
           <!-- Score -->
-          <div v-if="match.score" class="match-card__score">
+          <div
+            v-if="match.score"
+            class="match-card__score"
+          >
             {{ match.score }}
           </div>
         </div>

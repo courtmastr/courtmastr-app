@@ -1333,7 +1333,10 @@ async function confirmDelete() {
                       />
 
                       <v-row>
-                        <v-col cols="12" md="6">
+                        <v-col
+                          cols="12"
+                          md="6"
+                        >
                           <v-select
                             v-model="categoryEliminationScoringOverrides[category.id].config.gamesPerMatch"
                             :items="gamesOptions"
@@ -1345,7 +1348,10 @@ async function confirmDelete() {
                             @update:model-value="categoryEliminationScoringOverrides[category.id].preset = 'custom'"
                           />
                         </v-col>
-                        <v-col cols="12" md="6">
+                        <v-col
+                          cols="12"
+                          md="6"
+                        >
                           <v-text-field
                             v-model.number="categoryEliminationScoringOverrides[category.id].config.pointsToWin"
                             label="Points to Win"
@@ -1359,7 +1365,10 @@ async function confirmDelete() {
                       </v-row>
 
                       <v-row>
-                        <v-col cols="12" md="6">
+                        <v-col
+                          cols="12"
+                          md="6"
+                        >
                           <v-text-field
                             v-model.number="categoryEliminationScoringOverrides[category.id].config.mustWinBy"
                             label="Win By"
@@ -1370,7 +1379,10 @@ async function confirmDelete() {
                             @update:model-value="categoryEliminationScoringOverrides[category.id].preset = 'custom'"
                           />
                         </v-col>
-                        <v-col cols="12" md="6">
+                        <v-col
+                          cols="12"
+                          md="6"
+                        >
                           <v-text-field
                             :model-value="categoryEliminationScoringOverrides[category.id].config.maxPoints ?? ''"
                             label="Max Points Cap"

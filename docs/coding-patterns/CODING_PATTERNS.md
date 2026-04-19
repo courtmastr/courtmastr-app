@@ -2318,6 +2318,97 @@ rg -n "matchesWon" src/composables/usePoolLeveling.ts
 
 ---
 
+### CP-104: Pool Standings And Pool-To-Elimination Seeding Must Share One Canonical Ranking Helper
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-18 |
+| **Source Bug** | Smart-bracket standings ranked teams by `MP -> W -> GD -> PD`, but bracket seeding used a separate `winRate -> pointDifference -> pointsFor` leaderboard |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```typescript
+// UI standings path
+const standings = matches.map((match) => computeSmartBracketEntry(match));
+standings.sort((a, b) =>
+  b.matchPoints - a.matchPoints ||
+  b.matchesWon - a.matchesWon ||
+  b.gameDifference - a.gameDifference ||
+  b.pointDifference - a.pointDifference
+);
+
+// Bracket seeding path recomputes a different leaderboard
+participants.sort((a, b) =>
+  b.matchPoints - a.matchPoints ||
+  b.winRate - a.winRate ||
+  b.pointDifference - a.pointDifference ||
+  b.pointsFor - a.pointsFor
+);
+```
+```typescript
+// Generator fallback silently invents qualifier order
+const qualifiers = options.precomputedQualifierRegistrationIds?.length
+  ? options.precomputedQualifierRegistrationIds
+  : extractPoolQualifiers(matches, participants, settings);
+```
+
+**Correct Pattern (✅):**
+```typescript
+const standings = buildPoolStandingsEntries({
+  participants,
+  matches,
+});
+
+const advancingRegistrationIds = standings
+  .slice(0, qualifiersPerCategory)
+  .map((entry) => entry.registrationId);
+```
+```typescript
+await generatePoolEliminationBracket(tournamentId, categoryId, {
+  advancingRegistrationIds,
+  bracketName,
+});
+```
+
+**Rule:** Pool standings must be calculated once through the shared canonical helper, and every pool-facing consumer must reuse that ordered output. Smart-bracket standings, pool draw standings, pool leveling/global rank, published standings snapshots, and pool-to-elimination seeding must not maintain their own ranking formulas. Pool-to-elimination generation must require the precomputed ordered advancing registration IDs instead of recomputing or falling back to a second qualifier algorithm.
+
+**Snapshot Extension:** The smart-bracket `Pre-Elim Snapshot` is still a pool-only standings view. It must reuse the same shared pool standings helper as `Pool Results`, even after the category transitions to elimination. Do not route that tab back through the generic leaderboard pipeline or any other derived ranking engine, or it can go empty or diverge from the seeds that generated the bracket.
+
+**Tie-Breaker Extension:** When all explicit pool metrics are equal (`MP`, `W`, `GD`, `PD`, `gamesWon`), every consumer must feed the shared helper the same fallback participant order. Do not rely on raw Firestore query order or incidental stable-sort behavior, because one-off Firestore reads and `fetchRegistrations()` can return different source orders and silently swap exact-tied seeds between smart-bracket standings and generated brackets.
+
+**Anti-Pattern (❌):**
+```typescript
+const standings = buildPoolStandingsEntries(
+  registrations.map((registration) => ({
+    registrationId: registration.id,
+    participantName: resolveParticipantName(registration),
+  })),
+  matches,
+);
+```
+
+**Correct Pattern (✅):**
+```typescript
+const standings = buildPoolStandingsEntries(
+  toPoolStandingsParticipants(
+    registrations,
+    (registration) => resolveParticipantName(registration),
+  ),
+  matches,
+);
+```
+
+**Detection:**
+```bash
+rg -n "sortWithBWFTiebreaker|aggregateStats|extractPoolQualifiers|winRate[^\\n]*pointDifference|pointDifference[^\\n]*pointsFor" src/composables/usePoolLeveling.ts src/composables/useBracketGenerator.ts src/stores/tournaments.ts functions/src/bracket.ts functions/src/bracketHelpers.ts --glob "*.ts"
+rg -n "buildPoolStandingsEntries" src/utils/poolStandings.ts src/composables/usePoolLeveling.ts src/composables/usePublishSnapshot.ts src/features/brackets/components/RoundRobinStandings.vue src/features/brackets/components/PoolDrawView.vue --glob "*.ts" --glob "*.vue"
+rg -n "toPoolStandingsParticipants" src/composables/usePoolLeveling.ts src/composables/usePublishSnapshot.ts src/features/brackets/components/RoundRobinStandings.vue src/features/brackets/components/PoolDrawView.vue --glob "*.ts" --glob "*.vue"
+rg -n "useLeaderboard|generateSnapshot|aggregateStats|sortWithBWFTiebreaker" src/features/brackets/components/SmartBracketView.vue src/features/brackets/components/StandingsTab.vue --glob "*.vue" --glob "*.ts"
+```
+
+---
+
 ### CP-037: Category Lifecycle Must Derive `Schedule` Step From Match-Level Schedule Fields
 
 | Field | Value |

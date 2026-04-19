@@ -65,8 +65,12 @@ onMounted(() => {
           @click="handlePrevDay"
         />
         <div>
-          <div class="text-subtitle-2 font-weight-bold">{{ dateLabel }}</div>
-          <div class="text-caption text-medium-emphasis">{{ checkedInCount }} checked in</div>
+          <div class="text-subtitle-2 font-weight-bold">
+            {{ dateLabel }}
+          </div>
+          <div class="text-caption text-medium-emphasis">
+            {{ checkedInCount }} checked in
+          </div>
         </div>
         <v-btn
           icon="mdi-chevron-right"
@@ -117,7 +121,9 @@ onMounted(() => {
         color="medium-emphasis"
         class="mb-3"
       />
-      <div class="text-body-2 text-medium-emphasis">No check-ins recorded for this day</div>
+      <div class="text-body-2 text-medium-emphasis">
+        No check-ins recorded for this day
+      </div>
     </div>
 
     <!-- Row list -->
@@ -137,7 +143,9 @@ onMounted(() => {
         "
       >
         <div class="flex-grow-1 mr-3">
-          <div class="text-subtitle-2 font-weight-bold">{{ row.displayName }}</div>
+          <div class="text-subtitle-2 font-weight-bold">
+            {{ row.displayName }}
+          </div>
           <div
             class="text-caption"
             :class="row.isPartial ? 'text-warning' : 'text-medium-emphasis'"

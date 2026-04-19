@@ -42,6 +42,7 @@ import type {
   BracketRound,
 } from '@/types';
 import { resolveParticipantName } from '@/composables/useLeaderboard';
+import { buildPoolStandingsEntries, toPoolStandingsParticipants } from '@/utils/poolStandings';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -139,11 +140,12 @@ async function fetchPlayers(tournamentId: string): Promise<Player[]> {
   return (await Promise.all(batches)).flat();
 }
 
-async function fetchMatchesForCategory(
+async function fetchMatchesForScope(
+  basePath: string,
   tournamentId: string,
-  categoryId: string
+  categoryId: string,
+  levelId?: string,
 ): Promise<{ matches: Match[]; groups: { id: string; name?: string }[] }> {
-  const basePath = `tournaments/${tournamentId}/categories/${categoryId}`;
   const [matchSnap, matchScoresSnap, participantSnap, groupSnap] = await Promise.all([
     getDocs(collection(db, `${basePath}/match`)),
     getDocs(collection(db, `${basePath}/match_scores`)),
@@ -181,6 +183,7 @@ async function fetchMatchesForCategory(
       id: d.id,
       tournamentId,
       categoryId,
+      levelId,
       round: bm.round_id ?? 0,
       matchNumber: bm.number ?? 0,
       bracketPosition: {
@@ -240,88 +243,24 @@ function buildStandings(
   registrations: Registration[],
   players: Player[]
 ): PlayerStanding[] {
-  const statsMap = new Map<
-    string,
-    { name: string; wins: number; losses: number; pointsFor: number; pointsAgainst: number }
-  >();
-
-  // Seed all registrations
-  for (const reg of registrations) {
-    statsMap.set(reg.id, {
-      name: resolveParticipantName(reg, players),
-      wins: 0,
-      losses: 0,
-      pointsFor: 0,
-      pointsAgainst: 0,
-    });
-  }
-
-  // Accumulate from completed matches
-  for (const match of matches) {
-    if (match.status !== 'completed' && match.status !== 'walkover') continue;
-    if (!match.participant1Id || !match.participant2Id || !match.winnerId) continue;
-    const p1 = statsMap.get(match.participant1Id);
-    const p2 = statsMap.get(match.participant2Id);
-    if (!p1 || !p2) continue;
-
-    const p1Won = match.winnerId === match.participant1Id;
-    if (p1Won) {
-      p1.wins++;
-      p2.losses++;
-    } else {
-      p2.wins++;
-      p1.losses++;
-    }
-
-    for (const game of match.scores ?? []) {
-      p1.pointsFor += game.score1;
-      p1.pointsAgainst += game.score2;
-      p2.pointsFor += game.score2;
-      p2.pointsAgainst += game.score1;
-    }
-  }
-
-  // Accumulate set wins/losses from scores
-  const setsMap = new Map<string, { setWins: number; setLosses: number }>();
-  for (const reg of registrations) setsMap.set(reg.id, { setWins: 0, setLosses: 0 });
-
-  for (const match of matches) {
-    if (match.status !== 'completed' && match.status !== 'walkover') continue;
-    if (!match.participant1Id || !match.participant2Id) continue;
-    const s1 = setsMap.get(match.participant1Id);
-    const s2 = setsMap.get(match.participant2Id);
-    for (const game of match.scores ?? []) {
-      if (s1 && s2) {
-        if (game.score1 > game.score2) { s1.setWins++; s2.setLosses++; }
-        else if (game.score2 > game.score1) { s2.setWins++; s1.setLosses++; }
-      }
-    }
-  }
-
-  const entries = [...statsMap.values()];
-  entries.sort(
-    (a, b) =>
-      b.wins - a.wins ||
-      b.wins - b.losses - (a.wins - a.losses) ||
-      b.pointsFor - b.pointsAgainst - (a.pointsFor - a.pointsAgainst)
-  );
-
-  return entries.map((e, i) => {
-    const regId = registrations.find((r) => resolveParticipantName(r, players) === e.name)?.id ?? '';
-    const sets = setsMap.get(regId) ?? { setWins: 0, setLosses: 0 };
-    return {
-      rank: i + 1,
-      name: e.name,
-      mp: e.wins + e.losses,
-      wins: e.wins,
-      losses: e.losses,
-      setWins: sets.setWins,
-      setLosses: sets.setLosses,
-      ptsFor: e.pointsFor,
-      ptsAgainst: e.pointsAgainst,
-      pointsDiff: e.pointsFor - e.pointsAgainst,
-    };
-  });
+  return buildPoolStandingsEntries(
+    toPoolStandingsParticipants(
+      registrations,
+      (registration) => resolveParticipantName(registration, players),
+    ),
+    matches,
+  ).map((entry, index) => ({
+    rank: index + 1,
+    name: entry.participantName,
+    mp: entry.played,
+    wins: entry.matchesWon,
+    losses: entry.matchesLost,
+    setWins: entry.gamesWon,
+    setLosses: entry.gamesLost,
+    ptsFor: entry.pointsFor,
+    ptsAgainst: entry.pointsAgainst,
+    pointsDiff: entry.pointDifference,
+  }));
 }
 
 function buildPools(
@@ -348,9 +287,8 @@ function buildBracket(
   regMap: Map<string, Registration>,
   players: Player[],
   groupLabelMap: Map<string, string>,
-  courts: Map<string, string>
+  courts: Map<string, string>,
 ): BracketSnapshot | undefined {
-  // Elimination matches have no groupId
   const elimMatches = matches
     .filter((m) => !m.groupId)
     .sort((a, b) => a.round - b.round || a.matchNumber - b.matchNumber);
@@ -489,8 +427,18 @@ export function usePublishSnapshot() {
       // 4. Fetch matches per category
       const categorySnapshots: CategorySnapshot[] = await Promise.all(
         categories.map(async (cat) => {
-          const { matches, groups } = await fetchMatchesForCategory(tournamentId, cat.id);
-          return buildCategorySnapshot(cat, matches, groups, registrations, players, tbdEntries, courts);
+          const categoryPath = `tournaments/${tournamentId}/categories/${cat.id}`;
+          const { matches, groups } = await fetchMatchesForScope(categoryPath, tournamentId, cat.id);
+
+          return buildCategorySnapshot(
+            cat,
+            matches,
+            groups,
+            registrations,
+            players,
+            tbdEntries,
+            courts,
+          );
         })
       );
 

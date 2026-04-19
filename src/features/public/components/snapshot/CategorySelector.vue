@@ -37,8 +37,13 @@ onUnmounted(() => { ctx?.revert(); });
 </script>
 
 <template>
-  <div ref="selectorRef" class="cat-selector">
-    <div class="cat-selector__label">Division</div>
+  <div
+    ref="selectorRef"
+    class="cat-selector"
+  >
+    <div class="cat-selector__label">
+      Division
+    </div>
     <div class="cat-selector__chips">
       <button
         v-for="cat in categories"

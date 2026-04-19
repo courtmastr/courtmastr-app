@@ -43,7 +43,7 @@ const checkInHelpers_1 = require("./checkInHelpers");
 const volunteerAccessCore_1 = require("./volunteerAccessCore");
 const VOLUNTEER_PIN_SECRET_ENV = 'VOLUNTEER_PIN_SECRET';
 const VOLUNTEER_SESSION_SECRET_ENV = 'VOLUNTEER_SESSION_SECRET';
-const VOLUNTEER_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const VOLUNTEER_SESSION_TTL_MS = 48 * 60 * 60 * 1000;
 const PIN_PATTERN = /^\d{4,8}$/;
 const getDb = () => admin.firestore();
 const requireConfiguredSecret = (envName) => {

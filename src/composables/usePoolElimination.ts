@@ -80,8 +80,8 @@ export function nearestBracketSize(n: number): number {
 
 /**
  * global_top_n: sort purely by pre-computed globalRank (ascending).
- * globalRank is already assigned by usePoolLeveling based on matchPoints →
- * winRate → pointDifference → pointsFor → name.
+ * globalRank is already assigned by usePoolLeveling based on the smart-bracket
+ * standings order: matchPoints → matchesWon → gameDifference → pointDifference → gamesWon.
  */
 export function sortByGlobalTopN(
   participants: PoolLevelParticipant[],

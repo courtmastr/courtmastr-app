@@ -45,6 +45,7 @@
     "results:mcia2026:local": "npx tsx scripts/mcia2026-results-local.ts",
     "seed:spring2025:local": "npx tsx scripts/seed/spring2025-local.ts",
     "seed:spring2025:prod": "npx tsx scripts/seed/spring2025-prod.ts",
+    "seed:snapshot:prod:local": "node scripts/snapshot-prod-to-emulator.cjs",
     "start:dev": "node scripts/start-dev.mjs",
     "killall": "pkill -f 'firebase' 2>/dev/null; pkill -f 'vite' 2>/dev/null; pkill -f 'node.*emulator' 2>/dev/null || echo 'No processes found'",
     "deploy": "npm run build && firebase deploy --project production",

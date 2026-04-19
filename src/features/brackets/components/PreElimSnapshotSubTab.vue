@@ -29,6 +29,7 @@ defineProps<{
       :loading="loading"
       :tiebreaker-resolutions="tiebreakerResolutions"
       :show-category="false"
+      :show-status="false"
       :bracket-participant-ids="bracketParticipantIds"
     />
   </div>

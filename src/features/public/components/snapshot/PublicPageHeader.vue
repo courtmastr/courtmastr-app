@@ -69,9 +69,15 @@ function timeAgo(isoDate: string): string {
 </script>
 
 <template>
-  <div ref="headerRef" class="pub-header">
+  <div
+    ref="headerRef"
+    class="pub-header"
+  >
     <!-- Badminton court line decorations -->
-    <div class="pub-header__court" aria-hidden="true">
+    <div
+      class="pub-header__court"
+      aria-hidden="true"
+    >
       <div class="court-line court-line--center" />
       <div class="court-line court-line--left" />
       <div class="court-line court-line--right" />
@@ -79,28 +85,58 @@ function timeAgo(isoDate: string): string {
     </div>
 
     <div class="pub-header__inner">
-      <div v-if="meta.logoUrl" class="pub-header__logo">
-        <img :src="meta.logoUrl" alt="Tournament logo" class="pub-header__logo-img" />
+      <div
+        v-if="meta.logoUrl"
+        class="pub-header__logo"
+      >
+        <img
+          :src="meta.logoUrl"
+          alt="Tournament logo"
+          class="pub-header__logo-img"
+        >
       </div>
       <div class="pub-header__text">
         <div class="pub-header__eyebrow">
-          <v-icon size="14" class="mr-1">mdi-badminton</v-icon>
+          <v-icon
+            size="14"
+            class="mr-1"
+          >
+            mdi-badminton
+          </v-icon>
           CourtMastr
         </div>
-        <h1 class="pub-header__title">{{ meta.name }}</h1>
+        <h1 class="pub-header__title">
+          {{ meta.name }}
+        </h1>
         <div class="pub-header__meta">
           <span v-if="meta.startDate && meta.endDate">
-            <v-icon size="14" class="mr-1">mdi-calendar</v-icon>
+            <v-icon
+              size="14"
+              class="mr-1"
+            >mdi-calendar</v-icon>
             {{ formatDateRange(meta.startDate, meta.endDate) }}
           </span>
-          <span v-if="meta.location" class="ml-3">
-            <v-icon size="14" class="mr-1">mdi-map-marker</v-icon>
+          <span
+            v-if="meta.location"
+            class="ml-3"
+          >
+            <v-icon
+              size="14"
+              class="mr-1"
+            >mdi-map-marker</v-icon>
             {{ meta.location }}
           </span>
         </div>
         <div class="pub-header__badges mt-2">
-          <span class="pub-badge pub-badge--live" role="status" aria-label="Tournament is live">
-            <span class="pub-badge__dot" aria-hidden="true" />
+          <span
+            class="pub-badge pub-badge--live"
+            role="status"
+            aria-label="Tournament is live"
+          >
+            <span
+              class="pub-badge__dot"
+              aria-hidden="true"
+            />
             Live
           </span>
           <span class="pub-badge pub-badge--updated">

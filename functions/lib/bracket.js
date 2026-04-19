@@ -158,7 +158,7 @@ async function createBracket(tournamentId, categoryId, options = {}) {
 // 2. createEliminationFromPool — advance pool → elimination
 // ============================================
 async function createEliminationFromPool(tournamentId, categoryId, options = {}) {
-    var _a, _b, _c, _d;
+    var _a, _b;
     const db = getDb();
     const categoryDoc = await db
         .collection('tournaments')
@@ -182,8 +182,6 @@ async function createEliminationFromPool(tournamentId, categoryId, options = {})
     const poolStageId = poolStage.id;
     const participants = (0, bracketHelpers_1.asArray)(await storage.select('participant'));
     const poolMatches = (0, bracketHelpers_1.asArray)(await storage.select('match', { stage_id: poolStageId }));
-    const poolRounds = (0, bracketHelpers_1.asArray)(await storage.select('round', { stage_id: poolStageId }));
-    const poolGroups = (0, bracketHelpers_1.asArray)(await storage.select('group', { stage_id: poolStageId }));
     if (participants.length < 2)
         throw new Error('Need at least 2 participants to generate elimination');
     if (poolMatches.length === 0)
@@ -204,39 +202,21 @@ async function createEliminationFromPool(tournamentId, categoryId, options = {})
     if (pendingPoolMatches.length > 0) {
         throw new Error(`Pool stage not complete. ${pendingPoolMatches.length} match(es) still pending.`);
     }
-    // Resolve qualifiers
-    let qualifierParticipantIds;
-    let qualifierRegistrationIds;
-    let resolvedGroupCount;
-    let resolvedQualifiersPerGroup;
-    if ((_a = options.precomputedQualifierRegistrationIds) === null || _a === void 0 ? void 0 : _a.length) {
-        const participantByRegistrationId = new Map(participants.map((p) => [p.name, p.id]));
-        qualifierParticipantIds = options.precomputedQualifierRegistrationIds
-            .map((rid) => participantByRegistrationId.get(rid))
-            .filter((id) => id !== undefined);
-        qualifierRegistrationIds = options.precomputedQualifierRegistrationIds;
-        resolvedGroupCount = 0;
-        resolvedQualifiersPerGroup = 0;
+    if (!((_a = options.precomputedQualifierRegistrationIds) === null || _a === void 0 ? void 0 : _a.length)) {
+        throw new Error('Pool qualifier order is required to generate elimination stage.');
     }
-    else {
-        const qualifiers = (0, bracketHelpers_1.extractPoolQualifiers)({
-            participants,
-            matches: poolMatches,
-            rounds: poolRounds,
-            groups: poolGroups,
-            matchScores: matchScoresMap,
-            requestedQualifiersPerGroup: (_c = (_b = options.qualifiersPerGroup) !== null && _b !== void 0 ? _b : category.poolQualifiersPerGroup) !== null && _c !== void 0 ? _c : 2,
-        });
-        qualifierParticipantIds = qualifiers.participantIds;
-        qualifierRegistrationIds = qualifiers.registrationIds;
-        resolvedGroupCount = qualifiers.groupCount;
-        resolvedQualifiersPerGroup = qualifiers.qualifiersPerGroup;
-    }
+    const participantByRegistrationId = new Map(participants.map((participant) => [participant.name, participant.id]));
+    const qualifierParticipantIds = options.precomputedQualifierRegistrationIds
+        .map((registrationId) => participantByRegistrationId.get(registrationId))
+        .filter((participantId) => participantId !== undefined);
+    const qualifierRegistrationIds = options.precomputedQualifierRegistrationIds;
+    const resolvedGroupCount = 0;
+    const resolvedQualifiersPerGroup = 0;
     if (qualifierParticipantIds.length < 2) {
         throw new Error('Not enough qualifiers to generate elimination stage.');
     }
     // Server uses auto-generated string IDs — no seedCountersFromExisting needed
-    const bracketType = (_d = options.eliminationFormat) !== null && _d !== void 0 ? _d : 'single_elimination';
+    const bracketType = (_b = options.eliminationFormat) !== null && _b !== void 0 ? _b : 'single_elimination';
     const eliminationSeeding = (0, bracketHelpers_1.createSeedingFromParticipantIds)(qualifierParticipantIds);
     const result = await (0, bracketHelpers_1.createStageWithStats)(manager, storage, categoryId, `${category.name} - Elimination`, bracketType, eliminationSeeding, {
         seedOrdering: options.seedOrdering || ['inner_outer'],

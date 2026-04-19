@@ -168,19 +168,36 @@ async function generate() {
       <strong>One-way action</strong> — Once you generate the bracket, pool play results are locked and cannot be changed.
     </v-alert>
 
-    <div class="d-flex gap-4" style="align-items: flex-start;">
-
+    <div
+      class="d-flex gap-4"
+      style="align-items: flex-start;"
+    >
       <!-- ---------------------------------------------------------------- -->
       <!-- Left panel: controls                                              -->
       <!-- ---------------------------------------------------------------- -->
       <div style="min-width: 240px; max-width: 260px;">
-
         <!-- Ranking method -->
-        <div class="text-caption text-medium-emphasis mb-1">Ranking Method</div>
-        <v-radio-group v-model="cutMode" density="compact" hide-details class="mb-4">
-          <v-radio value="global_top_n" label="Global Top N" />
-          <v-radio value="pool_first_global" label="Pool Rank → then Global" />
-          <v-radio value="top_n_per_pool" label="Top N per Pool" />
+        <div class="text-caption text-medium-emphasis mb-1">
+          Ranking Method
+        </div>
+        <v-radio-group
+          v-model="cutMode"
+          density="compact"
+          hide-details
+          class="mb-4"
+        >
+          <v-radio
+            value="global_top_n"
+            label="Global Top N"
+          />
+          <v-radio
+            value="pool_first_global"
+            label="Pool Rank → then Global"
+          />
+          <v-radio
+            value="top_n_per_pool"
+            label="Top N per Pool"
+          />
         </v-radio-group>
 
         <!-- N selector -->
@@ -188,14 +205,24 @@ async function generate() {
           {{ cutMode === 'top_n_per_pool' ? 'Qualifiers per Pool' : 'Players Advancing' }}
         </div>
         <div class="d-flex align-center gap-2 mb-2">
-          <v-btn icon="mdi-minus" size="small" variant="tonal" @click="adjustCount(-1)" />
+          <v-btn
+            icon="mdi-minus"
+            size="small"
+            variant="tonal"
+            @click="adjustCount(-1)"
+          />
           <div
             class="text-h5 font-weight-bold text-primary text-center flex-grow-1"
             style="min-width: 48px;"
           >
             {{ cutMode === 'top_n_per_pool' ? qualifierCount : (preview?.advancing.length ?? qualifierCount) }}
           </div>
-          <v-btn icon="mdi-plus" size="small" variant="tonal" @click="adjustCount(1)" />
+          <v-btn
+            icon="mdi-plus"
+            size="small"
+            variant="tonal"
+            @click="adjustCount(1)"
+          />
         </div>
 
         <!-- Quick-pick chips -->
@@ -214,7 +241,9 @@ async function generate() {
         </div>
 
         <!-- Auto-detected format -->
-        <div class="text-caption text-medium-emphasis mb-1">Format (auto-detected)</div>
+        <div class="text-caption text-medium-emphasis mb-1">
+          Format (auto-detected)
+        </div>
         <v-chip
           v-if="formatSuggestion"
           :color="formatSuggestion.isPerfectBracket ? 'success' : 'warning'"
@@ -234,7 +263,9 @@ async function generate() {
           @click="generate"
         >
           Generate Bracket
-          <v-icon end>mdi-arrow-right</v-icon>
+          <v-icon end>
+            mdi-arrow-right
+          </v-icon>
         </v-btn>
       </div>
 
@@ -247,7 +278,10 @@ async function generate() {
             Players — ranked by
             {{ cutMode === 'global_top_n' ? 'Global Score' : cutMode === 'pool_first_global' ? 'Pool Rank → Global' : 'Pool' }}
           </span>
-          <span v-if="preview" class="text-caption text-medium-emphasis">
+          <span
+            v-if="preview"
+            class="text-caption text-medium-emphasis"
+          >
             {{ preview.eliminated.length }} eliminated
           </span>
         </div>
@@ -255,33 +289,66 @@ async function generate() {
         <v-table density="compact">
           <thead>
             <tr>
-              <th style="width: 48px;">#</th>
+              <th style="width: 48px;">
+                #
+              </th>
               <th>Player</th>
-              <th class="text-center">Pool</th>
-              <th class="text-center">Pool Rank</th>
-              <th class="text-center">Global Rank</th>
-              <th class="text-center">Status</th>
+              <th class="text-center">
+                Pool
+              </th>
+              <th class="text-center">
+                Pool Rank
+              </th>
+              <th class="text-center">
+                Global Rank
+              </th>
+              <th class="text-center">
+                Status
+              </th>
             </tr>
           </thead>
           <tbody>
             <!-- Advancing rows -->
             <template v-if="preview">
-              <tr v-for="(p, index) in preview.advancing" :key="p.registrationId">
-                <td class="text-primary font-weight-bold">{{ index + 1 }}</td>
+              <tr
+                v-for="(p, index) in preview.advancing"
+                :key="p.registrationId"
+              >
+                <td class="text-primary font-weight-bold">
+                  {{ index + 1 }}
+                </td>
                 <td>{{ p.participantName }}</td>
                 <td class="text-center">
-                  <v-chip size="x-small" variant="tonal">{{ p.poolLabel }}</v-chip>
+                  <v-chip
+                    size="x-small"
+                    variant="tonal"
+                  >
+                    {{ p.poolLabel }}
+                  </v-chip>
                 </td>
-                <td class="text-center text-body-2">{{ p.poolRank }}</td>
-                <td class="text-center text-body-2">{{ p.globalRank }}</td>
+                <td class="text-center text-body-2">
+                  {{ p.poolRank }}
+                </td>
+                <td class="text-center text-body-2">
+                  {{ p.globalRank }}
+                </td>
                 <td class="text-center">
-                  <v-chip size="x-small" color="success" variant="tonal">Advances</v-chip>
+                  <v-chip
+                    size="x-small"
+                    color="success"
+                    variant="tonal"
+                  >
+                    Advances
+                  </v-chip>
                 </td>
               </tr>
 
               <!-- Cutline -->
               <tr v-if="preview.eliminated.length > 0">
-                <td colspan="6" class="pa-0">
+                <td
+                  colspan="6"
+                  class="pa-0"
+                >
                   <div
                     class="d-flex align-center gap-2 px-3 py-1 text-caption font-weight-medium"
                     style="
@@ -291,7 +358,9 @@ async function generate() {
                       color: rgb(var(--v-theme-warning));
                     "
                   >
-                    <v-icon size="small">mdi-content-cut</v-icon>
+                    <v-icon size="small">
+                      mdi-content-cut
+                    </v-icon>
                     CUTLINE — {{ preview.eliminated.length }} player{{ preview.eliminated.length === 1 ? '' : 's' }} eliminated
                   </div>
                 </td>
@@ -303,31 +372,68 @@ async function generate() {
                 :key="p.registrationId"
                 style="opacity: 0.45;"
               >
-                <td class="text-disabled">{{ preview.advancing.length + index + 1 }}</td>
-                <td class="text-disabled" style="text-decoration: line-through;">{{ p.participantName }}</td>
-                <td class="text-center">
-                  <v-chip size="x-small" variant="tonal">{{ p.poolLabel }}</v-chip>
+                <td class="text-disabled">
+                  {{ preview.advancing.length + index + 1 }}
                 </td>
-                <td class="text-center text-body-2 text-disabled">{{ p.poolRank }}</td>
-                <td class="text-center text-body-2 text-disabled">{{ p.globalRank }}</td>
+                <td
+                  class="text-disabled"
+                  style="text-decoration: line-through;"
+                >
+                  {{ p.participantName }}
+                </td>
                 <td class="text-center">
-                  <v-chip size="x-small" color="error" variant="tonal">Eliminated</v-chip>
+                  <v-chip
+                    size="x-small"
+                    variant="tonal"
+                  >
+                    {{ p.poolLabel }}
+                  </v-chip>
+                </td>
+                <td class="text-center text-body-2 text-disabled">
+                  {{ p.poolRank }}
+                </td>
+                <td class="text-center text-body-2 text-disabled">
+                  {{ p.globalRank }}
+                </td>
+                <td class="text-center">
+                  <v-chip
+                    size="x-small"
+                    color="error"
+                    variant="tonal"
+                  >
+                    Eliminated
+                  </v-chip>
                 </td>
               </tr>
             </template>
 
             <!-- Error state -->
             <tr v-else-if="loadError">
-              <td colspan="6" class="text-center py-6">
-                <v-icon color="error" class="mr-2">mdi-alert-circle</v-icon>
+              <td
+                colspan="6"
+                class="text-center py-6"
+              >
+                <v-icon
+                  color="error"
+                  class="mr-2"
+                >
+                  mdi-alert-circle
+                </v-icon>
                 <span class="text-error">{{ loadError }}</span>
               </td>
             </tr>
 
             <!-- Loading state -->
             <tr v-else>
-              <td colspan="6" class="text-center py-6 text-medium-emphasis">
-                <v-progress-circular indeterminate size="20" class="mr-2" />
+              <td
+                colspan="6"
+                class="text-center py-6 text-medium-emphasis"
+              >
+                <v-progress-circular
+                  indeterminate
+                  size="20"
+                  class="mr-2"
+                />
                 Loading pool rankings…
               </td>
             </tr>

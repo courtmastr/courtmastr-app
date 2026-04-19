@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { gsap } from 'gsap';
 import { usePublicSnapshot } from '@/composables/usePublicSnapshot';
 import PublicPageHeader from '@/features/public/components/snapshot/PublicPageHeader.vue';
@@ -12,6 +12,7 @@ import BracketTab from '@/features/public/components/snapshot/BracketTab.vue';
 import AddToHomeScreen from '@/features/public/components/snapshot/AddToHomeScreen.vue';
 
 const route = useRoute();
+const router = useRouter();
 const { snapshot, loading, error, notFound, loadBySlug } = usePublicSnapshot();
 
 const selectedCategoryId = ref<string>('');
@@ -24,6 +25,15 @@ let ctx: ReturnType<typeof gsap.context> | null = null;
 let manifestBlobUrl: string | null = null;
 
 function switchTab(i: number) {
+  if (i === 3 && snapshot.value) {
+    void router.push({
+      name: 'public-bracket',
+      params: { tournamentId: snapshot.value.meta.tournamentId },
+      query: selectedCategoryId.value ? { category: selectedCategoryId.value } : undefined,
+    });
+    return;
+  }
+
   tabTransitionName.value = i > activeTab.value ? 'tab-right' : 'tab-left';
   activeTab.value = i;
   // GSAP animate the sliding indicator
@@ -138,41 +148,150 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="pageRef" class="pub-page">
+  <div
+    ref="pageRef"
+    class="pub-page"
+  >
     <!-- Loading -->
-    <div v-if="loading" class="pub-page__state">
-      <v-progress-circular indeterminate color="primary" size="40" />
-      <p class="mt-3">Loading tournament...</p>
+    <div
+      v-if="loading"
+      class="pub-page__state"
+    >
+      <v-progress-circular
+        indeterminate
+        color="primary"
+        size="40"
+      />
+      <p class="mt-3">
+        Loading tournament...
+      </p>
     </div>
 
     <!-- Not found / not published -->
-    <div v-else-if="notFound" class="pub-page__state">
-      <v-icon size="56" color="grey">mdi-calendar-remove</v-icon>
-      <h2 class="pub-page__state-title">Not published yet</h2>
-      <p class="pub-page__state-sub">The organizer hasn't published this tournament's schedule yet. Check back soon.</p>
+    <div
+      v-else-if="notFound"
+      class="pub-page__state"
+    >
+      <v-icon
+        size="56"
+        color="grey"
+      >
+        mdi-calendar-remove
+      </v-icon>
+      <h2 class="pub-page__state-title">
+        Not published yet
+      </h2>
+      <p class="pub-page__state-sub">
+        The organizer hasn't published this tournament's schedule yet. Check back soon.
+      </p>
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="pub-page__state">
-      <v-icon size="56" color="error">mdi-alert-circle</v-icon>
-      <h2 class="pub-page__state-title">Couldn't load tournament</h2>
-      <p class="pub-page__state-sub">{{ error }}</p>
+    <div
+      v-else-if="error"
+      class="pub-page__state"
+    >
+      <v-icon
+        size="56"
+        color="error"
+      >
+        mdi-alert-circle
+      </v-icon>
+      <h2 class="pub-page__state-title">
+        Couldn't load tournament
+      </h2>
+      <p class="pub-page__state-sub">
+        {{ error }}
+      </p>
     </div>
 
     <!-- Content -->
     <template v-else-if="snapshot">
       <!-- Shuttlecock fly-through on load -->
-      <div class="shuttle-fly" aria-hidden="true">
-        <svg viewBox="0 0 24 40" width="30" height="50" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="12" cy="36" rx="5.5" ry="3.8" fill="white" opacity="0.95"/>
-          <ellipse cx="12" cy="33.5" rx="5.5" ry="2.8" fill="white" opacity="0.65"/>
-          <path d="M6.5,32 L9.5,11 L14.5,11 L17.5,32 Z" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.5)" stroke-width="0.5"/>
-          <line x1="12" y1="11" x2="3"  y2="1"   stroke="white" stroke-width="0.9" opacity="0.9"/>
-          <line x1="12" y1="11" x2="7"  y2="-0.5" stroke="white" stroke-width="0.9" opacity="0.9"/>
-          <line x1="12" y1="11" x2="12" y2="-1.5" stroke="white" stroke-width="0.9" opacity="0.9"/>
-          <line x1="12" y1="11" x2="17" y2="-0.5" stroke="white" stroke-width="0.9" opacity="0.9"/>
-          <line x1="12" y1="11" x2="21" y2="1"   stroke="white" stroke-width="0.9" opacity="0.9"/>
-          <path d="M3,1 Q12,-4 21,1" stroke="rgba(255,255,255,0.7)" stroke-width="0.9" fill="rgba(255,255,255,0.07)"/>
+      <div
+        class="shuttle-fly"
+        aria-hidden="true"
+      >
+        <svg
+          viewBox="0 0 24 40"
+          width="30"
+          height="50"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <ellipse
+            cx="12"
+            cy="36"
+            rx="5.5"
+            ry="3.8"
+            fill="white"
+            opacity="0.95"
+          />
+          <ellipse
+            cx="12"
+            cy="33.5"
+            rx="5.5"
+            ry="2.8"
+            fill="white"
+            opacity="0.65"
+          />
+          <path
+            d="M6.5,32 L9.5,11 L14.5,11 L17.5,32 Z"
+            fill="rgba(255,255,255,0.2)"
+            stroke="rgba(255,255,255,0.5)"
+            stroke-width="0.5"
+          />
+          <line
+            x1="12"
+            y1="11"
+            x2="3"
+            y2="1"
+            stroke="white"
+            stroke-width="0.9"
+            opacity="0.9"
+          />
+          <line
+            x1="12"
+            y1="11"
+            x2="7"
+            y2="-0.5"
+            stroke="white"
+            stroke-width="0.9"
+            opacity="0.9"
+          />
+          <line
+            x1="12"
+            y1="11"
+            x2="12"
+            y2="-1.5"
+            stroke="white"
+            stroke-width="0.9"
+            opacity="0.9"
+          />
+          <line
+            x1="12"
+            y1="11"
+            x2="17"
+            y2="-0.5"
+            stroke="white"
+            stroke-width="0.9"
+            opacity="0.9"
+          />
+          <line
+            x1="12"
+            y1="11"
+            x2="21"
+            y2="1"
+            stroke="white"
+            stroke-width="0.9"
+            opacity="0.9"
+          />
+          <path
+            d="M3,1 Q12,-4 21,1"
+            stroke="rgba(255,255,255,0.7)"
+            stroke-width="0.9"
+            fill="rgba(255,255,255,0.07)"
+          />
         </svg>
       </div>
 
@@ -193,25 +312,56 @@ onUnmounted(() => {
           :class="{ 'pub-tab--active': activeTab === i }"
           @click="switchTab(i)"
         >
-          <v-icon size="18">{{ tab.icon }}</v-icon>
+          <v-icon size="18">
+            {{ tab.icon }}
+          </v-icon>
           <span>{{ tab.label }}</span>
         </button>
-        <div ref="indicatorRef" class="pub-tab__indicator" />
+        <div
+          ref="indicatorRef"
+          class="pub-tab__indicator"
+        />
       </div>
 
       <!-- Tab content -->
       <template v-if="selectedCategory">
-        <Transition :name="tabTransitionName" mode="out-in">
-          <div :key="activeTab" class="tab-pane">
-            <ScheduleTab v-if="activeTab === 0" :matches="selectedCategory.schedule" />
-            <PoolsTab v-else-if="activeTab === 1" :pools="selectedCategory.pools" />
-            <StandingsTab v-else-if="activeTab === 2" :standings="selectedCategory.standings" />
-            <BracketTab v-else-if="activeTab === 3" :bracket="selectedCategory.bracket" />
+        <Transition
+          :name="tabTransitionName"
+          mode="out-in"
+        >
+          <div
+            :key="activeTab"
+            class="tab-pane"
+          >
+            <ScheduleTab
+              v-if="activeTab === 0"
+              :matches="selectedCategory.schedule"
+            />
+            <PoolsTab
+              v-else-if="activeTab === 1"
+              :pools="selectedCategory.pools"
+            />
+            <StandingsTab
+              v-else-if="activeTab === 2"
+              :standings="selectedCategory.standings"
+            />
+            <BracketTab
+              v-else-if="activeTab === 3"
+              :bracket="selectedCategory.bracket"
+            />
           </div>
         </Transition>
       </template>
-      <div v-else class="pub-page__state">
-        <v-icon size="32" color="grey">mdi-information</v-icon>
+      <div
+        v-else
+        class="pub-page__state"
+      >
+        <v-icon
+          size="32"
+          color="grey"
+        >
+          mdi-information
+        </v-icon>
         <p>Select a division above</p>
       </div>
 
@@ -219,7 +369,13 @@ onUnmounted(() => {
 
       <!-- Footer -->
       <footer class="pub-footer">
-        <v-icon size="13" class="mr-1" style="color:#3b82f6">mdi-badminton</v-icon>
+        <v-icon
+          size="13"
+          class="mr-1"
+          style="color:#3b82f6"
+        >
+          mdi-badminton
+        </v-icon>
         Powered by <strong>CourtMastr</strong>
       </footer>
     </template>
