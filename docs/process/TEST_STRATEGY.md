@@ -33,6 +33,17 @@ For every feature branch before merge:
 6. Optional lint confirmation when touching shared UI/system files
    - `npm run lint:log`
 
+Release-metadata PR exception:
+
+1. Applies only to CI-owned metadata branches named `release-metadata/*` and metadata-only `[skip release]` merge commits.
+2. Use the lightweight metadata validation path instead of lint, tests, and build.
+3. Required lightweight checks:
+   - only release-artifact files changed (`package.json`, `package-lock.json`, `docs/releases/**`, `docs/deployment/LAST_DEPLOY.md`, `docs/testing/**`)
+   - `package-lock.json` version matches `package.json`
+   - `docs/releases/v<version>.md` exists for the bumped package version
+   - `docs/deployment/LAST_DEPLOY.md` links to that release note
+4. Rationale: the generating `release:deploy` job already ran the full release guardrails before opening the metadata PR.
+
 For release/deploy:
 
 1. Confirm `master` contains merged changes.

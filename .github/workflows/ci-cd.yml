@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_ci: ${{ steps.detect.outputs.should_ci }}
+      ci_mode: ${{ steps.detect.outputs.ci_mode }}
       should_deploy: ${{ steps.detect.outputs.should_deploy }}
     steps:
       - name: Checkout
@@ -59,12 +60,36 @@ jobs:
           changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
           printf 'Changed files:\n%s\n' "$changed_files"
 
-          # CI gate: src, functions, tests, and config files that affect lint/build/test
-          if printf '%s\n' "$changed_files" | grep -qE '^(src/|functions/|public/|tests/|index\.html$|vite\.config\.|vitest\.config\.|tsconfig|package\.json$|package-lock\.json$|eslint\.config\.)'; then
-            echo "should_ci=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_ci=false" >> "$GITHUB_OUTPUT"
+          metadata_only_pattern='^(package\.json|package-lock\.json|docs/deployment/LAST_DEPLOY\.md|docs/releases/.*|docs/testing/TEST_CATALOG\.md|docs/testing/TEST_CATALOG\.html|docs/testing/test-run-summary\.json)$'
+          ci_mode="skip"
+
+          is_release_metadata_pr=false
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" && "${{ github.head_ref }}" == release-metadata/* ]]; then
+            is_release_metadata_pr=true
           fi
+
+          is_release_metadata_push=false
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == "refs/heads/master" && "${{ github.event.head_commit.message }}" == *"[skip release]"* ]]; then
+            is_release_metadata_push=true
+          fi
+
+          metadata_files_only=true
+          if [[ -n "$changed_files" ]] && printf '%s\n' "$changed_files" | grep -qvE "$metadata_only_pattern"; then
+            metadata_files_only=false
+          fi
+
+          if [[ ( "$is_release_metadata_pr" == "true" || "$is_release_metadata_push" == "true" ) && "$metadata_files_only" == "true" ]]; then
+            ci_mode="metadata"
+          elif printf '%s\n' "$changed_files" | grep -qE '^(src/|functions/|public/|tests/|index\.html$|vite\.config\.|vitest\.config\.|tsconfig|package\.json$|package-lock\.json$|eslint\.config\.)'; then
+            ci_mode="full"
+          fi
+
+          if [[ "$ci_mode" == "skip" ]]; then
+            echo "should_ci=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_ci=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "ci_mode=$ci_mode" >> "$GITHUB_OUTPUT"
 
           # Deploy gate: push to master only, subset of CI paths (no tests/)
           if [[ "${GITHUB_EVENT_NAME}" != "push" || "${GITHUB_REF}" != "refs/heads/master" ]]; then
@@ -87,19 +112,80 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate release metadata changes
+        if: needs.detect-changes.outputs.ci_mode == 'metadata'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
+
+          if [[ -z "$base_sha" || "$base_sha" == "0000000000000000000000000000000000000000" ]]; then
+            base_sha="$(git rev-list --max-parents=0 "$head_sha" | tail -n 1)"
+          fi
+
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+          printf 'Metadata fast-path files:\n%s\n' "$changed_files"
+
+          allowed_pattern='^(package\.json|package-lock\.json|docs/deployment/LAST_DEPLOY\.md|docs/releases/.*|docs/testing/TEST_CATALOG\.md|docs/testing/TEST_CATALOG\.html|docs/testing/test-run-summary\.json)$'
+          disallowed_files="$(printf '%s\n' "$changed_files" | grep -vE "$allowed_pattern" || true)"
+          if [[ -n "$disallowed_files" ]]; then
+            echo "Release metadata fast path received unexpected files:"
+            printf '%s\n' "$disallowed_files"
+            exit 1
+          fi
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          package = json.loads(Path("package.json").read_text())
+          lock = json.loads(Path("package-lock.json").read_text())
+          version = package["version"]
+
+          assert lock["version"] == version, f"package-lock version {lock['version']} != package.json version {version}"
+          assert lock["packages"][""]["version"] == version, (
+              f"package-lock root package version {lock['packages']['']['version']} != package.json version {version}"
+          )
+
+          release_notes = Path(f"docs/releases/v{version}.md")
+          assert release_notes.exists(), f"Missing release notes file: {release_notes}"
+
+          release_contents = release_notes.read_text()
+          assert f"Package version: `{version}`" in release_contents, (
+              f"Release notes {release_notes} do not mention package version {version}"
+          )
+
+          last_deploy = Path("docs/deployment/LAST_DEPLOY.md").read_text()
+          expected_link = f"[docs/releases/v{version}.md](docs/releases/v{version}.md)"
+          assert expected_link in last_deploy, (
+              f"LAST_DEPLOY.md does not link to {release_notes.name}"
+          )
+          PY
+
       - name: Setup Node.js
+        if: needs.detect-changes.outputs.ci_mode == 'full'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
       - name: Install root dependencies
+        if: needs.detect-changes.outputs.ci_mode == 'full'
         run: npm ci
 
       - name: Install functions dependencies
+        if: needs.detect-changes.outputs.ci_mode == 'full'
         run: npm ci --prefix functions
 
       - name: Create production env file
+        if: needs.detect-changes.outputs.ci_mode == 'full'
         run: |
           cat > .env.production <<'EOF'
           VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -112,12 +198,15 @@ jobs:
           EOF
 
       - name: Lint
+        if: needs.detect-changes.outputs.ci_mode == 'full'
         run: npm run lint:check
 
       - name: Unit tests (CI mode)
+        if: needs.detect-changes.outputs.ci_mode == 'full'
         run: npm run test -- --run
 
       - name: Build
+        if: needs.detect-changes.outputs.ci_mode == 'full'
         run: npm run build
 
   deploy:

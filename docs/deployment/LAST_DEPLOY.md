@@ -6,13 +6,13 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-18 00:56 CDT
-- Release ID: `v2.17.0`
-- Package version: `2.17.0`
+- Date: 2026-04-18 10:37 CDT
+- Release ID: `v2.18.0`
+- Package version: `2.18.0`
 - Deployed branch: `master`
-- Deployed commit: `0a037dd` (`fix: support live scoring overrides by category (#82)`)
+- Deployed commit: `fcaf3be` (`fix: preserve match context in court scoring (#88)`)
 - Release notes:
-  - [docs/releases/v2.17.0.md](docs/releases/v2.17.0.md)
+  - [docs/releases/v2.18.0.md](docs/releases/v2.18.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-18 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-18-05-55-29.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-18-15-35-52.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,18 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.17.1`
+  - Date: 2026-04-18 08:03 CDT
+  - Package version: `2.17.1`
+  - Deployed commit: `873d213`
+  - Release notes:
+    - [docs/releases/v2.17.1.md](docs/releases/v2.17.1.md)
+- `v2.17.0`
+  - Date: 2026-04-18 00:56 CDT
+  - Package version: `2.17.0`
+  - Deployed commit: `0a037dd`
+  - Release notes:
+    - [docs/releases/v2.17.0.md](docs/releases/v2.17.0.md)
 - `v2.16.2`
   - Date: 2026-04-18 00:46 CDT
   - Package version: `2.16.2`
@@ -239,7 +251,7 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-18 00:56 CDT
-- Commit: `0a037dd69c73ab84f5059a68f3eaaea3eda89202`
-- Message: `fix: support live scoring overrides by category (#82)`
+- Date: 2026-04-18 10:37 CDT
+- Commit: `fcaf3bef9a053f2b7e3927eb0f2f138a0eba8faa`
+- Message: `fix: preserve match context in court scoring (#88)`
 - Note: deployed via `npm run release:deploy` on 2026-04-18.
