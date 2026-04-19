@@ -154,7 +154,15 @@ jobs:
               f"package-lock root package version {lock['packages']['']['version']} != package.json version {version}"
           )
 
-          release_notes = Path(f"docs/releases/v{version}.md")
+          last_deploy = Path("docs/deployment/LAST_DEPLOY.md").read_text()
+          release_id_line = next(
+              (line for line in last_deploy.splitlines() if line.startswith("- Release ID: `")),
+              None,
+          )
+          assert release_id_line is not None, "LAST_DEPLOY.md is missing a Release ID line"
+          release_id = release_id_line.split("`")[1]
+
+          release_notes = Path(f"docs/releases/{release_id}.md")
           assert release_notes.exists(), f"Missing release notes file: {release_notes}"
 
           release_contents = release_notes.read_text()
@@ -162,8 +170,7 @@ jobs:
               f"Release notes {release_notes} do not mention package version {version}"
           )
 
-          last_deploy = Path("docs/deployment/LAST_DEPLOY.md").read_text()
-          expected_link = f"[docs/releases/v{version}.md](docs/releases/v{version}.md)"
+          expected_link = f"[docs/releases/{release_id}.md](docs/releases/{release_id}.md)"
           assert expected_link in last_deploy, (
               f"LAST_DEPLOY.md does not link to {release_notes.name}"
           )

@@ -45,8 +45,9 @@ Release metadata fast path:
 2. Metadata mode validates only the release artifact payload:
    - allowed file set only
    - `package.json` and `package-lock.json` stay in sync
-   - `docs/releases/v<version>.md` exists
-   - `docs/deployment/LAST_DEPLOY.md` links to that release note
+   - the release note named by `LAST_DEPLOY.md` exists
+   - that release note records the current package version
+   - `LAST_DEPLOY.md` links to that release note
 3. Merge commits with `[skip release]` and metadata-only diffs take the same fast path on `master`.
 4. Full lint, unit test, and build execution remains required for normal app/function changes.
 

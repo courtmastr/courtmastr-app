@@ -2,17 +2,17 @@
 
 Current policy note: production infrastructure is Terraform-managed and production application rollout is expected to happen through the `master` CI/CD workflow. Older entries below may reference the previous local release command path because they are historical records.
 
-Updated: 2026-04-18 (America/Chicago)
+Updated: 2026-04-19 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-18 10:37 CDT
-- Release ID: `v2.18.0`
+- Date: 2026-04-19 01:51 CDT
+- Release ID: `v2.18.0+deploy.2`
 - Package version: `2.18.0`
 - Deployed branch: `master`
-- Deployed commit: `fcaf3be` (`fix: preserve match context in court scoring (#88)`)
+- Deployed commit: `fc2ebbc` (`Fix pool standings and public bracket routing (#90)`)
 - Release notes:
-  - [docs/releases/v2.18.0.md](docs/releases/v2.18.0.md)
+  - [docs/releases/v2.18.0+deploy.2.md](docs/releases/v2.18.0+deploy.2.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-18 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-18-15-35-52.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-19-06-48-38.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.18.0`
+  - Date: 2026-04-18 10:37 CDT
+  - Package version: `2.18.0`
+  - Deployed commit: `fcaf3be`
+  - Release notes:
+    - [docs/releases/v2.18.0.md](docs/releases/v2.18.0.md)
 - `v2.17.1`
   - Date: 2026-04-18 08:03 CDT
   - Package version: `2.17.1`
@@ -251,7 +257,7 @@ Updated: 2026-04-18 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-18 10:37 CDT
-- Commit: `fcaf3bef9a053f2b7e3927eb0f2f138a0eba8faa`
-- Message: `fix: preserve match context in court scoring (#88)`
-- Note: deployed via `npm run release:deploy` on 2026-04-18.
+- Date: 2026-04-19 01:51 CDT
+- Commit: `fc2ebbc96ee516584e6c6cb96e2db17322481d43`
+- Message: `Fix pool standings and public bracket routing (#90)`
+- Note: deployed via `npm run release:deploy` on 2026-04-19.

@@ -5291,7 +5291,7 @@ elif [[ "${GITHUB_EVENT_NAME}" == "push" && "${{ github.event.head_commit.messag
 fi
 ```
 
-**Rule:** CI-owned release metadata branches and metadata-only `[skip release]` merge commits must keep the existing required check name but switch it into a lightweight metadata validation mode. That mode validates allowed files only plus release-note/version consistency, and must not rerun the full app lint/test/build pipeline.
+**Rule:** CI-owned release metadata branches and metadata-only `[skip release]` merge commits must keep the existing required check name but switch it into a lightweight metadata validation mode. That mode validates allowed files only plus `LAST_DEPLOY` release-note/version consistency, and must not rerun the full app lint/test/build pipeline. The validation must read the release ID from `LAST_DEPLOY.md` instead of assuming the note filename is always `v<package-version>.md`, because repeated deploys may legitimately use build metadata such as `v2.18.0+deploy.2`.
 
 **Detection:**
 ```bash
