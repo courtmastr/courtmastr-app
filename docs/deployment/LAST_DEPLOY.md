@@ -2,17 +2,17 @@
 
 Current policy note: production infrastructure is Terraform-managed and production application rollout is expected to happen through the `master` CI/CD workflow. Older entries below may reference the previous local release command path because they are historical records.
 
-Updated: 2026-04-19 (America/Chicago)
+Updated: 2026-04-22 (America/Chicago)
 
 ## Latest Production Deploy
 
-- Date: 2026-04-19 02:58 CDT
-- Release ID: `v2.18.1`
-- Package version: `2.18.1`
+- Date: 2026-04-22 07:05 CDT
+- Release ID: `v2.19.0`
+- Package version: `2.19.0`
 - Deployed branch: `master`
-- Deployed commit: `baaa629` (`Fix public snapshot standings match points (#92)`)
+- Deployed commit: `5a18649` (`fix: resolve player stats from bracket storage (#96)`)
 - Release notes:
-  - [docs/releases/v2.18.1.md](docs/releases/v2.18.1.md)
+  - [docs/releases/v2.19.0.md](docs/releases/v2.19.0.md)
 - Commands:
   - `npm run release:deploy`
   - `npm run deploy`
@@ -23,7 +23,7 @@ Updated: 2026-04-19 (America/Chicago)
   - Release automation completed all guardrails before Firebase deploy
   - See deploy-log artifact for full Firebase output
 - Deploy log artifact from deploy-log run:
-  - `docs/debug-kb/_artifacts/2026-04-19-07-56-43.npm-run-build-firebase-deploy-project-production.log`
+  - `docs/debug-kb/_artifacts/2026-04-22-12-03-27.npm-run-build-firebase-deploy-project-production.log`
 
 ## Last Confirmed Firebase Deploy (Artifact-Backed)
 
@@ -38,6 +38,12 @@ Updated: 2026-04-19 (America/Chicago)
 
 ## Previous Versioned Production Releases
 
+- `v2.18.1`
+  - Date: 2026-04-19 02:58 CDT
+  - Package version: `2.18.1`
+  - Deployed commit: `baaa629`
+  - Release notes:
+    - [docs/releases/v2.18.1.md](docs/releases/v2.18.1.md)
 - `v2.18.0+deploy.2`
   - Date: 2026-04-19 01:51 CDT
   - Package version: `2.18.0`
@@ -263,7 +269,7 @@ Updated: 2026-04-19 (America/Chicago)
 
 ## Latest Production Merge Milestone
 
-- Date: 2026-04-19 02:58 CDT
-- Commit: `baaa6294e4cc917555781a4435a69237fcea3ebc`
-- Message: `Fix public snapshot standings match points (#92)`
-- Note: deployed via `npm run release:deploy` on 2026-04-19.
+- Date: 2026-04-22 07:05 CDT
+- Commit: `5a18649e5ad6b004f41ba5507cfc96c3ac5e8a62`
+- Message: `fix: resolve player stats from bracket storage (#96)`
+- Note: deployed via `npm run release:deploy` on 2026-04-22.
