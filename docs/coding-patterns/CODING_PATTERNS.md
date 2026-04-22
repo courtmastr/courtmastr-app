@@ -5748,6 +5748,74 @@ rg -n "mp:\\s*entry\\.played" src/composables/usePublishSnapshot.ts tests
 
 ---
 
+### CP-109: Tournament Stat Rollups Must Expand Team Registrations Without Depending On Collection-Group Match Score Indexes
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-21 |
+| **Source Bug** | TNF 2026 completed without updating global player stats because the rollup used an unindexed `collectionGroup('match_scores')` query and only credited `playerId`, dropping doubles `partnerPlayerId` |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+const regMap = new Map<string, { playerId: string; categoryId: string }>();
+for (const regDoc of registrationsSnap.docs) {
+  const data = regDoc.data();
+  if (data.playerId && data.categoryId) {
+    regMap.set(regDoc.id, { playerId: data.playerId, categoryId: data.categoryId });
+  }
+}
+
+const matchScoresSnap = await db
+  .collectionGroup('match_scores')
+  .where('tournamentId', '==', tournamentId)
+  .where('status', '==', 'completed')
+  .get();
+```
+
+**Correct Pattern (✅):**
+```ts
+const registrationLookup = buildRegistrationLookup(
+  registrationsSnap.docs.map((regDoc) => ({
+    id: regDoc.id,
+    playerId: regDoc.data().playerId,
+    partnerPlayerId: regDoc.data().partnerPlayerId,
+    categoryId: regDoc.data().categoryId,
+  }))
+);
+
+const levelIdsByCategory = await fetchLevelIdsByCategory(db, tournamentId, categoryIds);
+const targets = buildMatchScoreCollectionTargets(tournamentId, categoryIds, levelIdsByCategory);
+
+for (const { target, snap } of matchScoreCollections) {
+  for (const matchScoreDoc of snap.docs) {
+    applyMatchScoreDeltas(deltas, registrationLookup, categoryTypeMap, sport, {
+      categoryId: target.categoryId,
+      participant1Id: matchScoreDoc.data().participant1Id,
+      participant2Id: matchScoreDoc.data().participant2Id,
+      winnerId: matchScoreDoc.data().winnerId,
+      scores: matchScoreDoc.data().scores ?? [],
+    });
+  }
+}
+```
+
+**Rule:** Tournament completion rollups must map each registration to every attached player (`playerId` and `partnerPlayerId`) and must read match score docs from known category/level paths instead of relying on an extra collection-group index to exist in production. If a match score references a doubles or mixed registration, both teammates must receive identical win/loss/game deltas.
+
+**Detection:**
+```bash
+if rg -q "collectionGroup\\('match_scores'\\)" functions/src/playerStats.ts; then
+  echo "Violation: player stats aggregation depends on collection-group match_scores index"
+fi
+
+if ! rg -q "partnerPlayerId|playerIds" functions/src/playerStats.ts; then
+  echo "Violation: player stats aggregation is not partner-aware"
+fi
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

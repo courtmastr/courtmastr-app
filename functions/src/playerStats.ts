@@ -2,7 +2,7 @@
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
 
-type CategoryType = 'singles' | 'doubles' | 'mixed';
+type CategoryType = string;
 
 interface StatDelta {
   wins: number;
@@ -12,6 +12,191 @@ interface StatDelta {
 
 // Per-player per-sport per-category deltas
 type PlayerDeltas = Map<string, Map<string, Map<CategoryType, StatDelta>>>;
+
+interface TournamentRegistrationRecord {
+  id: string;
+  playerId?: string | null;
+  partnerPlayerId?: string | null;
+  categoryId?: string | null;
+}
+
+interface RegistrationLookupEntry {
+  playerIds: string[];
+  categoryId: string;
+}
+
+interface MatchScoreGame {
+  score1: number;
+  score2: number;
+  isComplete?: boolean;
+}
+
+export interface TournamentMatchScoreRecord {
+  categoryId: string;
+  participant1Id?: string | null;
+  participant2Id?: string | null;
+  winnerId?: string | null;
+  scores?: MatchScoreGame[];
+}
+
+export interface MatchScoreCollectionTarget {
+  categoryId: string;
+  path: string;
+  levelId?: string;
+}
+
+export function buildRegistrationLookup(
+  registrations: TournamentRegistrationRecord[]
+): Map<string, RegistrationLookupEntry> {
+  const lookup = new Map<string, RegistrationLookupEntry>();
+
+  for (const registration of registrations) {
+    if (!registration.categoryId) {
+      continue;
+    }
+
+    const playerIds = Array.from(
+      new Set(
+        [registration.playerId, registration.partnerPlayerId].filter(
+          (playerId): playerId is string =>
+            typeof playerId === 'string' && playerId.length > 0
+        )
+      )
+    );
+
+    if (playerIds.length === 0) {
+      continue;
+    }
+
+    lookup.set(registration.id, {
+      playerIds,
+      categoryId: registration.categoryId,
+    });
+  }
+
+  return lookup;
+}
+
+export function buildMatchScoreCollectionTargets(
+  tournamentId: string,
+  categoryIds: string[],
+  levelIdsByCategory: Record<string, string[]>
+): MatchScoreCollectionTarget[] {
+  const targets: MatchScoreCollectionTarget[] = [];
+
+  for (const categoryId of categoryIds) {
+    targets.push({
+      categoryId,
+      path: `tournaments/${tournamentId}/categories/${categoryId}/match_scores`,
+    });
+
+    for (const levelId of levelIdsByCategory[categoryId] ?? []) {
+      targets.push({
+        categoryId,
+        levelId,
+        path: `tournaments/${tournamentId}/categories/${categoryId}/levels/${levelId}/match_scores`,
+      });
+    }
+  }
+
+  return targets;
+}
+
+export function applyMatchScoreDeltas(
+  deltas: PlayerDeltas,
+  registrationLookup: Map<string, RegistrationLookupEntry>,
+  categoryTypeMap: Map<string, CategoryType>,
+  sport: string,
+  matchScore: TournamentMatchScoreRecord
+): void {
+  const participant1Id = matchScore.participant1Id ?? undefined;
+  const participant2Id = matchScore.participant2Id ?? undefined;
+  const winnerId = matchScore.winnerId ?? undefined;
+
+  if (!participant1Id || !participant2Id || !winnerId) {
+    return;
+  }
+
+  const categoryType = categoryTypeMap.get(matchScore.categoryId);
+  if (!categoryType) {
+    return;
+  }
+
+  const participant1 = registrationLookup.get(participant1Id);
+  const participant2 = registrationLookup.get(participant2Id);
+
+  if (!participant1 || !participant2) {
+    return;
+  }
+
+  const winnerRegistration = winnerId === participant1Id ? participant1 : participant2;
+  const loserRegistration = winnerId === participant1Id ? participant2 : participant1;
+
+  let winnerGames = 0;
+  let loserGames = 0;
+  const scores = Array.isArray(matchScore.scores) ? matchScore.scores : [];
+
+  for (const game of scores) {
+    if (!game.isComplete && game.score1 === 0 && game.score2 === 0) {
+      continue;
+    }
+
+    const participant1WinsGame = game.score1 > game.score2;
+    if (winnerId === participant1Id) {
+      if (participant1WinsGame) {
+        winnerGames += 1;
+      } else {
+        loserGames += 1;
+      }
+    } else if (participant1WinsGame) {
+      loserGames += 1;
+    } else {
+      winnerGames += 1;
+    }
+  }
+
+  const gamesPlayed = winnerGames + loserGames;
+
+  applyPlayerIdsDelta(deltas, winnerRegistration.playerIds, sport, categoryType, {
+    wins: 1,
+    losses: 0,
+    gamesPlayed,
+  });
+  applyPlayerIdsDelta(deltas, loserRegistration.playerIds, sport, categoryType, {
+    wins: 0,
+    losses: 1,
+    gamesPlayed,
+  });
+}
+
+function applyPlayerIdsDelta(
+  deltas: PlayerDeltas,
+  playerIds: string[],
+  sport: string,
+  catType: CategoryType,
+  delta: StatDelta
+): void {
+  for (const playerId of new Set(playerIds)) {
+    applyDelta(deltas, playerId, sport, catType, delta);
+  }
+}
+
+async function fetchLevelIdsByCategory(
+  firestore: admin.firestore.Firestore,
+  tournamentId: string,
+  categoryIds: string[]
+): Promise<Record<string, string[]>> {
+  const entries = await Promise.all(
+    categoryIds.map(async (categoryId) => {
+      const levelsSnap = await firestore
+        .collection(`tournaments/${tournamentId}/categories/${categoryId}/levels`)
+        .get();
+      return [categoryId, levelsSnap.docs.map((doc) => doc.id)] as const;
+    })
+  );
+
+  return Object.fromEntries(entries);
+}
 
 /**
  * Triggered when a tournament document is updated.
@@ -41,89 +226,74 @@ export const aggregatePlayerStats = onDocumentUpdated(
     const deltas: PlayerDeltas = new Map();
 
     try {
-      // 1. Fetch all registrations for this tournament (playerId lookup)
+      // 1. Fetch all registrations for this tournament (registrationId -> playerIds lookup)
       const registrationsSnap = await db
         .collection(`tournaments/${tournamentId}/registrations`)
         .get();
 
-      // Build a map: registrationId → { playerId, categoryId }
-      const regMap = new Map<string, { playerId: string; categoryId: string }>();
-      for (const regDoc of registrationsSnap.docs) {
-        const d = regDoc.data();
-        if (d.playerId && d.categoryId) {
-          regMap.set(regDoc.id, { playerId: d.playerId, categoryId: d.categoryId });
-        }
-      }
+      const registrationLookup = buildRegistrationLookup(
+        registrationsSnap.docs.map((regDoc) => ({
+          id: regDoc.id,
+          playerId: regDoc.data().playerId as string | undefined,
+          partnerPlayerId: regDoc.data().partnerPlayerId as string | undefined,
+          categoryId: regDoc.data().categoryId as string | undefined,
+        }))
+      );
 
       // 2. Build a map of categoryId → categoryType (singles/doubles/mixed)
       const categoryTypeMap = new Map<string, CategoryType>();
       const categoriesSnap = await db
         .collection(`tournaments/${tournamentId}/categories`)
         .get();
+      const categoryIds: string[] = [];
       for (const catDoc of categoriesSnap.docs) {
-        const catType = catDoc.data().type as CategoryType | undefined;
-        if (catType) categoryTypeMap.set(catDoc.id, catType);
+        categoryIds.push(catDoc.id);
+        const catType = catDoc.data().type;
+        if (typeof catType === 'string' && catType.length > 0) {
+          categoryTypeMap.set(catDoc.id, catType);
+        }
       }
 
-      // 3. Read all match_scores for this tournament via collectionGroup
-      //    (tournamentId field was denormalized at write time)
-      const matchScoresSnap = await db
-        .collectionGroup('match_scores')
-        .where('tournamentId', '==', tournamentId)
-        .where('status', '==', 'completed')
-        .get();
+      // 3. Read match_scores from category and level-scoped paths so tournament completion
+      //    does not depend on a collection-group index to aggregate results.
+      const levelIdsByCategory = await fetchLevelIdsByCategory(db, tournamentId, categoryIds);
+      const targets = buildMatchScoreCollectionTargets(
+        tournamentId,
+        categoryIds,
+        levelIdsByCategory
+      );
+      const matchScoreCollections = await Promise.all(
+        targets.map(async (target) => ({
+          target,
+          snap: await db.collection(target.path).get(),
+        }))
+      );
 
-      // 4. Compute per-player deltas
-      for (const msDoc of matchScoresSnap.docs) {
-        const ms = msDoc.data();
-        const winnerId: string | undefined = ms.winnerId;
-        const participant1Id: string | undefined = ms.participant1Id;
-        const participant2Id: string | undefined = ms.participant2Id;
-
-        if (!winnerId || !participant1Id || !participant2Id) continue;
-
-        // Determine category type from registration → categoryId
-        const p1Reg = regMap.get(participant1Id);
-        const p2Reg = regMap.get(participant2Id);
-        const categoryId = p1Reg?.categoryId ?? p2Reg?.categoryId;
-        if (!categoryId) continue;
-        const catType = categoryTypeMap.get(categoryId);
-        if (!catType) continue;
-
-        const loserId = winnerId === participant1Id ? participant2Id : participant1Id;
-
-        // Count game wins/losses from scores array
-        let winnerGames = 0;
-        let loserGames = 0;
-        const scores: Array<{ score1: number; score2: number; isComplete?: boolean }> =
-          Array.isArray(ms.scores) ? ms.scores : [];
-        for (const game of scores) {
-          if (!game.isComplete && game.score1 === 0 && game.score2 === 0) continue;
-          const p1Wins = game.score1 > game.score2;
-          if (winnerId === participant1Id) {
-            if (p1Wins) winnerGames++; else loserGames++;
-          } else {
-            if (!p1Wins) winnerGames++; else loserGames++;
+      // 4. Compute per-player deltas, crediting every player attached to a registration.
+      for (const { target, snap } of matchScoreCollections) {
+        for (const matchScoreDoc of snap.docs) {
+          const matchScoreData = matchScoreDoc.data();
+          const status = matchScoreData.status;
+          if (status !== 'completed' && status !== 'walkover') {
+            continue;
           }
+
+          applyMatchScoreDeltas(
+            deltas,
+            registrationLookup,
+            categoryTypeMap,
+            sport,
+            {
+              categoryId: target.categoryId,
+              participant1Id: matchScoreData.participant1Id as string | undefined,
+              participant2Id: matchScoreData.participant2Id as string | undefined,
+              winnerId: matchScoreData.winnerId as string | undefined,
+              scores: Array.isArray(matchScoreData.scores)
+                ? (matchScoreData.scores as MatchScoreGame[])
+                : [],
+            }
+          );
         }
-
-        applyDelta(deltas, p1Reg?.playerId ?? '', sport, catType, {
-          wins: winnerId === participant1Id ? 1 : 0,
-          losses: winnerId !== participant1Id ? 1 : 0,
-          gamesPlayed: winnerGames + loserGames,
-        });
-        applyDelta(deltas, p2Reg?.playerId ?? '', sport, catType, {
-          wins: winnerId === participant2Id ? 1 : 0,
-          losses: winnerId !== participant2Id ? 1 : 0,
-          gamesPlayed: winnerGames + loserGames,
-        });
-
-        // For doubles/mixed: partners share the same registration ID so
-        // both players are already captured above when they each have a separate registration.
-        // No additional processing needed for the current data model.
-
-        // Track loser's game counts too (already done via p1/p2 above)
-        void loserId; // referenced indirectly; suppress unused-var
       }
 
       // 5. Batch write stat increments to /players
@@ -167,7 +337,9 @@ export const aggregatePlayerStats = onDocumentUpdated(
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log(`[aggregatePlayerStats] Processed tournament ${tournamentId}: ${deltas.size} players updated`);
+      console.log(
+        `[aggregatePlayerStats] Processed tournament ${tournamentId}: ${deltas.size} players updated`
+      );
     } catch (err) {
       console.error(`[aggregatePlayerStats] Error processing tournament ${tournamentId}:`, err);
       throw err;
