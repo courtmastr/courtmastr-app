@@ -111,6 +111,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Validate release metadata changes
         if: needs.detect-changes.outputs.ci_mode == 'metadata'
@@ -130,7 +132,20 @@ jobs:
             base_sha="$(git rev-list --max-parents=0 "$head_sha" | tail -n 1)"
           fi
 
-          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+          if ! git rev-parse --verify "${base_sha}^{commit}" >/dev/null 2>&1; then
+            if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+              git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+            else
+              git fetch --no-tags origin "${GITHUB_REF_NAME}"
+            fi
+          fi
+
+          if ! git rev-parse --verify "${base_sha}^{commit}" >/dev/null 2>&1; then
+            echo "Unable to resolve base commit ${base_sha} for metadata fast-path diff"
+            exit 1
+          fi
+
+          changed_files="$(git diff --name-only "${base_sha}...${head_sha}")"
           printf 'Metadata fast-path files:\n%s\n' "$changed_files"
 
           allowed_pattern='^(package\.json|package-lock\.json|docs/deployment/LAST_DEPLOY\.md|docs/releases/.*|docs/testing/TEST_CATALOG\.md|docs/testing/TEST_CATALOG\.html|docs/testing/test-run-summary\.json)$'

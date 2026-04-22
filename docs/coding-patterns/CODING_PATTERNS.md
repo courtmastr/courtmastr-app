@@ -5268,7 +5268,7 @@ rg -n "release-metadata/\\$\\{GITHUB_RUN_ID\\}-\\$\\{GITHUB_RUN_ATTEMPT\\}|gh pr
 | Field | Value |
 |-------|-------|
 | **Added** | 2026-04-19 |
-| **Source Bug** | CI-created release metadata PRs (`#85`, `#87`, `#89`) were forced through the normal app lint/test/build gate even though `release:deploy` had already completed the full release guardrails |
+| **Source Bug** | CI-created release metadata PRs (`#85`, `#87`, `#89`, `#97`) were forced through the normal app lint/test/build gate or failed metadata validation because the fast path lacked base-history recovery and diffed against stale base tips instead of the PR range |
 | **Severity** | Medium |
 | **Status** | ✅ Active |
 
@@ -5290,12 +5290,26 @@ elif [[ "${GITHUB_EVENT_NAME}" == "push" && "${{ github.event.head_commit.messag
   ci_mode="metadata"
 fi
 ```
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
 
-**Rule:** CI-owned release metadata branches and metadata-only `[skip release]` merge commits must keep the existing required check name but switch it into a lightweight metadata validation mode. That mode validates allowed files only plus `LAST_DEPLOY` release-note/version consistency, and must not rerun the full app lint/test/build pipeline. The validation must read the release ID from `LAST_DEPLOY.md` instead of assuming the note filename is always `v<package-version>.md`, because repeated deploys may legitimately use build metadata such as `v2.18.0+deploy.2`.
+- name: Validate release metadata changes
+  run: |
+    if ! git rev-parse --verify "${base_sha}^{commit}" >/dev/null 2>&1; then
+      git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+    fi
+
+    changed_files="$(git diff --name-only "${base_sha}...${head_sha}")"
+```
+
+**Rule:** CI-owned release metadata branches and metadata-only `[skip release]` merge commits must keep the existing required check name but switch it into a lightweight metadata validation mode. That mode validates allowed files only plus `LAST_DEPLOY` release-note/version consistency, and must not rerun the full app lint/test/build pipeline. The validation must read the release ID from `LAST_DEPLOY.md` instead of assuming the note filename is always `v<package-version>.md`, because repeated deploys may legitimately use build metadata such as `v2.18.0+deploy.2`. The fast path must also fetch enough history to resolve `base.sha` and must diff the PR/push range (`base...head`), not a raw tree-to-tree comparison against the current base tip.
 
 **Detection:**
 ```bash
 rg -n "ci_mode|metadata_only_pattern|Validate release metadata changes" .github/workflows/ci-cd.yml
+rg -n "fetch-depth:\\s*0|git diff --name-only .*\\.\\.\\.|git rev-parse --verify .*\\^\\{commit\\}" .github/workflows/ci-cd.yml
 ```
 
 ---
