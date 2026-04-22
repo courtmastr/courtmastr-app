@@ -16,7 +16,9 @@ vi.mock('firebase-admin', () => ({
 import {
   applyMatchScoreDeltas,
   buildMatchScoreCollectionTargets,
+  buildParticipantRegistrationLookup,
   buildRegistrationLookup,
+  resolveMatchScoreParticipants,
 } from '../../functions/src/playerStats';
 
 const getDelta = (
@@ -118,6 +120,68 @@ describe('playerStats helpers', () => {
     expect(getDelta(deltas, 'winner-b')).toEqual({ wins: 1, losses: 0, gamesPlayed: 3 });
     expect(getDelta(deltas, 'loser-a')).toEqual({ wins: 0, losses: 1, gamesPlayed: 3 });
     expect(getDelta(deltas, 'loser-b')).toEqual({ wins: 0, losses: 1, gamesPlayed: 3 });
+  });
+
+  it('resolves participant registration IDs from bracket storage when match_scores omits them', () => {
+    const registrationLookup = buildRegistrationLookup([
+      {
+        id: 'reg-a',
+        playerId: 'player-a',
+        categoryId: 'cat-singles',
+      },
+      {
+        id: 'reg-b',
+        playerId: 'player-b',
+        categoryId: 'cat-singles',
+      },
+    ]);
+    const participantRegistrationLookup = buildParticipantRegistrationLookup([
+      { id: 1, name: 'reg-a' },
+      { id: 2, name: 'reg-b' },
+    ]);
+    const resolvedMatch = resolveMatchScoreParticipants(
+      {
+        categoryId: 'cat-singles',
+        winnerId: 'reg-a',
+        scores: [
+          { score1: 21, score2: 12, isComplete: true },
+          { score1: 21, score2: 18, isComplete: true },
+        ],
+      },
+      {
+        id: 1,
+        opponent1: { id: 1, result: 'win' },
+        opponent2: { id: 2, result: 'loss' },
+      },
+      participantRegistrationLookup
+    );
+    const categoryTypeMap = new Map([['cat-singles', 'singles']]);
+    const deltas = new Map();
+
+    expect(resolvedMatch).toMatchObject({
+      participant1Id: 'reg-a',
+      participant2Id: 'reg-b',
+      winnerId: 'reg-a',
+    });
+
+    applyMatchScoreDeltas(
+      deltas,
+      registrationLookup,
+      categoryTypeMap,
+      'badminton',
+      resolvedMatch
+    );
+
+    expect(getDelta(deltas, 'player-a', 'badminton', 'singles')).toEqual({
+      wins: 1,
+      losses: 0,
+      gamesPlayed: 2,
+    });
+    expect(getDelta(deltas, 'player-b', 'badminton', 'singles')).toEqual({
+      wins: 0,
+      losses: 1,
+      gamesPlayed: 2,
+    });
   });
 
   it('records walkovers without inventing game counts', () => {
