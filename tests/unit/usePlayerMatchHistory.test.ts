@@ -1,86 +1,87 @@
-/**
- * usePlayerMatchHistory unit tests
- *
- * Tests the fetchPlayerMatchHistory pure async function with mocked Firebase.
- * Follows the same mock pattern as matches.correction.store.test.ts.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TournamentHistoryEntry } from '@/types';
 
-// ---------------------------------------------------------------------------
-// Firebase mock setup
-// ---------------------------------------------------------------------------
+interface MockDocRecord {
+  id: string;
+  data: Record<string, unknown>;
+}
 
-class MockTimestamp {
-  constructor(private _d: Date = new Date()) {}
-  toDate() { return this._d; }
+interface MockCollectionRef {
+  path: string;
 }
 
 const mockDeps = vi.hoisted(() => ({
   getDocs: vi.fn(),
-  getDoc: vi.fn(),
-  query: vi.fn((ref) => ref),
-  where: vi.fn((...args) => ({ type: 'where', args })),
   collection: vi.fn((_db: unknown, path: string) => ({ path })),
-  collectionGroup: vi.fn((_db: unknown, name: string) => ({ name })),
-  doc: vi.fn((_db: unknown, ...segments: string[]) => ({ path: segments.join('/') })),
   db: {},
 }));
 
+class MockTimestamp {
+  constructor(private readonly date: Date = new Date()) {}
+
+  toDate(): Date {
+    return this.date;
+  }
+}
+
 vi.mock('@/services/firebase', () => ({
   db: mockDeps.db,
-  getDocs: mockDeps.getDocs,
-  getDoc: mockDeps.getDoc,
-  query: mockDeps.query,
-  where: mockDeps.where,
   collection: mockDeps.collection,
-  collectionGroup: mockDeps.collectionGroup,
-  doc: mockDeps.doc,
+  getDocs: mockDeps.getDocs,
   Timestamp: MockTimestamp,
 }));
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeQuerySnapshot(docs: Array<{ id: string; data: Record<string, unknown> }>) {
+function makeQuerySnapshot(docs: MockDocRecord[]) {
   return {
-    docs: docs.map((d) => ({
-      id: d.id,
-      data: () => d.data,
-      exists: () => true,
+    docs: docs.map((docRecord) => ({
+      id: docRecord.id,
+      data: () => docRecord.data,
     })),
     empty: docs.length === 0,
   };
 }
 
-function makeDocSnapshot(id: string, data: Record<string, unknown> | null) {
+function makeTimestamp(iso: string): { toDate: () => Date } {
+  const date = new Date(iso);
+  return { toDate: () => date };
+}
+
+function makeTournament(
+  id: string,
+  name: string,
+  startDateIso: string
+): MockDocRecord {
   return {
     id,
-    exists: () => data !== null,
-    data: () => data ?? undefined,
+    data: {
+      name,
+      sport: 'badminton',
+      status: 'completed',
+      format: 'single_elimination',
+      settings: {},
+      createdBy: 'admin',
+      startDate: makeTimestamp(startDateIso),
+      endDate: makeTimestamp(startDateIso),
+      createdAt: makeTimestamp(startDateIso),
+      updatedAt: makeTimestamp(startDateIso),
+    },
   };
 }
 
-function makeDate(daysFromNow: number): { toDate: () => Date } {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromNow);
-  // Return a Firestore Timestamp-like object
-  return { toDate: () => d };
-}
-
-function makeTournament(id: string, name: string, daysFromNow = 0) {
+function makePlayer(
+  id: string,
+  firstName: string,
+  lastName: string
+): MockDocRecord {
   return {
     id,
-    name,
-    startDate: makeDate(daysFromNow),
-    sport: 'badminton',
-    status: 'completed',
-    format: 'single_elimination',
-    settings: {},
-    createdBy: 'admin',
-    endDate: makeDate(daysFromNow + 1),
+    data: {
+      firstName,
+      lastName,
+      email: `${firstName.toLowerCase()}@test.com`,
+      createdAt: makeTimestamp('2026-04-01T12:00:00.000Z'),
+      updatedAt: makeTimestamp('2026-04-01T12:00:00.000Z'),
+    },
   };
 }
 
@@ -89,351 +90,314 @@ function makeRegistration(
   tournamentId: string,
   categoryId: string,
   playerId: string,
-  opts: {
+  options: {
     participantType?: 'player' | 'team';
     partnerPlayerId?: string;
     teamName?: string;
   } = {}
-) {
+): MockDocRecord {
   return {
     id,
-    tournamentId,
-    categoryId,
-    participantType: opts.participantType ?? 'player',
-    playerId,
-    partnerPlayerId: opts.partnerPlayerId,
-    teamName: opts.teamName,
-    status: 'approved',
-    registeredBy: 'admin',
-    registeredAt: makeDate(0),
+    data: {
+      tournamentId,
+      categoryId,
+      participantType: options.participantType ?? 'player',
+      playerId,
+      partnerPlayerId: options.partnerPlayerId,
+      teamName: options.teamName,
+      status: 'approved',
+      registeredBy: 'admin',
+      registeredAt: makeTimestamp('2026-04-01T12:00:00.000Z'),
+      createdAt: makeTimestamp('2026-04-01T12:00:00.000Z'),
+      updatedAt: makeTimestamp('2026-04-01T12:00:00.000Z'),
+    },
   };
 }
 
-function makeMatch(
+function makeCategory(
   id: string,
-  participant1Id: string,
-  participant2Id: string,
-  winnerId: string,
-  status: 'completed' | 'walkover' = 'completed',
-  scores: Array<{ gameNumber: number; score1: number; score2: number; isComplete: boolean }> = []
-) {
+  tournamentId: string,
+  name: string,
+  type: 'singles' | 'doubles' | 'mixed_doubles' = 'singles'
+): MockDocRecord {
   return {
     id,
-    participant1Id,
-    participant2Id,
-    winnerId,
-    status,
-    scores,
-    completedAt: makeDate(0),
+    data: {
+      tournamentId,
+      name,
+      type,
+      gender: type === 'mixed_doubles' ? 'mixed' : 'men',
+      ageGroup: 'open',
+      format: 'single_elimination',
+      seedingEnabled: false,
+      status: 'completed',
+      createdAt: makeTimestamp('2026-04-01T12:00:00.000Z'),
+      updatedAt: makeTimestamp('2026-04-01T12:00:00.000Z'),
+    },
   };
 }
 
-function makePlayer(firstName: string, lastName: string) {
-  return { firstName, lastName, email: `${firstName.toLowerCase()}@test.com` };
+function makeScoreDoc(
+  id: string,
+  options: {
+    participant1Id?: string;
+    participant2Id?: string;
+    winnerId?: string;
+    status?: 'completed' | 'walkover' | 'pending';
+    scores?: Array<{
+      gameNumber: number;
+      score1: number;
+      score2: number;
+      isComplete: boolean;
+    }>;
+    completedAt?: string;
+  }
+): MockDocRecord {
+  return {
+    id,
+    data: {
+      participant1Id: options.participant1Id,
+      participant2Id: options.participant2Id,
+      winnerId: options.winnerId,
+      status: options.status ?? 'completed',
+      scores: options.scores ?? [],
+      completedAt: options.completedAt
+        ? makeTimestamp(options.completedAt)
+        : undefined,
+    },
+  };
 }
 
-function makeCategory(id: string, name: string, type: 'singles' | 'doubles' | 'mixed_doubles' = 'singles') {
-  return { id, name, type, tournamentId: 't1', gender: 'men', ageGroup: 'open' };
+function makeBracketMatch(
+  id: string,
+  options: {
+    opponent1Id: string | number;
+    opponent1Result: 'win' | 'loss';
+    opponent2Id: string | number;
+    opponent2Result: 'win' | 'loss';
+  }
+): MockDocRecord {
+  return {
+    id,
+    data: {
+      id,
+      opponent1: {
+        id: options.opponent1Id,
+        result: options.opponent1Result,
+      },
+      opponent2: {
+        id: options.opponent2Id,
+        result: options.opponent2Result,
+      },
+    },
+  };
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+function makeParticipant(
+  id: string | number,
+  registrationId: string
+): MockDocRecord {
+  return {
+    id: String(id),
+    data: {
+      id,
+      name: registrationId,
+    },
+  };
+}
+
+function setPathDocs(pathDocs: Record<string, MockDocRecord[]>): void {
+  mockDeps.getDocs.mockImplementation(async (ref: MockCollectionRef) =>
+    makeQuerySnapshot(pathDocs[ref.path] ?? [])
+  );
+}
 
 describe('fetchPlayerMatchHistory', () => {
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
-    // Default: no registrations
     mockDeps.getDocs.mockResolvedValue(makeQuerySnapshot([]));
-    mockDeps.getDoc.mockResolvedValue(makeDocSnapshot('', null));
   });
 
-  it('returns empty array when player has no registrations', async () => {
-    const { fetchPlayerMatchHistory } = await import('@/composables/usePlayerMatchHistory');
-    const result = await fetchPlayerMatchHistory('player-xyz');
-    expect(result).toEqual([]);
-  });
-
-  it('returns history for a singles player as primary registrant', async () => {
-    const REG_ID = 'reg-alice';
-    const T_ID = 't1';
-    const CAT_ID = 'cat-singles';
-    const PLAYER_ID = 'global-alice';
-    const OPPONENT_REG_ID = 'reg-bob';
-    const OPPONENT_PLAYER_ID = 'global-bob';
-
-    const aliceReg = makeRegistration(REG_ID, T_ID, CAT_ID, PLAYER_ID);
-    const bobReg = makeRegistration(OPPONENT_REG_ID, T_ID, CAT_ID, OPPONENT_PLAYER_ID);
-    const match = makeMatch('match-1', REG_ID, OPPONENT_REG_ID, REG_ID, 'completed', [
-      { gameNumber: 1, score1: 21, score2: 15, isComplete: true },
-    ]);
-
-    // Setup getDocs mock to return different data based on call order
-    let callCount = 0;
-    mockDeps.getDocs.mockImplementation(async () => {
-      callCount++;
-      // Call 1: collectionGroup registrations by playerId → alice's registration
-      if (callCount === 1) return makeQuerySnapshot([{ id: REG_ID, data: aliceReg }]);
-      // Call 2: collectionGroup registrations by partnerPlayerId → none
-      if (callCount === 2) return makeQuerySnapshot([]);
-      // Call 3: tournament/players
-      if (callCount === 3) return makeQuerySnapshot([
-        { id: PLAYER_ID, data: makePlayer('Alice', 'Smith') },
-        { id: OPPONENT_PLAYER_ID, data: makePlayer('Bob', 'Jones') },
-      ]);
-      // Call 4: tournament/registrations
-      if (callCount === 4) return makeQuerySnapshot([
-        { id: REG_ID, data: aliceReg },
-        { id: OPPONENT_REG_ID, data: bobReg },
-      ]);
-      // Call 5: tournament/categories
-      if (callCount === 5) return makeQuerySnapshot([
-        { id: CAT_ID, data: makeCategory(CAT_ID, "Men's Singles", 'singles') },
-      ]);
-      // Call 6: match_scores by participant1Id
-      if (callCount === 6) return makeQuerySnapshot([{ id: 'match-1', data: match }]);
-      // Call 7: match_scores by participant2Id
-      if (callCount === 7) return makeQuerySnapshot([]);
-      return makeQuerySnapshot([]);
+  it('returns empty array when there are no tournaments', async () => {
+    setPathDocs({
+      tournaments: [],
     });
 
-    mockDeps.getDoc.mockResolvedValue(
-      makeDocSnapshot(T_ID, makeTournament(T_ID, 'Spring Open 2026', -10))
-    );
+    const { fetchPlayerMatchHistory } = await import('@/composables/usePlayerMatchHistory');
+
+    await expect(fetchPlayerMatchHistory('player-xyz')).resolves.toEqual([]);
+  });
+
+  it('returns history for a singles player from category-scoped match scores', async () => {
+    const tournament = makeTournament('t1', 'Spring Open 2026', '2026-04-10T00:00:00.000Z');
+    const player = makePlayer('player-alice', 'Alice', 'Smith');
+    const opponent = makePlayer('player-bob', 'Bob', 'Jones');
+    const playerRegistration = makeRegistration('reg-alice', 't1', 'cat-singles', 'player-alice');
+    const opponentRegistration = makeRegistration('reg-bob', 't1', 'cat-singles', 'player-bob');
+    const category = makeCategory('cat-singles', 't1', "Men's Singles");
+    const matchScore = makeScoreDoc('match-1', {
+      participant1Id: 'reg-alice',
+      participant2Id: 'reg-bob',
+      winnerId: 'reg-alice',
+      scores: [
+        { gameNumber: 1, score1: 21, score2: 15, isComplete: true },
+        { gameNumber: 2, score1: 21, score2: 18, isComplete: true },
+      ],
+      completedAt: '2026-04-10T10:30:00.000Z',
+    });
+
+    setPathDocs({
+      tournaments: [tournament],
+      'tournaments/t1/players': [player, opponent],
+      'tournaments/t1/registrations': [playerRegistration, opponentRegistration],
+      'tournaments/t1/categories': [category],
+      'tournaments/t1/categories/cat-singles/levels': [],
+      'tournaments/t1/categories/cat-singles/match_scores': [matchScore],
+      'tournaments/t1/categories/cat-singles/match': [],
+      'tournaments/t1/categories/cat-singles/participant': [],
+    });
 
     const { fetchPlayerMatchHistory } = await import('@/composables/usePlayerMatchHistory');
-    const result: TournamentHistoryEntry[] = await fetchPlayerMatchHistory(PLAYER_ID);
+    const result: TournamentHistoryEntry[] = await fetchPlayerMatchHistory('player-alice');
 
     expect(result).toHaveLength(1);
     expect(result[0].tournamentName).toBe('Spring Open 2026');
     expect(result[0].categoryType).toBe('singles');
     expect(result[0].matches).toHaveLength(1);
-    expect(result[0].matches[0].result).toBe('win');
-    expect(result[0].matches[0].opponentName).toBe('Bob Jones');
-    expect(result[0].matches[0].partnerName).toBeUndefined();
+    expect(result[0].matches[0]).toMatchObject({
+      matchId: 'match-1',
+      opponentName: 'Bob Jones',
+      partnerName: undefined,
+      result: 'win',
+      categoryType: 'singles',
+    });
   });
 
-  it('marks a match as loss when opponent is the winnerId', async () => {
-    const REG_ID = 'reg-alice';
-    const T_ID = 't1';
-    const CAT_ID = 'cat-singles';
-    const PLAYER_ID = 'global-alice';
-    const OPPONENT_REG_ID = 'reg-bob';
-    const OPPONENT_PLAYER_ID = 'global-bob';
-
-    const aliceReg = makeRegistration(REG_ID, T_ID, CAT_ID, PLAYER_ID);
-    const bobReg = makeRegistration(OPPONENT_REG_ID, T_ID, CAT_ID, OPPONENT_PLAYER_ID);
-    // Bob wins
-    const match = makeMatch('match-1', REG_ID, OPPONENT_REG_ID, OPPONENT_REG_ID, 'completed');
-
-    let callCount = 0;
-    mockDeps.getDocs.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) return makeQuerySnapshot([{ id: REG_ID, data: aliceReg }]);
-      if (callCount === 2) return makeQuerySnapshot([]);
-      if (callCount === 3) return makeQuerySnapshot([
-        { id: PLAYER_ID, data: makePlayer('Alice', 'Smith') },
-        { id: OPPONENT_PLAYER_ID, data: makePlayer('Bob', 'Jones') },
-      ]);
-      if (callCount === 4) return makeQuerySnapshot([
-        { id: REG_ID, data: aliceReg },
-        { id: OPPONENT_REG_ID, data: bobReg },
-      ]);
-      if (callCount === 5) return makeQuerySnapshot([
-        { id: CAT_ID, data: makeCategory(CAT_ID, "Men's Singles", 'singles') },
-      ]);
-      if (callCount === 6) return makeQuerySnapshot([{ id: 'match-1', data: match }]);
-      if (callCount === 7) return makeQuerySnapshot([]);
-      return makeQuerySnapshot([]);
+  it('resolves sparse level-scoped doubles history through bracket participants', async () => {
+    const tournament = makeTournament('tnf', 'TNF Badminton - 2026', '2026-04-18T00:00:00.000Z');
+    const primaryPlayer = makePlayer('player-alice', 'Alice', 'Smith');
+    const partnerPlayer = makePlayer('player-bob', 'Bob', 'Jones');
+    const opponentPrimary = makePlayer('player-charlie', 'Charlie', 'Davis');
+    const teamRegistration = makeRegistration('reg-team-ab', 'tnf', 'cat-doubles', 'player-alice', {
+      participantType: 'team',
+      partnerPlayerId: 'player-bob',
+      teamName: 'Smith / Jones',
     });
-    mockDeps.getDoc.mockResolvedValue(makeDocSnapshot(T_ID, makeTournament(T_ID, 'Spring Open', -10)));
+    const opponentRegistration = makeRegistration('reg-team-cd', 'tnf', 'cat-doubles', 'player-charlie', {
+      participantType: 'team',
+      partnerPlayerId: 'player-dan',
+      teamName: 'Davis / Evans',
+    });
+    const category = makeCategory('cat-doubles', 'tnf', "Men's Doubles", 'doubles');
+    const sparseScore = makeScoreDoc('match-final', {
+      winnerId: 'reg-team-ab',
+      status: 'completed',
+      scores: [{ gameNumber: 1, score1: 21, score2: 19, isComplete: true }],
+      completedAt: '2026-04-18T15:00:00.000Z',
+    });
+    const bracketMatch = makeBracketMatch('match-final', {
+      opponent1Id: 6,
+      opponent1Result: 'win',
+      opponent2Id: 9,
+      opponent2Result: 'loss',
+    });
+
+    setPathDocs({
+      tournaments: [tournament],
+      'tournaments/tnf/players': [primaryPlayer, partnerPlayer, opponentPrimary],
+      'tournaments/tnf/registrations': [teamRegistration, opponentRegistration],
+      'tournaments/tnf/categories': [category],
+      'tournaments/tnf/categories/cat-doubles/levels': [{ id: 'level-2', data: {} }],
+      'tournaments/tnf/categories/cat-doubles/match_scores': [],
+      'tournaments/tnf/categories/cat-doubles/match': [],
+      'tournaments/tnf/categories/cat-doubles/participant': [],
+      'tournaments/tnf/categories/cat-doubles/levels/level-2/match_scores': [sparseScore],
+      'tournaments/tnf/categories/cat-doubles/levels/level-2/match': [bracketMatch],
+      'tournaments/tnf/categories/cat-doubles/levels/level-2/participant': [
+        makeParticipant(6, 'reg-team-ab'),
+        makeParticipant(9, 'reg-team-cd'),
+      ],
+    });
 
     const { fetchPlayerMatchHistory } = await import('@/composables/usePlayerMatchHistory');
-    const result = await fetchPlayerMatchHistory(PLAYER_ID);
+    const result = await fetchPlayerMatchHistory('player-bob');
 
-    expect(result[0].matches[0].result).toBe('loss');
+    expect(result).toHaveLength(1);
+    expect(result[0].matches).toHaveLength(1);
+    expect(result[0].matches[0]).toMatchObject({
+      opponentName: 'Davis / Evans',
+      partnerName: 'Alice Smith',
+      result: 'win',
+      categoryType: 'doubles',
+    });
   });
 
-  it('marks a walkover match correctly', async () => {
-    const REG_ID = 'reg-alice';
-    const T_ID = 't1';
-    const CAT_ID = 'cat-singles';
-    const PLAYER_ID = 'global-alice';
-    const OPPONENT_REG_ID = 'reg-bob';
-    const OPPONENT_PLAYER_ID = 'global-bob';
-
-    const aliceReg = makeRegistration(REG_ID, T_ID, CAT_ID, PLAYER_ID);
-    const bobReg = makeRegistration(OPPONENT_REG_ID, T_ID, CAT_ID, OPPONENT_PLAYER_ID);
-    const match = makeMatch('match-1', REG_ID, OPPONENT_REG_ID, REG_ID, 'walkover');
-
-    let callCount = 0;
-    mockDeps.getDocs.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) return makeQuerySnapshot([{ id: REG_ID, data: aliceReg }]);
-      if (callCount === 2) return makeQuerySnapshot([]);
-      if (callCount === 3) return makeQuerySnapshot([
-        { id: PLAYER_ID, data: makePlayer('Alice', 'Smith') },
-        { id: OPPONENT_PLAYER_ID, data: makePlayer('Bob', 'Jones') },
-      ]);
-      if (callCount === 4) return makeQuerySnapshot([
-        { id: REG_ID, data: aliceReg },
-        { id: OPPONENT_REG_ID, data: bobReg },
-      ]);
-      if (callCount === 5) return makeQuerySnapshot([
-        { id: CAT_ID, data: makeCategory(CAT_ID, "Men's Singles", 'singles') },
-      ]);
-      if (callCount === 6) return makeQuerySnapshot([{ id: 'match-1', data: match }]);
-      if (callCount === 7) return makeQuerySnapshot([]);
-      return makeQuerySnapshot([]);
+  it('marks walkovers without losing the completed tournament entry', async () => {
+    const tournament = makeTournament('t1', 'Walkover Cup', '2026-04-12T00:00:00.000Z');
+    const player = makePlayer('player-alice', 'Alice', 'Smith');
+    const opponent = makePlayer('player-bob', 'Bob', 'Jones');
+    const playerRegistration = makeRegistration('reg-alice', 't1', 'cat-singles', 'player-alice');
+    const opponentRegistration = makeRegistration('reg-bob', 't1', 'cat-singles', 'player-bob');
+    const category = makeCategory('cat-singles', 't1', "Women's Singles");
+    const matchScore = makeScoreDoc('match-wo', {
+      participant1Id: 'reg-alice',
+      participant2Id: 'reg-bob',
+      winnerId: 'reg-alice',
+      status: 'walkover',
+      completedAt: '2026-04-12T11:00:00.000Z',
     });
-    mockDeps.getDoc.mockResolvedValue(makeDocSnapshot(T_ID, makeTournament(T_ID, 'Spring Open', -10)));
+
+    setPathDocs({
+      tournaments: [tournament],
+      'tournaments/t1/players': [player, opponent],
+      'tournaments/t1/registrations': [playerRegistration, opponentRegistration],
+      'tournaments/t1/categories': [category],
+      'tournaments/t1/categories/cat-singles/levels': [],
+      'tournaments/t1/categories/cat-singles/match_scores': [matchScore],
+      'tournaments/t1/categories/cat-singles/match': [],
+      'tournaments/t1/categories/cat-singles/participant': [],
+    });
 
     const { fetchPlayerMatchHistory } = await import('@/composables/usePlayerMatchHistory');
-    const result = await fetchPlayerMatchHistory(PLAYER_ID);
+    const result = await fetchPlayerMatchHistory('player-alice');
 
+    expect(result).toHaveLength(1);
+    expect(result[0].matches).toHaveLength(1);
     expect(result[0].matches[0].result).toBe('walkover');
   });
 
-  it('returns history for doubles player as partner (not primary registrant)', async () => {
-    const REG_ID = 'reg-team-ab';
-    const T_ID = 't1';
-    const CAT_ID = 'cat-doubles';
-    const PRIMARY_PLAYER_ID = 'global-alice';
-    const PARTNER_PLAYER_ID = 'global-bob'; // Bob is queried as partner
-    const OPPONENT_REG_ID = 'reg-team-cd';
+  it('sorts tournament entries by start date descending', async () => {
+    const oldTournament = makeTournament('t-old', 'Old Tournament', '2026-03-01T00:00:00.000Z');
+    const newTournament = makeTournament('t-new', 'New Tournament', '2026-04-20T00:00:00.000Z');
+    const registrationOld = makeRegistration('reg-old', 't-old', 'cat-1', 'player-alice');
+    const registrationNew = makeRegistration('reg-new', 't-new', 'cat-1', 'player-alice');
 
-    const teamReg = makeRegistration(REG_ID, T_ID, CAT_ID, PRIMARY_PLAYER_ID, {
-      participantType: 'team',
-      partnerPlayerId: PARTNER_PLAYER_ID,
-      teamName: 'Smith / Jones',
-    });
-    const opponentReg = makeRegistration(OPPONENT_REG_ID, T_ID, CAT_ID, 'global-charlie', {
-      participantType: 'team',
-      partnerPlayerId: 'global-dan',
-      teamName: 'Davis / Evans',
-    });
-    const match = makeMatch('match-1', REG_ID, OPPONENT_REG_ID, REG_ID, 'completed');
-
-    let callCount = 0;
-    mockDeps.getDocs.mockImplementation(async () => {
-      callCount++;
-      // Call 1: playerId query → no primary registrations (Bob is the partner)
-      if (callCount === 1) return makeQuerySnapshot([]);
-      // Call 2: partnerPlayerId query → finds the team registration
-      if (callCount === 2) return makeQuerySnapshot([{ id: REG_ID, data: teamReg }]);
-      // Call 3: tournament/players
-      if (callCount === 3) return makeQuerySnapshot([
-        { id: PRIMARY_PLAYER_ID, data: makePlayer('Alice', 'Smith') },
-        { id: PARTNER_PLAYER_ID, data: makePlayer('Bob', 'Jones') },
-        { id: 'global-charlie', data: makePlayer('Charlie', 'Davis') },
-      ]);
-      // Call 4: tournament/registrations
-      if (callCount === 4) return makeQuerySnapshot([
-        { id: REG_ID, data: teamReg },
-        { id: OPPONENT_REG_ID, data: opponentReg },
-      ]);
-      // Call 5: tournament/categories
-      if (callCount === 5) return makeQuerySnapshot([
-        { id: CAT_ID, data: makeCategory(CAT_ID, "Men's Doubles", 'doubles') },
-      ]);
-      // Call 6: match_scores participant1Id
-      if (callCount === 6) return makeQuerySnapshot([{ id: 'match-1', data: match }]);
-      // Call 7: match_scores participant2Id
-      if (callCount === 7) return makeQuerySnapshot([]);
-      return makeQuerySnapshot([]);
-    });
-    mockDeps.getDoc.mockResolvedValue(makeDocSnapshot(T_ID, makeTournament(T_ID, 'Doubles Cup', -5)));
-
-    const { fetchPlayerMatchHistory } = await import('@/composables/usePlayerMatchHistory');
-    // Query Bob's history (the partner)
-    const result = await fetchPlayerMatchHistory(PARTNER_PLAYER_ID);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].categoryType).toBe('doubles');
-    expect(result[0].matches[0].opponentName).toBe('Davis / Evans');
-    // When role=partner, the "partner" from Bob's view is Alice (the primary player)
-    expect(result[0].matches[0].partnerName).toBe('Alice Smith');
-    expect(result[0].matches[0].result).toBe('win');
-  });
-
-  it('sorts multiple tournaments by startDate descending', async () => {
-    const PLAYER_ID = 'global-alice';
-    const REG1 = makeRegistration('reg-1', 't-old', 'cat-1', PLAYER_ID);
-    const REG2 = makeRegistration('reg-2', 't-new', 'cat-1', PLAYER_ID);
-
-    // t-old: 30 days ago, t-new: 10 days ago → t-new should come first
-    let callCount = 0;
-    mockDeps.getDocs.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) return makeQuerySnapshot([
-        { id: 'reg-1', data: REG1 },
-        { id: 'reg-2', data: REG2 },
-      ]);
-      if (callCount === 2) return makeQuerySnapshot([]);
-      // Per-tournament: need to handle both t-old and t-new
-      // Return empty for players, registrations, categories, matches
-      return makeQuerySnapshot([]);
-    });
-
-    let getDocCount = 0;
-    mockDeps.getDoc.mockImplementation(async (ref: { path: string }) => {
-      getDocCount++;
-      if (ref?.path === 'tournaments/t-old') {
-        return makeDocSnapshot('t-old', makeTournament('t-old', 'Old Tournament', -30));
-      }
-      if (ref?.path === 'tournaments/t-new') {
-        return makeDocSnapshot('t-new', makeTournament('t-new', 'New Tournament', -10));
-      }
-      return makeDocSnapshot('', null);
+    setPathDocs({
+      tournaments: [oldTournament, newTournament],
+      'tournaments/t-old/players': [],
+      'tournaments/t-old/registrations': [registrationOld],
+      'tournaments/t-old/categories': [],
+      'tournaments/t-old/categories/cat-1/levels': [],
+      'tournaments/t-old/categories/cat-1/match_scores': [],
+      'tournaments/t-old/categories/cat-1/match': [],
+      'tournaments/t-old/categories/cat-1/participant': [],
+      'tournaments/t-new/players': [],
+      'tournaments/t-new/registrations': [registrationNew],
+      'tournaments/t-new/categories': [],
+      'tournaments/t-new/categories/cat-1/levels': [],
+      'tournaments/t-new/categories/cat-1/match_scores': [],
+      'tournaments/t-new/categories/cat-1/match': [],
+      'tournaments/t-new/categories/cat-1/participant': [],
     });
 
     const { fetchPlayerMatchHistory } = await import('@/composables/usePlayerMatchHistory');
-    const result = await fetchPlayerMatchHistory(PLAYER_ID);
+    const result = await fetchPlayerMatchHistory('player-alice');
 
     expect(result).toHaveLength(2);
-    expect(result[0].tournamentName).toBe('New Tournament');
-    expect(result[1].tournamentName).toBe('Old Tournament');
-  });
-
-  it('deduplicates matches that appear in both participant1Id and participant2Id queries', async () => {
-    const REG_ID = 'reg-alice';
-    const T_ID = 't1';
-    const CAT_ID = 'cat-singles';
-    const PLAYER_ID = 'global-alice';
-    const OPPONENT_REG_ID = 'reg-bob';
-    const OPPONENT_PLAYER_ID = 'global-bob';
-
-    const aliceReg = makeRegistration(REG_ID, T_ID, CAT_ID, PLAYER_ID);
-    const bobReg = makeRegistration(OPPONENT_REG_ID, T_ID, CAT_ID, OPPONENT_PLAYER_ID);
-    const match = makeMatch('match-1', REG_ID, OPPONENT_REG_ID, REG_ID);
-
-    let callCount = 0;
-    mockDeps.getDocs.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) return makeQuerySnapshot([{ id: REG_ID, data: aliceReg }]);
-      if (callCount === 2) return makeQuerySnapshot([]);
-      if (callCount === 3) return makeQuerySnapshot([
-        { id: PLAYER_ID, data: makePlayer('Alice', 'Smith') },
-        { id: OPPONENT_PLAYER_ID, data: makePlayer('Bob', 'Jones') },
-      ]);
-      if (callCount === 4) return makeQuerySnapshot([
-        { id: REG_ID, data: aliceReg },
-        { id: OPPONENT_REG_ID, data: bobReg },
-      ]);
-      if (callCount === 5) return makeQuerySnapshot([
-        { id: CAT_ID, data: makeCategory(CAT_ID, "Men's Singles") },
-      ]);
-      // Both participant queries return the same match → should be deduplicated
-      if (callCount === 6) return makeQuerySnapshot([{ id: 'match-1', data: match }]);
-      if (callCount === 7) return makeQuerySnapshot([{ id: 'match-1', data: match }]);
-      return makeQuerySnapshot([]);
-    });
-    mockDeps.getDoc.mockResolvedValue(makeDocSnapshot(T_ID, makeTournament(T_ID, 'Open')));
-
-    const { fetchPlayerMatchHistory } = await import('@/composables/usePlayerMatchHistory');
-    const result = await fetchPlayerMatchHistory(PLAYER_ID);
-
-    // Should have exactly 1 match, not 2
-    expect(result[0].matches).toHaveLength(1);
+    expect(result.map((entry) => entry.tournamentName)).toEqual([
+      'New Tournament',
+      'Old Tournament',
+    ]);
   });
 });

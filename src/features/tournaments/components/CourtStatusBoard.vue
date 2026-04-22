@@ -109,9 +109,9 @@ function getMatchDuration(match: Match): string {
               {{ court.name }}
               <v-spacer />
               <v-menu>
-                <template #activator="{ props }">
+                <template #activator="{ props: menuProps }">
                   <v-btn
-                    v-bind="props"
+                    v-bind="menuProps"
                     icon="mdi-dots-vertical"
                     size="default"
                     variant="text"

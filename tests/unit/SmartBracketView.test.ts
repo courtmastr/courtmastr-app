@@ -1,3 +1,4 @@
+/* eslint-disable vue/one-component-per-file -- local component stubs keep this test self-contained */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent } from 'vue';
 import { flushPromises, shallowMount } from '@vue/test-utils';

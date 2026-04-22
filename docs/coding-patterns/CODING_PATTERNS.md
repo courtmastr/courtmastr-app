@@ -5871,6 +5871,64 @@ fi
 
 ---
 
+### CP-111: Player Match History Must Resolve Tournament-Scoped Registrations And Sparse Bracket Matches
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-22 |
+| **Source Bug** | Player profiles showed season stats but “No completed matches found” because history used a `collectionGroup('registrations')` dependency and only queried category `match_scores` docs that already had `participant1Id` / `participant2Id` populated |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+const [primarySnap, partnerSnap] = await Promise.all([
+  getDocs(query(collectionGroup(db, 'registrations'), where('playerId', '==', globalPlayerId))),
+  getDocs(query(collectionGroup(db, 'registrations'), where('partnerPlayerId', '==', globalPlayerId))),
+]);
+
+const [snap1, snap2] = await Promise.all([
+  getDocs(query(collection(db, matchScorePath), where('participant1Id', '==', reg.id))),
+  getDocs(query(collection(db, matchScorePath), where('participant2Id', '==', reg.id))),
+]);
+```
+
+**Correct Pattern (✅):**
+```ts
+const tournamentsSnap = await getDocs(collection(db, 'tournaments'));
+const registrationsSnap = await getDocs(collection(db, `tournaments/${tournamentId}/registrations`));
+const registrationEntries = buildRegistrationEntries(
+  registrationsSnap.docs.map((docSnap) => convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as Registration),
+  globalPlayerId
+);
+
+const levelsSnap = await getDocs(
+  collection(db, `tournaments/${tournamentId}/categories/${categoryId}/levels`)
+);
+const targets = buildMatchScopeTargets(tournamentId, categoryId, levelsSnap.docs.map((docSnap) => docSnap.id));
+
+const resolvedMatch = resolveHistoryMatch(
+  score,
+  bracketMatchesById.get(score.id),
+  buildParticipantRegistrationLookup(participantsSnap.docs.map((docSnap) => docSnap.data()))
+);
+```
+
+**Rule:** Player history cannot depend on collection-group registration indexes or assume `match_scores` always carries participant registration IDs. Resolve the player’s registrations from tournament-scoped `registrations`, then read both category and level bracket scopes (`match_scores`, `match`, `participant`) so sparse production docs still render completed history rows.
+
+**Detection:**
+```bash
+if rg -q "collectionGroup\\(db, 'registrations'\\)|collectionGroup\\(db, \\\"registrations\\\"\\)" src/composables/usePlayerMatchHistory.ts; then
+  echo "Violation: player match history depends on registrations collection-group indexes"
+fi
+
+if rg -q "where\\('participant1Id'|where\\(\"participant1Id\"" src/composables/usePlayerMatchHistory.ts && ! rg -q "buildMatchScopeTargets|resolveHistoryMatch|buildParticipantRegistrationLookup" src/composables/usePlayerMatchHistory.ts; then
+  echo "Violation: player match history assumes match_scores already stores participant registration ids"
+fi
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

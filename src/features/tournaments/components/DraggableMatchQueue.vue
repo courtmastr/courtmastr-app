@@ -3,9 +3,9 @@
     <v-card-title class="d-flex align-center justify-space-between">
       <span>Match Queue ({{ matches.length }})</span>
       <v-menu>
-        <template #activator="{ props }">
+        <template #activator="{ props: menuProps }">
           <v-btn
-            v-bind="props"
+            v-bind="menuProps"
             icon="mdi-dots-vertical"
             size="small"
             variant="text"

@@ -8,35 +8,351 @@
  *  - usePlayerMatchHistory is the Vue composable wrapper for component consumption.
  *
  * Query strategy:
- *  1. Two collectionGroup queries on 'registrations' (playerId and partnerPlayerId).
- *  2. Group registrations by tournamentId.
- *  3. Per tournament: batch-fetch players, registrations, categories.
- *  4. Per registration: two match_scores queries (participant1Id/participant2Id).
- *  5. Resolve opponent names and partner names; assemble TournamentHistoryEntry[].
- *  6. Sort by tournament startDate descending.
+ *  1. Fetch tournaments, registrations, players, and categories with tournament-scoped reads.
+ *  2. Find the player's registrations locally (primary or partner) to avoid collection-group index dependencies.
+ *  3. For each relevant category, read category + level /participant, /match, and /match_scores collections.
+ *  4. Resolve sparse match_scores docs through bracket participant IDs when participant1Id/participant2Id are missing.
+ *  5. Assemble TournamentHistoryEntry[] sorted by tournament startDate descending.
  */
 
 import { ref } from 'vue';
 import {
   db,
   collection,
-  collectionGroup,
   getDocs,
-  getDoc,
-  doc,
-  query,
-  where,
 } from '@/services/firebase';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
 import { convertTimestamps } from '@/utils/firestore';
 import type {
+  Category,
+  CategoryType,
+  GameScore,
+  MatchHistoryEntry,
+  Player,
   Registration,
   Tournament,
-  Category,
-  Match,
-  MatchHistoryEntry,
   TournamentHistoryEntry,
 } from '@/types';
+
+type RegistrationRole = 'primary' | 'partner';
+
+interface RegistrationEntry {
+  reg: Registration;
+  role: RegistrationRole;
+}
+
+interface MatchScopeTarget {
+  matchPath: string;
+  matchScorePath: string;
+  participantPath: string;
+}
+
+interface BracketParticipantRecord {
+  id?: string | number | null;
+  name?: string | null;
+}
+
+interface BracketMatchOpponentRecord {
+  id?: string | number | null;
+  registrationId?: string | null;
+  result?: string | null;
+}
+
+interface BracketMatchRecord {
+  id?: string | number | null;
+  opponent1?: BracketMatchOpponentRecord | null;
+  opponent2?: BracketMatchOpponentRecord | null;
+}
+
+interface MatchScoreRecord {
+  id: string;
+  participant1Id?: string | null;
+  participant2Id?: string | null;
+  winnerId?: string | null;
+  status?: string | null;
+  scores?: GameScore[];
+  completedAt?: Date;
+}
+
+interface ResolvedHistoryMatch {
+  matchId: string;
+  participant1Id: string;
+  participant2Id: string;
+  winnerId: string;
+  status: 'completed' | 'walkover';
+  scores: GameScore[];
+  completedAt?: Date;
+}
+
+function toLookupKey(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return String(value);
+}
+
+function buildRegistrationEntries(
+  registrations: Registration[],
+  globalPlayerId: string
+): RegistrationEntry[] {
+  const entries: RegistrationEntry[] = [];
+
+  for (const reg of registrations) {
+    if (reg.playerId === globalPlayerId) {
+      entries.push({ reg, role: 'primary' });
+      continue;
+    }
+
+    if (reg.partnerPlayerId === globalPlayerId) {
+      entries.push({ reg, role: 'partner' });
+    }
+  }
+
+  return entries;
+}
+
+function buildMatchScopeTargets(
+  tournamentId: string,
+  categoryId: string,
+  levelIds: string[]
+): MatchScopeTarget[] {
+  const categoryBasePath = `tournaments/${tournamentId}/categories/${categoryId}`;
+  const targets: MatchScopeTarget[] = [
+    {
+      matchPath: `${categoryBasePath}/match`,
+      matchScorePath: `${categoryBasePath}/match_scores`,
+      participantPath: `${categoryBasePath}/participant`,
+    },
+  ];
+
+  for (const levelId of levelIds) {
+    const levelBasePath = `${categoryBasePath}/levels/${levelId}`;
+    targets.push({
+      matchPath: `${levelBasePath}/match`,
+      matchScorePath: `${levelBasePath}/match_scores`,
+      participantPath: `${levelBasePath}/participant`,
+    });
+  }
+
+  return targets;
+}
+
+function buildParticipantRegistrationLookup(
+  participants: BracketParticipantRecord[]
+): Map<string, string> {
+  const lookup = new Map<string, string>();
+
+  for (const participant of participants) {
+    const participantId = toLookupKey(participant.id);
+    const registrationId =
+      typeof participant.name === 'string' && participant.name.length > 0
+        ? participant.name
+        : null;
+
+    if (!participantId || !registrationId) {
+      continue;
+    }
+
+    lookup.set(participantId, registrationId);
+  }
+
+  return lookup;
+}
+
+function resolveOpponentRegistrationId(
+  opponent: BracketMatchOpponentRecord | null | undefined,
+  participantLookup: Map<string, string>
+): string | undefined {
+  if (!opponent) {
+    return undefined;
+  }
+
+  if (
+    typeof opponent.registrationId === 'string' &&
+    opponent.registrationId.length > 0
+  ) {
+    return opponent.registrationId;
+  }
+
+  const participantId = toLookupKey(opponent.id);
+  return participantId ? participantLookup.get(participantId) : undefined;
+}
+
+function resolveWinnerRegistrationId(
+  bracketMatch: BracketMatchRecord | undefined,
+  participant1Id: string | undefined,
+  participant2Id: string | undefined
+): string | undefined {
+  if (bracketMatch?.opponent1?.result === 'win') {
+    return participant1Id;
+  }
+
+  if (bracketMatch?.opponent2?.result === 'win') {
+    return participant2Id;
+  }
+
+  return undefined;
+}
+
+function normalizeCompletedAt(value: unknown): Date | undefined {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (value && typeof value === 'object' && 'toDate' in value) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+
+  return undefined;
+}
+
+function resolveHistoryMatch(
+  score: MatchScoreRecord,
+  bracketMatch: BracketMatchRecord | undefined,
+  participantLookup: Map<string, string>
+): ResolvedHistoryMatch | null {
+  if (score.status !== 'completed' && score.status !== 'walkover') {
+    return null;
+  }
+
+  const participant1Id =
+    score.participant1Id ??
+    resolveOpponentRegistrationId(bracketMatch?.opponent1, participantLookup);
+  const participant2Id =
+    score.participant2Id ??
+    resolveOpponentRegistrationId(bracketMatch?.opponent2, participantLookup);
+  const winnerId =
+    score.winnerId ??
+    resolveWinnerRegistrationId(bracketMatch, participant1Id ?? undefined, participant2Id ?? undefined);
+
+  if (!participant1Id || !participant2Id || !winnerId) {
+    return null;
+  }
+
+  return {
+    matchId: score.id,
+    participant1Id,
+    participant2Id,
+    winnerId,
+    status: score.status,
+    scores: Array.isArray(score.scores) ? score.scores : [],
+    completedAt: normalizeCompletedAt(score.completedAt),
+  };
+}
+
+function resolveOpponentName(
+  opponentRegistration: Registration | undefined,
+  playerMap: Map<string, Player>
+): string {
+  if (!opponentRegistration) {
+    return 'Unknown';
+  }
+
+  if (
+    opponentRegistration.participantType === 'team' &&
+    opponentRegistration.teamName
+  ) {
+    return opponentRegistration.teamName;
+  }
+
+  if (opponentRegistration.playerId) {
+    const player = playerMap.get(opponentRegistration.playerId);
+    if (player) {
+      return `${player.firstName} ${player.lastName}`;
+    }
+  }
+
+  return 'Unknown';
+}
+
+function resolvePartnerName(
+  registration: Registration,
+  role: RegistrationRole,
+  playerMap: Map<string, Player>
+): string | undefined {
+  if (registration.participantType !== 'team') {
+    return undefined;
+  }
+
+  const partnerPlayerId =
+    role === 'primary' ? registration.partnerPlayerId : registration.playerId;
+  if (!partnerPlayerId) {
+    return undefined;
+  }
+
+  const partner = playerMap.get(partnerPlayerId);
+  return partner ? `${partner.firstName} ${partner.lastName}` : undefined;
+}
+
+async function fetchResolvedMatchesForCategory(
+  tournamentId: string,
+  categoryId: string
+): Promise<ResolvedHistoryMatch[]> {
+  const levelsSnap = await getDocs(
+    collection(db, `tournaments/${tournamentId}/categories/${categoryId}/levels`)
+  );
+  const targets = buildMatchScopeTargets(
+    tournamentId,
+    categoryId,
+    levelsSnap.docs.map((docSnap) => docSnap.id)
+  );
+
+  const resolvedMatches: ResolvedHistoryMatch[] = [];
+  const seenMatchKeys = new Set<string>();
+
+  await Promise.all(
+    targets.map(async (target) => {
+      const [matchScoresSnap, matchesSnap, participantsSnap] = await Promise.all([
+        getDocs(collection(db, target.matchScorePath)),
+        getDocs(collection(db, target.matchPath)),
+        getDocs(collection(db, target.participantPath)),
+      ]);
+
+      const participantLookup = buildParticipantRegistrationLookup(
+        participantsSnap.docs.map((docSnap) => docSnap.data() as BracketParticipantRecord)
+      );
+      const bracketMatchesById = new Map<string, BracketMatchRecord>(
+        matchesSnap.docs.map((docSnap) => {
+          const match = docSnap.data() as BracketMatchRecord;
+          return [toLookupKey(match.id) ?? docSnap.id, match] as const;
+        })
+      );
+
+      for (const docSnap of matchScoresSnap.docs) {
+        const score = convertTimestamps({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }) as MatchScoreRecord;
+        const resolved = resolveHistoryMatch(
+          score,
+          bracketMatchesById.get(docSnap.id),
+          participantLookup
+        );
+
+        if (!resolved) {
+          continue;
+        }
+
+        const dedupeKey = `${target.matchScorePath}/${resolved.matchId}`;
+        if (seenMatchKeys.has(dedupeKey)) {
+          continue;
+        }
+
+        seenMatchKeys.add(dedupeKey);
+        resolvedMatches.push(resolved);
+      }
+    })
+  );
+
+  resolvedMatches.sort((a, b) => {
+    const aTime = a.completedAt?.getTime() ?? 0;
+    const bTime = b.completedAt?.getTime() ?? 0;
+    return bTime - aTime;
+  });
+
+  return resolvedMatches;
+}
 
 // ---------------------------------------------------------------------------
 // Pure async function — the testable core
@@ -45,159 +361,102 @@ import type {
 export async function fetchPlayerMatchHistory(
   globalPlayerId: string
 ): Promise<TournamentHistoryEntry[]> {
-  // Step 1: Find all registrations for this player (as primary or as partner)
-  const [primarySnap, partnerSnap] = await Promise.all([
-    getDocs(query(collectionGroup(db, 'registrations'), where('playerId', '==', globalPlayerId))),
-    getDocs(
-      query(collectionGroup(db, 'registrations'), where('partnerPlayerId', '==', globalPlayerId))
-    ),
-  ]);
-
-  type RegEntry = { reg: Registration; role: 'primary' | 'partner' };
-  const regMap = new Map<string, RegEntry>();
-
-  primarySnap.docs.forEach((d) => {
-    const reg = convertTimestamps({ id: d.id, ...d.data() }) as Registration;
-    regMap.set(d.id, { reg, role: 'primary' });
-  });
-  partnerSnap.docs.forEach((d) => {
-    if (!regMap.has(d.id)) {
-      const reg = convertTimestamps({ id: d.id, ...d.data() }) as Registration;
-      regMap.set(d.id, { reg, role: 'partner' });
-    }
-  });
-
-  if (regMap.size === 0) return [];
-
-  // Step 2: Group by tournamentId
-  const byTournament = new Map<string, RegEntry[]>();
-  regMap.forEach((entry) => {
-    const tId = entry.reg.tournamentId;
-    if (!byTournament.has(tId)) byTournament.set(tId, []);
-    byTournament.get(tId)!.push(entry);
-  });
-
-  // Step 3: Per tournament — fetch tournament doc, players, registrations, categories
+  const tournamentsSnap = await getDocs(collection(db, 'tournaments'));
   const entries: TournamentHistoryEntry[] = [];
 
   await Promise.all(
-    Array.from(byTournament.entries()).map(async ([tId, regEntries]) => {
-      const [tournamentSnap, allPlayersSnap, allRegsSnap, allCatsSnap] = await Promise.all([
-        getDoc(doc(db, 'tournaments', tId)),
-        getDocs(collection(db, `tournaments/${tId}/players`)),
-        getDocs(collection(db, `tournaments/${tId}/registrations`)),
-        getDocs(collection(db, `tournaments/${tId}/categories`)),
+    tournamentsSnap.docs.map(async (tournamentDoc) => {
+      const tournament = convertTimestamps({
+        id: tournamentDoc.id,
+        ...tournamentDoc.data(),
+      }) as Tournament;
+      const tournamentId = tournamentDoc.id;
+
+      const [playersSnap, registrationsSnap, categoriesSnap] = await Promise.all([
+        getDocs(collection(db, `tournaments/${tournamentId}/players`)),
+        getDocs(collection(db, `tournaments/${tournamentId}/registrations`)),
+        getDocs(collection(db, `tournaments/${tournamentId}/categories`)),
       ]);
 
-      if (!tournamentSnap.exists()) return;
+      const registrations = registrationsSnap.docs.map((docSnap) =>
+        convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as Registration
+      );
+      const registrationEntries = buildRegistrationEntries(
+        registrations,
+        globalPlayerId
+      );
 
-      const tournament = convertTimestamps({
-        id: tournamentSnap.id,
-        ...tournamentSnap.data(),
-      }) as Tournament;
+      if (registrationEntries.length === 0) {
+        return;
+      }
 
-      const playerMap = new Map<string, { firstName: string; lastName: string }>();
-      allPlayersSnap.docs.forEach((d) => {
-        playerMap.set(d.id, d.data() as { firstName: string; lastName: string });
-      });
+      const playerMap = new Map<string, Player>(
+        playersSnap.docs.map((docSnap) => [
+          docSnap.id,
+          convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as Player,
+        ])
+      );
+      const registrationMap = new Map<string, Registration>(
+        registrations.map((registration) => [registration.id, registration])
+      );
+      const categoryMap = new Map<string, Category>(
+        categoriesSnap.docs.map((docSnap) => [
+          docSnap.id,
+          convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as Category,
+        ])
+      );
 
-      const allRegsMap = new Map<string, Registration>();
-      allRegsSnap.docs.forEach((d) => {
-        allRegsMap.set(d.id, convertTimestamps({ id: d.id, ...d.data() }) as Registration);
-      });
+      const categoryMatchCache = new Map<string, Promise<ResolvedHistoryMatch[]>>();
 
-      const categoryMap = new Map<string, Category>();
-      allCatsSnap.docs.forEach((d) => {
-        categoryMap.set(d.id, convertTimestamps({ id: d.id, ...d.data() }) as Category);
-      });
-
-      // Step 4: Per registration — fetch completed match_scores
-      for (const { reg, role } of regEntries) {
-        const matchScorePath = `tournaments/${tId}/categories/${reg.categoryId}/match_scores`;
-        const category = categoryMap.get(reg.categoryId);
-
-        const [snap1, snap2] = await Promise.all([
-          getDocs(
-            query(
-              collection(db, matchScorePath),
-              where('participant1Id', '==', reg.id),
-              where('status', 'in', ['completed', 'walkover'])
-            )
-          ),
-          getDocs(
-            query(
-              collection(db, matchScorePath),
-              where('participant2Id', '==', reg.id),
-              where('status', 'in', ['completed', 'walkover'])
-            )
-          ),
-        ]);
-
-        // Deduplicate by match ID
-        const matchMap = new Map<string, Match>();
-        [...snap1.docs, ...snap2.docs].forEach((d) => {
-          if (!matchMap.has(d.id)) {
-            matchMap.set(d.id, convertTimestamps({ id: d.id, ...d.data() }) as Match);
-          }
-        });
-
-        const matches: MatchHistoryEntry[] = [];
-
-        for (const match of matchMap.values()) {
-          // Determine opponent registration
-          const opponentRegId =
-            match.participant1Id === reg.id ? match.participant2Id! : match.participant1Id!;
-          const opponentReg = allRegsMap.get(opponentRegId);
-
-          let opponentName = 'Unknown';
-          if (opponentReg) {
-            if (opponentReg.participantType === 'team' && opponentReg.teamName) {
-              opponentName = opponentReg.teamName;
-            } else if (opponentReg.playerId) {
-              const p = playerMap.get(opponentReg.playerId);
-              opponentName = p ? `${p.firstName} ${p.lastName}` : 'Unknown';
-            }
-          }
-
-          // Determine partner name for doubles
-          let partnerName: string | undefined;
-          if (reg.participantType === 'team') {
-            // role='primary': partner is partnerPlayerId
-            // role='partner': partner is playerId (the primary player from this player's view)
-            const partnerPlayerId =
-              role === 'primary' ? reg.partnerPlayerId : reg.playerId;
-            if (partnerPlayerId) {
-              const p = playerMap.get(partnerPlayerId);
-              partnerName = p ? `${p.firstName} ${p.lastName}` : undefined;
-            }
-          }
-
-          const result: 'win' | 'loss' | 'walkover' =
-            match.status === 'walkover'
-              ? 'walkover'
-              : match.winnerId === reg.id
-                ? 'win'
-                : 'loss';
-
-          matches.push({
-            matchId: match.id,
-            opponentName,
-            partnerName,
-            scores: match.scores ?? [],
-            result,
-            completedAt: match.completedAt,
-            categoryType: category?.type ?? 'singles',
-          });
+      for (const { reg, role } of registrationEntries) {
+        if (!categoryMatchCache.has(reg.categoryId)) {
+          categoryMatchCache.set(
+            reg.categoryId,
+            fetchResolvedMatchesForCategory(tournamentId, reg.categoryId)
+          );
         }
 
+        const category = categoryMap.get(reg.categoryId);
+        const resolvedMatches = await categoryMatchCache.get(reg.categoryId)!;
+
+        const matches: MatchHistoryEntry[] = resolvedMatches
+          .filter(
+            (match) =>
+              match.participant1Id === reg.id || match.participant2Id === reg.id
+          )
+          .map((match) => {
+            const opponentRegistrationId =
+              match.participant1Id === reg.id
+                ? match.participant2Id
+                : match.participant1Id;
+
+            return {
+              matchId: match.matchId,
+              opponentName: resolveOpponentName(
+                registrationMap.get(opponentRegistrationId),
+                playerMap
+              ),
+              partnerName: resolvePartnerName(reg, role, playerMap),
+              scores: match.scores,
+              result:
+                match.status === 'walkover'
+                  ? 'walkover'
+                  : match.winnerId === reg.id
+                    ? 'win'
+                    : 'loss',
+              completedAt: match.completedAt,
+              categoryType: (category?.type ?? 'singles') as CategoryType,
+            };
+          });
+
         entries.push({
-          tournamentId: tId,
+          tournamentId,
           tournamentName: tournament.name,
           startDate: tournament.startDate,
           sport: tournament.sport,
           categoryId: reg.categoryId,
           categoryName: category?.name ?? reg.categoryId,
-          categoryType: category?.type ?? 'singles',
+          categoryType: (category?.type ?? 'singles') as CategoryType,
           registrationId: reg.id,
           matches,
         });
@@ -205,7 +464,6 @@ export async function fetchPlayerMatchHistory(
     })
   );
 
-  // Sort by tournament startDate descending (newest first)
   entries.sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
 
   return entries;

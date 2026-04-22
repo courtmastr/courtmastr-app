@@ -341,8 +341,8 @@ function getStatusColor(status: CourtStatus): string {
             item-value="value"
             label="Status"
           >
-            <template #item="{ item, props }">
-              <v-list-item v-bind="props">
+            <template #item="{ item, props: itemProps }">
+              <v-list-item v-bind="itemProps">
                 <template #prepend>
                   <v-icon :color="item.raw.color">
                     mdi-circle

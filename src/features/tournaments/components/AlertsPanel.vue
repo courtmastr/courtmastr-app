@@ -39,7 +39,7 @@ interface Props {
   lateThresholdMinutes?: number; // Threshold for late match (default 30)
   getParticipantName?: (id: string | undefined) => string;
   getCategoryName: (id: string) => string;
-  assignmentGateSummary?: AssignmentGateSummary;
+  assignmentGateSummary?: AssignmentGateSummary | null;
   recentAutoAssignDecision?: AutoAssignDecisionAlert | null;
 }
 
@@ -47,6 +47,9 @@ const props = withDefaults(defineProps<Props>(), {
   matchDurationMinutes: 20,
   idleThresholdMinutes: 10,
   lateThresholdMinutes: 30,
+  getParticipantName: (id: string | undefined) => id ?? 'TBD',
+  assignmentGateSummary: null,
+  recentAutoAssignDecision: null,
 });
 
 const emit = defineEmits<{

@@ -1,3 +1,4 @@
+/* eslint-disable vue/one-component-per-file -- local component stubs keep this test self-contained */
 import { describe, expect, it } from 'vitest';
 import { defineComponent } from 'vue';
 import { mount } from '@vue/test-utils';

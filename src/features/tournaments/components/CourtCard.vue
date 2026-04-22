@@ -6,13 +6,16 @@ import type { Court, Match } from '@/types';
 
 interface Props {
   court: Court;
-  match?: Match;
-  categoryName?: string;
-  matchDuration?: number; // in minutes
+  match?: Match | null;
+  categoryName?: string | null;
+  matchDuration?: number | null; // in minutes
   readOnly?: boolean; // Hide action buttons (for public/display views)
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  match: null,
+  categoryName: null,
+  matchDuration: null,
   readOnly: false,
 });
 
