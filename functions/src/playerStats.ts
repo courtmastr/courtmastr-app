@@ -31,6 +31,23 @@ interface MatchScoreGame {
   isComplete?: boolean;
 }
 
+export interface BracketParticipantRecord {
+  id?: string | number | null;
+  name?: string | null;
+}
+
+export interface BracketMatchOpponentRecord {
+  id?: string | number | null;
+  registrationId?: string | null;
+  result?: string | null;
+}
+
+export interface BracketMatchRecord {
+  id?: string | number | null;
+  opponent1?: BracketMatchOpponentRecord | null;
+  opponent2?: BracketMatchOpponentRecord | null;
+}
+
 export interface TournamentMatchScoreRecord {
   categoryId: string;
   participant1Id?: string | null;
@@ -43,6 +60,14 @@ export interface MatchScoreCollectionTarget {
   categoryId: string;
   path: string;
   levelId?: string;
+}
+
+function toLookupKey(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return String(value);
 }
 
 export function buildRegistrationLookup(
@@ -100,6 +125,84 @@ export function buildMatchScoreCollectionTargets(
   }
 
   return targets;
+}
+
+export function buildParticipantRegistrationLookup(
+  participants: BracketParticipantRecord[]
+): Map<string, string> {
+  const lookup = new Map<string, string>();
+
+  for (const participant of participants) {
+    const participantId = toLookupKey(participant.id);
+    const registrationId =
+      typeof participant.name === 'string' && participant.name.length > 0
+        ? participant.name
+        : null;
+
+    if (!participantId || !registrationId) {
+      continue;
+    }
+
+    lookup.set(participantId, registrationId);
+  }
+
+  return lookup;
+}
+
+function resolveOpponentRegistrationId(
+  opponent: BracketMatchOpponentRecord | null | undefined,
+  participantRegistrationLookup: Map<string, string>
+): string | undefined {
+  if (!opponent) {
+    return undefined;
+  }
+
+  if (
+    typeof opponent.registrationId === 'string' &&
+    opponent.registrationId.length > 0
+  ) {
+    return opponent.registrationId;
+  }
+
+  const participantId = toLookupKey(opponent.id);
+  return participantId
+    ? participantRegistrationLookup.get(participantId)
+    : undefined;
+}
+
+export function resolveMatchScoreParticipants(
+  matchScore: TournamentMatchScoreRecord,
+  bracketMatch: BracketMatchRecord | undefined,
+  participantRegistrationLookup: Map<string, string>
+): TournamentMatchScoreRecord {
+  const participant1Id =
+    matchScore.participant1Id ??
+    resolveOpponentRegistrationId(
+      bracketMatch?.opponent1,
+      participantRegistrationLookup
+    );
+  const participant2Id =
+    matchScore.participant2Id ??
+    resolveOpponentRegistrationId(
+      bracketMatch?.opponent2,
+      participantRegistrationLookup
+    );
+
+  let winnerId = matchScore.winnerId ?? undefined;
+  if (!winnerId) {
+    if (bracketMatch?.opponent1?.result === 'win') {
+      winnerId = participant1Id;
+    } else if (bracketMatch?.opponent2?.result === 'win') {
+      winnerId = participant2Id;
+    }
+  }
+
+  return {
+    ...matchScore,
+    participant1Id,
+    participant2Id,
+    winnerId,
+  };
 }
 
 export function applyMatchScoreDeltas(
@@ -265,24 +368,46 @@ export const aggregatePlayerStats = onDocumentUpdated(
       const matchScoreCollections = await Promise.all(
         targets.map(async (target) => ({
           target,
-          snap: await db.collection(target.path).get(),
+          matchScoresSnap: await db.collection(target.path).get(),
+          matchesSnap: await db
+            .collection(target.path.replace(/\/match_scores$/, '/match'))
+            .get(),
+          participantsSnap: await db
+            .collection(target.path.replace(/\/match_scores$/, '/participant'))
+            .get(),
         }))
       );
 
       // 4. Compute per-player deltas, crediting every player attached to a registration.
-      for (const { target, snap } of matchScoreCollections) {
-        for (const matchScoreDoc of snap.docs) {
+      for (const {
+        target,
+        matchScoresSnap,
+        matchesSnap,
+        participantsSnap,
+      } of matchScoreCollections) {
+        const participantRegistrationLookup = buildParticipantRegistrationLookup(
+          participantsSnap.docs.map(
+            (participantDoc) => participantDoc.data() as BracketParticipantRecord
+          )
+        );
+        const bracketMatchesById = new Map<string, BracketMatchRecord>(
+          matchesSnap.docs.map((matchDoc) => {
+            const matchData = matchDoc.data() as BracketMatchRecord;
+            return [
+              toLookupKey(matchData.id) ?? matchDoc.id,
+              matchData,
+            ] as const;
+          })
+        );
+
+        for (const matchScoreDoc of matchScoresSnap.docs) {
           const matchScoreData = matchScoreDoc.data();
           const status = matchScoreData.status;
           if (status !== 'completed' && status !== 'walkover') {
             continue;
           }
 
-          applyMatchScoreDeltas(
-            deltas,
-            registrationLookup,
-            categoryTypeMap,
-            sport,
+          const resolvedMatchScore = resolveMatchScoreParticipants(
             {
               categoryId: target.categoryId,
               participant1Id: matchScoreData.participant1Id as string | undefined,
@@ -291,7 +416,17 @@ export const aggregatePlayerStats = onDocumentUpdated(
               scores: Array.isArray(matchScoreData.scores)
                 ? (matchScoreData.scores as MatchScoreGame[])
                 : [],
-            }
+            },
+            bracketMatchesById.get(matchScoreDoc.id),
+            participantRegistrationLookup
+          );
+
+          applyMatchScoreDeltas(
+            deltas,
+            registrationLookup,
+            categoryTypeMap,
+            sport,
+            resolvedMatchScore
           );
         }
       }

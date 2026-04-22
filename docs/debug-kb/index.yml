@@ -1,3 +1,10 @@
+- id: ac9d6997
+  title: build:log fails when build and build:log race on dist cleanup
+  status: "✅ fixed"
+  date: "2026-04-22"
+  fingerprint: "ac9d6997"
+  command: "npm run build:log"
+  artifact_log: "docs/debug-kb/_artifacts/2026-04-22-11-50-25.npm-run-check-firebase-env-vue-tsc-b-vite-build.log"
 - id: 905376fb
   title: test:log fails when public snapshot standings assertions model the wrong pool results
   status: "✅ fixed"

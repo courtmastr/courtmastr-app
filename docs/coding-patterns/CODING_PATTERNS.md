@@ -5816,6 +5816,61 @@ fi
 
 ---
 
+### CP-110: Tournament Stat Rollups Must Resolve Registration IDs From Bracket Storage When Match Scores Are Sparse
+
+| Field | Value |
+|-------|-------|
+| **Added** | 2026-04-22 |
+| **Source Bug** | TNF 2026 still produced zero player stat deltas after the first rollup fix because production `match_scores` docs only stored `winnerId` and status, while participant registration IDs lived in sibling `participant` and `match` collections |
+| **Severity** | High |
+| **Status** | ✅ Active |
+
+**Anti-Pattern (❌):**
+```ts
+applyMatchScoreDeltas(deltas, registrationLookup, categoryTypeMap, sport, {
+  categoryId: target.categoryId,
+  participant1Id: matchScoreDoc.data().participant1Id,
+  participant2Id: matchScoreDoc.data().participant2Id,
+  winnerId: matchScoreDoc.data().winnerId,
+  scores: matchScoreDoc.data().scores ?? [],
+});
+```
+
+**Correct Pattern (✅):**
+```ts
+const participantRegistrationLookup = buildParticipantRegistrationLookup(
+  participantsSnap.docs.map((participantDoc) => participantDoc.data())
+);
+const bracketMatchesById = new Map(
+  matchesSnap.docs.map((matchDoc) => [String(matchDoc.data().id ?? matchDoc.id), matchDoc.data()])
+);
+
+const resolvedMatchScore = resolveMatchScoreParticipants(
+  {
+    categoryId: target.categoryId,
+    participant1Id: matchScoreData.participant1Id,
+    participant2Id: matchScoreData.participant2Id,
+    winnerId: matchScoreData.winnerId,
+    scores: matchScoreData.scores ?? [],
+  },
+  bracketMatchesById.get(matchScoreDoc.id),
+  participantRegistrationLookup
+);
+
+applyMatchScoreDeltas(deltas, registrationLookup, categoryTypeMap, sport, resolvedMatchScore);
+```
+
+**Rule:** Player stat rollups cannot assume operational `match_scores` docs are fully denormalized. When `participant1Id` and `participant2Id` are missing, resolve them from the matching bracket `match` doc plus the local `participant` collection where `participant.name` stores the registration ID. A tournament should still roll up correctly when match_scores only carries terminal outcome fields like `winnerId` and `status`.
+
+**Detection:**
+```bash
+if rg -q "participant1Id: matchScoreData\\.participant1Id" functions/src/playerStats.ts && ! rg -q "resolveMatchScoreParticipants|buildParticipantRegistrationLookup" functions/src/playerStats.ts; then
+  echo "Violation: player stats rollup assumes match_scores always includes participant registration IDs"
+fi
+```
+
+---
+
 ## Adding New Patterns
 
 Use `TEMPLATE.md` in this directory. Every pattern needs:

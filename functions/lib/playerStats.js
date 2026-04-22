@@ -36,10 +36,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.aggregatePlayerStats = void 0;
 exports.buildRegistrationLookup = buildRegistrationLookup;
 exports.buildMatchScoreCollectionTargets = buildMatchScoreCollectionTargets;
+exports.buildParticipantRegistrationLookup = buildParticipantRegistrationLookup;
+exports.resolveMatchScoreParticipants = resolveMatchScoreParticipants;
 exports.applyMatchScoreDeltas = applyMatchScoreDeltas;
 // Cloud Function: aggregate player stats when a tournament completes
 const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
+function toLookupKey(value) {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    return String(value);
+}
 function buildRegistrationLookup(registrations) {
     const lookup = new Map();
     for (const registration of registrations) {
@@ -74,6 +82,53 @@ function buildMatchScoreCollectionTargets(tournamentId, categoryIds, levelIdsByC
         }
     }
     return targets;
+}
+function buildParticipantRegistrationLookup(participants) {
+    const lookup = new Map();
+    for (const participant of participants) {
+        const participantId = toLookupKey(participant.id);
+        const registrationId = typeof participant.name === 'string' && participant.name.length > 0
+            ? participant.name
+            : null;
+        if (!participantId || !registrationId) {
+            continue;
+        }
+        lookup.set(participantId, registrationId);
+    }
+    return lookup;
+}
+function resolveOpponentRegistrationId(opponent, participantRegistrationLookup) {
+    if (!opponent) {
+        return undefined;
+    }
+    if (typeof opponent.registrationId === 'string' &&
+        opponent.registrationId.length > 0) {
+        return opponent.registrationId;
+    }
+    const participantId = toLookupKey(opponent.id);
+    return participantId
+        ? participantRegistrationLookup.get(participantId)
+        : undefined;
+}
+function resolveMatchScoreParticipants(matchScore, bracketMatch, participantRegistrationLookup) {
+    var _a, _b, _c, _d, _e;
+    const participant1Id = (_a = matchScore.participant1Id) !== null && _a !== void 0 ? _a : resolveOpponentRegistrationId(bracketMatch === null || bracketMatch === void 0 ? void 0 : bracketMatch.opponent1, participantRegistrationLookup);
+    const participant2Id = (_b = matchScore.participant2Id) !== null && _b !== void 0 ? _b : resolveOpponentRegistrationId(bracketMatch === null || bracketMatch === void 0 ? void 0 : bracketMatch.opponent2, participantRegistrationLookup);
+    let winnerId = (_c = matchScore.winnerId) !== null && _c !== void 0 ? _c : undefined;
+    if (!winnerId) {
+        if (((_d = bracketMatch === null || bracketMatch === void 0 ? void 0 : bracketMatch.opponent1) === null || _d === void 0 ? void 0 : _d.result) === 'win') {
+            winnerId = participant1Id;
+        }
+        else if (((_e = bracketMatch === null || bracketMatch === void 0 ? void 0 : bracketMatch.opponent2) === null || _e === void 0 ? void 0 : _e.result) === 'win') {
+            winnerId = participant2Id;
+        }
+    }
+    return {
+        ...matchScore,
+        participant1Id,
+        participant2Id,
+        winnerId,
+    };
 }
 function applyMatchScoreDeltas(deltas, registrationLookup, categoryTypeMap, sport, matchScore) {
     var _a, _b, _c;
@@ -196,17 +251,32 @@ exports.aggregatePlayerStats = (0, firestore_1.onDocumentUpdated)('tournaments/{
         const targets = buildMatchScoreCollectionTargets(tournamentId, categoryIds, levelIdsByCategory);
         const matchScoreCollections = await Promise.all(targets.map(async (target) => ({
             target,
-            snap: await db.collection(target.path).get(),
+            matchScoresSnap: await db.collection(target.path).get(),
+            matchesSnap: await db
+                .collection(target.path.replace(/\/match_scores$/, '/match'))
+                .get(),
+            participantsSnap: await db
+                .collection(target.path.replace(/\/match_scores$/, '/participant'))
+                .get(),
         })));
         // 4. Compute per-player deltas, crediting every player attached to a registration.
-        for (const { target, snap } of matchScoreCollections) {
-            for (const matchScoreDoc of snap.docs) {
+        for (const { target, matchScoresSnap, matchesSnap, participantsSnap, } of matchScoreCollections) {
+            const participantRegistrationLookup = buildParticipantRegistrationLookup(participantsSnap.docs.map((participantDoc) => participantDoc.data()));
+            const bracketMatchesById = new Map(matchesSnap.docs.map((matchDoc) => {
+                var _a;
+                const matchData = matchDoc.data();
+                return [
+                    (_a = toLookupKey(matchData.id)) !== null && _a !== void 0 ? _a : matchDoc.id,
+                    matchData,
+                ];
+            }));
+            for (const matchScoreDoc of matchScoresSnap.docs) {
                 const matchScoreData = matchScoreDoc.data();
                 const status = matchScoreData.status;
                 if (status !== 'completed' && status !== 'walkover') {
                     continue;
                 }
-                applyMatchScoreDeltas(deltas, registrationLookup, categoryTypeMap, sport, {
+                const resolvedMatchScore = resolveMatchScoreParticipants({
                     categoryId: target.categoryId,
                     participant1Id: matchScoreData.participant1Id,
                     participant2Id: matchScoreData.participant2Id,
@@ -214,7 +284,8 @@ exports.aggregatePlayerStats = (0, firestore_1.onDocumentUpdated)('tournaments/{
                     scores: Array.isArray(matchScoreData.scores)
                         ? matchScoreData.scores
                         : [],
-                });
+                }, bracketMatchesById.get(matchScoreDoc.id), participantRegistrationLookup);
+                applyMatchScoreDeltas(deltas, registrationLookup, categoryTypeMap, sport, resolvedMatchScore);
             }
         }
         // 5. Batch write stat increments to /players
